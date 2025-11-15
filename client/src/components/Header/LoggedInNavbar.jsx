@@ -15,7 +15,7 @@ const LoggedInNavbar = () => {
   const notifRef = useRef();
   const menuRef = useRef();
 
-  // Fetch profile and notifications
+  // Fetch profile + notifications
   useEffect(() => {
     const fetchData = async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -41,7 +41,7 @@ const LoggedInNavbar = () => {
     fetchData();
   }, [navigate]);
 
-  // Close dropdowns when clicking outside
+  // Close dropdowns on outside click
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (notifRef.current && !notifRef.current.contains(e.target)) {
@@ -61,7 +61,7 @@ const LoggedInNavbar = () => {
     navigate("/");
   };
 
-  const unreadCount = notifications.filter(n => !n.read).length;
+  const unreadCount = notifications.filter((n) => !n.read).length;
 
   return (
     <header className="loggedin-header">
@@ -71,6 +71,15 @@ const LoggedInNavbar = () => {
         </div>
 
         <div className="nav-right">
+
+          {/* ⭐ ADDED — Become a Service Provider Button */}
+          <button 
+            className="provider-btn"
+            onClick={() => navigate("/apply-provider")}
+          >
+            Become a Service Provider
+          </button>
+
           {/* Notifications */}
           <div ref={notifRef} className="notif-wrapper">
             <button
@@ -78,9 +87,7 @@ const LoggedInNavbar = () => {
               onClick={() => setShowNotif(!showNotif)}
             >
               <FaBell className="icon" />
-              {unreadCount > 0 && (
-                <span className="notif-dot">{unreadCount}</span>
-              )}
+              {unreadCount > 0 && <span className="notif-dot">{unreadCount}</span>}
             </button>
 
             {showNotif && (
@@ -111,7 +118,7 @@ const LoggedInNavbar = () => {
             {showMenu && (
               <div className="dropdown">
                 <p className="user-name">
-                  {profile?.first_name ? profile.first_name : "User"}
+                  {profile?.first_name || "User"}
                 </p>
                 <button className="logout-btn" onClick={handleLogout}>
                   <FaSignOutAlt /> Logout
@@ -119,6 +126,7 @@ const LoggedInNavbar = () => {
               </div>
             )}
           </div>
+
         </div>
       </div>
     </header>

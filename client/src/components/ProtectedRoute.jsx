@@ -1,34 +1,43 @@
 // src/components/ProtectedRoute.jsx
 import React, { useEffect, useState } from "react";
-import { Navigate, useLocation } from "react-router-dom";
+import { Navigate } from "react-router-dom";
 import { supabase } from "../config/supabase";
 
 const ProtectedRoute = ({ children }) => {
-  const [loading, setLoading] = useState(true);
-  const [session, setSession] = useState(null);
-  const location = useLocation();
+  const [isLoading, setIsLoading] = useState(true);
+  const [authenticated, setAuthenticated] = useState(false);
 
   useEffect(() => {
     const checkSession = async () => {
-      const { data } = await supabase.auth.getSession();
-      setSession(data.session);
-      setLoading(false);
+      const { data: sessionData } = await supabase.auth.getSession();
+
+      if (sessionData?.session) {
+        setAuthenticated(true);
+      } else {
+        setAuthenticated(false);
+      }
+
+      setIsLoading(false);
     };
+
     checkSession();
 
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-    });
+    // Listen for auth changes (logout or session expiration)
+    const { data: listener } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        setAuthenticated(!!session);
+      }
+    );
 
     return () => {
       listener.subscription.unsubscribe();
     };
   }, []);
 
-  if (loading) return null; // Optionally a spinner
+  if (isLoading) return null;
 
-  if (!session) {
-    return <Navigate to="/login" state={{ from: location }} replace />;
+  if (!authenticated) {
+    return <Navigate to="/login" replace />;
   }
 
   return children;

@@ -1,10 +1,17 @@
 // src/App.jsx
 import React from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import LandingPage from "./pages/LandingPage";
-import AboutPage from "./pages/auth/AboutPage";
-import LoginPage from "./pages/auth/LoginPage";
-import Dashboard from "./pages/auth/Dashboard";
+
+import LandingPage from "./pages/public/LandingPage";
+import AboutPage from "./pages/public/AboutPage";
+import LoginPage from "./pages/public/LoginPage";
+import SignUpPage from "./pages/public/SignUpPage";
+
+
+import Dashboard from "./pages/pet-owner/Dashboard";
+
+import AdminChangePassword from "./pages/admin/AdminChangePassword";
+
 import ProtectedRoute from "./components/ProtectedRoute";
 
 function App() {
@@ -15,13 +22,25 @@ function App() {
         <Route path="/" element={<LandingPage />} />
         <Route path="/about" element={<AboutPage />} />
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/signup" element={<SignUpPage />} />
 
-        {/* Protected route */}
+
+        {/* Pet Owner Protected route */}
         <Route
           path="/dashboard"
           element={
             <ProtectedRoute>
               <Dashboard />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Admin — first-login password change */}
+        <Route
+          path="/admin-change-password"
+          element={
+            <ProtectedRoute>
+              <AdminChangePassword />
             </ProtectedRoute>
           }
         />

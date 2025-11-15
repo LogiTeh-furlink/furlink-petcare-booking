@@ -3,7 +3,7 @@ import React, { useEffect, useState } from "react";
 import { supabase } from "../../config/supabase";
 import Header from "../../components/Header/LoggedInNavbar";
 import Footer from "../../components/Footer/Footer";
-import "../../pages/LandingPage.css"; // reuse the base theme colors
+import "./Dashboard.css";
 
 const Dashboard = () => {
   const [profile, setProfile] = useState(null);

@@ -1,15 +1,15 @@
 // src/pages/LandingPage.jsx
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import "../pages/LandingPage.css";
-import petScene from "../assets/pet_image_homepage.png";
-import POFront from "../assets/howto-petowner-front.png";
-import POBack from "../assets/howto-petowner-back.png";
-import SPFront from "../assets/howto-provider-front.png";
-import SPBack from "../assets/howto-provider-back.png";
-import "../components/HowToUse.css";
-import Header from "../components/Header/Header";
-import Footer from "../components/Footer/Footer";
+import "./LandingPage.css";
+import petScene from "../../assets/pet_image_homepage.png";
+import POFront from "../../assets/howto-petowner-front.png";
+import POBack from "../../assets/howto-petowner-back.png";
+import SPFront from "../../assets/howto-provider-front.png";
+import SPBack from "../../assets/howto-provider-back.png";
+import "../../components/HowToUse.css";
+import Header from "../../components/Header/Header";
+import Footer from "../../components/Footer/Footer";
 
 const HeroSection = () => {
   const navigate = useNavigate();
