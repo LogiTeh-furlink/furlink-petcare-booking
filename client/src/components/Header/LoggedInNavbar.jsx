@@ -5,7 +5,7 @@ import { supabase } from "../../config/supabase";
 import "./LoggedInNavbar.css";
 import logo from "../../assets/logo.png";
 
-const LoggedInNavbar = () => {
+const LoggedInNavbar = ({ hideBecomeProvider = false }) => {
   const navigate = useNavigate();
   const [showNotif, setShowNotif] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
@@ -15,18 +15,22 @@ const LoggedInNavbar = () => {
   const notifRef = useRef();
   const menuRef = useRef();
 
-  // Fetch profile + notifications
+  /* ==========================
+     Fetch User + Notifications
+     ========================== */
   useEffect(() => {
     const fetchData = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return navigate("/login");
 
+      // Fetch profile
       const { data: profileData } = await supabase
         .from("profiles")
         .select("first_name")
         .eq("id", user.id)
         .single();
 
+      // Fetch notifications
       const { data: notifData } = await supabase
         .from("notifications")
         .select("*")
@@ -41,7 +45,9 @@ const LoggedInNavbar = () => {
     fetchData();
   }, [navigate]);
 
-  // Close dropdowns on outside click
+  /* ==========================
+     Close dropdowns on outside click
+     ========================== */
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (notifRef.current && !notifRef.current.contains(e.target)) {
@@ -55,6 +61,9 @@ const LoggedInNavbar = () => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  /* ==========================
+     Logout
+     ========================== */
   const handleLogout = async () => {
     await supabase.auth.signOut();
     localStorage.removeItem("token");
@@ -66,26 +75,27 @@ const LoggedInNavbar = () => {
   return (
     <header className="loggedin-header">
       <div className="navbar-container">
+        {/* Left Logo */}
         <div className="header-left" onClick={() => navigate("/dashboard")}>
           <img src={logo} alt="Furlink logo" className="header-logo" />
         </div>
 
+        {/* Right Section */}
         <div className="nav-right">
 
-          {/* ⭐ ADDED — Become a Service Provider Button */}
-          <button 
-            className="provider-btn"
-            onClick={() => navigate("/apply-provider")}
-          >
-            Become a Service Provider
-          </button>
+          {/* ⭐ Become a Service Provider (conditionally hidden) */}
+          {!hideBecomeProvider && (
+            <button 
+              className="provider-btn"
+              onClick={() => navigate("/apply-provider")}
+            >
+              Become a Service Provider
+            </button>
+          )}
 
           {/* Notifications */}
           <div ref={notifRef} className="notif-wrapper">
-            <button
-              className="icon-btn"
-              onClick={() => setShowNotif(!showNotif)}
-            >
+            <button className="icon-btn" onClick={() => setShowNotif(!showNotif)}>
               <FaBell className="icon" />
               {unreadCount > 0 && <span className="notif-dot">{unreadCount}</span>}
             </button>
@@ -117,9 +127,8 @@ const LoggedInNavbar = () => {
 
             {showMenu && (
               <div className="dropdown">
-                <p className="user-name">
-                  {profile?.first_name || "User"}
-                </p>
+                <p className="user-name">{profile?.first_name || "User"}</p>
+
                 <button className="logout-btn" onClick={handleLogout}>
                   <FaSignOutAlt /> Logout
                 </button>

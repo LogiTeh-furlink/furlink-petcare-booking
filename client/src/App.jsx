@@ -7,8 +7,8 @@ import AboutPage from "./pages/public/AboutPage";
 import LoginPage from "./pages/public/LoginPage";
 import SignUpPage from "./pages/public/SignUpPage";
 
-
 import Dashboard from "./pages/pet-owner/Dashboard";
+import ApplyProvider from "./pages/pet-owner/ApplyProvider";
 
 import AdminChangePassword from "./pages/admin/AdminChangePassword";
 
@@ -18,6 +18,7 @@ function App() {
   return (
     <Router>
       <Routes>
+
         {/* Public routes */}
         <Route path="/" element={<LandingPage />} />
         <Route path="/about" element={<AboutPage />} />
@@ -25,7 +26,7 @@ function App() {
         <Route path="/signup" element={<SignUpPage />} />
 
 
-        {/* Pet Owner Protected route */}
+        {/* Pet Owner Protected routes */}
         <Route
           path="/dashboard"
           element={
@@ -34,6 +35,16 @@ function App() {
             </ProtectedRoute>
           }
         />
+
+        <Route
+          path="/apply-provider"
+          element={
+            <ProtectedRoute>
+              <ApplyProvider />
+            </ProtectedRoute>
+          }
+        />
+
 
         {/* Admin — first-login password change */}
         <Route
@@ -44,6 +55,7 @@ function App() {
             </ProtectedRoute>
           }
         />
+
       </Routes>
     </Router>
   );
