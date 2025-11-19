@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { X, Upload } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import LoggedInNavbar from "../../components/Header/LoggedInNavbar";
@@ -42,10 +42,45 @@ export default function ApplyProvider() {
     "Saturday",
   ];
 
+  useEffect(() => {
+    const savedData = JSON.parse(localStorage.getItem("businessInfo"));
+    if (savedData) {
+      setBusinessInfo(savedData);
+    }
+
+    const savedFiles = JSON.parse(localStorage.getItem("files"));
+    if (savedFiles) {
+      setWaiverFile(savedFiles.waiverFile);
+      setFacilityImages(savedFiles.facilityImages);
+      setPaymentChannelFiles(savedFiles.paymentChannelFiles);
+      setBusinessPermitFile(savedFiles.businessPermitFile);
+    }
+
+    const savedEmployees = JSON.parse(localStorage.getItem("employees"));
+    if (savedEmployees) {
+      setEmployees(savedEmployees);
+    }
+  }, []);
+
+  const saveToLocalStorage = () => {
+    localStorage.setItem("businessInfo", JSON.stringify(businessInfo));
+    localStorage.setItem("files", JSON.stringify({
+      waiverFile,
+      facilityImages,
+      paymentChannelFiles,
+      businessPermitFile,
+    }));
+    localStorage.setItem("employees", JSON.stringify(employees));
+  };
+
   // ----------------------- Handlers -----------------------
   const handleBusinessChange = (e) => {
     const { name, value } = e.target;
-    setBusinessInfo((prev) => ({ ...prev, [name]: value }));
+    setBusinessInfo((prev) => {
+      const updated = { ...prev, [name]: value };
+      saveToLocalStorage(); // Save to localStorage
+      return updated;
+    });
   };
 
   const toggleDay = (slotIndex, day) => {
@@ -158,9 +193,13 @@ export default function ApplyProvider() {
   };
 
   const handleEmployeeChange = (index, field, value) => {
-    setEmployees((prev) =>
-      prev.map((emp, i) => (i === index ? { ...emp, [field]: value } : emp))
-    );
+    setEmployees((prev) => {
+      const updatedEmployees = prev.map((emp, i) =>
+        i === index ? { ...emp, [field]: value } : emp
+      );
+      saveToLocalStorage(); // Save to localStorage
+      return updatedEmployees;
+    });
   };
 
   const addEmployee = () => {
@@ -215,8 +254,10 @@ export default function ApplyProvider() {
     e.preventDefault();
     if (!validateForm()) return;
 
+    saveToLocalStorage(); // Save data before proceeding
+
     // Redirect to service type selection
-    navigate("/service-setup"); // <<--- REQUIRED ADDITION ✔✔✔
+    navigate("/service-setup"); 
   };
 
   // ----------------------- Render -----------------------
