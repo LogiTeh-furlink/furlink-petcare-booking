@@ -24,7 +24,7 @@ export default function ServiceSetup() {
           {/* PACKAGED SERVICE */}
           <div
             className="setup-card"
-            onClick={() => navigate("/service-setup-package")}
+            onClick={() => navigate("/service-listing")}
           >
             <div>
               <h3>Packaged Service</h3>
@@ -40,7 +40,7 @@ export default function ServiceSetup() {
           {/* INDIVIDUAL SERVICE */}
           <div
             className="setup-card"
-            onClick={() => navigate("/service-setup-indiv")}
+            onClick={() => navigate("/service-listing")}
           >
             <div>
               <h3>Individual / A La Carte Service</h3>

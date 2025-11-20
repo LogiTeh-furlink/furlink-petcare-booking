@@ -9,8 +9,8 @@ import SignUpPage from "./pages/public/SignUpPage";
 import Dashboard from "./pages/pet-owner/Dashboard";
 import ApplyProvider from "./pages/pet-owner/ApplyProvider";
 import ServiceSetup from "./pages/pet-owner/ServiceSetup";
-import ServiceSetupPackage from "./pages/pet-owner/ServiceSetupPackage";
-import ServiceSetupIndiv from "./pages/pet-owner/ServiceSetupIndiv";
+import ServiceListing from "./pages/pet-owner/ServiceListing";
+import ServiceSummary from "./pages/pet-owner/ServiceSummary";
 
 import AdminChangePassword from "./pages/admin/AdminChangePassword";
 
@@ -32,8 +32,8 @@ function App() {
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/apply-provider" element={<ApplyProvider />} />
           <Route path="/service-setup" element={<ServiceSetup />} />
-          <Route path="/service-setup-package" element={<ServiceSetupPackage />} />
-          <Route path="/service-setup-indiv" element={<ServiceSetupIndiv />} />
+          <Route path="/service-listing" element={<ServiceListing />} />
+          <Route path="/service-summary" element={<ServiceSummary />} />
           <Route path="/admin-change-password" element={<AdminChangePassword />} />
         </Route>
 
