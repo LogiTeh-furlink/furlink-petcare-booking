@@ -10,7 +10,6 @@ import Dashboard from "./pages/pet-owner/Dashboard";
 import ApplyProvider from "./pages/pet-owner/ApplyProvider";
 import ServiceSetup from "./pages/pet-owner/ServiceSetup";
 import ServiceListing from "./pages/pet-owner/ServiceListing";
-import ServiceSummary from "./pages/pet-owner/ServiceSummary";
 
 import AdminChangePassword from "./pages/admin/AdminChangePassword";
 
@@ -33,7 +32,6 @@ function App() {
           <Route path="/apply-provider" element={<ApplyProvider />} />
           <Route path="/service-setup" element={<ServiceSetup />} />
           <Route path="/service-listing" element={<ServiceListing />} />
-          <Route path="/service-summary" element={<ServiceSummary />} />
           <Route path="/admin-change-password" element={<AdminChangePassword />} />
         </Route>
 
