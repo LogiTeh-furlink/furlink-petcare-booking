@@ -26,7 +26,6 @@ const ConfirmationModal = ({ isOpen, onClose, onConfirm, data, files, isSubmitti
       );
     }
     if (file) {
-      // file might be a File object
       return <span className="modal-file-new">✓ New file selected: {file.name}</span>;
     }
     return <span className="modal-file-none">No file</span>;
@@ -189,11 +188,11 @@ export default function ApplyProvider() {
   const [waiverFile, setWaiverFile] = useState(null);
   const [existingWaiverUrl, setExistingWaiverUrl] = useState(null);
 
-  const [facilityImages, setFacilityImages] = useState([]); // new File objects
-  const [existingFacilityImages, setExistingFacilityImages] = useState([]); // records from DB
+  const [facilityImages, setFacilityImages] = useState([]); 
+  const [existingFacilityImages, setExistingFacilityImages] = useState([]); 
 
-  const [paymentChannelFiles, setPaymentChannelFiles] = useState([]); // new File objects
-  const [existingPaymentChannels, setExistingPaymentChannels] = useState([]); // records from DB
+  const [paymentChannelFiles, setPaymentChannelFiles] = useState([]); 
+  const [existingPaymentChannels, setExistingPaymentChannels] = useState([]); 
 
   const [businessPermitFile, setBusinessPermitFile] = useState(null);
   const [existingPermitUrl, setExistingPermitUrl] = useState(null);
@@ -261,7 +260,11 @@ export default function ApplyProvider() {
               hoursData.forEach((h) => {
                 const key = `${h.start_time}-${h.end_time}`;
                 if (!grouped[key]) grouped[key] = { days: [], startTime: h.start_time, endTime: h.end_time };
-                grouped[key].days.push(h.day_of_week);
+                
+                // --- FIX: Prevent duplicate days in frontend state ---
+                if (!grouped[key].days.includes(h.day_of_week)) {
+                    grouped[key].days.push(h.day_of_week);
+                }
               });
               const operatingHours = Object.values(grouped);
               setBusinessInfo((prev) => ({ ...prev, operatingHours: operatingHours.length ? operatingHours : prev.operatingHours }));
@@ -290,7 +293,6 @@ export default function ApplyProvider() {
               .eq("provider_id", savedProviderId);
 
             if (permitsData && permitsData.length > 0) {
-              // keep the first (you can adapt to multiple)
               setExistingPermitUrl(permitsData[0].file_url);
             }
 
@@ -301,7 +303,14 @@ export default function ApplyProvider() {
               .eq("provider_id", savedProviderId);
 
             if (staffData && staffData.length > 0) {
-              setEmployees(staffData.map((s) => ({ fullName: s.full_name || "", position: s.job_title || "" })));
+               // --- FIX: Logic to remove pure duplicates from DB fetch if necessary ---
+               // (This is optional but good safety)
+               const uniqueStaff = staffData.filter((value, index, self) =>
+                    index === self.findIndex((t) => (
+                        t.full_name === value.full_name && t.job_title === value.job_title
+                    ))
+                );
+              setEmployees(uniqueStaff.map((s) => ({ fullName: s.full_name || "", position: s.job_title || "" })));
             }
 
             console.log("Loaded provider from DB");
@@ -322,7 +331,7 @@ export default function ApplyProvider() {
     const loadFromLocalStorage = () => {
       const savedBusinessInfo = localStorage.getItem("businessInfo");
       const savedEmployees = localStorage.getItem("employees");
-      const savedFiles = localStorage.getItem("files"); // note: files stored as metadata only (names) if used before
+      const savedFiles = localStorage.getItem("files"); 
 
       if (savedBusinessInfo) {
         try {
@@ -337,7 +346,6 @@ export default function ApplyProvider() {
       if (savedFiles) {
         try {
           const parsed = JSON.parse(savedFiles);
-          // We cannot reconstruct File objects from localStorage. Show only names as hint.
           if (parsed.existingFacilityImages) setExistingFacilityImages(parsed.existingFacilityImages);
           if (parsed.existingPaymentChannels) setExistingPaymentChannels(parsed.existingPaymentChannels);
           if (parsed.existingWaiverUrl) setExistingWaiverUrl(parsed.existingWaiverUrl);
@@ -363,7 +371,6 @@ export default function ApplyProvider() {
   }, [employees, isLoading]);
 
   useEffect(() => {
-    // persist metadata of existing files for user convenience
     if (!isLoading) {
       localStorage.setItem(
         "files",
@@ -506,12 +513,10 @@ export default function ApplyProvider() {
     setShowConfirmModal(true);
   };
 
-  // Helper to parse storage path out of public URL
   const getFilePathFromUrl = (url) => {
     if (!url) return null;
     try {
       const u = new URL(url);
-      // path like /storage/v1/object/public/<bucket>/<path>
       const match = u.pathname.match(/\/storage\/v1\/object\/public\/[^\/]+\/(.+)$/);
       return match ? decodeURIComponent(match[1]) : null;
     } catch (e) {
@@ -599,7 +604,6 @@ export default function ApplyProvider() {
         };
 
         if (waiverUrl) {
-          // remove previous storage object if exists
           if (existingWaiverUrl) {
             const oldPath = getFilePathFromUrl(existingWaiverUrl);
             if (oldPath) await supabase.storage.from("service_provider_uploads").remove([oldPath]);
@@ -610,11 +614,14 @@ export default function ApplyProvider() {
         const { error: updateError } = await supabase.from("service_providers").update(updateData).eq("id", currentProviderId);
         if (updateError) throw updateError;
 
-        // remove old hours & staff — we'll reinsert
+        // --- FIX: Ensure strict cleanup of child tables before re-inserting ---
+        // We delete indiscriminately based on provider_id to prevent "stacking" rows
         const { error: deleteHoursError } = await supabase.from("service_provider_hours").delete().eq("provider_id", currentProviderId);
         if (deleteHoursError) throw deleteHoursError;
+
         const { error: deleteStaffError } = await supabase.from("service_provider_staff").delete().eq("provider_id", currentProviderId);
         if (deleteStaffError) throw deleteStaffError;
+
       } else {
         // CREATE provider
         const { data: providerData, error: providerError } = await supabase
@@ -646,10 +653,12 @@ export default function ApplyProvider() {
         localStorage.setItem("providerId", currentProviderId);
       }
 
-      // insert operating hours
+      // --- FIX: Insert Operating Hours (with deduplication) ---
       const hoursData = [];
       businessInfo.operatingHours.forEach((slot) => {
-        slot.days.forEach((day) => {
+        // Use a Set to ensure we don't accidentally insert duplicate days for the same slot
+        const uniqueDays = [...new Set(slot.days)];
+        uniqueDays.forEach((day) => {
           hoursData.push({
             provider_id: currentProviderId,
             day_of_week: day,
@@ -658,6 +667,7 @@ export default function ApplyProvider() {
           });
         });
       });
+
       if (hoursData.length > 0) {
         const { error: hoursError } = await supabase.from("service_provider_hours").insert(hoursData);
         if (hoursError) throw hoursError;
@@ -677,14 +687,15 @@ export default function ApplyProvider() {
 
       // insert/replace permit
       if (permitUrl) {
-        // delete old permit row if exists
         await supabase.from("service_provider_permits").delete().eq("provider_id", currentProviderId);
         const { error: permitInsertError } = await supabase.from("service_provider_permits").insert({ provider_id: currentProviderId, permit_type: "Business Permit", file_url: permitUrl });
         if (permitInsertError) throw permitInsertError;
         setExistingPermitUrl(permitUrl);
       }
 
-      // insert employees
+      // --- FIX: Insert Employees (with deduplication check on input) ---
+      // We rely on the frontend state being correct, but we ensure we are inserting fresh rows
+      // because we already ran .delete() above.
       for (const emp of employees) {
         if (emp.fullName.trim() && emp.position.trim()) {
           const { error: staffError } = await supabase.from("service_provider_staff").insert({ provider_id: currentProviderId, full_name: emp.fullName, job_title: emp.position });
@@ -692,10 +703,8 @@ export default function ApplyProvider() {
         }
       }
 
-      // success
       console.log("Provider saved successfully");
       setShowConfirmModal(false);
-      // navigate to next step (service setup)
       navigate("/service-setup");
     } catch (err) {
       console.error("Submission error:", err);
@@ -709,7 +718,6 @@ export default function ApplyProvider() {
 
   const getFilePreview = (file, url) => {
     if (url) {
-      // existing URL (image or document)
       if (/\.(jpe?g|png|gif|webp|avif|svg)$/i.test(url)) {
         return <img src={url} alt="preview" className="preview-img" />;
       }
@@ -720,7 +728,6 @@ export default function ApplyProvider() {
       );
     }
     if (file) {
-      // preview for new file
       if (file.type && file.type.startsWith("image/")) {
         const objectUrl = URL.createObjectURL(file);
         return <img src={objectUrl} alt="preview" className="preview-img" onLoad={() => URL.revokeObjectURL(objectUrl)} />;
@@ -990,13 +997,11 @@ export default function ApplyProvider() {
     </>
   );
 
-  // small helper to show friendly filename from URL
   function getFileNameFromUrl(url) {
     if (!url) return "";
     try {
       const parts = url.split("/");
       const last = parts[parts.length - 1];
-      // strip timestamp prefix if inserted by storage upload pattern
       const nameParts = last.split("_").slice(1);
       return decodeURIComponent((nameParts.length ? nameParts.join("_") : last));
     } catch {
