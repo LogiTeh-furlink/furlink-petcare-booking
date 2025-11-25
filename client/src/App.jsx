@@ -12,6 +12,8 @@ import ServiceSetup from "./pages/pet-owner/ServiceSetup";
 import ServiceListing from "./pages/pet-owner/ServiceListing";
 
 import AdminChangePassword from "./pages/admin/AdminChangePassword";
+import AdminDashboard from "./pages/admin/AdminDashboard";
+
 
 import ProtectedRoute from "./components/ProtectedRoute";
 
@@ -33,6 +35,7 @@ function App() {
           <Route path="/service-setup" element={<ServiceSetup />} />
           <Route path="/service-listing" element={<ServiceListing />} />
           <Route path="/admin-change-password" element={<AdminChangePassword />} />
+          <Route path="/admin-dashboard" element={<AdminDashboard />} />
         </Route>
 
       </Routes>

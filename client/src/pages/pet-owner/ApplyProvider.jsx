@@ -1,6 +1,6 @@
 // /src/pages/pet-owner/ApplyProvider.jsx
 import React, { useState, useEffect } from "react";
-import { X, Upload, FileText, Image as ImageIcon, CheckCircle, AlertCircle } from "lucide-react";
+import { X, Upload, FileText, CheckCircle, AlertCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import LoggedInNavbar from "../../components/Header/LoggedInNavbar";
 import Footer from "../../components/Footer/Footer";
@@ -17,20 +17,26 @@ const ConfirmationModal = ({ isOpen, onClose, onConfirm, data, files, isSubmitti
       </div>
     ));
 
+  // Text-only links (no image previews)
   const renderFileLink = (file, url) => {
     if (url) {
       return (
         <a href={url} target="_blank" rel="noopener noreferrer" className="modal-file-link">
-          View existing file
+          <FileText size={14} style={{ marginRight: 4 }} /> View existing file
         </a>
       );
     }
     if (file) {
-      return <span className="modal-file-new">✓ New file selected: {file.name}</span>;
+      return (
+        <span className="modal-file-new">
+          <FileText size={14} style={{ marginRight: 4 }} /> {file.name}
+        </span>
+      );
     }
-    return <span className="modal-file-none">No file</span>;
+    return <span className="modal-file-none" style={{ color: "#9ca3af", fontStyle: "italic" }}>No file provided</span>;
   };
 
+  // Text-only lists (no image previews)
   const renderFileList = (fileArray, existingArray) => {
     const items = [];
 
@@ -40,7 +46,7 @@ const ConfirmationModal = ({ isOpen, onClose, onConfirm, data, files, isSubmitti
         items.push(
           <div key={`existing-${idx}`} className="modal-file-existing">
             <a href={url} target="_blank" rel="noopener noreferrer">
-              Existing file {idx + 1}
+              <FileText size={14} style={{ marginRight: 4 }} /> Existing file {idx + 1}
             </a>
           </div>
         );
@@ -51,7 +57,7 @@ const ConfirmationModal = ({ isOpen, onClose, onConfirm, data, files, isSubmitti
       fileArray.forEach((file, idx) => {
         items.push(
           <div key={`new-${idx}`} className="modal-file-new">
-            ✓ New file: {file.name}
+            <FileText size={14} style={{ marginRight: 4 }} /> {file.name}
           </div>
         );
       });
@@ -188,11 +194,11 @@ export default function ApplyProvider() {
   const [waiverFile, setWaiverFile] = useState(null);
   const [existingWaiverUrl, setExistingWaiverUrl] = useState(null);
 
-  const [facilityImages, setFacilityImages] = useState([]); 
-  const [existingFacilityImages, setExistingFacilityImages] = useState([]); 
+  const [facilityImages, setFacilityImages] = useState([]);
+  const [existingFacilityImages, setExistingFacilityImages] = useState([]);
 
-  const [paymentChannelFiles, setPaymentChannelFiles] = useState([]); 
-  const [existingPaymentChannels, setExistingPaymentChannels] = useState([]); 
+  const [paymentChannelFiles, setPaymentChannelFiles] = useState([]);
+  const [existingPaymentChannels, setExistingPaymentChannels] = useState([]);
 
   const [businessPermitFile, setBusinessPermitFile] = useState(null);
   const [existingPermitUrl, setExistingPermitUrl] = useState(null);
@@ -211,7 +217,6 @@ export default function ApplyProvider() {
     "Saturday",
   ];
 
-  // Load: either existing providerId from localStorage (update mode) or load from localStorage temporary save
   useEffect(() => {
     const loadProviderData = async () => {
       try {
@@ -220,7 +225,6 @@ export default function ApplyProvider() {
         if (savedProviderId) {
           setProviderId(savedProviderId);
 
-          // fetch provider
           const { data: providerData, error: providerError } = await supabase
             .from("service_providers")
             .select("*")
@@ -248,20 +252,16 @@ export default function ApplyProvider() {
 
             if (providerData.waiver_url) setExistingWaiverUrl(providerData.waiver_url);
 
-            // hours
             const { data: hoursData } = await supabase
               .from("service_provider_hours")
               .select("*")
               .eq("provider_id", savedProviderId);
 
             if (hoursData && hoursData.length > 0) {
-              // Group hours by identical start/end times
               const grouped = {};
               hoursData.forEach((h) => {
                 const key = `${h.start_time}-${h.end_time}`;
                 if (!grouped[key]) grouped[key] = { days: [], startTime: h.start_time, endTime: h.end_time };
-                
-                // --- FIX: Prevent duplicate days in frontend state ---
                 if (!grouped[key].days.includes(h.day_of_week)) {
                     grouped[key].days.push(h.day_of_week);
                 }
@@ -270,41 +270,31 @@ export default function ApplyProvider() {
               setBusinessInfo((prev) => ({ ...prev, operatingHours: operatingHours.length ? operatingHours : prev.operatingHours }));
             }
 
-            // facility images
             const { data: imagesData } = await supabase
               .from("service_provider_images")
               .select("*")
               .eq("provider_id", savedProviderId);
-
             if (imagesData) setExistingFacilityImages(imagesData);
 
-            // payments
             const { data: paymentsData } = await supabase
               .from("service_provider_payments")
               .select("*")
               .eq("provider_id", savedProviderId);
-
             if (paymentsData) setExistingPaymentChannels(paymentsData);
 
-            // permit (single)
             const { data: permitsData } = await supabase
               .from("service_provider_permits")
               .select("*")
               .eq("provider_id", savedProviderId);
-
             if (permitsData && permitsData.length > 0) {
               setExistingPermitUrl(permitsData[0].file_url);
             }
 
-            // staff
             const { data: staffData } = await supabase
               .from("service_provider_staff")
               .select("*")
               .eq("provider_id", savedProviderId);
-
             if (staffData && staffData.length > 0) {
-               // --- FIX: Logic to remove pure duplicates from DB fetch if necessary ---
-               // (This is optional but good safety)
                const uniqueStaff = staffData.filter((value, index, self) =>
                     index === self.findIndex((t) => (
                         t.full_name === value.full_name && t.job_title === value.job_title
@@ -312,8 +302,6 @@ export default function ApplyProvider() {
                 );
               setEmployees(uniqueStaff.map((s) => ({ fullName: s.full_name || "", position: s.job_title || "" })));
             }
-
-            console.log("Loaded provider from DB");
           } else {
             loadFromLocalStorage();
           }
@@ -331,17 +319,13 @@ export default function ApplyProvider() {
     const loadFromLocalStorage = () => {
       const savedBusinessInfo = localStorage.getItem("businessInfo");
       const savedEmployees = localStorage.getItem("employees");
-      const savedFiles = localStorage.getItem("files"); 
+      const savedFiles = localStorage.getItem("files");
 
       if (savedBusinessInfo) {
-        try {
-          setBusinessInfo(JSON.parse(savedBusinessInfo));
-        } catch (e) {}
+        try { setBusinessInfo(JSON.parse(savedBusinessInfo)); } catch (e) {}
       }
       if (savedEmployees) {
-        try {
-          setEmployees(JSON.parse(savedEmployees));
-        } catch (e) {}
+        try { setEmployees(JSON.parse(savedEmployees)); } catch (e) {}
       }
       if (savedFiles) {
         try {
@@ -353,38 +337,19 @@ export default function ApplyProvider() {
         } catch (e) {}
       }
     };
-
     loadProviderData();
   }, []);
 
-  // persist some fields to localStorage for "continue later" behaviour
+  useEffect(() => { if (!isLoading) localStorage.setItem("businessInfo", JSON.stringify(businessInfo)); }, [businessInfo, isLoading]);
+  useEffect(() => { if (!isLoading) localStorage.setItem("employees", JSON.stringify(employees)); }, [employees, isLoading]);
   useEffect(() => {
     if (!isLoading) {
-      localStorage.setItem("businessInfo", JSON.stringify(businessInfo));
-    }
-  }, [businessInfo, isLoading]);
-
-  useEffect(() => {
-    if (!isLoading) {
-      localStorage.setItem("employees", JSON.stringify(employees));
-    }
-  }, [employees, isLoading]);
-
-  useEffect(() => {
-    if (!isLoading) {
-      localStorage.setItem(
-        "files",
-        JSON.stringify({
-          existingFacilityImages,
-          existingPaymentChannels,
-          existingWaiverUrl,
-          existingPermitUrl,
-        })
-      );
+      localStorage.setItem("files", JSON.stringify({ existingFacilityImages, existingPaymentChannels, existingWaiverUrl, existingPermitUrl }));
     }
   }, [existingFacilityImages, existingPaymentChannels, existingWaiverUrl, existingPermitUrl, isLoading]);
 
-  // Helpers
+  // --- Handlers ---
+
   const handleBusinessChange = (e) => {
     const { name, value } = e.target;
     setBusinessInfo((prev) => ({ ...prev, [name]: value }));
@@ -403,8 +368,7 @@ export default function ApplyProvider() {
     });
   };
 
-  const isDayDisabled = (slotIndex, day) =>
-    businessInfo.operatingHours.some((slot, i) => i !== slotIndex && slot.days.includes(day));
+  const isDayDisabled = (slotIndex, day) => businessInfo.operatingHours.some((slot, i) => i !== slotIndex && slot.days.includes(day));
 
   const canAddMoreSlots = () => {
     const assigned = new Set();
@@ -419,15 +383,10 @@ export default function ApplyProvider() {
     }));
   };
 
-  const addTimeSlot = () => {
-    setBusinessInfo((prev) => ({ ...prev, operatingHours: [...prev.operatingHours, { days: [], startTime: "09:00", endTime: "17:00" }] }));
-  };
+  const addTimeSlot = () => setBusinessInfo((prev) => ({ ...prev, operatingHours: [...prev.operatingHours, { days: [], startTime: "09:00", endTime: "17:00" }] }));
+  const removeTimeSlot = (index) => setBusinessInfo((prev) => ({ ...prev, operatingHours: prev.operatingHours.filter((_, i) => i !== index) }));
 
-  const removeTimeSlot = (index) => {
-    setBusinessInfo((prev) => ({ ...prev, operatingHours: prev.operatingHours.filter((_, i) => i !== index) }));
-  };
-
-  const handleFileSelect = (setter, e, maxSizeMB = 1, fieldName) => {
+  const handleFileSelect = (setter, e, maxSizeMB = 5, fieldName) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       if (file.size > maxSizeMB * 1024 * 1024) {
@@ -442,6 +401,11 @@ export default function ApplyProvider() {
       });
       setter(file);
     }
+  };
+
+  const removeSingleFile = (fileSetter, urlSetter) => {
+    fileSetter(null);
+    urlSetter(null);
   };
 
   const handleMultiFileSelect = (setter, currentFiles, e, maxFiles, fieldName, existingCount = 0) => {
@@ -463,13 +427,8 @@ export default function ApplyProvider() {
   };
 
   const removeFile = (setter, index) => setter((prev) => prev.filter((_, i) => i !== index));
-
-  const handleEmployeeChange = (index, field, value) => {
-    setEmployees((prev) => prev.map((emp, i) => (i === index ? { ...emp, [field]: value } : emp)));
-  };
-
+  const handleEmployeeChange = (index, field, value) => setEmployees((prev) => prev.map((emp, i) => (i === index ? { ...emp, [field]: value } : emp)));
   const addEmployee = () => setEmployees((prev) => [...prev, { fullName: "", position: "" }]);
-
   const removeEmployee = (index) => setEmployees((prev) => prev.filter((_, i) => i !== index));
 
   const validateForm = () => {
@@ -481,7 +440,7 @@ export default function ApplyProvider() {
     if (!businessInfo.operatingHours || businessInfo.operatingHours.length === 0) {
       errors.operatingHours = "Select at least one day and time";
     } else {
-      businessInfo.operatingHours.forEach((s, i) => {
+      businessInfo.operatingHours.forEach((s) => {
         if (!s.days || s.days.length === 0 || !s.startTime || !s.endTime) {
           errors.operatingHours = "Select days and times for each slot";
         }
@@ -494,7 +453,9 @@ export default function ApplyProvider() {
 
     if (facilityImages.length === 0 && existingFacilityImages.length === 0) errors.facilityImages = "At least one image required";
     if (paymentChannelFiles.length === 0 && existingPaymentChannels.length === 0) errors.paymentChannelFiles = "At least one QR code required";
-    if (!businessPermitFile && !existingPermitUrl) errors.businessPermitFile = "Required";
+    
+    // Permit is Required
+    if (!businessPermitFile && !existingPermitUrl) errors.businessPermitFile = "Business Permit is required";
 
     employees.forEach((emp, i) => {
       if (!emp.fullName.trim() || !emp.position.trim()) errors[`employee_${i}`] = "Full name and position required";
@@ -568,7 +529,6 @@ export default function ApplyProvider() {
       const { data: { user }, error: userError } = await supabase.auth.getUser();
       if (userError || !user) throw new Error("User not authenticated");
 
-      // Upload files
       const waiverUrl = waiverFile ? await uploadFileToStorage(user.id, "waivers", waiverFile) : null;
       const permitUrl = businessPermitFile ? await uploadFileToStorage(user.id, "permits", businessPermitFile) : null;
 
@@ -600,27 +560,23 @@ export default function ApplyProvider() {
           country: businessInfo.country,
           type_of_service: businessInfo.typeOfService,
           social_media_url: businessInfo.socialMediaUrl,
+          // Handle explicit removal of waiver: if no new file and no existing url, set to null
+          waiver_url: waiverUrl || existingWaiverUrl || null,
           updated_at: new Date().toISOString(),
         };
 
-        if (waiverUrl) {
-          if (existingWaiverUrl) {
-            const oldPath = getFilePathFromUrl(existingWaiverUrl);
-            if (oldPath) await supabase.storage.from("service_provider_uploads").remove([oldPath]);
-          }
-          updateData.waiver_url = waiverUrl;
+        if (waiverUrl && existingWaiverUrl) {
+           // If replacing an existing one, delete the old file from storage
+           const oldPath = getFilePathFromUrl(existingWaiverUrl);
+           if (oldPath) await supabase.storage.from("service_provider_uploads").remove([oldPath]);
         }
 
         const { error: updateError } = await supabase.from("service_providers").update(updateData).eq("id", currentProviderId);
         if (updateError) throw updateError;
 
-        // --- FIX: Ensure strict cleanup of child tables before re-inserting ---
-        // We delete indiscriminately based on provider_id to prevent "stacking" rows
-        const { error: deleteHoursError } = await supabase.from("service_provider_hours").delete().eq("provider_id", currentProviderId);
-        if (deleteHoursError) throw deleteHoursError;
-
-        const { error: deleteStaffError } = await supabase.from("service_provider_staff").delete().eq("provider_id", currentProviderId);
-        if (deleteStaffError) throw deleteStaffError;
+        // Cleanup child tables before re-inserting
+        await supabase.from("service_provider_hours").delete().eq("provider_id", currentProviderId);
+        await supabase.from("service_provider_staff").delete().eq("provider_id", currentProviderId);
 
       } else {
         // CREATE provider
@@ -653,10 +609,9 @@ export default function ApplyProvider() {
         localStorage.setItem("providerId", currentProviderId);
       }
 
-      // --- FIX: Insert Operating Hours (with deduplication) ---
+      // Insert Hours
       const hoursData = [];
       businessInfo.operatingHours.forEach((slot) => {
-        // Use a Set to ensure we don't accidentally insert duplicate days for the same slot
         const uniqueDays = [...new Set(slot.days)];
         uniqueDays.forEach((day) => {
           hoursData.push({
@@ -669,37 +624,32 @@ export default function ApplyProvider() {
       });
 
       if (hoursData.length > 0) {
-        const { error: hoursError } = await supabase.from("service_provider_hours").insert(hoursData);
-        if (hoursError) throw hoursError;
+        await supabase.from("service_provider_hours").insert(hoursData);
       }
 
-      // insert new facility images (if any)
+      // Insert new facility images
       for (const url of facilityUrls) {
-        const { error: imgError } = await supabase.from("service_provider_images").insert({ provider_id: currentProviderId, image_url: url });
-        if (imgError) throw imgError;
+        await supabase.from("service_provider_images").insert({ provider_id: currentProviderId, image_url: url });
       }
 
-      // insert new payment channels
+      // Insert new payment channels
       for (const url of paymentUrls) {
-        const { error: payError } = await supabase.from("service_provider_payments").insert({ provider_id: currentProviderId, method_type: "QR", file_url: url });
-        if (payError) throw payError;
+        await supabase.from("service_provider_payments").insert({ provider_id: currentProviderId, method_type: "QR", file_url: url });
       }
 
-      // insert/replace permit
-      if (permitUrl) {
+      // Insert/replace permit
+      // We check if there is a valid permit to insert (either new or existing)
+      const finalPermitUrl = permitUrl || existingPermitUrl;
+      if (finalPermitUrl) {
         await supabase.from("service_provider_permits").delete().eq("provider_id", currentProviderId);
-        const { error: permitInsertError } = await supabase.from("service_provider_permits").insert({ provider_id: currentProviderId, permit_type: "Business Permit", file_url: permitUrl });
-        if (permitInsertError) throw permitInsertError;
-        setExistingPermitUrl(permitUrl);
+        await supabase.from("service_provider_permits").insert({ provider_id: currentProviderId, permit_type: "Business Permit", file_url: finalPermitUrl });
+        setExistingPermitUrl(finalPermitUrl);
       }
 
-      // --- FIX: Insert Employees (with deduplication check on input) ---
-      // We rely on the frontend state being correct, but we ensure we are inserting fresh rows
-      // because we already ran .delete() above.
+      // Insert Employees
       for (const emp of employees) {
         if (emp.fullName.trim() && emp.position.trim()) {
-          const { error: staffError } = await supabase.from("service_provider_staff").insert({ provider_id: currentProviderId, full_name: emp.fullName, job_title: emp.position });
-          if (staffError) throw staffError;
+          await supabase.from("service_provider_staff").insert({ provider_id: currentProviderId, full_name: emp.fullName, job_title: emp.position });
         }
       }
 
@@ -716,29 +666,23 @@ export default function ApplyProvider() {
     }
   };
 
+  // Text-only (no <img> tags)
   const getFilePreview = (file, url) => {
     if (url) {
-      if (/\.(jpe?g|png|gif|webp|avif|svg)$/i.test(url)) {
-        return <img src={url} alt="preview" className="preview-img" />;
-      }
       return (
         <a href={url} target="_blank" rel="noopener noreferrer" className="preview-link">
-          <FileText size={16} /> View file
+          <FileText size={16} /> {getFileNameFromUrl(url)}
         </a>
       );
     }
     if (file) {
-      if (file.type && file.type.startsWith("image/")) {
-        const objectUrl = URL.createObjectURL(file);
-        return <img src={objectUrl} alt="preview" className="preview-img" onLoad={() => URL.revokeObjectURL(objectUrl)} />;
-      }
       return (
         <span className="preview-link">
           <FileText size={16} /> {file.name}
         </span>
       );
     }
-    return <span className="preview-none">No file</span>;
+    return null;
   };
 
   if (isLoading) {
@@ -868,14 +812,20 @@ export default function ApplyProvider() {
             <h2>Business Documents</h2>
             <div className="form-grid-2">
               <div className="form-group">
-                <label>Waiver *</label>
+                <label>Waiver (Optional)</label>
                 <label className="file-btn">
                   <Upload size={18} />
                   <span>Choose File</span>
+                  {/* Accept PDF/DOC only */}
                   <input type="file" accept=".pdf,.doc,.docx" onChange={(e) => handleFileSelect(setWaiverFile, e, 2, "waiverFile")} hidden />
                 </label>
-                <div className="file-preview-small">
+                <div className="file-preview-small" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   {getFilePreview(waiverFile, existingWaiverUrl)}
+                  {(waiverFile || existingWaiverUrl) && (
+                    <button type="button" onClick={() => removeSingleFile(setWaiverFile, setExistingWaiverUrl)} className="remove-btn" style={{ marginLeft: 0 }} title="Remove file">
+                        <X size={14} />
+                    </button>
+                  )}
                 </div>
                 {validationErrors.waiverFile && <small className="error">{validationErrors.waiverFile}</small>}
               </div>
@@ -885,18 +835,19 @@ export default function ApplyProvider() {
                 <label className="file-btn">
                   <Upload size={18} />
                   <span>Choose Files</span>
-                  <input type="file" accept="image/*" multiple onChange={(e) => handleMultiFileSelect(setFacilityImages, facilityImages, e, 3, "facilityImages", existingFacilityImages.length)} hidden />
+                  {/* Accept images only (jpg/png) */}
+                  <input type="file" accept=".jpg,.jpeg,.png" multiple onChange={(e) => handleMultiFileSelect(setFacilityImages, facilityImages, e, 3, "facilityImages", existingFacilityImages.length)} hidden />
                 </label>
                 <div className="file-list">
                   {existingFacilityImages.map((img) => (
                     <div key={img.id} className="file-item">
-                      <ImageIcon size={14} /> <a href={img.image_url} target="_blank" rel="noreferrer">{getFileNameFromUrl(img.image_url)}</a>
+                      <FileText size={14} /> <a href={img.image_url} target="_blank" rel="noreferrer">{getFileNameFromUrl(img.image_url)}</a>
                       <button type="button" className="delete-existing-btn" onClick={() => removeExistingFile("image", img.id, img.image_url)} title="Remove existing image"><X size={12} /></button>
                     </div>
                   ))}
                   {facilityImages.map((f, idx) => (
                     <div key={`new-f-${idx}`} className="file-item">
-                      <ImageIcon size={14} /> {f.name}
+                      <FileText size={14} /> {f.name}
                       <button type="button" onClick={() => removeFile(setFacilityImages, idx)}><X size={12} /></button>
                     </div>
                   ))}
@@ -909,18 +860,19 @@ export default function ApplyProvider() {
                 <label className="file-btn">
                   <Upload size={18} />
                   <span>Choose Files</span>
-                  <input type="file" accept="image/*" multiple onChange={(e) => handleMultiFileSelect(setPaymentChannelFiles, paymentChannelFiles, e, 3, "paymentChannelFiles", existingPaymentChannels.length)} hidden />
+                  {/* Accept images only (jpg/png) */}
+                  <input type="file" accept=".jpg,.jpeg,.png" multiple onChange={(e) => handleMultiFileSelect(setPaymentChannelFiles, paymentChannelFiles, e, 3, "paymentChannelFiles", existingPaymentChannels.length)} hidden />
                 </label>
                 <div className="file-list">
                   {existingPaymentChannels.map((p) => (
                     <div key={p.id} className="file-item">
-                      <ImageIcon size={14} /> <a href={p.file_url} target="_blank" rel="noreferrer">{getFileNameFromUrl(p.file_url)}</a>
+                      <FileText size={14} /> <a href={p.file_url} target="_blank" rel="noreferrer">{getFileNameFromUrl(p.file_url)}</a>
                       <button type="button" className="delete-existing-btn" onClick={() => removeExistingFile("payment", p.id, p.file_url)} title="Remove existing payment"><X size={12} /></button>
                     </div>
                   ))}
                   {paymentChannelFiles.map((f, idx) => (
                     <div key={`new-p-${idx}`} className="file-item">
-                      <ImageIcon size={14} /> {f.name}
+                      <FileText size={14} /> {f.name}
                       <button type="button" onClick={() => removeFile(setPaymentChannelFiles, idx)}><X size={12} /></button>
                     </div>
                   ))}
@@ -933,9 +885,17 @@ export default function ApplyProvider() {
                 <label className="file-btn">
                   <Upload size={18} />
                   <span>Choose File</span>
+                  {/* Accept PDF/DOC only */}
                   <input type="file" accept=".pdf,.doc,.docx" onChange={(e) => handleFileSelect(setBusinessPermitFile, e, 2, "businessPermitFile")} hidden />
                 </label>
-                <div className="file-preview-small">{getFilePreview(businessPermitFile, existingPermitUrl)}</div>
+                <div className="file-preview-small" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  {getFilePreview(businessPermitFile, existingPermitUrl)}
+                  {(businessPermitFile || existingPermitUrl) && (
+                    <button type="button" onClick={() => removeSingleFile(setBusinessPermitFile, setExistingPermitUrl)} className="remove-btn" style={{ marginLeft: 0 }} title="Remove file">
+                        <X size={14} />
+                    </button>
+                  )}
+                </div>
                 {validationErrors.businessPermitFile && <small className="error">{validationErrors.businessPermitFile}</small>}
               </div>
             </div>
