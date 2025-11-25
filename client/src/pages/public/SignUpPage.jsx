@@ -76,6 +76,19 @@ const SignUpPage = () => {
     if (Object.keys(validationErrors).length > 0) return;
 
     setLoading(true);
+    // ✅ Check if phone number already exists
+const { data: existingMobile } = await supabase
+  .from("profiles")
+  .select("id")
+  .eq("mobile_number", formData.mobile)
+  .maybeSingle();
+
+if (existingMobile) {
+  setErrors({ mobile: "Phone number is already registered." });
+  setLoading(false);
+  return;
+}
+
 
     try {
       const { data: signUpData, error } = await supabase.auth.signUp({
