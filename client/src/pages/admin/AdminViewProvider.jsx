@@ -128,11 +128,43 @@ export default function AdminViewProvider() {
 
     setSaving(true);
     try {
-      // TODO: Supabase update will be implemented later with notifications
-      // For now, just simulate saving and redirect
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      
+      // 1. Get current logged in admin user
+      const { data: { user } } = await supabase.auth.getUser();
+
+      if (!user) {
+        alert("You must be logged in to perform this action.");
+        return;
+      }
+
+      // 2. Prepare the update object
+      const updates = {
+        status: action === "approve" ? "approved" : "rejected",
+        updated_at: new Date().toISOString(),
+      };
+
+      // 3. If approving, stamp with admin ID and time
+      if (action === "approve") {
+        updates.approved_by = user.id;
+        updates.approved_at = new Date().toISOString();
+      }
+
+      // Note: If you want to save 'rejectReasons', you need a column for it in your DB.
+      // Currently, we are just updating status.
+
+      // 4. Send Update to Supabase
+      const { error } = await supabase
+        .from("service_providers")
+        .update(updates)
+        .eq("id", id);
+
+      if (error) throw error;
+
+      alert(`Provider has been ${action === "approve" ? "approved" : "rejected"} successfully.`);
       navigate("/admin-dashboard");
+      
+    } catch (error) {
+      console.error("Error updating status:", error.message);
+      alert(`Failed to update status: ${error.message}`);
     } finally {
       setSaving(false);
     }
@@ -178,6 +210,9 @@ export default function AdminViewProvider() {
           </p>
           <p>
             <strong>Type of Service:</strong> {provider.type_of_service}
+          </p>
+          <p>
+             <strong>Current Status:</strong> <span style={{ textTransform: 'capitalize', fontWeight: 'bold' }}>{provider.status}</span>
           </p>
         </div>
 
