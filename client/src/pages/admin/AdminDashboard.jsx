@@ -2,100 +2,116 @@
 import React, { useState, useEffect } from "react";
 import { supabase } from "../../config/supabase";
 import LoggedInAdmin from "../../components/Header/LoggedInAdmin";
-import { FaStore, FaUsers, FaClock, FaList } from "react-icons/fa";
+import { FaStore, FaList, FaUser, FaClock } from "react-icons/fa";
+import { useNavigate } from "react-router-dom";
 import "./AdminDashboard.css";
 
 export default function AdminDashboard() {
   const [pendingCount, setPendingCount] = useState(0);
-  const [activeCount, setActiveCount] = useState(0);
+  const [activeListings, setActiveListings] = useState(0);
+  const [averageApprovalTime, setAverageApprovalTime] = useState("-");
   const [totalUsers, setTotalUsers] = useState(0);
-  const [averageApprovalTime, setAverageApprovalTime] = useState(null);
   const [providers, setProviders] = useState([]);
-
   const [loading, setLoading] = useState(true);
 
+  const navigate = useNavigate();
+
+  /** =============================
+   *  FETCH COUNTS + PROVIDERS
+   * ============================== */
   useEffect(() => {
-    fetchDashboardData();
+    fetchDashboardCounts();
+    fetchProviders();
   }, []);
 
-  // Real-time updates: service providers + profiles table
+  /** LIVE updates for service provider changes */
   useEffect(() => {
     const channel = supabase
-      .channel("dashboard_realtime")
+      .channel("service_providers_changes")
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "service_providers" },
-        () => fetchDashboardData()
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "profiles" },
-        () => fetchDashboardData()
+        () => {
+          fetchDashboardCounts();
+          fetchProviders();
+        }
       )
       .subscribe();
 
     return () => supabase.removeChannel(channel);
   }, []);
 
-  const fetchDashboardData = async () => {
+  /** ------------------------
+   * Fetch Dashboard Stats
+   * ------------------------ */
+  const fetchDashboardCounts = async () => {
     try {
-      setLoading(true);
-
-      // ---- PENDING COUNT ----
+      // Pending count
       const { count: pending } = await supabase
         .from("service_providers")
         .select("*", { count: "exact", head: true })
         .eq("status", "pending");
 
-      setPendingCount(pending || 0);
-
-      // ---- ACTIVE COUNT ----
+      // Active listings count
       const { count: active } = await supabase
         .from("service_providers")
         .select("*", { count: "exact", head: true })
         .eq("status", "approved");
 
-      setActiveCount(active || 0);
-
-      // ---- TOTAL USERS ----
+      // Total users (from profiles)
       const { count: users } = await supabase
         .from("profiles")
         .select("*", { count: "exact", head: true });
 
-      setTotalUsers(users || 0);
-
-      // ---- AVERAGE APPROVAL TIME ----
+      // Compute average approval time
       const { data: approvals } = await supabase
         .from("service_providers")
         .select("created_at, approved_at")
         .not("approved_at", "is", null);
 
+      let avgHours = "-";
       if (approvals?.length > 0) {
-        const durations = approvals.map((p) => {
-          const created = new Date(p.created_at);
-          const approved = new Date(p.approved_at);
-          return (approved - created) / (1000 * 60 * 60); // hours
-        });
+        const totalMs = approvals.reduce((sum, row) => {
+          const created = new Date(row.created_at);
+          const approved = new Date(row.approved_at);
+          return sum + (approved - created);
+        }, 0);
 
-        const avg =
-          durations.reduce((acc, v) => acc + v, 0) / durations.length;
-        setAverageApprovalTime(avg.toFixed(1));
-      } else {
-        setAverageApprovalTime("—");
+        avgHours = (totalMs / approvals.length / (1000 * 60 * 60)).toFixed(1);
       }
 
-      // ---- SERVICE PROVIDERS LIST ----
-      const { data: providerRows } = await supabase
+      setPendingCount(pending || 0);
+      setActiveListings(active || 0);
+      setAverageApprovalTime(avgHours);
+      setTotalUsers(users || 0);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  /** ------------------------
+   * Fetch Service Providers
+   * ------------------------ */
+  const fetchProviders = async () => {
+    try {
+      const { data, error } = await supabase
         .from("service_providers")
-        .select("id, business_name, city, status")
+        .select("id, business_name, city")
         .order("created_at", { ascending: false });
 
-      setProviders(providerRows || []);
-    } catch (error) {
-      console.error("Dashboard data error:", error);
+      if (!error && data) setProviders(data);
+    } catch (err) {
+      console.error(err);
     } finally {
       setLoading(false);
     }
+  };
+
+  /** ------------------------
+   * VIEW DETAILS HANDLER
+   * ------------------------ */
+  const handleViewProvider = (providerId) => {
+    navigate(`/admin/provider/${providerId}`);
   };
 
   return (
@@ -107,69 +123,67 @@ export default function AdminDashboard() {
 
         {/* ==== DASHBOARD CARDS ==== */}
         <div className="admin-cards-row">
-
-          {/* Pending */}
+          {/* Pending Approvals */}
           <div className="admin-card admin-card-primary">
-            <div className="admin-card-icon"><FaStore size={32} /></div>
+            <FaStore className="admin-card-icon" size={32} />
             <div className="admin-card-info">
-              <h2 className="admin-card-number">{loading ? "…" : pendingCount}</h2>
-              <p className="admin-card-label">Pending Approvals</p>
+              <h2>{pendingCount}</h2>
+              <p>Pending Approvals</p>
             </div>
           </div>
 
           {/* Active Listings */}
           <div className="admin-card admin-card-green">
-            <div className="admin-card-icon"><FaList size={32} /></div>
+            <FaList className="admin-card-icon" size={32} />
             <div className="admin-card-info">
-              <h2 className="admin-card-number">{loading ? "…" : activeCount}</h2>
-              <p className="admin-card-label">Active Listings</p>
+              <h2>{activeListings}</h2>
+              <p>Active Listings</p>
             </div>
           </div>
 
-          {/* Avg Approval Time */}
-          <div className="admin-card admin-card-yellow">
-            <div className="admin-card-icon"><FaClock size={32} /></div>
+          {/* Average Approval Time */}
+          <div className="admin-card admin-card-orange">
+            <FaClock className="admin-card-icon" size={32} />
             <div className="admin-card-info">
-              <h2 className="admin-card-number">
-                {loading ? "…" : `${averageApprovalTime} hrs`}
-              </h2>
-              <p className="admin-card-label">Avg Approval Time</p>
+              <h2>{averageApprovalTime} hrs</h2>
+              <p>Avg. Approval Time</p>
             </div>
           </div>
 
           {/* Total Users */}
           <div className="admin-card admin-card-blue">
-            <div className="admin-card-icon"><FaUsers size={32} /></div>
+            <FaUser className="admin-card-icon" size={32} />
             <div className="admin-card-info">
-              <h2 className="admin-card-number">
-                {loading ? "…" : totalUsers}
-              </h2>
-              <p className="admin-card-label">Total Users</p>
+              <h2>{totalUsers}</h2>
+              <p>Total Users</p>
             </div>
           </div>
         </div>
 
-        {/* ======= PROVIDERS LIST ======= */}
+        {/* ===== SERVICE PROVIDERS LIST ===== */}
         <h2 className="providers-title">Service Providers</h2>
 
         <div className="providers-list">
           {providers.length === 0 ? (
-            <p className="no-providers">No service providers found.</p>
+            <p>No service providers found.</p>
           ) : (
-            providers.map((p) => (
-              <div key={p.id} className="provider-item">
+            providers.map((provider) => (
+              <div key={provider.id} className="provider-item">
                 <div>
-                  <strong>{p.business_name}</strong>
-                  <p className="provider-city">{p.city}</p>
+                  <strong>{provider.business_name}</strong>
+                  <p className="provider-city">{provider.city}</p>
                 </div>
-                <span className={`provider-status status-${p.status}`}>
-                  {p.status}
-                </span>
+
+                <button
+                  className="provider-view-btn"
+                  onClick={() => handleViewProvider(provider.id)}
+                >
+                  View Details
+                </button>
               </div>
             ))
           )}
         </div>
-
       </div>
     </>
   );

@@ -13,7 +13,7 @@ import ServiceListing from "./pages/pet-owner/ServiceListing";
 
 import AdminChangePassword from "./pages/admin/AdminChangePassword";
 import AdminDashboard from "./pages/admin/AdminDashboard";
-
+import AdminViewProvider from "./pages/admin/AdminViewProvider";
 
 import ProtectedRoute from "./components/ProtectedRoute";
 
@@ -36,6 +36,7 @@ function App() {
           <Route path="/service-listing" element={<ServiceListing />} />
           <Route path="/admin-change-password" element={<AdminChangePassword />} />
           <Route path="/admin-dashboard" element={<AdminDashboard />} />
+           <Route path="/admin/provider/:id" element={<AdminViewProvider />} />  
         </Route>
 
       </Routes>
