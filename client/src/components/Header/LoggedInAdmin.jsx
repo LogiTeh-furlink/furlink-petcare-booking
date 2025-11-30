@@ -65,7 +65,7 @@ const LoggedInAdmin = () => {
     <header className="loggedin-header">
       <div className="navbar-container">
         {/* Left Logo */}
-        <div className="header-left" onClick={() => navigate("/dashboard")}>
+        <div className="header-left" onClick={() => navigate("/admin-dashboard")}>
           <img src={logo} alt="Furlink logo" className="header-logo" />
         </div>
 
