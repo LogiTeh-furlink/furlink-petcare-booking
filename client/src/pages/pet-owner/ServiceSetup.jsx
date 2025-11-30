@@ -24,7 +24,8 @@ export default function ServiceSetup() {
           {/* PACKAGED SERVICE */}
           <div
             className="setup-card"
-            onClick={() => navigate("/service-listing")}
+            // 👇 Pass state: initialType = "package"
+            onClick={() => navigate("/service-listing", { state: { initialType: "package" } })}
           >
             <div>
               <h3>Packaged Service</h3>
@@ -40,7 +41,8 @@ export default function ServiceSetup() {
           {/* INDIVIDUAL SERVICE */}
           <div
             className="setup-card"
-            onClick={() => navigate("/service-listing")}
+            // 👇 Pass state: initialType = "individual"
+            onClick={() => navigate("/service-listing", { state: { initialType: "individual" } })}
           >
             <div>
               <h3>Individual / A La Carte Service</h3>
