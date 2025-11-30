@@ -1,57 +1,83 @@
 import React from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 
+// Public Pages
 import LandingPage from "./pages/public/LandingPage";
 import AboutPage from "./pages/public/AboutPage";
 import LoginPage from "./pages/public/LoginPage";
 import SignUpPage from "./pages/public/SignUpPage";
 
+// Pet Owner Pages
 import Dashboard from "./pages/pet-owner/Dashboard";
 import ApplyProvider from "./pages/pet-owner/ApplyProvider";
 import ServiceSetup from "./pages/pet-owner/ServiceSetup";
 import ServiceListing from "./pages/pet-owner/ServiceListing";
 
+// Service Provider Pages (New)
+import SPDashboard from "./pages/service-provider/SPDashboard";
+import SPManageListing from "./pages/service-provider/SPManageListing";
+
+// Admin Pages
 import AdminChangePassword from "./pages/admin/AdminChangePassword";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminViewProvider from "./pages/admin/AdminViewProvider";
 
+// Route Guards
 import ProtectedRoute from "./components/ProtectedRoute";
 import RequireNewApplicant from "./components/RequireNewApplicant"; 
-import RequireProviderApplication from "./components/RequireProviderApplication"; // <--- Import the new guard
+import RequireProviderApplication from "./components/RequireProviderApplication"; 
 
 function App() {
   return (
     <Router>
       <Routes>
 
-        {/* Public routes */}
+        {/* ==========================
+            PUBLIC ROUTES
+           ========================== */}
         <Route path="/" element={<LandingPage />} />
         <Route path="/about" element={<AboutPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignUpPage />} />
 
-        {/* --- LOGGED IN USER AREA --- */}
+        {/* ==========================
+            PROTECTED ROUTES (Logged In)
+           ========================== */}
         <Route element={<ProtectedRoute />}>
           
+          {/* --- 1. PET OWNER SIDE --- */}
           <Route path="/dashboard" element={<Dashboard />} />
           
-          {/* ZONE A: Only accessible if you HAVE NOT applied yet */}
-          {/* If they have applied, this kicks them to /service-setup */}
+          
+          {/* --- 2. SERVICE PROVIDER SIDE --- */}
+          
+          {/* ZONE A: Application Start (Only if NO application exists) */}
           <Route element={<RequireNewApplicant />}>
              <Route path="/apply-provider" element={<ApplyProvider />} />
           </Route>
 
-          {/* ZONE B: Only accessible if you HAVE applied */}
-          {/* If they try to skip here without applying, this kicks them back to /apply-provider */}
+          {/* ZONE B: Application Continued & Management (Requires application record) */}
           <Route element={<RequireProviderApplication />}>
+            
+            {/* Setup Flow (Initial Setup) */}
             <Route path="/service-setup" element={<ServiceSetup />} />
             <Route path="/service-listing" element={<ServiceListing />} />
+            
+            {/* Operational Dashboard (Main Business Hub) */}
+            <Route path="/service/dashboard" element={<SPDashboard />} />
+            <Route path="/service/dashboard/:id" element={<SPDashboard />} /> {/* Optional direct link support */}
+            
+            {/* Listing Management */}
+            <Route path="/service/manage-listing" element={<SPManageListing />} />
+            
           </Route>
-          
-          {/* Admin Routes */}
+
+
+          {/* --- 3. ADMIN SIDE --- */}
           <Route path="/admin-change-password" element={<AdminChangePassword />} />
           <Route path="/admin-dashboard" element={<AdminDashboard />} />
           <Route path="/admin/provider/:id" element={<AdminViewProvider />} />  
+          
         </Route>
 
       </Routes>

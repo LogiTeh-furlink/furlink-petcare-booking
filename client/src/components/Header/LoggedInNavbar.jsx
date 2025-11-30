@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom"; // Added useLocation
 import { FaBell, FaUserCircle, FaSignOutAlt, FaTimes, FaStore, FaListUl } from "react-icons/fa";
 import { supabase } from "../../config/supabase";
 import "./LoggedInNavbar.css";
@@ -7,6 +7,7 @@ import logo from "../../assets/logo.png";
 
 const LoggedInNavbar = ({ hideBecomeProvider = false }) => {
   const navigate = useNavigate();
+  const location = useLocation(); // Hook to get current URL path
   
   // UI Toggles
   const [showNotif, setShowNotif] = useState(false);
@@ -61,7 +62,6 @@ const LoggedInNavbar = ({ hideBecomeProvider = false }) => {
         setProviderData(provider);
         
         // Check if they have submitted Stage 2 (Service Listing)
-        // We count if any service exists for this provider_id
         const { count } = await supabase
           .from("services")
           .select("*", { count: 'exact', head: true })
@@ -78,6 +78,10 @@ const LoggedInNavbar = ({ hideBecomeProvider = false }) => {
      LOGIC HANDLERS
      ========================== */
 
+  // Requirement: Hide "Switch to Business" if already IN the service provider area
+  // Check if current path starts with "/service/"
+  const isServiceProviderPage = location.pathname.startsWith("/service/");
+
   // Requirement 1-5: The "Become a Service Provider" Button Logic
   const handleProviderClick = () => {
     // Case 1: No application at all
@@ -89,8 +93,8 @@ const LoggedInNavbar = ({ hideBecomeProvider = false }) => {
     const { status, id } = providerData;
 
     if (status === "approved") {
-      // Case 5: Approved -> Go to Dashboard
-      navigate(`/service/dashboard/${id}`);
+      // Case 5: Approved -> Go to Dashboard (FIXED URL)
+      navigate("/service/dashboard"); // Or `/service/dashboard/${id}` if you prefer specific
     } else if (status === "rejected") {
       // Case 4: Rejected -> Show Modal
       setShowRejectModal(true);
@@ -116,7 +120,8 @@ const LoggedInNavbar = ({ hideBecomeProvider = false }) => {
     
     // Redirect logic based on notification type
     if (title.includes("approved")) {
-      navigate(providerData ? `/service/dashboard/${providerData.id}` : "/manage-business");
+      // FIXED URL
+      navigate("/service/dashboard");
       setShowNotif(false);
     } else if (title.includes("rejected")) {
       setShowRejectModal(true);
@@ -155,8 +160,8 @@ const LoggedInNavbar = ({ hideBecomeProvider = false }) => {
           {/* Right Section */}
           <div className="nav-right">
 
-            {/* ⭐ Provider Button (Dynamic Text) */}
-            {!hideBecomeProvider && (
+            {/* ⭐ Provider Button (Dynamic Text + Visibility Logic) */}
+            {!hideBecomeProvider && !isServiceProviderPage && (
               <button 
                 className={`provider-btn ${providerData?.status === 'approved' ? 'business-mode' : ''}`}
                 onClick={handleProviderClick}
@@ -209,7 +214,7 @@ const LoggedInNavbar = ({ hideBecomeProvider = false }) => {
                   {providerData?.status === 'approved' && (
                     <button 
                       className="menu-item-btn" 
-                      onClick={() => navigate(`/service/dashboard/${providerData.id}`)}
+                      onClick={() => navigate("/service/manage-listing")} // FIXED URL
                     >
                       <FaStore className="menu-icon" /> Manage Listing
                     </button>
