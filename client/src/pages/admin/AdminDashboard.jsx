@@ -2,13 +2,14 @@
 import React, { useState, useEffect } from "react";
 import { supabase } from "../../config/supabase";
 import LoggedInAdmin from "../../components/Header/LoggedInAdmin";
-import { FaStore, FaList, FaUser, FaClock } from "react-icons/fa";
+import { FaStore, FaList, FaUser, FaClock, FaTimes } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 import "./AdminDashboard.css";
 
 export default function AdminDashboard() {
   const [pendingCount, setPendingCount] = useState(0);
   const [activeListings, setActiveListings] = useState(0);
+  const [rejectedCount, setRejectedCount] = useState(0);
   const [averageApprovalTime, setAverageApprovalTime] = useState("-");
   const [totalUsers, setTotalUsers] = useState(0);
   const [providers, setProviders] = useState([]);
@@ -52,11 +53,17 @@ export default function AdminDashboard() {
         .select("*", { count: "exact", head: true })
         .eq("status", "pending");
 
-      // Active listings count
+      // Active listings count (approved)
       const { count: active } = await supabase
         .from("service_providers")
         .select("*", { count: "exact", head: true })
         .eq("status", "approved");
+
+      // Rejected count
+      const { count: rejected } = await supabase
+        .from("service_providers")
+        .select("*", { count: "exact", head: true })
+        .eq("status", "rejected");
 
       // Total users (from profiles)
       const { count: users } = await supabase
@@ -82,6 +89,7 @@ export default function AdminDashboard() {
 
       setPendingCount(pending || 0);
       setActiveListings(active || 0);
+      setRejectedCount(rejected || 0);
       setAverageApprovalTime(avgHours);
       setTotalUsers(users || 0);
     } catch (err) {
@@ -90,13 +98,14 @@ export default function AdminDashboard() {
   };
 
   /** ------------------------
-   * Fetch Service Providers
+   * Fetch Service Providers (Pending Only)
    * ------------------------ */
   const fetchProviders = async () => {
     try {
       const { data, error } = await supabase
         .from("service_providers")
-        .select("id, business_name, city")
+        .select("id, business_name, city, status")
+        .eq("status", "pending")
         .order("created_at", { ascending: false });
 
       if (!error && data) setProviders(data);
@@ -112,6 +121,22 @@ export default function AdminDashboard() {
    * ------------------------ */
   const handleViewProvider = (providerId) => {
     navigate(`/admin/provider/${providerId}`);
+  };
+
+  /** ------------------------
+   * GET STATUS BADGE CLASS
+   * ------------------------ */
+  const getStatusBadge = (status) => {
+    switch(status) {
+      case 'approved':
+        return 'status-badge status-approved';
+      case 'rejected':
+        return 'status-badge status-rejected';
+      case 'pending':
+        return 'status-badge status-pending';
+      default:
+        return 'status-badge';
+    }
   };
 
   return (
@@ -141,6 +166,15 @@ export default function AdminDashboard() {
             </div>
           </div>
 
+          {/* Rejected Listings */}
+          <div className="admin-card admin-card-red">
+            <FaTimes className="admin-card-icon" size={32} />
+            <div className="admin-card-info">
+              <h2>{rejectedCount}</h2>
+              <p>Rejected Listings</p>
+            </div>
+          </div>
+
           {/* Average Approval Time */}
           <div className="admin-card admin-card-orange">
             <FaClock className="admin-card-icon" size={32} />
@@ -161,17 +195,20 @@ export default function AdminDashboard() {
         </div>
 
         {/* ===== SERVICE PROVIDERS LIST ===== */}
-        <h2 className="providers-title">Service Providers</h2>
+        <h2 className="providers-title">Pending Service Providers</h2>
 
         <div className="providers-list">
           {providers.length === 0 ? (
-            <p>No service providers found.</p>
+            <p>No pending service providers.</p>
           ) : (
             providers.map((provider) => (
               <div key={provider.id} className="provider-item">
                 <div>
                   <strong>{provider.business_name}</strong>
                   <p className="provider-city">{provider.city}</p>
+                  <span className={getStatusBadge(provider.status)}>
+                    {provider.status.charAt(0).toUpperCase() + provider.status.slice(1)}
+                  </span>
                 </div>
 
                 <button

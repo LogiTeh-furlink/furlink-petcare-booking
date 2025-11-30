@@ -16,6 +16,10 @@ export default function AdminViewProvider() {
   const [permits, setPermits] = useState([]);
   const [staff, setStaff] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  console.log("Current state - Images:", images);
+  console.log("Current state - Payments:", payments);
+  console.log("Current state - Permits:", permits);
   const [action, setAction] = useState(null);
   const [rejectReasons, setRejectReasons] = useState({
     incomplete: false,
@@ -24,18 +28,30 @@ export default function AdminViewProvider() {
   });
   const [saving, setSaving] = useState(false);
 
+  // Map frontend checkbox keys to enum values
+  const reasonMapping = {
+    incomplete: 'Incomplete Information',
+    unverifiable: 'Information Cannot Be Verified',
+    inappropriate: 'Uploaded Files Are Invalid or Inappropriate',
+  };
+
   useEffect(() => {
     fetchAllData();
   }, [id]);
 
   const fetchAllData = async () => {
     try {
+      console.log("Provider ID from URL:", id);
+      
       // Fetch provider
       const { data: providerData, error: providerError } = await supabase
         .from("service_providers")
         .select("*")
         .eq("id", id)
         .single();
+
+      console.log("Provider data:", providerData);
+      console.log("Provider error:", providerError);
 
       if (providerError) {
         setProvider(null);
@@ -74,7 +90,13 @@ export default function AdminViewProvider() {
         .select("id, image_url")
         .eq("provider_id", id);
 
-      if (!imagesError) setImages(imagesData || []);
+      console.log("Images query - provider_id:", id);
+      console.log("Images data:", imagesData);
+      console.log("Images error:", imagesError);
+      if (!imagesError && imagesData) {
+        console.log("Setting images:", imagesData);
+        setImages(imagesData);
+      }
 
       // Fetch payments
       const { data: paymentsData, error: paymentsError } = await supabase
@@ -82,7 +104,13 @@ export default function AdminViewProvider() {
         .select("id, method_type, file_url")
         .eq("provider_id", id);
 
-      if (!paymentsError) setPayments(paymentsData || []);
+      console.log("Payments query - provider_id:", id);
+      console.log("Payments data:", paymentsData);
+      console.log("Payments error:", paymentsError);
+      if (!paymentsError && paymentsData) {
+        console.log("Setting payments:", paymentsData);
+        setPayments(paymentsData);
+      }
 
       // Fetch permits
       const { data: permitsData, error: permitsError } = await supabase
@@ -90,7 +118,13 @@ export default function AdminViewProvider() {
         .select("*")
         .eq("provider_id", id);
 
-      if (!permitsError) setPermits(permitsData || []);
+      console.log("Permits query - provider_id:", id);
+      console.log("Permits data:", permitsData);
+      console.log("Permits error:", permitsError);
+      if (!permitsError && permitsData) {
+        console.log("Setting permits:", permitsData);
+        setPermits(permitsData);
+      }
 
       // Fetch staff
       const { data: staffData, error: staffError } = await supabase
@@ -148,10 +182,17 @@ export default function AdminViewProvider() {
         updates.approved_at = new Date().toISOString();
       }
 
-      // Note: If you want to save 'rejectReasons', you need a column for it in your DB.
-      // Currently, we are just updating status.
+      // 4. If rejecting, save rejection reasons
+      if (action === "reject") {
+        // Convert selected checkboxes to enum values
+        const selectedReasons = Object.keys(rejectReasons)
+          .filter((key) => rejectReasons[key])
+          .map((key) => reasonMapping[key]);
 
-      // 4. Send Update to Supabase
+        updates.rejection_reasons = selectedReasons;
+      }
+
+      // 5. Send Update to Supabase
       const { error } = await supabase
         .from("service_providers")
         .update(updates)
@@ -159,7 +200,7 @@ export default function AdminViewProvider() {
 
       if (error) throw error;
 
-      alert(`Provider has been ${action === "approve" ? "approved" : "rejected"} successfully.`);
+      // Navigate back to dashboard without alert
       navigate("/admin-dashboard");
       
     } catch (error) {
@@ -214,6 +255,16 @@ export default function AdminViewProvider() {
           <p>
              <strong>Current Status:</strong> <span style={{ textTransform: 'capitalize', fontWeight: 'bold' }}>{provider.status}</span>
           </p>
+          {provider.status === 'rejected' && provider.rejection_reasons && provider.rejection_reasons.length > 0 && (
+            <p>
+              <strong>Rejection Reasons:</strong>
+              <ul style={{ marginTop: '0.5rem' }}>
+                {provider.rejection_reasons.map((reason, idx) => (
+                  <li key={idx}>{reason}</li>
+                ))}
+              </ul>
+            </p>
+          )}
         </div>
 
         {/* Submitted Files */}
@@ -222,7 +273,7 @@ export default function AdminViewProvider() {
           
           <h3 className="section-header">Required Documents</h3>
           <p>
-            <strong>Waiver:</strong>{" "}
+            <strong>Waiver (Optional):</strong>{" "}
             {provider.waiver_url ? (
               <a href={provider.waiver_url} target="_blank" rel="noopener noreferrer">
                 View File
@@ -231,59 +282,65 @@ export default function AdminViewProvider() {
               "No file uploaded"
             )}
           </p>
+
           <p>
             <strong>Social Media:</strong>{" "}
             {provider.social_media_url ? (
               <a href={provider.social_media_url} target="_blank" rel="noopener noreferrer">
-                View File
+                View Link
               </a>
             ) : (
-              "No file uploaded"
+              "No link provided"
+            )}
+          </p>
+          
+          <p>
+            <strong>Images of Facilities:</strong>{" "}
+            {images.length > 0 ? (
+              images.map((img, idx) => (
+                <span key={img.id}>
+                  <a href={img.image_url} target="_blank" rel="noopener noreferrer">
+                    View File {idx + 1}
+                  </a>
+                  {idx < images.length - 1 ? ", " : ""}
+                </span>
+              ))
+            ) : (
+              "No files uploaded"
             )}
           </p>
 
-          {images.length > 0 && (
-            <>
-              <h3 className="section-header">Business Images</h3>
-              <div className="images-grid">
-                {images.map((img) => (
-                  <div key={img.id} className="image-item">
-                    <a href={img.image_url} target="_blank" rel="noopener noreferrer">
-                      <img src={img.image_url} alt="Business" />
-                    </a>
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
-
-          {payments.length > 0 && (
-            <>
-              <h3 className="section-header">Payment Methods</h3>
-              {payments.map((payment) => (
-                <p key={payment.id}>
-                  <strong>{payment.method_type}:</strong>{" "}
+          <p>
+            <strong>Payment Channel:</strong>{" "}
+            {payments.length > 0 ? (
+              payments.map((payment, idx) => (
+                <span key={payment.id}>
                   <a href={payment.file_url} target="_blank" rel="noopener noreferrer">
-                    View File
+                    View File ({payment.method_type})
                   </a>
-                </p>
-              ))}
-            </>
-          )}
+                  {idx < payments.length - 1 ? ", " : ""}
+                </span>
+              ))
+            ) : (
+              "No files uploaded"
+            )}
+          </p>
 
-          {permits.length > 0 && (
-            <>
-              <h3 className="section-header">Permits & Licenses</h3>
-              {permits.map((permit) => (
-                <p key={permit.id}>
-                  <strong>{permit.permit_type}:</strong>{" "}
+          <p>
+            <strong>Business Permit:</strong>{" "}
+            {permits.length > 0 ? (
+              permits.map((permit, idx) => (
+                <span key={permit.id}>
                   <a href={permit.file_url} target="_blank" rel="noopener noreferrer">
-                    View File
+                    View File ({permit.permit_type})
                   </a>
-                </p>
-              ))}
-            </>
-          )}
+                  {idx < permits.length - 1 ? ", " : ""}
+                </span>
+              ))
+            ) : (
+              "No files uploaded"
+            )}
+          </p>
         </div>
 
         {/* Operating Hours */}
