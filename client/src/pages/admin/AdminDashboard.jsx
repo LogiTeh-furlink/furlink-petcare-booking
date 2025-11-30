@@ -2,113 +2,129 @@
 import React, { useState, useEffect } from "react";
 import { supabase } from "../../config/supabase";
 import LoggedInAdmin from "../../components/Header/LoggedInAdmin";
-import { FaStore, FaList, FaUser, FaClock, FaTimes } from "react-icons/fa";
+import { FaStore, FaCheckCircle, FaTimesCircle, FaClock, FaUsers } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 import "./AdminDashboard.css";
 
 export default function AdminDashboard() {
-  const [pendingCount, setPendingCount] = useState(0);
-  const [activeListings, setActiveListings] = useState(0);
-  const [rejectedCount, setRejectedCount] = useState(0);
-  const [averageApprovalTime, setAverageApprovalTime] = useState("-");
-  const [totalUsers, setTotalUsers] = useState(0);
-  const [providers, setProviders] = useState([]);
-  const [loading, setLoading] = useState(true);
-
   const navigate = useNavigate();
 
-  /** =============================
-   *  FETCH COUNTS + PROVIDERS
-   * ============================== */
+  // --- STATE ---
+  const [adminName, setAdminName] = useState("Admin");
+  
+  // Counts
+  const [pendingCount, setPendingCount] = useState(0);
+  const [activeCount, setActiveCount] = useState(0);
+  const [rejectedCount, setRejectedCount] = useState(0);
+  const [avgApprovalTime, setAvgApprovalTime] = useState("-");
+  const [totalUsers, setTotalUsers] = useState(0);
+
+  // List Data
+  const [providers, setProviders] = useState([]);
+  const [loading, setLoading] = useState(true);
+  
+  // Filter State (Default: 'pending')
+  const [currentFilter, setCurrentFilter] = useState("pending"); 
+
   useEffect(() => {
+    fetchAdminProfile();
     fetchDashboardCounts();
-    fetchProviders();
+    fetchProviders(currentFilter);
   }, []);
 
-  /** LIVE updates for service provider changes */
+  // Effect to re-fetch providers when filter changes
+  useEffect(() => {
+    fetchProviders(currentFilter);
+  }, [currentFilter]);
+
+  // Real-time updates
   useEffect(() => {
     const channel = supabase
-      .channel("service_providers_changes")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "service_providers" },
-        () => {
-          fetchDashboardCounts();
-          fetchProviders();
-        }
-      )
+      .channel("admin_dashboard_changes")
+      .on("postgres_changes", { event: "*", schema: "public", table: "service_providers" }, () => {
+        fetchDashboardCounts();
+        fetchProviders(currentFilter);
+      })
       .subscribe();
 
     return () => supabase.removeChannel(channel);
-  }, []);
+  }, [currentFilter]);
 
-  /** ------------------------
-   * Fetch Dashboard Stats
-   * ------------------------ */
+  // --- FETCH FUNCTIONS ---
+
+  const fetchAdminProfile = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      const { data } = await supabase.from("profiles").select("first_name").eq("id", user.id).single();
+      if (data) setAdminName(data.first_name);
+    }
+  };
+
   const fetchDashboardCounts = async () => {
     try {
-      // Pending count
-      const { count: pending } = await supabase
-        .from("service_providers")
-        .select("*", { count: "exact", head: true })
-        .eq("status", "pending");
+      // 1. Counts by Status
+      const { count: pending } = await supabase.from("service_providers").select("*", { count: "exact", head: true }).eq("status", "pending");
+      const { count: approved } = await supabase.from("service_providers").select("*", { count: "exact", head: true }).eq("status", "approved");
+      const { count: rejected } = await supabase.from("service_providers").select("*", { count: "exact", head: true }).eq("status", "rejected");
 
-      // Active listings count (approved)
-      const { count: active } = await supabase
-        .from("service_providers")
-        .select("*", { count: "exact", head: true })
-        .eq("status", "approved");
-
-      // Rejected count
-      const { count: rejected } = await supabase
-        .from("service_providers")
-        .select("*", { count: "exact", head: true })
-        .eq("status", "rejected");
-
-      // Total users (from profiles)
+      // 2. Total Users (Exclude Admins if 'role' column exists, assuming simple count for now based on your prompt)
+      // "from profiles table count the number of users excluding the admin"
       const { count: users } = await supabase
         .from("profiles")
-        .select("*", { count: "exact", head: true });
+        .select("*", { count: "exact", head: true })
+        .neq("role", "admin"); // Assuming 'role' distinguishes them
 
-      // Compute average approval time
+      // 3. Avg Approval Time (Static logic based on prompt requirements, can be expanded later)
+      // Re-using your logic roughly:
       const { data: approvals } = await supabase
         .from("service_providers")
         .select("created_at, approved_at")
         .not("approved_at", "is", null);
 
-      let avgHours = "-";
-      if (approvals?.length > 0) {
+      let avgStr = "-";
+      if (approvals && approvals.length > 0) {
         const totalMs = approvals.reduce((sum, row) => {
-          const created = new Date(row.created_at);
-          const approved = new Date(row.approved_at);
-          return sum + (approved - created);
+          const start = new Date(row.created_at);
+          const end = new Date(row.approved_at);
+          return sum + (end - start);
         }, 0);
-
-        avgHours = (totalMs / approvals.length / (1000 * 60 * 60)).toFixed(1);
+        const hours = totalMs / approvals.length / (1000 * 60 * 60);
+        avgStr = hours < 1 ? "< 1 hr" : `${hours.toFixed(1)} hrs`;
       }
 
       setPendingCount(pending || 0);
-      setActiveListings(active || 0);
+      setActiveCount(approved || 0);
       setRejectedCount(rejected || 0);
-      setAverageApprovalTime(avgHours);
       setTotalUsers(users || 0);
+      setAvgApprovalTime(avgStr);
+
     } catch (err) {
-      console.error(err);
+      console.error("Error fetching counts:", err);
     }
   };
 
-  /** ------------------------
-   * Fetch Service Providers (Pending Only)
-   * ------------------------ */
-  const fetchProviders = async () => {
+  const fetchProviders = async (statusFilter) => {
+    setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from("service_providers")
-        .select("id, business_name, city, status")
-        .eq("status", "pending")
-        .order("created_at", { ascending: false });
+      // Map 'active' filter to 'approved' status in DB
+      const dbStatus = statusFilter === 'active' ? 'approved' : statusFilter;
 
-      if (!error && data) setProviders(data);
+      let query = supabase
+        .from("service_providers")
+        .select("id, business_name, city, province, status, created_at, updated_at")
+        .eq("status", dbStatus);
+
+      // Order logic: Pending = oldest first? Approved/Rejected = newest first?
+      // "make the list by order based on the user submitted their application"
+      if (dbStatus === 'pending') {
+        query = query.order("created_at", { ascending: true }); // Oldest pending first
+      } else {
+        query = query.order("updated_at", { ascending: false }); // Recently approved/rejected first
+      }
+
+      const { data, error } = await query;
+      if (!error) setProviders(data || []);
+
     } catch (err) {
       console.error(err);
     } finally {
@@ -116,111 +132,155 @@ export default function AdminDashboard() {
     }
   };
 
-  /** ------------------------
-   * VIEW DETAILS HANDLER
-   * ------------------------ */
-  const handleViewProvider = (providerId) => {
-    navigate(`/admin/provider/${providerId}`);
+  // --- HANDLERS ---
+
+  const handleCardClick = (filterType) => {
+    setCurrentFilter(filterType);
   };
 
-  /** ------------------------
-   * GET STATUS BADGE CLASS
-   * ------------------------ */
-  const getStatusBadge = (status) => {
-    switch(status) {
-      case 'approved':
-        return 'status-badge status-approved';
-      case 'rejected':
-        return 'status-badge status-rejected';
-      case 'pending':
-        return 'status-badge status-pending';
-      default:
-        return 'status-badge';
+  const getListTitle = () => {
+    switch (currentFilter) {
+      case "pending": return "Pending Approvals";
+      case "active": return "Active Listings";
+      case "rejected": return "Rejected Listings";
+      default: return "Service Providers";
     }
+  };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return "-";
+    return new Date(dateString).toLocaleDateString("en-US", {
+      month: "short", day: "numeric", year: "numeric"
+    });
   };
 
   return (
     <>
       <LoggedInAdmin />
+      <div className="admin-dashboard-wrapper">
+        
+        {/* CENTERED GREETING */}
+        <div className="admin-header-center">
+          <h1>Hi, {adminName}!</h1>
+          <p>Here is your daily overview.</p>
+        </div>
 
-      <div className="admin-dashboard-container">
-        <h1 className="admin-welcome">Welcome, Admin!</h1>
-
-        {/* ==== DASHBOARD CARDS ==== */}
-        <div className="admin-cards-row">
-          {/* Pending Approvals */}
-          <div className="admin-card admin-card-primary">
-            <FaStore className="admin-card-icon" size={32} />
-            <div className="admin-card-info">
-              <h2>{pendingCount}</h2>
-              <p>Pending Approvals</p>
+        {/* DASHBOARD STATS ROW */}
+        <div className="stats-grid">
+          
+          {/* 1. Pending (Clickable) */}
+          <div 
+            className={`stat-card ${currentFilter === 'pending' ? 'active-filter' : ''}`}
+            onClick={() => handleCardClick('pending')}
+          >
+            <div className="stat-icon-wrapper pending">
+              <FaStore size={24} />
+            </div>
+            <div className="stat-content">
+              <h3>{pendingCount}</h3>
+              <span>Pending Approvals</span>
             </div>
           </div>
 
-          {/* Active Listings */}
-          <div className="admin-card admin-card-green">
-            <FaList className="admin-card-icon" size={32} />
-            <div className="admin-card-info">
-              <h2>{activeListings}</h2>
-              <p>Active Listings</p>
+          {/* 2. Active (Clickable) */}
+          <div 
+            className={`stat-card ${currentFilter === 'active' ? 'active-filter' : ''}`}
+            onClick={() => handleCardClick('active')}
+          >
+            <div className="stat-icon-wrapper active">
+              <FaCheckCircle size={24} />
+            </div>
+            <div className="stat-content">
+              <h3>{activeCount}</h3>
+              <span>Active Listings</span>
             </div>
           </div>
 
-          {/* Rejected Listings */}
-          <div className="admin-card admin-card-red">
-            <FaTimes className="admin-card-icon" size={32} />
-            <div className="admin-card-info">
-              <h2>{rejectedCount}</h2>
-              <p>Rejected Listings</p>
+          {/* 3. Rejected (Clickable) */}
+          <div 
+            className={`stat-card ${currentFilter === 'rejected' ? 'active-filter' : ''}`}
+            onClick={() => handleCardClick('rejected')}
+          >
+            <div className="stat-icon-wrapper rejected">
+              <FaTimesCircle size={24} />
+            </div>
+            <div className="stat-content">
+              <h3>{rejectedCount}</h3>
+              <span>Rejected Listings</span>
             </div>
           </div>
 
-          {/* Average Approval Time */}
-          <div className="admin-card admin-card-orange">
-            <FaClock className="admin-card-icon" size={32} />
-            <div className="admin-card-info">
-              <h2>{averageApprovalTime} hrs</h2>
-              <p>Avg. Approval Time</p>
+          {/* 4. Avg Time (Non-clickable) */}
+          <div className="stat-card non-clickable">
+            <div className="stat-icon-wrapper info">
+              <FaClock size={24} />
+            </div>
+            <div className="stat-content">
+              <h3>{avgApprovalTime}</h3>
+              <span>Avg. Approval Time</span>
             </div>
           </div>
 
-          {/* Total Users */}
-          <div className="admin-card admin-card-blue">
-            <FaUser className="admin-card-icon" size={32} />
-            <div className="admin-card-info">
-              <h2>{totalUsers}</h2>
-              <p>Total Users</p>
+          {/* 5. Total Users (Non-clickable) */}
+          <div className="stat-card non-clickable">
+            <div className="stat-icon-wrapper users">
+              <FaUsers size={24} />
             </div>
+            <div className="stat-content">
+              <h3>{totalUsers}</h3>
+              <span>Total Users</span>
+            </div>
+          </div>
+
+        </div>
+
+        {/* DYNAMIC LIST SECTION */}
+        <div className="dashboard-list-container">
+          <h2 className="list-title">{getListTitle()}</h2>
+          
+          <div className="providers-table-wrapper">
+            {loading ? (
+              <div className="loading-state">Loading data...</div>
+            ) : providers.length === 0 ? (
+              <div className="empty-state">No records found for this category.</div>
+            ) : (
+              <table className="providers-table">
+                <thead>
+                  <tr>
+                    <th>Business Name</th>
+                    <th>Location</th>
+                    <th>Date {currentFilter === 'pending' ? 'Submitted' : 'Updated'}</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {providers.map((provider) => (
+                    <tr key={provider.id}>
+                      <td className="fw-bold">{provider.business_name}</td>
+                      <td>{provider.city}, {provider.province}</td>
+                      <td>{formatDate(currentFilter === 'pending' ? provider.created_at : provider.updated_at)}</td>
+                      <td>
+                        <span className={`status-pill ${provider.status}`}>
+                          {provider.status}
+                        </span>
+                      </td>
+                      <td>
+                        <button 
+                          className="btn-view-details"
+                          onClick={() => navigate(`/admin/provider/${provider.id}`)}
+                        >
+                          View Details
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
         </div>
 
-        {/* ===== SERVICE PROVIDERS LIST ===== */}
-        <h2 className="providers-title">Pending Service Providers</h2>
-
-        <div className="providers-list">
-          {providers.length === 0 ? (
-            <p>No pending service providers.</p>
-          ) : (
-            providers.map((provider) => (
-              <div key={provider.id} className="provider-item">
-                <div>
-                  <strong>{provider.business_name}</strong>
-                  <p className="provider-city">{provider.city}</p>
-                  <span className={getStatusBadge(provider.status)}>
-                    {provider.status.charAt(0).toUpperCase() + provider.status.slice(1)}
-                  </span>
-                </div>
-
-                <button
-                  className="provider-view-btn"
-                  onClick={() => handleViewProvider(provider.id)}
-                >
-                  View Details
-                </button>
-              </div>
-            ))
-          )}
-        </div>
       </div>
     </>
   );

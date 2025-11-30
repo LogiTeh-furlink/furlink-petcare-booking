@@ -1,0 +1,209 @@
+/* src/pages/admin/AdminDashboard.css */
+
+.admin-dashboard-wrapper {
+  max-width: 1300px;
+  margin: 0 auto;
+  padding: 40px 20px;
+  min-height: 80vh;
+}
+
+/* --- CENTER HEADER --- */
+.admin-header-center {
+  text-align: center;
+  margin-bottom: 50px;
+}
+
+.admin-header-center h1 {
+  font-size: 2.5rem;
+  color: #1e3a8a;
+  margin-bottom: 8px;
+}
+
+.admin-header-center p {
+  font-size: 1.1rem;
+  color: #6b7280;
+}
+
+/* --- STATS GRID --- */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr); /* 5 Columns */
+  gap: 20px;
+  margin-bottom: 50px;
+}
+
+.stat-card {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+  border: 1px solid #e5e7eb;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.stat-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 15px rgba(0,0,0,0.1);
+}
+
+/* Active Filter State */
+.stat-card.active-filter {
+  border-color: #1e40af;
+  background-color: #eff6ff;
+  box-shadow: 0 0 0 2px #1e40af;
+}
+
+/* Non-Clickable Cards */
+.stat-card.non-clickable {
+  cursor: default;
+  background-color: #f9fafb; /* Slight grey to indicate read-only */
+}
+.stat-card.non-clickable:hover {
+  transform: none;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+}
+
+/* Icons */
+.stat-icon-wrapper {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 12px;
+}
+
+.stat-icon-wrapper.pending { background-color: #fff7ed; color: #f97316; } /* Orange */
+.stat-icon-wrapper.active { background-color: #f0fdf4; color: #16a34a; }  /* Green */
+.stat-icon-wrapper.rejected { background-color: #fef2f2; color: #dc2626; } /* Red */
+.stat-icon-wrapper.info { background-color: #eff6ff; color: #3b82f6; }     /* Blue */
+.stat-icon-wrapper.users { background-color: #f3e8ff; color: #9333ea; }    /* Purple */
+
+.stat-content h3 {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: #1f2937;
+  margin-bottom: 4px;
+}
+
+.stat-content span {
+  font-size: 0.9rem;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+/* --- LIST SECTION --- */
+.dashboard-list-container {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+  padding: 30px;
+  border: 1px solid #e5e7eb;
+}
+
+.list-title {
+  font-size: 1.5rem;
+  color: #1e3a8a;
+  margin-bottom: 25px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+/* --- TABLE STYLES --- */
+.providers-table-wrapper {
+  overflow-x: auto;
+}
+
+.providers-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.providers-table th {
+  text-align: left;
+  padding: 15px;
+  background-color: #f8fafc;
+  color: #64748b;
+  font-weight: 600;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.providers-table td {
+  padding: 15px;
+  border-bottom: 1px solid #f1f5f9;
+  color: #334155;
+  font-size: 0.95rem;
+}
+
+.providers-table tr:hover {
+  background-color: #f8fafc;
+}
+
+.fw-bold {
+  font-weight: 600;
+  color: #1e3a8a;
+}
+
+/* Status Pills */
+.status-pill {
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.status-pill.pending { background-color: #fff7ed; color: #c2410c; }
+.status-pill.approved { background-color: #f0fdf4; color: #15803d; }
+.status-pill.rejected { background-color: #fef2f2; color: #b91c1c; }
+
+/* Buttons */
+.btn-view-details {
+  background-color: white;
+  border: 1px solid #d1d5db;
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  color: #374151;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-view-details:hover {
+  background-color: #1e40af;
+  color: white;
+  border-color: #1e40af;
+}
+
+/* State Messages */
+.loading-state, .empty-state {
+  text-align: center;
+  padding: 40px;
+  color: #94a3b8;
+  font-size: 1.1rem;
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .stats-grid {
+    grid-template-columns: repeat(3, 1fr); /* 3 cols on tablet */
+  }
+}
+
+@media (max-width: 768px) {
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr); /* 2 cols on mobile */
+  }
+  
+  .stat-card {
+    padding: 15px;
+  }
+}
