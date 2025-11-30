@@ -8,7 +8,7 @@ import { supabase } from "../../config/supabase";
 import "./ApplyProvider.css";
 
 /* =========================================
-   CONFIRMATION MODAL COMPONENT
+   CONFIRMATION MODAL COMPONENT (Unchanged)
    ========================================= */
 const ConfirmationModal = ({ isOpen, onClose, onConfirm, data, files, isSubmitting }) => {
   if (!isOpen) return null;
@@ -207,18 +207,21 @@ export default function ApplyProvider() {
     const loadProviderData = async () => {
       try {
         setIsLoading(true);
-        const savedProviderId = localStorage.getItem("providerId");
-        
-        if (savedProviderId) {
-          setProviderId(savedProviderId);
-          const { data: providerData, error } = await supabase
+        // First check DB for this user, instead of relying solely on localStorage
+        const { data: { user } } = await supabase.auth.getUser();
+        if(!user) return;
+
+        const { data: providerData, error } = await supabase
             .from("service_providers")
             .select("*")
-            .eq("id", savedProviderId)
-            .single();
+            .eq("user_id", user.id)
+            .maybeSingle(); // Use maybeSingle to avoid error if none exists
 
-          if (!error && providerData) {
-            // Populate state from DB if exists
+        if (providerData) {
+            setProviderId(providerData.id);
+            localStorage.setItem("providerId", providerData.id); // Sync local storage
+
+            // Populate state from DB
             setBusinessInfo(prev => ({
               ...prev,
               businessName: providerData.business_name || "",
@@ -235,7 +238,7 @@ export default function ApplyProvider() {
             if (providerData.waiver_url) setExistingWaiverUrl(providerData.waiver_url);
 
             // Fetch relations
-            const { data: hours } = await supabase.from("service_provider_hours").select("*").eq("provider_id", savedProviderId);
+            const { data: hours } = await supabase.from("service_provider_hours").select("*").eq("provider_id", providerData.id);
             if (hours && hours.length > 0) {
               const grouped = {};
               hours.forEach((h) => {
@@ -246,21 +249,19 @@ export default function ApplyProvider() {
               setBusinessInfo((prev) => ({ ...prev, operatingHours: Object.values(grouped) }));
             }
 
-            const { data: imgs } = await supabase.from("service_provider_images").select("*").eq("provider_id", savedProviderId);
+            const { data: imgs } = await supabase.from("service_provider_images").select("*").eq("provider_id", providerData.id);
             if (imgs) setExistingFacilityImages(imgs);
 
-            const { data: payments } = await supabase.from("service_provider_payments").select("*").eq("provider_id", savedProviderId);
+            const { data: payments } = await supabase.from("service_provider_payments").select("*").eq("provider_id", providerData.id);
             if (payments) setExistingPaymentChannels(payments);
 
-            const { data: permits } = await supabase.from("service_provider_permits").select("*").eq("provider_id", savedProviderId);
+            const { data: permits } = await supabase.from("service_provider_permits").select("*").eq("provider_id", providerData.id);
             if (permits && permits.length > 0) setExistingPermitUrl(permits[0].file_url);
 
-            const { data: staff } = await supabase.from("service_provider_staff").select("*").eq("provider_id", savedProviderId);
+            const { data: staff } = await supabase.from("service_provider_staff").select("*").eq("provider_id", providerData.id);
             if (staff && staff.length > 0) {
-                // Deduplicate if necessary based on your logic, otherwise just map
                 setEmployees(staff.map(s => ({ fullName: s.full_name, position: s.job_title })));
             }
-          }
         }
       } catch (err) {
         console.error("Load error:", err);
@@ -503,13 +504,17 @@ export default function ApplyProvider() {
         };
 
         if (currentProviderId) {
-            await supabase.from("service_providers").update(payload).eq("id", currentProviderId);
-            // Clean relations for full re-insert to avoid logic complexity
+            const { error: updateError } = await supabase.from("service_providers").update(payload).eq("id", currentProviderId);
+            if (updateError) throw updateError;
+
+            // Clean relations for full re-insert
             await supabase.from("service_provider_hours").delete().eq("provider_id", currentProviderId);
             await supabase.from("service_provider_staff").delete().eq("provider_id", currentProviderId);
         } else {
             payload.status = "pending";
-            const { data } = await supabase.from("service_providers").insert([payload]).select().single();
+            const { data, error: insertError } = await supabase.from("service_providers").insert([payload]).select().single();
+            if (insertError) throw insertError;
+            
             currentProviderId = data.id;
             setProviderId(currentProviderId);
             localStorage.setItem("providerId", currentProviderId);
@@ -529,7 +534,10 @@ export default function ApplyProvider() {
                 });
             });
         });
-        if(hoursPayload.length > 0) await supabase.from("service_provider_hours").insert(hoursPayload);
+        if(hoursPayload.length > 0) {
+            const { error: hError } = await supabase.from("service_provider_hours").insert(hoursPayload);
+            if (hError) throw hError;
+        }
 
         // Images
         for (const url of newFacilityUrls) {
@@ -547,7 +555,8 @@ export default function ApplyProvider() {
 
         // Staff
         for (const emp of employees) {
-            await supabase.from("service_provider_staff").insert({ provider_id: currentProviderId, full_name: emp.fullName, job_title: emp.position });
+            const { error: sError } = await supabase.from("service_provider_staff").insert({ provider_id: currentProviderId, full_name: emp.fullName, job_title: emp.position });
+            if (sError) throw sError;
         }
 
         // Req 11: Redirect
@@ -555,8 +564,8 @@ export default function ApplyProvider() {
         navigate("/service-setup");
 
     } catch (err) {
-        console.error(err);
-        alert("Submission failed: " + err.message);
+        console.error("SUBMISSION FAILED:", err);
+        alert("Submission failed: " + err.message + ". Please check console for details.");
     } finally {
         setIsSubmitting(false);
     }

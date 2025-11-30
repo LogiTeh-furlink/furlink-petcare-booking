@@ -17,9 +17,6 @@ export default function AdminViewProvider() {
   const [staff, setStaff] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  console.log("Current state - Images:", images);
-  console.log("Current state - Payments:", payments);
-  console.log("Current state - Permits:", permits);
   const [action, setAction] = useState(null);
   const [rejectReasons, setRejectReasons] = useState({
     incomplete: false,
@@ -28,7 +25,7 @@ export default function AdminViewProvider() {
   });
   const [saving, setSaving] = useState(false);
 
-  // Map frontend checkbox keys to enum values
+  // Exact matches for the PostgreSQL ENUM values
   const reasonMapping = {
     incomplete: 'Incomplete Information',
     unverifiable: 'Information Cannot Be Verified',
@@ -41,8 +38,6 @@ export default function AdminViewProvider() {
 
   const fetchAllData = async () => {
     try {
-      console.log("Provider ID from URL:", id);
-      
       // Fetch provider
       const { data: providerData, error: providerError } = await supabase
         .from("service_providers")
@@ -50,89 +45,38 @@ export default function AdminViewProvider() {
         .eq("id", id)
         .single();
 
-      console.log("Provider data:", providerData);
-      console.log("Provider error:", providerError);
-
       if (providerError) {
         setProvider(null);
       } else {
         setProvider(providerData);
       }
 
-      // Fetch services with service_options
-      const { data: servicesData, error: servicesError } = await supabase
+      // Fetch services
+      const { data: servicesData } = await supabase
         .from("services")
-        .select(`
-          *,
-          service_options (
-            id,
-            pet_type,
-            size,
-            weight_range,
-            price
-          )
-        `)
+        .select(`*, service_options (*)`)
         .eq("provider_id", id);
-
-      if (!servicesError) setServices(servicesData || []);
+      setServices(servicesData || []);
 
       // Fetch hours
-      const { data: hoursData, error: hoursError } = await supabase
-        .from("service_provider_hours")
-        .select("*")
-        .eq("provider_id", id);
-
-      if (!hoursError) setHours(hoursData || []);
+      const { data: hoursData } = await supabase.from("service_provider_hours").select("*").eq("provider_id", id);
+      setHours(hoursData || []);
 
       // Fetch images
-      const { data: imagesData, error: imagesError } = await supabase
-        .from("service_provider_images")
-        .select("id, image_url")
-        .eq("provider_id", id);
-
-      console.log("Images query - provider_id:", id);
-      console.log("Images data:", imagesData);
-      console.log("Images error:", imagesError);
-      if (!imagesError && imagesData) {
-        console.log("Setting images:", imagesData);
-        setImages(imagesData);
-      }
+      const { data: imagesData } = await supabase.from("service_provider_images").select("id, image_url").eq("provider_id", id);
+      setImages(imagesData || []);
 
       // Fetch payments
-      const { data: paymentsData, error: paymentsError } = await supabase
-        .from("service_provider_payments")
-        .select("id, method_type, file_url")
-        .eq("provider_id", id);
-
-      console.log("Payments query - provider_id:", id);
-      console.log("Payments data:", paymentsData);
-      console.log("Payments error:", paymentsError);
-      if (!paymentsError && paymentsData) {
-        console.log("Setting payments:", paymentsData);
-        setPayments(paymentsData);
-      }
+      const { data: paymentsData } = await supabase.from("service_provider_payments").select("id, method_type, file_url").eq("provider_id", id);
+      setPayments(paymentsData || []);
 
       // Fetch permits
-      const { data: permitsData, error: permitsError } = await supabase
-        .from("service_provider_permits")
-        .select("*")
-        .eq("provider_id", id);
-
-      console.log("Permits query - provider_id:", id);
-      console.log("Permits data:", permitsData);
-      console.log("Permits error:", permitsError);
-      if (!permitsError && permitsData) {
-        console.log("Setting permits:", permitsData);
-        setPermits(permitsData);
-      }
+      const { data: permitsData } = await supabase.from("service_provider_permits").select("*").eq("provider_id", id);
+      setPermits(permitsData || []);
 
       // Fetch staff
-      const { data: staffData, error: staffError } = await supabase
-        .from("service_provider_staff")
-        .select("*")
-        .eq("provider_id", id);
-
-      if (!staffError) setStaff(staffData || []);
+      const { data: staffData } = await supabase.from("service_provider_staff").select("*").eq("provider_id", id);
+      setStaff(staffData || []);
 
     } finally {
       setLoading(false);
@@ -162,7 +106,6 @@ export default function AdminViewProvider() {
 
     setSaving(true);
     try {
-      // 1. Get current logged in admin user
       const { data: { user } } = await supabase.auth.getUser();
 
       if (!user) {
@@ -170,29 +113,27 @@ export default function AdminViewProvider() {
         return;
       }
 
-      // 2. Prepare the update object
       const updates = {
         status: action === "approve" ? "approved" : "rejected",
         updated_at: new Date().toISOString(),
       };
 
-      // 3. If approving, stamp with admin ID and time
       if (action === "approve") {
         updates.approved_by = user.id;
         updates.approved_at = new Date().toISOString();
+        updates.rejection_reasons = null; // Clear reasons if approving
       }
 
-      // 4. If rejecting, save rejection reasons
       if (action === "reject") {
-        // Convert selected checkboxes to enum values
         const selectedReasons = Object.keys(rejectReasons)
           .filter((key) => rejectReasons[key])
           .map((key) => reasonMapping[key]);
 
         updates.rejection_reasons = selectedReasons;
+        updates.approved_by = null; // Clear approval info if rejecting
+        updates.approved_at = null;
       }
 
-      // 5. Send Update to Supabase
       const { error } = await supabase
         .from("service_providers")
         .update(updates)
@@ -200,7 +141,6 @@ export default function AdminViewProvider() {
 
       if (error) throw error;
 
-      // Navigate back to dashboard without alert
       navigate("/admin-dashboard");
       
     } catch (error) {
@@ -233,37 +173,24 @@ export default function AdminViewProvider() {
 
         <div className="provider-info-box">
           <h2>Business Information</h2>
-          <p>
-            <strong>Business Name:</strong> {provider.business_name}
-          </p>
-          <p>
-            <strong>Email:</strong> {provider.business_email}
-          </p>
-          <p>
-            <strong>Mobile:</strong> {provider.business_mobile}
-          </p>
-          <p>
-            <strong>Address:</strong> {provider.house_street}, {provider.barangay},{" "}
-            {provider.city}, {provider.province}, {provider.postal_code}
-          </p>
-          <p>
-            <strong>Country:</strong> {provider.country}
-          </p>
-          <p>
-            <strong>Type of Service:</strong> {provider.type_of_service}
-          </p>
-          <p>
-             <strong>Current Status:</strong> <span style={{ textTransform: 'capitalize', fontWeight: 'bold' }}>{provider.status}</span>
-          </p>
-          {provider.status === 'rejected' && provider.rejection_reasons && provider.rejection_reasons.length > 0 && (
-            <p>
-              <strong>Rejection Reasons:</strong>
-              <ul style={{ marginTop: '0.5rem' }}>
-                {provider.rejection_reasons.map((reason, idx) => (
-                  <li key={idx}>{reason}</li>
+          <p><strong>Business Name:</strong> {provider.business_name}</p>
+          <p><strong>Email:</strong> {provider.business_email}</p>
+          <p><strong>Mobile:</strong> {provider.business_mobile}</p>
+          <p><strong>Address:</strong> {provider.house_street}, {provider.barangay}, {provider.city}, {provider.province}, {provider.postal_code}</p>
+          <p><strong>Country:</strong> {provider.country}</p>
+          <p><strong>Type of Service:</strong> {provider.type_of_service}</p>
+          <p><strong>Current Status:</strong> <span style={{ textTransform: 'capitalize', fontWeight: 'bold' }}>{provider.status}</span></p>
+          
+          {/* Display existing rejection reasons if status is rejected */}
+          {provider.status === 'rejected' && provider.rejection_reasons && (
+            <div style={{ marginTop: '15px', color: '#dc2626', backgroundColor: '#fef2f2', padding: '10px', borderRadius: '6px' }}>
+              <strong>Rejection History:</strong>
+              <ul style={{ margin: '5px 0 0 20px' }}>
+                {provider.rejection_reasons.map((reason, i) => (
+                  <li key={i}>{reason}</li>
                 ))}
               </ul>
-            </p>
+            </div>
           )}
         </div>
 
@@ -273,74 +200,56 @@ export default function AdminViewProvider() {
           
           <h3 className="section-header">Required Documents</h3>
           <p>
-            <strong>Waiver (Optional):</strong>{" "}
+            <strong>Waiver:</strong>{" "}
             {provider.waiver_url ? (
-              <a href={provider.waiver_url} target="_blank" rel="noopener noreferrer">
-                View File
-              </a>
-            ) : (
-              "No file uploaded"
-            )}
+              <a href={provider.waiver_url} target="_blank" rel="noopener noreferrer">View File</a>
+            ) : "No file uploaded"}
           </p>
-
           <p>
             <strong>Social Media:</strong>{" "}
             {provider.social_media_url ? (
-              <a href={provider.social_media_url} target="_blank" rel="noopener noreferrer">
-                View Link
-              </a>
-            ) : (
-              "No link provided"
-            )}
-          </p>
-          
-          <p>
-            <strong>Images of Facilities:</strong>{" "}
-            {images.length > 0 ? (
-              images.map((img, idx) => (
-                <span key={img.id}>
-                  <a href={img.image_url} target="_blank" rel="noopener noreferrer">
-                    View File {idx + 1}
-                  </a>
-                  {idx < images.length - 1 ? ", " : ""}
-                </span>
-              ))
-            ) : (
-              "No files uploaded"
-            )}
+              <a href={provider.social_media_url} target="_blank" rel="noopener noreferrer">View Link</a>
+            ) : "No link provided"}
           </p>
 
-          <p>
-            <strong>Payment Channel:</strong>{" "}
-            {payments.length > 0 ? (
-              payments.map((payment, idx) => (
-                <span key={payment.id}>
-                  <a href={payment.file_url} target="_blank" rel="noopener noreferrer">
-                    View File ({payment.method_type})
-                  </a>
-                  {idx < payments.length - 1 ? ", " : ""}
-                </span>
-              ))
-            ) : (
-              "No files uploaded"
-            )}
-          </p>
+          {images.length > 0 && (
+            <>
+              <h3 className="section-header">Business Images</h3>
+              <div className="images-grid">
+                {images.map((img) => (
+                  <div key={img.id} className="image-item">
+                    <a href={img.image_url} target="_blank" rel="noopener noreferrer">
+                      <img src={img.image_url} alt="Business" />
+                    </a>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
 
-          <p>
-            <strong>Business Permit:</strong>{" "}
-            {permits.length > 0 ? (
-              permits.map((permit, idx) => (
-                <span key={permit.id}>
-                  <a href={permit.file_url} target="_blank" rel="noopener noreferrer">
-                    View File ({permit.permit_type})
-                  </a>
-                  {idx < permits.length - 1 ? ", " : ""}
-                </span>
-              ))
-            ) : (
-              "No files uploaded"
-            )}
-          </p>
+          {payments.length > 0 && (
+            <>
+              <h3 className="section-header">Payment Methods</h3>
+              {payments.map((payment) => (
+                <p key={payment.id}>
+                  <strong>{payment.method_type}:</strong>{" "}
+                  <a href={payment.file_url} target="_blank" rel="noopener noreferrer">View File</a>
+                </p>
+              ))}
+            </>
+          )}
+
+          {permits.length > 0 && (
+            <>
+              <h3 className="section-header">Permits & Licenses</h3>
+              {permits.map((permit) => (
+                <p key={permit.id}>
+                  <strong>{permit.permit_type}:</strong>{" "}
+                  <a href={permit.file_url} target="_blank" rel="noopener noreferrer">View File</a>
+                </p>
+              ))}
+            </>
+          )}
         </div>
 
         {/* Operating Hours */}
@@ -375,7 +284,6 @@ export default function AdminViewProvider() {
                 <p><strong>Description:</strong> {service.description}</p>
                 {service.notes && <p><strong>Notes:</strong> {service.notes}</p>}
                 
-                {/* Service Options */}
                 {service.service_options && service.service_options.length > 0 && (
                   <div className="service-options">
                     <h4>Service Options:</h4>
