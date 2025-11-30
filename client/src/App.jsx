@@ -16,6 +16,7 @@ import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminViewProvider from "./pages/admin/AdminViewProvider";
 
 import ProtectedRoute from "./components/ProtectedRoute";
+import RequireNewApplicant from "./components/RequireNewApplicant"; // <--- IMPORT THIS
 
 function App() {
   return (
@@ -28,15 +29,23 @@ function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignUpPage />} />
 
-        {/* Protected routes (React Router v6 format) */}
+        {/* Protected routes */}
         <Route element={<ProtectedRoute />}>
+          
           <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/apply-provider" element={<ApplyProvider />} />
+          
+          {/* ⭐ NESTED GUARD: Only allow if they have NO application yet */}
+          <Route element={<RequireNewApplicant />}>
+             <Route path="/apply-provider" element={<ApplyProvider />} />
+          </Route>
+
           <Route path="/service-setup" element={<ServiceSetup />} />
           <Route path="/service-listing" element={<ServiceListing />} />
+          
+          {/* Admin Routes */}
           <Route path="/admin-change-password" element={<AdminChangePassword />} />
           <Route path="/admin-dashboard" element={<AdminDashboard />} />
-           <Route path="/admin/provider/:id" element={<AdminViewProvider />} />  
+          <Route path="/admin/provider/:id" element={<AdminViewProvider />} />  
         </Route>
 
       </Routes>

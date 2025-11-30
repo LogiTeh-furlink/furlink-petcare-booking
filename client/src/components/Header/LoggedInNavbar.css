@@ -1,3 +1,5 @@
+/* src/components/Header/LoggedInNavbar.css */
+
 /* ===== Logged-in Header Wrapper ===== */
 .loggedin-header {
   background-color: white;
@@ -34,7 +36,7 @@
   position: relative; /* ✅ makes dropdowns align properly under icons */
 }
 
-/* ===== Provider Button ===== */
+/* ===== Provider Button (Default) ===== */
 .provider-btn {
   background: #fff;
   color: #0e2679;
@@ -44,12 +46,26 @@
   border-radius: 2rem;
   cursor: pointer;
   font-size: 1rem;
-  transition: color 0.3s ease, transform 0.2s ease;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.05); /* Added slight depth */
 }
 
 .provider-btn:hover {
   color: #fdbf00;
   transform: translateY(-2px);
+}
+
+/* ⭐ NEW: Business Mode Button (Requirement 5) */
+/* Solid Blue background to stand out as a Dashboard link */
+.provider-btn.business-mode {
+  background-color: #0e2679;
+  color: white;
+}
+
+.provider-btn.business-mode:hover {
+  background-color: #0a1b55;
+  color: #fdbf00;
+  box-shadow: 0 4px 10px rgba(14, 38, 121, 0.3);
 }
 
 /* ===== Icon Buttons ===== */
@@ -61,6 +77,8 @@
   color: #0e2679;
   position: relative;
   transition: color 0.3s ease-in-out;
+  display: flex; /* Ensures alignment */
+  align-items: center;
 }
 
 .icon-btn:hover {
@@ -70,55 +88,241 @@
 /* ===== Notification Dot ===== */
 .notif-dot {
   position: absolute;
-  top: 4px;
-  right: 4px;
-  width: 10px;
-  height: 10px;
+  top: -2px;
+  right: -2px;
+  width: 16px; /* Slightly larger for visibility */
+  height: 16px;
+  font-size: 10px;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background-color: #fdbf00;
   border-radius: 50%;
+  font-weight: bold;
 }
 
-/* ===== Dropdowns ===== */
+/* ===== Dropdowns (Shared) ===== */
 .notif-dropdown,
 .dropdown {
   position: absolute;
   right: 0;
-  top: 120%; /* ✅ move dropdown right below the icons */
+  top: 140%; /* Moved down slightly to clear buttons */
   background: #fff;
-  border-radius: 10px;
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
-  width: 260px;
-  padding: 0.6rem;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15); /* Stronger shadow for floating effect */
+  width: 300px; /* Widened to fit messages */
+  padding: 0; /* Remove padding to flush header */
   z-index: 999;
+  overflow: hidden; /* Contains the header */
+  border: 1px solid #f0f0f0;
 }
 
-.notif-item,
+/* Profile Dropdown specific width */
+.profile-dropdown {
+  width: 220px;
+}
+
+/* ===== Notifications Specifics (Requirement 6) ===== */
+.dropdown-header {
+  background-color: #f8f9fa;
+  padding: 12px 15px;
+  font-size: 0.9rem;
+  font-weight: bold;
+  color: #0e2679;
+  border-bottom: 1px solid #eee;
+}
+
+.notif-item {
+  display: flex;
+  flex-direction: column; /* Stack Title and Message */
+  align-items: flex-start;
+  gap: 0.3rem;
+  padding: 12px 15px;
+  border-bottom: 1px solid #f5f5f5;
+  cursor: pointer;
+  transition: background 0.2s;
+  width: 100%;
+  text-align: left;
+}
+
+.notif-item:last-child {
+  border-bottom: none;
+}
+
+.notif-item:hover {
+  background-color: #f9f9f9;
+}
+
+/* Unread State */
+.notif-item.unread {
+  background-color: #fff;
+  border-left: 4px solid #fdbf00; /* Yellow indicator */
+}
+
+.notif-item.unread .notif-title {
+  font-weight: 800;
+  color: #0e2679;
+}
+
+.notif-item.unread .notif-msg {
+  color: #333;
+  font-weight: 500;
+}
+
+/* Read State */
+.notif-item.read {
+  background-color: #fff;
+  border-left: 4px solid transparent;
+}
+
+.notif-item.read .notif-title {
+  font-weight: 600;
+  color: #666;
+}
+
+.notif-item.read .notif-msg {
+  color: #999; /* Lightened text */
+  font-size: 0.85rem;
+}
+
+.notif-empty {
+  text-align: center;
+  padding: 1.5rem;
+  color: #999;
+  font-size: 0.9rem;
+}
+
+/* ===== Profile Menu Items (Requirement 7) ===== */
+.user-name {
+  padding: 15px;
+  font-weight: bold;
+  color: #0e2679;
+  border-bottom: 1px solid #eee;
+  margin: 0;
+  background-color: #fcfcfc;
+}
+
+.menu-item-btn, 
 .logout-btn {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.6rem;
-  border-radius: 8px;
+  gap: 10px;
+  padding: 12px 15px;
   cursor: pointer;
-  transition: background 0.2s ease-in-out;
+  transition: all 0.2s ease;
   color: #0e2679;
   font-weight: 600;
   background: none;
   border: none;
   width: 100%;
   text-align: left;
+  font-size: 0.95rem;
 }
 
-.notif-item:hover,
+.menu-item-btn:hover, 
 .logout-btn:hover {
   color: #fdbf00;
   background-color: #f9f9f9;
+  padding-left: 20px; /* Slide effect */
 }
 
-.notif-empty {
+.menu-icon {
+  font-size: 1.1rem;
+}
+
+/* ===== MODALS (Requirements 2 & 4) ===== */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(14, 38, 121, 0.4); /* Blue-tinted dimmer */
+  backdrop-filter: blur(3px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 10000;
+  animation: fadeIn 0.2s ease-in-out;
+}
+
+.modal-content {
+  background: white;
+  padding: 2.5rem 2rem;
+  border-radius: 20px;
+  width: 90%;
+  max-width: 420px;
   text-align: center;
-  padding: 0.5rem;
+  position: relative;
+  box-shadow: 0 15px 40px rgba(0,0,0,0.2);
+}
+
+.modal-icon-wrapper {
+  font-size: 3.5rem;
+  margin-bottom: 1rem;
+  display: inline-block;
+  padding: 15px;
+  border-radius: 50%;
+  background-color: #f8f9fa;
+}
+
+.modal-icon-wrapper.pending { color: #fdbf00; }
+.modal-icon-wrapper.reject { color: #e74c3c; }
+
+.modal-content h3 {
+  margin: 10px 0;
+  color: #0e2679;
+  font-size: 1.5rem;
+}
+
+.modal-content p {
   color: #666;
+  margin-bottom: 2rem;
+  line-height: 1.6;
+}
+
+.modal-ok-btn {
+  background-color: #0e2679;
+  color: white;
+  border: none;
+  padding: 12px 30px;
+  border-radius: 30px;
+  font-weight: 600;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: transform 0.2s;
+  box-shadow: 0 4px 12px rgba(14, 38, 121, 0.2);
+}
+
+.modal-ok-btn:hover {
+  transform: translateY(-2px);
+  background-color: #0a1b55;
+}
+
+.modal-ok-btn.reject-bg {
+  background-color: #e74c3c;
+  box-shadow: 0 4px 12px rgba(231, 76, 60, 0.3);
+}
+.modal-ok-btn.reject-bg:hover { background-color: #c0392b; }
+
+.close-modal-btn {
+  position: absolute;
+  top: 15px;
+  right: 20px;
+  background: none;
+  border: none;
+  font-size: 1.2rem;
+  color: #ccc;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.close-modal-btn:hover { color: #0e2679; }
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 /* ===== Responsive ===== */
@@ -133,11 +337,15 @@
   .nav-right {
     flex-direction: column;
     gap: 1rem;
+    width: 100%;
   }
+  
+  .provider-btn { width: 100%; }
 
   .notif-dropdown,
   .dropdown {
     right: 50%;
     transform: translateX(50%);
+    width: 90%; /* Full width on mobile */
   }
 }
