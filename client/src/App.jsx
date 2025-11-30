@@ -16,7 +16,8 @@ import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminViewProvider from "./pages/admin/AdminViewProvider";
 
 import ProtectedRoute from "./components/ProtectedRoute";
-import RequireNewApplicant from "./components/RequireNewApplicant"; // <--- IMPORT THIS
+import RequireNewApplicant from "./components/RequireNewApplicant"; 
+import RequireProviderApplication from "./components/RequireProviderApplication"; // <--- Import the new guard
 
 function App() {
   return (
@@ -29,18 +30,23 @@ function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignUpPage />} />
 
-        {/* Protected routes */}
+        {/* --- LOGGED IN USER AREA --- */}
         <Route element={<ProtectedRoute />}>
           
           <Route path="/dashboard" element={<Dashboard />} />
           
-          {/* ⭐ NESTED GUARD: Only allow if they have NO application yet */}
+          {/* ZONE A: Only accessible if you HAVE NOT applied yet */}
+          {/* If they have applied, this kicks them to /service-setup */}
           <Route element={<RequireNewApplicant />}>
              <Route path="/apply-provider" element={<ApplyProvider />} />
           </Route>
 
-          <Route path="/service-setup" element={<ServiceSetup />} />
-          <Route path="/service-listing" element={<ServiceListing />} />
+          {/* ZONE B: Only accessible if you HAVE applied */}
+          {/* If they try to skip here without applying, this kicks them back to /apply-provider */}
+          <Route element={<RequireProviderApplication />}>
+            <Route path="/service-setup" element={<ServiceSetup />} />
+            <Route path="/service-listing" element={<ServiceListing />} />
+          </Route>
           
           {/* Admin Routes */}
           <Route path="/admin-change-password" element={<AdminChangePassword />} />
