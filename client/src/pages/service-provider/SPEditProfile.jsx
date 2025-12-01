@@ -1,13 +1,10 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState } from "react";
 import { X, Upload, FileText, CheckCircle, AlertCircle, Trash2, Plus, ArrowLeft, AlertTriangle, MapPin, Clock, Users, FileCheck } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import LoggedInNavbar from "../../components/Header/LoggedInNavbar";
 import Footer from "../../components/Footer/Footer";
 import { supabase } from "../../config/supabase";
 import "./SPEditProfile.css";
-
-// ... (Keep SimpleAlertModal and FinalConfirmationModal exactly the same as before) ...
-// ... (Paste the Modals here from previous code if copy-pasting full file, otherwise they are unchanged) ...
 
 // --- 1. SIMPLE ALERT MODAL ---
 const SimpleAlertModal = ({ isOpen, onClose, title, message, type = "error" }) => {
@@ -26,7 +23,29 @@ const SimpleAlertModal = ({ isOpen, onClose, title, message, type = "error" }) =
   );
 };
 
-// --- 2. CONFIRMATION MODAL ---
+// --- 2. CONFIRMATION MODAL (DELETE/GENERIC) ---
+const GenericConfirmModal = ({ isOpen, onClose, onConfirm, title, message }) => {
+    if (!isOpen) return null;
+    return (
+        <div className="modal-overlay">
+            <div className="modal-content final-confirm-modal">
+                <div className="modal-header-center">
+                    <AlertTriangle size={48} className="modal-icon-error" />
+                    <h2>{title}</h2>
+                </div>
+                <div className="modal-body-center">
+                    <p>{message}</p>
+                </div>
+                <div className="modal-footer-center">
+                    <button className="btn-modal-cancel" onClick={onClose}>Cancel</button>
+                    <button className="btn-modal-confirm" onClick={onConfirm}>Yes, Delete</button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// --- 3. FINAL SAVE MODAL ---
 const FinalConfirmationModal = ({ isOpen, onClose, onConfirm, status, errorMessage, onNavigateManage }) => {
   if (!isOpen) return null;
 
@@ -82,6 +101,9 @@ const FinalConfirmationModal = ({ isOpen, onClose, onConfirm, status, errorMessa
         </div>
         <div className="modal-body-center">
           <p>Are you sure you want to update your business profile?</p>
+          <p className="modal-warning-text">
+             This will update your live public profile immediately.
+          </p>
         </div>
         <div className="modal-footer-center">
           <button className="btn-modal-cancel" onClick={onClose} disabled={status === 'submitting'}>
@@ -98,7 +120,6 @@ const FinalConfirmationModal = ({ isOpen, onClose, onConfirm, status, errorMessa
 
 export default function SPEditProfile() {
   const navigate = useNavigate();
-  const [step, setStep] = useState(1);
   const [loadingData, setLoadingData] = useState(true);
   const [providerId, setProviderId] = useState(null);
   
@@ -109,25 +130,33 @@ export default function SPEditProfile() {
     operatingHours: []
   });
 
+  // Files State
   const [newFiles, setNewFiles] = useState({ waiver: null, permit: null, facilities: [], payments: [] });
   const [existingFiles, setExistingFiles] = useState({ waiverUrl: null, permit: null, facilities: [], payments: [] });
 
+  // Track DELETIONS
   const [filesToDelete, setFilesToDelete] = useState([]); 
   const [deletedStaffIds, setDeletedStaffIds] = useState([]);
+  
+  // Employee State (Using tempId for React Keys)
   const [employees, setEmployees] = useState([]);
   
   const [validationErrors, setValidationErrors] = useState({});
   
+  // Modal States
+  const [step, setStep] = useState(1);
   const [showFinalModal, setShowFinalModal] = useState(false);
   const [submissionStatus, setSubmissionStatus] = useState('idle');
   const [submissionError, setSubmissionError] = useState('');
+  
   const [alertModal, setAlertModal] = useState({ isOpen: false, title: '', message: '', type: 'error' });
+  const [deleteConfirmModal, setDeleteConfirmModal] = useState({ isOpen: false, title: '', message: '', onConfirm: null });
 
   const daysOfWeekFull = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
   const daysOfWeekShort = ["S", "M", "T", "W", "T", "F", "S"];
   const positionOptions = ["Business Owner", "Pet Stylist", "Staff"];
 
-  // --- 1. FETCH DATA (Unchanged from previous logic) ---
+  // --- 1. FETCH DATA ---
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -138,14 +167,20 @@ export default function SPEditProfile() {
 
         if (provider) {
             setProviderId(provider.id);
+            
+            // Hydrate Hours (Replace logic)
             const { data: hours } = await supabase.from("service_provider_hours").select("*").eq("provider_id", provider.id);
             let groupedHours = [];
-            if (hours) {
+            if (hours && hours.length > 0) {
                 const grouped = {};
                 hours.forEach((h) => {
+                    // Group by time range to match UI
                     const key = `${h.start_time}-${h.end_time}`;
                     if (!grouped[key]) grouped[key] = { 
-                        id: h.id, tempId: Math.random().toString(), days: [], startTime: h.start_time, endTime: h.end_time
+                        tempId: Math.random().toString(), // Unique Key for UI
+                        days: [], 
+                        startTime: h.start_time, 
+                        endTime: h.end_time
                     };
                     grouped[key].days.push(h.day_of_week);
                 });
@@ -164,7 +199,7 @@ export default function SPEditProfile() {
                 province: provider.province,
                 postalCode: provider.postal_code,
                 country: provider.country,
-                operatingHours: groupedHours
+                operatingHours: groupedHours // Explicit replacement
             });
 
             setExistingFiles(prev => ({ ...prev, waiverUrl: provider.waiver_url }));
@@ -180,16 +215,33 @@ export default function SPEditProfile() {
 
             const { data: stf } = await supabase.from("service_provider_staff").select("*").eq("provider_id", provider.id);
             if (stf) {
-                setEmployees(stf.map(s => ({ id: s.id, tempId: `stf_${s.id}`, fullName: s.full_name, position: s.job_title })));
+                // Add tempId to ensure React handles them correctly
+                setEmployees(stf.map(s => ({ 
+                    id: s.id, // Database ID (for update/delete tracking)
+                    tempId: `stf_${s.id}`, // React Key
+                    fullName: s.full_name, 
+                    position: s.job_title 
+                })));
             }
         }
-      } catch (err) { console.error(err); } finally { setLoadingData(false); }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoadingData(false);
+      }
     };
     fetchData();
   }, [navigate]);
 
-  // --- HANDLERS (Same as before) ---
-  const showAlert = (title, message) => setAlertModal({ isOpen: true, title, message, type: 'error' });
+  // --- HANDLERS ---
+
+  const showAlert = (title, message) => {
+    setAlertModal({ isOpen: true, title, message, type: 'error' });
+  };
+
+  const confirmDelete = (title, message, action) => {
+      setDeleteConfirmModal({ isOpen: true, title, message, onConfirm: () => { action(); setDeleteConfirmModal({isOpen:false}); } });
+  };
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -203,47 +255,83 @@ export default function SPEditProfile() {
     }
   };
 
+  // --- HOURS LOGIC ---
   const toggleDay = (slotIndex, day) => {
     setBusinessInfo(prev => ({
         ...prev,
         operatingHours: prev.operatingHours.map((slot, i) => 
-            i === slotIndex ? { ...slot, days: slot.days.includes(day) ? slot.days.filter(d => d !== day) : [...slot.days, day] } : slot
+            i === slotIndex ? { 
+                ...slot, 
+                days: slot.days.includes(day) ? slot.days.filter(d => d !== day) : [...slot.days, day] 
+            } : slot
         )
     }));
   };
-  const addTimeSlot = () => setBusinessInfo(prev => ({ ...prev, operatingHours: [...prev.operatingHours, { tempId: Date.now(), days: [], startTime: "09:00", endTime: "17:00" }] }));
-  const removeTimeSlot = (index) => setBusinessInfo(prev => ({ ...prev, operatingHours: prev.operatingHours.filter((_, i) => i !== index) }));
-  const handleTimeChange = (index, field, val) => setBusinessInfo(prev => ({ ...prev, operatingHours: prev.operatingHours.map((s, i) => i === index ? { ...s, [field]: val } : s) }));
   
-  const handleEmpChange = (index, field, val) => setEmployees(prev => prev.map((e, i) => i === index ? { ...e, [field]: val } : e));
-  const addEmployee = () => setEmployees(prev => [...prev, { tempId: `new_${Date.now()}`, fullName: "", position: "" }]);
+  const addTimeSlot = () => {
+      setBusinessInfo(prev => ({ 
+          ...prev, 
+          operatingHours: [...prev.operatingHours, { tempId: Date.now(), days: [], startTime: "09:00", endTime: "17:00" }] 
+      }));
+  };
+  
+  const removeTimeSlot = (index) => {
+    setBusinessInfo(prev => ({ ...prev, operatingHours: prev.operatingHours.filter((_, i) => i !== index) }));
+  };
+
+  const handleTimeChange = (index, field, val) => {
+    setBusinessInfo(prev => ({ ...prev, operatingHours: prev.operatingHours.map((s, i) => i === index ? { ...s, [field]: val } : s) }));
+  };
+
+  // --- STAFF LOGIC (Fixed with tempId) ---
+  const handleEmpChange = (index, field, val) => {
+    setEmployees(prev => prev.map((e, i) => i === index ? { ...e, [field]: val } : e));
+  };
+
+  const addEmployee = () => {
+    setEmployees(prev => [...prev, { tempId: `new_${Date.now()}`, fullName: "", position: "" }]);
+  };
+
   const removeEmployee = (index) => {
     const emp = employees[index];
-    if (emp.id) setDeletedStaffIds(prev => [...prev, emp.id]);
+    if (emp.id) {
+        // If it has a DB ID, track it for deletion
+        setDeletedStaffIds(prev => [...prev, emp.id]);
+    }
     setEmployees(prev => prev.filter((_, i) => i !== index));
   };
 
+  // --- FILE LOGIC ---
   const handleFileSelect = (field, e, maxMB) => {
     if (e.target.files[0]) {
-        if (e.target.files[0].size > maxMB * 1024 * 1024) return showAlert("File Too Large", `Max size ${maxMB}MB`);
+        if (e.target.files[0].size > maxMB * 1024 * 1024) {
+            return showAlert("File Too Large", `Max size ${maxMB}MB`);
+        }
         setNewFiles(prev => ({ ...prev, [field]: e.target.files[0] }));
     }
   };
 
   const handleMultiFileSelect = (field, e, maxMB) => {
     if (e.target.files) {
-        const files = Array.from(e.target.files).filter(f => f.size <= maxMB * 1024 * 1024);
-        setNewFiles(prev => ({ ...prev, [field]: [...prev[field], ...files] }));
+        const files = Array.from(e.target.files);
+        const validFiles = files.filter(f => f.size <= maxMB * 1024 * 1024);
+        if(validFiles.length !== files.length) {
+            showAlert("Files Skipped", `Some files exceeded the ${maxMB}MB limit and were skipped.`);
+        }
+        setNewFiles(prev => ({ ...prev, [field]: [...prev[field], ...validFiles] }));
     }
   };
 
   const markExistingDelete = (type, id, url) => {
-    if(!window.confirm("Delete this file? It will be removed on save.")) return;
-    setFilesToDelete(prev => [...prev, { type, id, url }]);
-    if (type === 'waiver') setExistingFiles(prev => ({ ...prev, waiverUrl: null }));
-    if (type === 'permit') setExistingFiles(prev => ({ ...prev, permit: null }));
-    if (type === 'image') setExistingFiles(prev => ({ ...prev, facilities: prev.facilities.filter(f => f.id !== id) }));
-    if (type === 'payment') setExistingFiles(prev => ({ ...prev, payments: prev.payments.filter(f => f.id !== id) }));
+    confirmDelete("Delete File", "Are you sure you want to delete this file? It will be removed when you save.", () => {
+        setFilesToDelete(prev => [...prev, { type, id, url }]);
+
+        // Update UI Immediately so user sees it gone
+        if (type === 'waiver') setExistingFiles(prev => ({ ...prev, waiverUrl: null }));
+        if (type === 'permit') setExistingFiles(prev => ({ ...prev, permit: null }));
+        if (type === 'image') setExistingFiles(prev => ({ ...prev, facilities: prev.facilities.filter(f => f.id !== id) }));
+        if (type === 'payment') setExistingFiles(prev => ({ ...prev, payments: prev.payments.filter(f => f.id !== id) }));
+    });
   };
 
   const removeNewFile = (field, index) => {
@@ -251,6 +339,7 @@ export default function SPEditProfile() {
       else setNewFiles(prev => ({...prev, [field]: prev[field].filter((_, i) => i !== index)}));
   };
 
+  // --- VALIDATION ---
   const validate = () => {
     const errs = {};
     if (!businessInfo.businessName.trim()) errs.businessName = "Required";
@@ -280,6 +369,7 @@ export default function SPEditProfile() {
     else { window.scrollTo({ top: 0, behavior: 'smooth' }); }
   };
 
+  // --- SAVE LOGIC ---
   const uploadFile = async (userId, folder, file) => {
     const path = `${userId}/${folder}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.]/g, "_")}`;
     const { error } = await supabase.storage.from("service_provider_uploads").upload(path, file);
@@ -296,6 +386,7 @@ export default function SPEditProfile() {
     try {
         const { data: { user } } = await supabase.auth.getUser();
 
+        // 1. Process DELETIONS (Files & Records)
         for (const del of filesToDelete) {
             const path = getFilePath(del.url);
             if (path) await supabase.storage.from("service_provider_uploads").remove([path]);
@@ -305,8 +396,11 @@ export default function SPEditProfile() {
         }
 
         if (deletedStaffIds.length > 0) await supabase.from("service_provider_staff").delete().in("id", deletedStaffIds);
+        
+        // Delete ALL hours for this provider and re-insert active ones
         await supabase.from("service_provider_hours").delete().eq("provider_id", providerId);
 
+        // 2. Upload NEW Files
         const newWaiverUrl = newFiles.waiver ? await uploadFile(user.id, "waivers", newFiles.waiver) : null;
         const newPermitUrl = newFiles.permit ? await uploadFile(user.id, "permits", newFiles.permit) : null;
         
@@ -315,6 +409,7 @@ export default function SPEditProfile() {
         const newPayUrls = [];
         for (const f of newFiles.payments) newPayUrls.push(await uploadFile(user.id, "payments", f));
 
+        // 3. Update PARENT Provider
         const providerUpdates = {
             business_name: businessInfo.businessName,
             business_email: businessInfo.businessEmail,
@@ -332,6 +427,7 @@ export default function SPEditProfile() {
 
         await supabase.from("service_providers").update(providerUpdates).eq("id", providerId);
 
+        // 4. Insert/Update CHILDREN
         if (newPermitUrl) {
             await supabase.from("service_provider_permits").delete().eq("provider_id", providerId);
             await supabase.from("service_provider_permits").insert({ provider_id: providerId, permit_type: "Business Permit", file_url: newPermitUrl });
@@ -357,6 +453,7 @@ export default function SPEditProfile() {
         }
         return { success: true };
     } catch (err) {
+        console.error("Save Error:", err);
         return { success: false, message: err.message };
     }
   };
@@ -387,15 +484,16 @@ export default function SPEditProfile() {
             </div>
 
             <form className="edit-form" onSubmit={(e) => e.preventDefault()}>
-                {/* Form content same as before, omitted for brevity since logic is identical to previous correct version */}
+                {/* ... Form content remains same structure ... */}
+                
                 <div className="form-section">
                     <h3>Basic Information</h3>
                     <div className="form-grid-2">
                         <div className="form-group"><label>Business Name</label><input name="businessName" value={businessInfo.businessName} onChange={handleInputChange} className={validationErrors.businessName ? 'error-input' : ''}/></div>
-                        <div className="form-group"><label>Service Type</label><input value={businessInfo.typeOfService} disabled className="input-disabled"/></div>
+                        <div className="form-group"><label>Service Type (Read-Only)</label><input value={businessInfo.typeOfService} disabled className="input-disabled"/></div>
                         <div className="form-group"><label>Email</label><input name="businessEmail" value={businessInfo.businessEmail} onChange={handleInputChange}/></div>
                         <div className="form-group"><label>Mobile</label><input name="businessMobile" value={businessInfo.businessMobile} onChange={handleInputChange}/></div>
-                        <div className="form-group full-width"><label>Social Media</label><input name="socialMediaUrl" value={businessInfo.socialMediaUrl} onChange={handleInputChange}/></div>
+                        <div className="form-group full-width"><label>Social Media URL</label><input name="socialMediaUrl" value={businessInfo.socialMediaUrl} onChange={handleInputChange}/></div>
                     </div>
                 </div>
 
@@ -435,6 +533,7 @@ export default function SPEditProfile() {
                         <div key={emp.tempId} className="emp-row">
                             <input placeholder="Full Name" value={emp.fullName} onChange={(e) => handleEmpChange(i, 'fullName', e.target.value)}/>
                             <select value={emp.position} onChange={(e) => handleEmpChange(i, 'position', e.target.value)}>
+                                <option value="">Select...</option>
                                 {positionOptions.map(o => <option key={o} value={o}>{o}</option>)}
                             </select>
                             <button className="btn-remove-slot" onClick={() => removeEmployee(i)}><Trash2 size={16}/></button>
@@ -463,6 +562,7 @@ export default function SPEditProfile() {
             </form>
 
             <SimpleAlertModal isOpen={alertModal.isOpen} onClose={() => setAlertModal({...alertModal, isOpen: false})} title={alertModal.title} message={alertModal.message} type={alertModal.type}/>
+            <GenericConfirmModal isOpen={deleteConfirmModal.isOpen} onClose={() => setDeleteConfirmModal({...deleteConfirmModal, isOpen: false})} onConfirm={deleteConfirmModal.onConfirm} title={deleteConfirmModal.title} message={deleteConfirmModal.message}/>
             
             <FinalConfirmationModal 
                 isOpen={showFinalModal} 
