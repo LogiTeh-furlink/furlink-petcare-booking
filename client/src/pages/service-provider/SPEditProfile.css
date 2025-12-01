@@ -1,0 +1,74 @@
+.sp-edit-profile-container {
+  max-width: 900px; margin: 0 auto; padding: 40px 20px; background-color: #f8f9fa; min-height: 80vh;
+}
+
+.header-row { position: relative; text-align: center; margin-bottom: 30px; }
+.header-row h1 { color: #1e3a8a; font-size: 2rem; margin: 0; }
+.back-link { position: absolute; left: 0; top: 50%; transform: translateY(-50%); background: none; border: none; color: #6b7280; cursor: pointer; display: flex; align-items: center; gap: 5px; font-size: 1rem; }
+
+.edit-form { display: flex; flex-direction: column; gap: 25px; }
+.form-section { background: white; padding: 25px; border-radius: 12px; border: 1px solid #e5e7eb; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+.form-section h3 { margin-top: 0; margin-bottom: 20px; color: #1f2937; border-bottom: 1px solid #f3f4f6; padding-bottom: 10px; font-size: 1.2rem; }
+
+.form-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.form-group { display: flex; flex-direction: column; gap: 5px; margin-bottom: 15px; }
+.form-group.full-width { grid-column: 1 / -1; }
+.form-group label { font-size: 0.9rem; font-weight: 600; color: #4b5563; }
+.form-group input, select { padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 1rem; }
+.input-disabled { background-color: #f3f4f6; color: #9ca3af; cursor: not-allowed; }
+.error-input { border-color: #dc2626; background-color: #fef2f2; }
+
+/* Time Slots */
+.time-slot-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; background: #f9fafb; padding: 10px; border-radius: 8px; }
+.days-selector { display: flex; gap: 4px; flex-wrap: wrap; }
+.day-pill { padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 4px; background: white; cursor: pointer; font-size: 0.75rem; transition: all 0.2s; font-weight: 600; }
+.day-pill.active { background: #1e40af; color: white; border-color: #1e40af; }
+.btn-remove-slot { background: white; color: #ef4444; border: 1px solid #fecaca; padding: 8px; border-radius: 6px; cursor: pointer; margin-left: auto; }
+
+/* Employees */
+.emp-row { display: grid; grid-template-columns: 1fr 1fr 40px; gap: 10px; margin-bottom: 10px; }
+.btn-add-small { padding: 8px 12px; background: #eff6ff; color: #1e40af; border: 1px dashed #1e40af; border-radius: 6px; cursor: pointer; font-weight: 600; display: inline-flex; align-items: center; gap: 5px; margin-top: 10px; font-size: 0.9rem; }
+
+/* Files */
+.existing-files-list { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; }
+.file-chip.existing { background: #f3f4f6; border: 1px solid #d1d5db; padding: 6px 12px; border-radius: 20px; display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: #374151; }
+.file-chip.new { background: #ecfdf5; border: 1px solid #6ee7b7; color: #047857; padding: 4px 10px; border-radius: 4px; font-size: 0.8rem; margin-right: 5px; display: inline-flex; align-items: center; gap: 5px; }
+.del-x { cursor: pointer; color: #9ca3af; transition: color 0.2s; }
+.del-x:hover { color: #dc2626; }
+.new-files-preview { margin-top: 8px; }
+
+/* Footer */
+.action-footer { text-align: center; margin-top: 30px; display: flex; justify-content: center; gap: 20px; }
+.btn-update-review, .btn-final-submit { padding: 14px 40px; background: #10b981; color: white; border: none; border-radius: 8px; font-size: 1.1rem; font-weight: 600; cursor: pointer; box-shadow: 0 4px 10px rgba(16, 185, 129, 0.2); display: flex; align-items: center; gap: 8px; }
+.btn-update-review:hover, .btn-final-submit:hover { background: #059669; }
+.btn-back-edit { padding: 14px 30px; background: white; border: 1px solid #d1d5db; color: #374151; border-radius: 8px; font-weight: 600; cursor: pointer; }
+
+/* REVIEW PAGE STYLES */
+.review-card-container { display: flex; flex-direction: column; gap: 20px; }
+.review-section { background: white; border-radius: 12px; border: 1px solid #e5e7eb; padding: 25px; }
+.review-section h2 { font-size: 1.1rem; color: #1e3a8a; border-bottom: 1px solid #f3f4f6; padding-bottom: 10px; margin-top: 0; margin-bottom: 20px; display: flex; align-items: center; gap: 8px; }
+
+.review-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.review-item.full { grid-column: 1 / -1; }
+.review-item label { display: block; font-size: 0.85rem; font-weight: 700; color: #9ca3af; text-transform: uppercase; margin-bottom: 5px; }
+.review-item p { margin: 0; color: #374151; font-size: 1rem; }
+
+.review-hours-list, .review-staff-list, .review-files-status { display: flex; flex-direction: column; gap: 10px; }
+.review-hour-row { display: flex; justify-content: space-between; border-bottom: 1px dashed #e5e7eb; padding-bottom: 5px; }
+.review-staff-chip { background: #f9fafb; padding: 8px 12px; border-radius: 6px; border: 1px solid #eee; display: flex; justify-content: space-between; }
+.file-status-row { display: flex; align-items: center; gap: 10px; font-size: 0.9rem; font-weight: 500; }
+.file-status-row.delete { color: #ef4444; }
+.file-status-row.add { color: #10b981; }
+.file-status-row.no-change { color: #9ca3af; font-style: italic; }
+
+/* Modal overrides */
+.error-box { background: #fef2f2; border: 1px dashed #ef4444; color: #b91c1c; padding: 10px; border-radius: 6px; font-size: 0.9rem; margin-top: 10px; }
+.modal-warning-text { background: #fffbeb; color: #b45309; padding: 10px; border-radius: 6px; font-size: 0.9rem; margin-top: 15px; text-align: left; }
+.btn-modal-dashboard { padding: 10px 20px; background: #10b981; color: white; border: none; border-radius: 6px; cursor: pointer; }
+
+@media (max-width: 768px) {
+    .form-grid-2 { grid-template-columns: 1fr; }
+    .emp-row { grid-template-columns: 1fr; gap: 5px; border: 1px solid #eee; padding: 10px; border-radius: 8px; }
+    .btn-remove-slot { width: 100%; margin-top: 5px; }
+    .review-grid { grid-template-columns: 1fr; }
+}

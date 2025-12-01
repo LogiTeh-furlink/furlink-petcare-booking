@@ -17,6 +17,7 @@ import ServiceListing from "./pages/pet-owner/ServiceListing";
 import SPDashboard from "./pages/service-provider/SPDashboard";
 import SPManageListing from "./pages/service-provider/SPManageListing";
 import SPEditListing from "./pages/service-provider/SPEditListing"; // <--- IMPORTED
+import SPEditProfile from "./pages/service-provider/SPEditProfile"; 
 
 // Admin Pages
 import AdminChangePassword from "./pages/admin/AdminChangePassword";
@@ -71,6 +72,7 @@ function App() {
             {/* Listing Management */}
             <Route path="/service/manage-listing" element={<SPManageListing />} />
             <Route path="/service/edit-listing" element={<SPEditListing />} /> {/* <--- ADDED ROUTE */}
+            <Route path="/service/edit-profile" element={<SPEditProfile />} />
             
           </Route>
 
