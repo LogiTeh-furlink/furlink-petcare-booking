@@ -2,11 +2,14 @@
 import React, { useEffect, useState } from "react";
 import { supabase } from "../../config/supabase";
 import { Heart, Store } from "lucide-react";
+import { useNavigate } from "react-router-dom";   // ⭐ Added
 import Header from "../../components/Header/LoggedInNavbar";
 import Footer from "../../components/Footer/Footer";
 import "./Dashboard.css";
 
 const Dashboard = () => {
+  const navigate = useNavigate(); // ⭐ Added
+
   const [profile, setProfile] = useState(null);
   const [providers, setProviders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -36,36 +39,28 @@ const Dashboard = () => {
         .order("created_at", { ascending: false });
 
       if (!error && data) {
-        // For each provider, get the minimum price and one image
         const providersWithDetails = await Promise.all(
           data.map(async (provider) => {
-            // Get prices
             const { data: services } = await supabase
               .from("services")
-              .select(`
-                service_options (
-                  price
-                )
-              `)
+              .select(`service_options (price)`)
               .eq("provider_id", provider.id);
 
-            // Extract all prices
             let minPrice = null;
             let maxPrice = null;
-            
+
             if (services && services.length > 0) {
               const prices = services
-                .flatMap(s => s.service_options || [])
-                .map(opt => parseFloat(opt.price))
-                .filter(p => !isNaN(p));
-              
+                .flatMap((s) => s.service_options || [])
+                .map((opt) => parseFloat(opt.price))
+                .filter((p) => !isNaN(p));
+
               if (prices.length > 0) {
                 minPrice = Math.min(...prices);
                 maxPrice = Math.max(...prices);
               }
             }
 
-            // Get one image
             const { data: images } = await supabase
               .from("service_provider_images")
               .select("image_url")
@@ -74,8 +69,12 @@ const Dashboard = () => {
 
             return {
               ...provider,
-              priceRange: minPrice && maxPrice ? `₱${minPrice} - ₱${maxPrice}` : "Price not available",
-              imageUrl: images && images.length > 0 ? images[0].image_url : null
+              priceRange:
+                minPrice && maxPrice
+                  ? `₱${minPrice} - ₱${maxPrice}`
+                  : "Price not available",
+              imageUrl:
+                images && images.length > 0 ? images[0].image_url : null,
             };
           })
         );
@@ -112,14 +111,22 @@ const Dashboard = () => {
       <main className="dashboard-container">
         <div className="dashboard-content">
           <h1 className="dashboard-title">Explore Pet Grooming shops</h1>
-          
+
           <div className="providers-grid">
             {providers.map((provider) => (
-              <div key={provider.id} className="provider-card">
+              
+              // ⭐ Added clickable card
+              <div
+                key={provider.id}
+                className="provider-card"
+                onClick={() => navigate(`/listing/${provider.id}`)}
+                style={{ cursor: "pointer" }}
+              >
+
                 <div className="provider-image-container">
                   {provider.imageUrl ? (
-                    <img 
-                      src={provider.imageUrl} 
+                    <img
+                      src={provider.imageUrl}
                       alt={provider.business_name}
                       className="provider-image"
                     />
@@ -129,22 +136,27 @@ const Dashboard = () => {
                     </div>
                   )}
                 </div>
-                
+
                 <div className="provider-info">
                   <div className="provider-header">
                     <h3 className="provider-name">{provider.business_name}</h3>
-                    <button className="favorite-btn" aria-label="Add to favorites">
+                    <button
+                      className="favorite-btn"
+                      aria-label="Add to favorites"
+                      onClick={(e) => e.stopPropagation()}
+                    >
                       <Heart size={20} />
                     </button>
                   </div>
-                  
+
                   <p className="provider-location">{provider.city}</p>
                   <p className="provider-price">{provider.priceRange}</p>
-                  
+
                   <div className="provider-rating">
                     <span className="rating-value">0.0</span>
                   </div>
                 </div>
+
               </div>
             ))}
           </div>

@@ -12,11 +12,12 @@ import Dashboard from "./pages/pet-owner/Dashboard";
 import ApplyProvider from "./pages/pet-owner/ApplyProvider";
 import ServiceSetup from "./pages/pet-owner/ServiceSetup";
 import ServiceListing from "./pages/pet-owner/ServiceListing";
+import ListingInfo from "./pages/pet-owner/ListingInfo"; // <--- ADDED IMPORT
 
 // Service Provider Pages
 import SPDashboard from "./pages/service-provider/SPDashboard";
 import SPManageListing from "./pages/service-provider/SPManageListing";
-import SPEditListing from "./pages/service-provider/SPEditListing"; // <--- IMPORTED
+import SPEditListing from "./pages/service-provider/SPEditListing";
 import SPEditProfile from "./pages/service-provider/SPEditProfile"; 
 
 // Admin Pages
@@ -49,6 +50,7 @@ function App() {
           
           {/* --- 1. PET OWNER SIDE --- */}
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/listing/:id" element={<ListingInfo />} /> {/* <--- ADDED ROUTE */}
           
           
           {/* --- 2. SERVICE PROVIDER SIDE --- */}
@@ -71,7 +73,7 @@ function App() {
             
             {/* Listing Management */}
             <Route path="/service/manage-listing" element={<SPManageListing />} />
-            <Route path="/service/edit-listing" element={<SPEditListing />} /> {/* <--- ADDED ROUTE */}
+            <Route path="/service/edit-listing" element={<SPEditListing />} />
             <Route path="/service/edit-profile" element={<SPEditProfile />} />
             
           </Route>
