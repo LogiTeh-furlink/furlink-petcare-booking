@@ -12,7 +12,6 @@ const FilePreviewModal = ({ isOpen, onClose, fileUrl, fileType }) => {
 
   const isImage = fileType === 'image' || fileUrl.match(/\.(jpeg|jpg|gif|png)$/) != null;
   const isPdf = fileType === 'pdf' || fileUrl.match(/\.pdf$/) != null;
-  // For docs, we use Google Docs Viewer
   const isDoc = !isImage && !isPdf; 
 
   return (
@@ -178,7 +177,7 @@ export default function SPManageListing() {
                 <p>{provider.country}</p>
             </div>
 
-            {/* Operating Hours (Improved Look) */}
+            {/* Operating Hours */}
             <div className="info-group wide-group">
                 <label>Operating Hours</label>
                 {hours.length > 0 ? (
@@ -208,7 +207,7 @@ export default function SPManageListing() {
                 ) : <p className="text-muted">No hours set.</p>}
             </div>
 
-            {/* Staff (Improved Look) */}
+            {/* Staff */}
             <div className="info-group wide-group">
                 <label>Employees</label>
                 {staff.length > 0 ? (
@@ -247,15 +246,25 @@ export default function SPManageListing() {
                         <FileText size={16} /> Waiver Form
                     </div>
                 )}
-                {/* Payments */}
-                {files.payments.map(f => (
-                    <div key={f.id} className="file-chip payment" onClick={() => handlePreview(f.file_url, 'image')}>
-                        <ExternalLink size={16} /> Payment QR
-                    </div>
-                ))}
+                {/* Removed Payment from here to move it to image gallery below */}
             </div>
 
-            {/* Image Gallery */}
+            {/* Payment QR Gallery - Moved here to show as images */}
+            {files.payments.length > 0 && (
+                <div className="image-gallery" style={{ marginTop: '20px' }}>
+                    <label className="sub-label">Payment QR Codes</label>
+                    <div className="gallery-row">
+                        {files.payments.map(img => (
+                            <div key={img.id} className="gallery-item" onClick={() => handlePreview(img.file_url, 'image')}>
+                                <img src={img.file_url} alt="Payment QR" />
+                                <div className="gallery-overlay"><ExternalLink size={16}/></div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* Facility Images Gallery */}
             {files.images.length > 0 && (
                 <div className="image-gallery">
                     <label className="sub-label">Facility Images</label>
@@ -299,16 +308,32 @@ export default function SPManageListing() {
                             {service.type === 'package' ? 'Package' : 'Individual'}
                         </span>
                     </div>
-                    <p className="service-desc"><strong>Description:</strong> {service.description || "N/A"}</p>
-                    {service.notes && <p className="service-note"><strong>Note:</strong> {service.notes}</p>}
+                    
+                    <p className="service-desc">
+                        <strong>Description:</strong> {service.description || "N/A"}
+                    </p>
+                    {service.notes && (
+                        <p className="service-note">
+                            <strong>Note:</strong> {service.notes}
+                        </p>
+                    )}
                     
                     <div className="pricing-wrapper">
                         <table className="mini-pricing-table">
-                        <thead><tr><th>Pet Type</th><th>Size</th><th>Weight</th><th>Price</th></tr></thead>
+                        <thead>
+                            <tr>
+                                <th>Pet Type</th>
+                                <th>Size</th>
+                                <th>Weight</th>
+                                <th>Price</th>
+                            </tr>
+                        </thead>
                         <tbody>
                             {service.service_options?.map(opt => (
                             <tr key={opt.id}>
-                                <td style={{textTransform: 'capitalize'}}>{opt.pet_type === 'dog-cat' ? 'Dog & Cat' : opt.pet_type}</td>
+                                <td style={{textTransform: 'capitalize'}}>
+                                    {opt.pet_type === 'dog-cat' ? 'Dog & Cat' : opt.pet_type}
+                                </td>
                                 <td>{opt.size.replace('_', ' ')}</td>
                                 <td>{opt.weight_range || 'N/A'}</td>
                                 <td className="price-col">₱{opt.price}</td>
