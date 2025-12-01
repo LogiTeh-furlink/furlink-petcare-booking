@@ -23,6 +23,8 @@ const ListingInfo = () => {
 
   const fetchAllData = async () => {
     try {
+      setLoading(true);
+
       // Fetch provider
       const { data: providerData, error: providerError } = await supabase
         .from("service_providers")
@@ -38,42 +40,16 @@ const ListingInfo = () => {
         setProvider(providerData);
       }
 
-      // Fetch services with their options
+      // Fetch services - Using the exact same pattern as SPManageListing
       const { data: servicesData, error: servicesError } = await supabase
         .from("services")
-        .select(`
-          *,
-          service_options (
-            id,
-            pet_type,
-            size,
-            weight_range,
-            price
-          )
-        `)
+        .select(`*, service_options (*)`)
         .eq("provider_id", id);
 
       console.log("Services Data:", servicesData);
       console.log("Services Error:", servicesError);
       
-      if (servicesData) {
-        // Sort service options by pet type and size
-        const sortedServices = servicesData.map(service => ({
-          ...service,
-          service_options: service.service_options?.sort((a, b) => {
-            // First sort by pet type
-            if (a.pet_type !== b.pet_type) {
-              return a.pet_type === "Dog" ? -1 : 1;
-            }
-            // Then sort by size
-            const sizeOrder = { "Small": 1, "Medium": 2, "Large": 3, "Extra Large": 4 };
-            return (sizeOrder[a.size] || 0) - (sizeOrder[b.size] || 0);
-          }) || []
-        }));
-        setServices(sortedServices);
-      } else {
-        setServices([]);
-      }
+      setServices(servicesData || []);
 
       // Fetch hours
       const { data: hoursData } = await supabase
@@ -240,109 +216,102 @@ const ListingInfo = () => {
               <h2 className="section-title">Service Prices</h2>
               
               {services.length > 0 ? (
-                services.map((service) => {
-                  const hasDogs = service.service_options?.some(opt => opt.pet_type === "Dog");
-                  const hasCats = service.service_options?.some(opt => opt.pet_type === "Cat");
-                  
-                  return (
-                    <div key={service.id} className="service-section">
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                        <h3 className="service-name">{service.name}</h3>
-                        {service.type && (
-                          <span style={{ 
-                            backgroundColor: '#dbeafe', 
-                            color: '#1e40af', 
-                            padding: '0.25rem 0.75rem', 
-                            borderRadius: '9999px',
-                            fontSize: '0.875rem',
-                            fontWeight: '500',
-                            textTransform: 'uppercase'
-                          }}>
-                            {service.type}
-                          </span>
-                        )}
-                      </div>
-                      
-                      {service.description && (
-                        <p className="service-description">
-                          <strong>Description:</strong> {service.description}
-                        </p>
-                      )}
-                      
-                      {service.notes && (
-                        <p style={{ color: '#6b7280', fontSize: '0.875rem', marginTop: '0.5rem' }}>
-                          <strong>Note:</strong> {service.notes}
-                        </p>
-                      )}
-                      
-                      {service.service_options && service.service_options.length > 0 ? (
-                        <div className="pricing-tables">
-                          {/* Dogs Table */}
-                          {hasDogs && (
-                            <div className="pricing-table">
-                              <h4>Dogs</h4>
-                              <table>
-                                <thead>
-                                  <tr>
-                                    <th>Size</th>
-                                    <th>Weight</th>
-                                    <th>Price</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {service.service_options
-                                    .filter(opt => opt.pet_type === "Dog")
-                                    .map((option) => (
-                                      <tr key={option.id}>
-                                        <td>{option.size}</td>
-                                        <td>{option.weight_range || 'N/A'}</td>
-                                        <td style={{ fontWeight: '600', color: '#059669' }}>
-                                          ₱{parseFloat(option.price).toFixed(2)}
-                                        </td>
-                                      </tr>
-                                    ))}
-                                </tbody>
-                              </table>
-                            </div>
-                          )}
-
-                          {/* Cats Table */}
-                          {hasCats && (
-                            <div className="pricing-table">
-                              <h4>Cats</h4>
-                              <table>
-                                <thead>
-                                  <tr>
-                                    <th>Size</th>
-                                    <th>Weight</th>
-                                    <th>Price</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {service.service_options
-                                    .filter(opt => opt.pet_type === "Cat")
-                                    .map((option) => (
-                                      <tr key={option.id}>
-                                        <td>{option.size}</td>
-                                        <td>{option.weight_range || 'N/A'}</td>
-                                        <td style={{ fontWeight: '600', color: '#059669' }}>
-                                          ₱{parseFloat(option.price).toFixed(2)}
-                                        </td>
-                                      </tr>
-                                    ))}
-                                </tbody>
-                              </table>
-                            </div>
-                          )}
-                        </div>
-                      ) : (
-                        <p style={{ color: '#6b7280', marginTop: '1rem', fontStyle: 'italic' }}>
-                          No pricing options available for this service.
-                        </p>
+                services.map((service) => (
+                  <div key={service.id} className="service-section">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                      <h3 className="service-name">{service.name}</h3>
+                      {service.type && (
+                        <span style={{ 
+                          backgroundColor: service.type === 'package' ? '#dbeafe' : '#e0e7ff', 
+                          color: service.type === 'package' ? '#1e40af' : '#4338ca', 
+                          padding: '0.25rem 0.75rem', 
+                          borderRadius: '9999px',
+                          fontSize: '0.875rem',
+                          fontWeight: '500',
+                          textTransform: 'capitalize'
+                        }}>
+                          {service.type}
+                        </span>
                       )}
                     </div>
-                  );
-                })
+                    
+                    {service.description && (
+                      <p className="service-description">
+                        <strong>Description:</strong> {service.description}
+                      </p>
+                    )}
+                    
+                    {service.notes && (
+                      <p style={{ color: '#6b7280', fontSize: '0.875rem', marginTop: '0.5rem' }}>
+                        <strong>Note:</strong> {service.notes}
+                      </p>
+                    )}
+                    
+                    {/* Pricing Table - Similar to SPManageListing */}
+                    {service.service_options && service.service_options.length > 0 ? (
+                      <div className="pricing-wrapper" style={{ marginTop: '1rem' }}>
+                        <table style={{ 
+                          width: '100%', 
+                          borderCollapse: 'collapse',
+                          backgroundColor: 'white',
+                          borderRadius: '8px',
+                          overflow: 'hidden',
+                          boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+                        }}>
+                          <thead>
+                            <tr style={{ backgroundColor: '#f3f4f6' }}>
+                              <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600', fontSize: '0.875rem' }}>Pet Type</th>
+                              <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600', fontSize: '0.875rem' }}>Size</th>
+                              <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600', fontSize: '0.875rem' }}>Weight</th>
+                              <th style={{ padding: '12px', textAlign: 'right', fontWeight: '600', fontSize: '0.875rem' }}>Price</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {service.service_options.map((opt, index) => (
+                              <tr key={opt.id} style={{ 
+                                borderTop: index > 0 ? '1px solid #e5e7eb' : 'none'
+                              }}>
+                                <td style={{ 
+                                  padding: '12px', 
+                                  textTransform: 'capitalize',
+                                  fontSize: '0.875rem'
+                                }}>
+                                  {opt.pet_type === 'dog-cat' ? 'Dog & Cat' : opt.pet_type}
+                                </td>
+                                <td style={{ 
+                                  padding: '12px',
+                                  fontSize: '0.875rem'
+                                }}>
+                                  {opt.size ? opt.size.replace('_', ' ') : 'N/A'}
+                                </td>
+                                <td style={{ 
+                                  padding: '12px',
+                                  fontSize: '0.875rem',
+                                  color: '#6b7280'
+                                }}>
+                                  {opt.weight_range || 'N/A'}
+                                </td>
+                                <td style={{ 
+                                  padding: '12px', 
+                                  textAlign: 'right',
+                                  fontWeight: '600',
+                                  color: '#059669',
+                                  fontSize: '0.875rem'
+                                }}>
+                                  ₱{parseFloat(opt.price).toFixed(2)}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <p style={{ color: '#6b7280', marginTop: '1rem', fontStyle: 'italic' }}>
+                        No pricing options available for this service.
+                      </p>
+                    )}
+                  </div>
+                ))
               ) : (
                 <p style={{ color: '#6b7280', fontStyle: 'italic' }}>No services available.</p>
               )}
