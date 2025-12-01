@@ -36,9 +36,10 @@ const Dashboard = () => {
         .order("created_at", { ascending: false });
 
       if (!error && data) {
-        // For each provider, get the minimum price from their services
-        const providersWithPrices = await Promise.all(
+        // For each provider, get the minimum price and one image
+        const providersWithDetails = await Promise.all(
           data.map(async (provider) => {
+            // Get prices
             const { data: services } = await supabase
               .from("services")
               .select(`
@@ -64,14 +65,22 @@ const Dashboard = () => {
               }
             }
 
+            // Get one image
+            const { data: images } = await supabase
+              .from("service_provider_images")
+              .select("image_url")
+              .eq("provider_id", provider.id)
+              .limit(1);
+
             return {
               ...provider,
-              priceRange: minPrice && maxPrice ? `₱${minPrice} - ₱${maxPrice}` : "Price not available"
+              priceRange: minPrice && maxPrice ? `₱${minPrice} - ₱${maxPrice}` : "Price not available",
+              imageUrl: images && images.length > 0 ? images[0].image_url : null
             };
           })
         );
 
-        setProviders(providersWithPrices);
+        setProviders(providersWithDetails);
       }
     };
 
@@ -107,8 +116,18 @@ const Dashboard = () => {
           <div className="providers-grid">
             {providers.map((provider) => (
               <div key={provider.id} className="provider-card">
-                <div className="provider-image-placeholder">
-                  <Store size={48} strokeWidth={1.5} color="#9ca3af" />
+                <div className="provider-image-container">
+                  {provider.imageUrl ? (
+                    <img 
+                      src={provider.imageUrl} 
+                      alt={provider.business_name}
+                      className="provider-image"
+                    />
+                  ) : (
+                    <div className="provider-image-placeholder">
+                      <Store size={48} strokeWidth={1.5} color="#9ca3af" />
+                    </div>
+                  )}
                 </div>
                 
                 <div className="provider-info">
