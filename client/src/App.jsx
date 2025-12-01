@@ -13,9 +13,10 @@ import ApplyProvider from "./pages/pet-owner/ApplyProvider";
 import ServiceSetup from "./pages/pet-owner/ServiceSetup";
 import ServiceListing from "./pages/pet-owner/ServiceListing";
 
-// Service Provider Pages (New)
+// Service Provider Pages
 import SPDashboard from "./pages/service-provider/SPDashboard";
 import SPManageListing from "./pages/service-provider/SPManageListing";
+import SPEditListing from "./pages/service-provider/SPEditListing"; // <--- IMPORTED
 
 // Admin Pages
 import AdminChangePassword from "./pages/admin/AdminChangePassword";
@@ -65,10 +66,11 @@ function App() {
             
             {/* Operational Dashboard (Main Business Hub) */}
             <Route path="/service/dashboard" element={<SPDashboard />} />
-            <Route path="/service/dashboard/:id" element={<SPDashboard />} /> {/* Optional direct link support */}
+            <Route path="/service/dashboard/:id" element={<SPDashboard />} />
             
             {/* Listing Management */}
             <Route path="/service/manage-listing" element={<SPManageListing />} />
+            <Route path="/service/edit-listing" element={<SPEditListing />} /> {/* <--- ADDED ROUTE */}
             
           </Route>
 

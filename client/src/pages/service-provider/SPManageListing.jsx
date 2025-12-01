@@ -8,7 +8,6 @@ import "./SPManageListing.css";
 
 export default function SPManageListing() {
   const navigate = useNavigate();
-  const [provider, setProvider] = useState(null);
   const [services, setServices] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -18,16 +17,14 @@ export default function SPManageListing() {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
 
-        // 1. Get Provider Info
+        // 1. Get Provider ID first
         const { data: providerData } = await supabase
           .from("service_providers")
-          .select("*")
+          .select("id")
           .eq("user_id", user.id)
           .single();
 
         if (providerData) {
-          setProvider(providerData);
-
           // 2. Get Services & Options
           const { data: serviceData } = await supabase
             .from("services")
@@ -52,82 +49,74 @@ export default function SPManageListing() {
       <LoggedInNavbar />
       <div className="sp-manage-container">
         
-        <button className="back-link" onClick={() => navigate("/service/dashboard")}>
-          <ArrowLeft size={16} /> Back to Dashboard
-        </button>
-
         <div className="manage-header">
-          <h1>Manage Listing</h1>
-          <p>View and update your public business details.</p>
+          <h1>My Service Listings</h1>
+          <p>Review your current service catalog below.</p>
         </div>
 
-        {/* 1. Business Details Card */}
+        {/* Services List */}
         <section className="manage-card">
-          <div className="card-header">
-            <h2>Business Information</h2>
-            {/* In future: onClick={() => setShowEditModal(true)} */}
-            <button className="edit-icon-btn" title="Edit Info"><Edit3 size={18} /></button>
-          </div>
-          <div className="details-grid">
-            <div className="detail-item">
-              <label>Business Name</label>
-              <span>{provider.business_name}</span>
-            </div>
-            <div className="detail-item">
-              <label>Service Type</label>
-              <span>{provider.type_of_service}</span>
-            </div>
-            <div className="detail-item">
-              <label>Contact Email</label>
-              <span>{provider.business_email}</span>
-            </div>
-            <div className="detail-item">
-              <label>Contact Mobile</label>
-              <span>{provider.business_mobile}</span>
-            </div>
-            <div className="detail-item full-width">
-              <label>Address</label>
-              <span>
-                {provider.house_street}, {provider.barangay}, {provider.city}, {provider.province} {provider.postal_code}
-              </span>
-            </div>
+          <div className="services-list-view">
+            {services.length === 0 ? (
+                <div className="empty-state">No services found. Click edit to add some!</div>
+            ) : (
+                services.map(service => (
+                <div key={service.id} className="service-view-item">
+                    <div className="service-view-header">
+                    <h3>{service.name}</h3>
+                    <span className={`service-type-tag ${service.type}`}>
+                        {service.type === 'package' ? 'Package' : 'Individual'}
+                    </span>
+                    </div>
+                    
+                    <p className="service-desc">
+                        <strong>Description:</strong> {service.description || "N/A"}
+                    </p>
+                    {service.notes && (
+                        <p className="service-note">
+                            <strong>Note:</strong> {service.notes}
+                        </p>
+                    )}
+                    
+                    <div className="pricing-wrapper">
+                        <table className="mini-pricing-table">
+                        <thead>
+                            <tr>
+                                <th>Pet Type</th>
+                                <th>Size</th>
+                                <th>Weight</th>
+                                <th>Price</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {service.service_options?.map(opt => (
+                            <tr key={opt.id}>
+                                <td style={{textTransform: 'capitalize'}}>
+                                    {opt.pet_type === 'dog-cat' ? 'Dog & Cat' : opt.pet_type}
+                                </td>
+                                <td>{opt.size.replace('_', ' ')}</td>
+                                <td>{opt.weight_range || 'N/A'}</td>
+                                <td className="price-col">₱{opt.price}</td>
+                            </tr>
+                            ))}
+                        </tbody>
+                        </table>
+                    </div>
+                </div>
+                ))
+            )}
           </div>
         </section>
 
-        {/* 2. Services List */}
-        <section className="manage-card">
-          <div className="card-header">
-            <h2>My Services</h2>
-            <button className="edit-icon-btn" title="Edit Services"><Edit3 size={18} /></button>
-          </div>
-          
-          <div className="services-list-view">
-            {services.map(service => (
-              <div key={service.id} className="service-view-item">
-                <div className="service-view-header">
-                  <h3>{service.name}</h3>
-                  <span className="service-type-tag">{service.type}</span>
-                </div>
-                <p className="service-desc">{service.description || "No description provided."}</p>
-                
-                <table className="mini-pricing-table">
-                  <thead>
-                    <tr><th>Variant</th><th>Size</th><th>Price</th></tr>
-                  </thead>
-                  <tbody>
-                    {service.service_options?.map(opt => (
-                      <tr key={opt.id}>
-                        <td>{opt.pet_type}</td>
-                        <td>{opt.size}</td>
-                        <td>₱{opt.price}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ))}
-          </div>
-        </section>
+        {/* Edit Button - Bottom Right */}
+        <div className="edit-action-container">
+            <button 
+                className="btn-edit-listing" 
+                onClick={() => navigate("/service/edit-listing")}
+            >
+                <Edit3 size={18} /> Edit Listings
+            </button>
+        </div>
 
       </div>
       <Footer />

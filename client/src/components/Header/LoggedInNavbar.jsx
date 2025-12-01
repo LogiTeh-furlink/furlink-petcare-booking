@@ -270,8 +270,6 @@ const LoggedInNavbar = ({ hideBecomeProvider = false }) => {
             <h3>Application Rejected</h3>
             <p>
               Your listing was not approved at this time. 
-              {/* You can add dynamic reason fetching here later */}
-              Please review your details or contact support for more information.
             </p>
             <button className="modal-ok-btn reject-bg" onClick={() => setShowRejectModal(false)}>
               Close

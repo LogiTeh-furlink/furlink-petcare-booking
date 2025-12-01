@@ -1,0 +1,194 @@
+/* src/pages/service-provider/SPManageListing.css */
+
+.sp-manage-container {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 40px 20px;
+  min-height: 80vh;
+}
+
+.sp-loading {
+  text-align: center;
+  padding: 60px;
+  color: #6b7280;
+  font-size: 1.1rem;
+}
+
+/* Header & Back Link */
+.manage-header {
+  margin-bottom: 30px;
+  border-bottom: 1px solid #e5e7eb;
+  padding-bottom: 15px;
+  text-align: center;
+}
+
+.manage-header h1 {
+  font-size: 2rem;
+  color: #1e3a8a;
+  margin-bottom: 8px;
+}
+
+.manage-header p {
+  color: #6b7280;
+}
+
+/* Card Container */
+.manage-card {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 0;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+  overflow: hidden;
+}
+
+.empty-state {
+    padding: 40px;
+    text-align: center;
+    color: #9ca3af;
+    font-style: italic;
+}
+
+/* Service Item Styling */
+.service-view-item {
+  padding: 25px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.service-view-item:last-child {
+  border-bottom: none;
+}
+
+.service-view-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.service-view-header h3 {
+  font-size: 1.25rem;
+  color: #1f2937;
+  margin: 0;
+}
+
+.service-type-tag {
+  font-size: 0.75rem;
+  padding: 4px 10px;
+  border-radius: 20px;
+  text-transform: uppercase;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
+.service-type-tag.package {
+  background-color: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #dbeafe;
+}
+
+.service-type-tag.individual {
+  background-color: #fdf2f8;
+  color: #db2777;
+  border: 1px solid #fce7f3;
+}
+
+.service-desc, .service-note {
+  font-size: 0.95rem;
+  color: #4b5563;
+  margin-bottom: 8px;
+  line-height: 1.5;
+}
+
+.service-desc strong, .service-note strong {
+  color: #374151;
+  font-weight: 600;
+}
+
+/* Pricing Table */
+.pricing-wrapper {
+  margin-top: 15px;
+  background-color: #f9fafb;
+  border-radius: 8px;
+  padding: 1px;
+  border: 1px solid #e5e7eb;
+}
+
+.mini-pricing-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.mini-pricing-table th {
+  text-align: left;
+  padding: 10px 15px;
+  color: #6b7280;
+  font-weight: 600;
+  border-bottom: 1px solid #e5e7eb;
+  background-color: #f3f4f6;
+  text-transform: uppercase;
+  font-size: 0.8rem;
+}
+
+.mini-pricing-table td {
+  padding: 10px 15px;
+  color: #374151;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.mini-pricing-table tr:last-child td {
+  border-bottom: none;
+}
+
+.price-col {
+  font-weight: 700;
+  color: #059669;
+}
+
+/* Bottom Right Button Container */
+.edit-action-container {
+  margin-top: 30px;
+  display: flex;
+  justify-content: flex-end; /* Pushes button to the right */
+}
+
+.btn-edit-listing {
+  background-color: #1e40af;
+  color: white;
+  border: none;
+  padding: 12px 28px;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s;
+  box-shadow: 0 4px 6px -1px rgba(30, 64, 175, 0.2);
+}
+
+.btn-edit-listing:hover {
+  background-color: #1e3a8a;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 8px -1px rgba(30, 64, 175, 0.3);
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+  .service-view-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  
+  .edit-action-container {
+    justify-content: stretch;
+  }
+
+  .btn-edit-listing {
+    width: 100%;
+    justify-content: center;
+  }
+}
