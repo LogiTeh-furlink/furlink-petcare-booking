@@ -31,16 +31,19 @@ import RequireNewApplicant from "./components/RequireNewApplicant";
 import RequireProviderApplication from "./components/RequireProviderApplication"; 
 
 function App() {
-  return (
-    <Router>
-      <Routes>
+  return (
+    <Router>
+      <Routes>
 
-        {/* ==========================
-            PUBLIC ROUTES
-            ========================== */}
-        {/* ... (Keep Public Routes as is) */}
+        {/* ==========================
+            PUBLIC ROUTES
+            ========================== */}
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/about" element={<AboutPage />} />
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/signup" element={<SignUpPage />} />
 
-        {/* ==========================
+        {/* ==========================
             PROTECTED ROUTES (Logged In)
             ========================== */}
         <Route element={<ProtectedRoute />}>
