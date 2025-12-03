@@ -1,5 +1,5 @@
 // src/pages/pet-owner/ListingInfo.jsx
-import React, { useEffect, useState, useMemo } from "react"; // Added useMemo
+import React, { useEffect, useState, useMemo } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "../../config/supabase";
 import { Store, MapPin, X, ChevronDown } from "lucide-react";
@@ -8,8 +8,6 @@ import Footer from "../../components/Footer/Footer";
 import "./ListingInfo.css";
 
 // Image Modal Component (Unchanged)
-// ... (ImageModal component definition) ...
-
 const ImageModal = ({ isOpen, onClose, imageUrl }) => {
   if (!isOpen || !imageUrl) return null;
 
@@ -103,7 +101,6 @@ const ListingInfo = () => {
 
   // Reset dependent fields when Service Type changes
   useEffect(() => {
-    // Only reset if a service was previously selected and is now changing
     if (serviceType) {
         setPetType('');
         setPetSize('');
@@ -137,7 +134,7 @@ const ListingInfo = () => {
       
       setServices(servicesData || []);
 
-      // Fetch hours (omitted for brevity)
+      // Fetch hours 
       const { data: hoursData } = await supabase
         .from("service_provider_hours")
         .select("*")
@@ -170,7 +167,6 @@ const ListingInfo = () => {
     return [...new Set(options)].filter(val => val && val !== 'dog-cat').sort();
   };
 
-  // Memoized lists for Pet Type and Pet Size based on selected Service
   const availablePetTypes = useMemo(() => {
     if (!serviceType) return [];
 
@@ -213,7 +209,6 @@ const ListingInfo = () => {
       return;
     }
 
-    // Find the price option based on pet type and size
     const matchingOption = selectedService.service_options.find(
       opt => opt.size === petSize && (opt.pet_type === petType || opt.pet_type === 'dog-cat')
     );
@@ -222,13 +217,11 @@ const ListingInfo = () => {
       setEstimatedPrice(parseFloat(matchingOption.price));
     } else {
       setEstimatedPrice(0);
-      // Clear specific error if fields are filled but no combo exists
       setError("No valid pricing option found for the selected pet type and size combination for this service.");
     }
   };
 
   const formatTime = (time) => {
-    // ... (unchanged)
     if (!time) return "";
     return new Date(`2000-01-01T${time}`).toLocaleTimeString('en-US', { 
       hour: 'numeric', 
@@ -237,7 +230,67 @@ const ListingInfo = () => {
     });
   };
 
-  // --- Booking Logic (Unchanged) ---
+  /**
+   * Checks if the requested date/time slot is available.
+   * 1. Checks against the provider's general operating hours.
+   * 2. Checks against existing bookings for the same slot.
+   */
+  const isSlotAvailable = async (date, time) => {
+    // 1. Check Operating Hours
+    const bookingDay = new Date(date).toLocaleDateString('en-US', { weekday: 'long' });
+    const dayHours = hours.filter(h => h.day_of_week === bookingDay);
+
+    if (dayHours.length === 0) {
+        return { available: false, message: `The provider is closed on ${bookingDay}s.` };
+    }
+
+    // Convert selected time slot to 24hr format for comparison with provider hours
+    // This is a simplified check. A full solution would check if the appointment duration fits.
+    // For now, we assume the time slots are pre-determined and valid.
+    const selectedHour = new Date(`2000/01/01 ${time}`).getHours();
+    const selectedMinute = new Date(`2000/01/01 ${time}`).getMinutes();
+    
+    const isWithinHours = dayHours.some(h => {
+        // Convert start/end times to 24hr format for simple comparison
+        const startTime24 = parseInt(h.start_time.split(':')[0]);
+        const endTime24 = parseInt(h.end_time.split(':')[0]); // Assuming end_time is HH:MM:SS format
+        
+        // Convert selected time to a single comparable value (e.g., 9.0 for 9:00 AM)
+        const selectedTimeValue = selectedHour + (selectedMinute / 60);
+
+        // Check if the selected time is greater than or equal to start time
+        // And strictly less than end time (to allow booking at the hour mark)
+        return selectedTimeValue >= startTime24 && selectedTimeValue < endTime24;
+    });
+
+    if (!isWithinHours) {
+        return { available: false, message: `The time slot ${time} is outside the provider's operating hours on ${bookingDay}.` };
+    }
+    
+    // 2. Check Existing Bookings (Checking for any booking, regardless of service/size)
+    // We assume a single slot capacity for simplicity.
+    const { data: existingBookings, error: bookingsError } = await supabase
+        .from('bookings')
+        .select('id')
+        .eq('provider_id', id)
+        .eq('booking_date', date)
+        .eq('time_slot', time)
+        .in('status', ['pending', 'confirmed']); // Only check pending and confirmed bookings
+
+    if (bookingsError) {
+        console.error("Booking check error:", bookingsError);
+        return { available: false, message: "Could not check for existing bookings. Please try again." };
+    }
+
+    if (existingBookings.length > 0) {
+        return { available: false, message: `The time slot ${time} on ${date} is already booked. Please choose another time.` };
+    }
+
+    return { available: true };
+  };
+
+
+  // --- Booking Logic ---
 
   const handleBookAppointment = async () => {
     if (isBooking) return;
@@ -256,7 +309,13 @@ const ListingInfo = () => {
     setIsBooking(true);
 
     try {
-        // 2. Determine Service Option ID
+        // --- 2. Availability Check ---
+        const availabilityCheck = await isSlotAvailable(selectedDate, timeSlot);
+        if (!availabilityCheck.available) {
+            throw new Error(availabilityCheck.message);
+        }
+
+        // 3. Determine Service Option ID
         const selectedService = services.find(s => s.id === serviceType);
         if (!selectedService || !selectedService.service_options) {
             throw new Error("Invalid service selected.");
@@ -272,7 +331,7 @@ const ListingInfo = () => {
         
         const serviceOptionId = matchingOption.id;
 
-        // 3. Construct Booking Data
+        // 4. Construct Booking Data
         const bookingData = {
             provider_id: id,
             user_id: user.id,
@@ -285,7 +344,7 @@ const ListingInfo = () => {
             estimated_price: estimatedPrice.toFixed(2),
         };
 
-        // 4. Insert into Supabase
+        // 5. Insert into Supabase
         const { error: bookingError } = await supabase
             .from('bookings')
             .insert([bookingData]);
@@ -839,7 +898,7 @@ const ListingInfo = () => {
           </div>
 
 
-          {/* Pet Type (NOW DYNAMICALLY FILTERED) */}
+          {/* Pet Type (DYNACMICALLY FILTERED) */}
           <div style={{ marginBottom: '1rem' }}>
             <label style={{ 
               display: 'block', 
@@ -888,7 +947,7 @@ const ListingInfo = () => {
             </div>
           </div>
 
-          {/* Pet Size (NOW DYNAMICALLY FILTERED) */}
+          {/* Pet Size (DYNACMICALLY FILTERED) */}
           <div style={{ marginBottom: '1rem' }}>
             <label style={{ 
               display: 'block', 
@@ -1018,7 +1077,7 @@ const ListingInfo = () => {
             </div>
           </div>
 
-          {/* Book Button (Unchanged logic, updated styling based on disabled state) */}      
+          {/* Book Button (Updated) */}      
           <button        
             onClick={handleBookAppointment} 
             disabled={isBooking || estimatedPrice <= 0}       
@@ -1037,7 +1096,7 @@ const ListingInfo = () => {
             onMouseOver={(e) => { if (!isBooking && estimatedPrice > 0) e.currentTarget.style.backgroundColor = '#1e40af'; }}        
             onMouseOut={(e) => { if (!isBooking && estimatedPrice > 0) e.currentTarget.style.backgroundColor = '#1e3a8a'; }}      
           >        
-            {isBooking ? 'Booking...' : 'Book an appointment'}      
+            {isBooking ? 'Checking Availability...' : 'Book an appointment'}      
           </button>    
         </div>
       </main>
