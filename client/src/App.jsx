@@ -47,8 +47,6 @@ function App() {
             PROTECTED ROUTES (Logged In)
             ========================== */}
         <Route element={<ProtectedRoute />}>
-
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
           
           {/* --- 1. PET OWNER SIDE (Accessible to all logged-in users who are not Admins/SP redirected) --- */}
           <Route path="/dashboard" element={<Dashboard />} />
