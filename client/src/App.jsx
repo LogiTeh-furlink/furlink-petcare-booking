@@ -1,5 +1,5 @@
 import React from "react";
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom"; // ⭐ Added 'Navigate'
 
 // Public Pages
 import LandingPage from "./pages/public/LandingPage";
@@ -12,7 +12,7 @@ import Dashboard from "./pages/pet-owner/Dashboard";
 import ApplyProvider from "./pages/pet-owner/ApplyProvider";
 import ServiceSetup from "./pages/pet-owner/ServiceSetup";
 import ServiceListing from "./pages/pet-owner/ServiceListing";
-import ListingInfo from "./pages/pet-owner/ListingInfo"; // <--- ADDED IMPORT
+import ListingInfo from "./pages/pet-owner/ListingInfo"; 
 
 // Service Provider Pages
 import SPDashboard from "./pages/service-provider/SPDashboard";
@@ -31,64 +31,67 @@ import RequireNewApplicant from "./components/RequireNewApplicant";
 import RequireProviderApplication from "./components/RequireProviderApplication"; 
 
 function App() {
-  return (
-    <Router>
-      <Routes>
+  return (
+    <Router>
+      <Routes>
 
-        {/* ==========================
-            PUBLIC ROUTES
-            ========================== */}
-        <Route path="/" element={<LandingPage />} />
-        <Route path="/about" element={<AboutPage />} />
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/signup" element={<SignUpPage />} />
+        {/* ==========================
+            PUBLIC ROUTES
+            ========================== */}
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/about" element={<AboutPage />} />
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/signup" element={<SignUpPage />} />
 
-        {/* ==========================
-            PROTECTED ROUTES (Logged In)
-            ========================== */}
-        <Route element={<ProtectedRoute />}>
-          
-          {/* --- 1. PET OWNER SIDE (Accessible to all logged-in users who are not Admins/SP redirected) --- */}
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/listing/:id" element={<ListingInfo />} />
-          
-          
-          {/* --- 2. SERVICE PROVIDER SIDE --- */}
-          
-          {/* ZONE A: Application Start (Only if NO application exists) */}
-          <Route element={<RequireNewApplicant />}>
-              <Route path="/apply-provider" element={<ApplyProvider />} />
-          </Route>
-
-          {/* ZONE B: Application Continued & Management (Requires application record) */}
-          <Route element={<RequireProviderApplication />}>
+        {/* ==========================
+            PROTECTED ROUTES (Logged In)
+            ========================== */}
+        <Route element={<ProtectedRoute />}>
             
-            {/* Setup Flow (Initial Setup) */}
-            <Route path="/service-setup" element={<ServiceSetup />} />
-            <Route path="/service-listing" element={<ServiceListing />} />
+            {/* ⭐ CRITICAL FIX: Redirect logged-in users landing on '/' to their default dashboard */}
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
             
-            {/* Operational Dashboard (Main Business Hub) */}
-            <Route path="/service/dashboard" element={<SPDashboard />} />
-            <Route path="/service/dashboard/:id" element={<SPDashboard />} />
-            
-            {/* Listing Management */}
-            <Route path="/service/manage-listing" element={<SPManageListing />} />
-            <Route path="/service/edit-listing" element={<SPEditListing />} />
-            <Route path="/service/edit-profile" element={<SPEditProfile />} />
-            
-          </Route>
+          {/* --- 1. PET OWNER SIDE --- */}
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/listing/:id" element={<ListingInfo />} />
+          
+          
+          {/* --- 2. SERVICE PROVIDER SIDE --- */}
+          
+          {/* ZONE A: Application Start (Only if NO application exists) */}
+          <Route element={<RequireNewApplicant />}>
+              <Route path="/apply-provider" element={<ApplyProvider />} />
+          </Route>
+
+          {/* ZONE B: Application Continued & Management (Requires application record) */}
+          <Route element={<RequireProviderApplication />}>
+            
+            {/* Setup Flow (Initial Setup) */}
+            <Route path="/service-setup" element={<ServiceSetup />} />
+            <Route path="/service-listing" element={<ServiceListing />} />
+            
+            {/* Operational Dashboard (Main Business Hub) */}
+            <Route path="/service/dashboard" element={<SPDashboard />} />
+            <Route path="/service/dashboard/:id" element={<SPDashboard />} />
+            
+            {/* Listing Management */}
+            <Route path="/service/manage-listing" element={<SPManageListing />} />
+            <Route path="/service/edit-listing" element={<SPEditListing />} />
+            <Route path="/service/edit-profile" element={<SPEditProfile />} />
+            
+          </Route>
 
 
-          {/* --- 3. ADMIN SIDE --- */}
-          <Route path="/admin-change-password" element={<AdminChangePassword />} />
-          <Route path="/admin-dashboard" element={<AdminDashboard />} />
-          <Route path="/admin/provider/:id" element={<AdminViewProvider />} /> 
-          
-        </Route>
+          {/* --- 3. ADMIN SIDE --- */}
+          <Route path="/admin-change-password" element={<AdminChangePassword />} />
+          <Route path="/admin-dashboard" element={<AdminDashboard />} />
+          <Route path="/admin/provider/:id" element={<AdminViewProvider />} /> 
+          
+        </Route>
 
-      </Routes>
-    </Router>
-  );
+      </Routes>
+    </Router>
+  );
 }
 
 export default App;
