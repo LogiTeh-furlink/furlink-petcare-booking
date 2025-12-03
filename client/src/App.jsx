@@ -37,7 +37,7 @@ function App() {
 
         {/* ==========================
             PUBLIC ROUTES
-           ========================== */}
+            ========================== */}
         <Route path="/" element={<LandingPage />} />
         <Route path="/about" element={<AboutPage />} />
         <Route path="/login" element={<LoginPage />} />
@@ -45,19 +45,19 @@ function App() {
 
         {/* ==========================
             PROTECTED ROUTES (Logged In)
-           ========================== */}
+            ========================== */}
         <Route element={<ProtectedRoute />}>
           
-          {/* --- 1. PET OWNER SIDE --- */}
+          {/* --- 1. PET OWNER SIDE (Accessible to all logged-in users who are not Admins/SP redirected) --- */}
           <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/listing/:id" element={<ListingInfo />} /> {/* <--- ADDED ROUTE */}
+          <Route path="/listing/:id" element={<ListingInfo />} />
           
           
           {/* --- 2. SERVICE PROVIDER SIDE --- */}
           
           {/* ZONE A: Application Start (Only if NO application exists) */}
           <Route element={<RequireNewApplicant />}>
-             <Route path="/apply-provider" element={<ApplyProvider />} />
+              <Route path="/apply-provider" element={<ApplyProvider />} />
           </Route>
 
           {/* ZONE B: Application Continued & Management (Requires application record) */}
@@ -82,7 +82,7 @@ function App() {
           {/* --- 3. ADMIN SIDE --- */}
           <Route path="/admin-change-password" element={<AdminChangePassword />} />
           <Route path="/admin-dashboard" element={<AdminDashboard />} />
-          <Route path="/admin/provider/:id" element={<AdminViewProvider />} />  
+          <Route path="/admin/provider/:id" element={<AdminViewProvider />} /> 
           
         </Route>
 

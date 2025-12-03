@@ -632,7 +632,7 @@ export default function ApplyProvider() {
                         onClick={() => toggleDay(i, d)} disabled={isDayDisabled(i, d)}>
                         {daysOfWeekShort[idx]}
                       </button>
-                    ))}
+                    ))} 
                   </div>
                   <div className="time-inputs">
                     <input type="time" value={slot.startTime} onChange={(e) => handleTimeChange(i, "startTime", e.target.value)} />
