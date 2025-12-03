@@ -7,7 +7,7 @@ import Header from "../../components/Header/LoggedInNavbar";
 import Footer from "../../components/Footer/Footer";
 import "./ListingInfo.css";
 
-// Image Modal Component
+// Image Modal Component (Unchanged)
 const ImageModal = ({ isOpen, onClose, imageUrl }) => {
   if (!isOpen || !imageUrl) return null;
 
@@ -66,31 +66,46 @@ const ImageModal = ({ isOpen, onClose, imageUrl }) => {
 
 const ListingInfo = () => {
   const { id } = useParams();
+  const [user, setUser] = useState(null); // Added state for current user
   const [provider, setProvider] = useState(null);
   const [services, setServices] = useState([]);
   const [hours, setHours] = useState([]);
   const [images, setImages] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [isBooking, setIsBooking] = useState(false); // New state for booking status
   const [activeTab, setActiveTab] = useState("overview");
   const [selectedImage, setSelectedImage] = useState(null);
+  const [error, setError] = useState(null); // New state for errors
 
   // Booking form states
   const [petType, setPetType] = useState('');
   const [petSize, setPetSize] = useState('');
-  const [serviceType, setServiceType] = useState('');
+  const [serviceType, setServiceType] = useState(''); // Holds service ID
   const [selectedDate, setSelectedDate] = useState('');
   const [timeSlot, setTimeSlot] = useState('');
   const [estimatedPrice, setEstimatedPrice] = useState(0);
 
   const daysOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
+  // --- Data Fetching Hooks ---
+
   useEffect(() => {
     fetchAllData();
+    fetchUser();
   }, [id]);
 
   useEffect(() => {
     calculatePrice();
   }, [petType, petSize, serviceType]);
+
+  const fetchUser = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    setUser(user);
+    if (!user) {
+        // Redirect or show a message if not logged in
+        console.error("User not logged in.");
+    }
+  };
 
   const fetchAllData = async () => {
     try {
@@ -111,25 +126,22 @@ const ListingInfo = () => {
         setProvider(providerData);
       }
 
-      // Fetch services
+      // Fetch services with options
       const { data: servicesData, error: servicesError } = await supabase
         .from("services")
         .select(`*, service_options (*)`)
         .eq("provider_id", id);
-
-      console.log("Services Data:", servicesData);
-      console.log("Services Error:", servicesError);
       
       setServices(servicesData || []);
 
-      // Fetch hours
+      // Fetch hours (omitted for brevity)
       const { data: hoursData } = await supabase
         .from("service_provider_hours")
         .select("*")
         .eq("provider_id", id);
       setHours(hoursData || []);
 
-      // Fetch images
+      // Fetch images (omitted for brevity)
       const { data: imagesData } = await supabase
         .from("service_provider_images")
         .select("*")
@@ -143,11 +155,14 @@ const ListingInfo = () => {
     }
   };
 
+  // --- Helper Functions ---
+
   const calculatePrice = () => {
-    if (!serviceType || !petSize) {
+    if (!serviceType || !petSize || !petType) {
       setEstimatedPrice(0);
       return;
     }
+    setError(null); // Clear previous errors
 
     const selectedService = services.find(s => s.id === serviceType);
     if (!selectedService || !selectedService.service_options) {
@@ -155,6 +170,7 @@ const ListingInfo = () => {
       return;
     }
 
+    // Find the price option based on pet type and size
     const matchingOption = selectedService.service_options.find(
       opt => opt.size === petSize && (opt.pet_type === petType || opt.pet_type === 'dog-cat')
     );
@@ -163,6 +179,7 @@ const ListingInfo = () => {
       setEstimatedPrice(parseFloat(matchingOption.price));
     } else {
       setEstimatedPrice(0);
+      setError("No valid pricing option found for the selected pet type and size.");
     }
   };
 
@@ -175,18 +192,83 @@ const ListingInfo = () => {
     });
   };
 
-  const handleBookAppointment = () => {
-    // TODO: Implement booking logic
-    console.log({
-      petType,
-      petSize,
-      serviceType,
-      selectedDate,
-      timeSlot,
-      estimatedPrice
-    });
-    alert('Booking functionality coming soon!');
+  // --- Booking Logic ---
+
+  const handleBookAppointment = async () => {
+    if (isBooking) return;
+    setError(null);
+
+    // 1. Basic Client-Side Validation
+    if (!user) {
+        setError("You must be logged in to book an appointment.");
+        return;
+    }
+    if (!petType || !petSize || !serviceType || !selectedDate || !timeSlot || estimatedPrice <= 0) {
+        setError("Please fill out all booking fields and ensure a price is calculated.");
+        return;
+    }
+
+    setIsBooking(true);
+
+    try {
+        // 2. Determine Service Option ID
+        const selectedService = services.find(s => s.id === serviceType);
+        if (!selectedService || !selectedService.service_options) {
+            throw new Error("Invalid service selected.");
+        }
+
+        const matchingOption = selectedService.service_options.find(
+            opt => opt.size === petSize && (opt.pet_type === petType || opt.pet_type === 'dog-cat')
+        );
+
+        if (!matchingOption) {
+            throw new Error("Price calculation failed. Please check pet type and size.");
+        }
+        
+        const serviceOptionId = matchingOption.id;
+
+        // 3. Construct Booking Data
+        const bookingData = {
+            provider_id: id,
+            user_id: user.id,
+            service_id: serviceType,
+            service_option_id: serviceOptionId,
+            pet_type: petType,
+            pet_size: petSize,
+            booking_date: selectedDate,
+            time_slot: timeSlot,
+            estimated_price: estimatedPrice.toFixed(2),
+            // Default status is 'pending', payment_status is 'unpaid'
+        };
+
+        // 4. Insert into Supabase
+        const { error: bookingError } = await supabase
+            .from('bookings')
+            .insert([bookingData]);
+
+        if (bookingError) {
+            console.error("Supabase Booking Error:", bookingError);
+            throw new Error(`Booking failed: ${bookingError.message}`);
+        }
+
+        alert('Appointment booked successfully! Status is pending confirmation.');
+
+        // Optional: Reset form fields
+        setPetType('');
+        setPetSize('');
+        setServiceType('');
+        setSelectedDate('');
+        setTimeSlot('');
+        setEstimatedPrice(0);
+
+    } catch (err) {
+        console.error("Booking handler error:", err);
+        setError(err.message || "An unexpected error occurred during booking.");
+    } finally {
+        setIsBooking(false);
+    }
   };
+
 
   if (loading) {
     return (
@@ -217,9 +299,12 @@ const ListingInfo = () => {
       <Header />
       <main className="listing-container" style={{ display: 'flex', gap: '2rem', alignItems: 'flex-start' }}>
         
-        {/* Main Content */}
+        {/* Main Content (Unchanged) */}
         <div style={{ flex: 1 }}>
-          {/* Tab Navigation */}
+          {/* ... (Tab Navigation, Image Gallery, Tab Content sections remain unchanged) ... */}
+          {/* Removed for brevity in the response, but they are still in the final code. */}
+
+           {/* Tab Navigation */}
           <div className="listing-tabs">
             <button 
               className={`tab-button ${activeTab === "overview" ? "active" : ""}`}
@@ -325,10 +410,10 @@ const ListingInfo = () => {
           {/* Tab Content */}
           <div className="listing-content">
             
-            {/* Overview Tab */}
+            {/* Overview Tab (Content Omitted for brevity) */}
             {activeTab === "overview" && (
               <div className="tab-content">
-                <div className="listing-header">
+                 <div className="listing-header">
                   <h1 className="listing-title">{provider.business_name}</h1>
                   <div className="listing-location">
                     <MapPin size={18} />
@@ -492,7 +577,7 @@ const ListingInfo = () => {
               </div>
             )}
 
-            {/* Prices Tab */}
+            {/* Prices Tab (Content Omitted for brevity) */}
             {activeTab === "prices" && (
               <div className="tab-content">
                 <h2 className="section-title">Service Prices</h2>
@@ -500,7 +585,7 @@ const ListingInfo = () => {
                 {services.length > 0 ? (
                   services.map((service) => (
                     <div key={service.id} className="service-section">
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                         <h3 className="service-name">{service.name}</h3>
                         {service.type && (
                           <span style={{ 
@@ -599,7 +684,7 @@ const ListingInfo = () => {
               </div>
             )}
 
-            {/* Location Tab */}
+            {/* Location Tab (Content Omitted for brevity) */}
             {activeTab === "location" && (
               <div className="tab-content">
                 <h2 className="section-title">Location</h2>
@@ -616,14 +701,14 @@ const ListingInfo = () => {
               </div>
             )}
 
-            {/* Reviews Tab */}
+            {/* Reviews Tab (Content Omitted for brevity) */}
             {activeTab === "reviews" && (
               <div className="tab-content">
                 <h2 className="section-title">Reviews</h2>
                 <p style={{ color: "#6b7280" }}>No reviews yet. Be the first to review!</p>
               </div>
             )}
-
+            
           </div>
         </div>
 
@@ -638,17 +723,33 @@ const ListingInfo = () => {
           top: '100px',
           height: 'fit-content'
         }}>
+          
+          {/* Booking Error Display */}
+          {error && (
+            <div style={{ 
+              marginBottom: '1rem', 
+              padding: '0.75rem', 
+              backgroundColor: '#fee2e2', 
+              color: '#dc2626', 
+              borderRadius: '8px',
+              fontSize: '0.875rem',
+              border: '1px solid #fca5a5'
+            }}>
+              {error}
+            </div>
+          )}
+
           <div style={{ 
             fontSize: '2rem', 
             fontWeight: '700', 
-            color: '#1e3a8a',
+            color: estimatedPrice > 0 ? '#059669' : '#9ca3af', // Color change based on price
             marginBottom: '1.5rem',
             textAlign: 'center'
           }}>
             ₱{estimatedPrice.toFixed(2)}
           </div>
 
-          {/* Pet Type */}
+          {/* Pet Type (Unchanged) */}
           <div style={{ marginBottom: '1rem' }}>
             <label style={{ 
               display: 'block', 
@@ -691,7 +792,7 @@ const ListingInfo = () => {
             </div>
           </div>
 
-          {/* Pet Size */}
+          {/* Pet Size (Unchanged) */}
           <div style={{ marginBottom: '1rem' }}>
             <label style={{ 
               display: 'block', 
@@ -736,7 +837,7 @@ const ListingInfo = () => {
             </div>
           </div>
 
-          {/* Service Type */}
+          {/* Service Type (Unchanged) */}
           <div style={{ marginBottom: '1rem' }}>
             <label style={{ 
               display: 'block', 
@@ -782,7 +883,7 @@ const ListingInfo = () => {
             </div>
           </div>
 
-          {/* Date */}
+          {/* Date (Unchanged) */}
           <div style={{ marginBottom: '1rem' }}>
             <label style={{ 
               display: 'block', 
@@ -799,6 +900,7 @@ const ListingInfo = () => {
                 type="date"
                 value={selectedDate}
                 onChange={(e) => setSelectedDate(e.target.value)}
+                min={new Date().toISOString().split('T')[0]} // Ensure date is not in the past
                 style={{
                   width: '100%',
                   padding: '0.75rem',
@@ -813,7 +915,7 @@ const ListingInfo = () => {
             </div>
           </div>
 
-          {/* Time Slot (Completed) */}
+          {/* Time Slot (Unchanged) */}
           <div style={{ marginBottom: '1.5rem' }}>
             <label style={{ 
               display: 'block', 
@@ -861,30 +963,31 @@ const ListingInfo = () => {
             </div>
           </div>
 
-          {/* Book Button (Completed) */}      
+          {/* Book Button (Updated) */}      
           <button        
-            onClick={handleBookAppointment}        
+            onClick={handleBookAppointment} 
+            disabled={isBooking || estimatedPrice <= 0}       
             style={{          
               width: '100%',          
               padding: '1rem',          
-              backgroundColor: '#1e3a8a',          
+              backgroundColor: isBooking || estimatedPrice <= 0 ? '#9ca3af' : '#1e3a8a',          
               color: 'white',          
               border: 'none',          
               borderRadius: '8px',          
               fontSize: '1rem',          
               fontWeight: '600',          
-              cursor: 'pointer',          
+              cursor: isBooking || estimatedPrice <= 0 ? 'not-allowed' : 'pointer',          
               transition: 'background-color 0.2s'        
             }}        
-            onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#1e40af'}        
-            onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#1e3a8a'}      
+            onMouseOver={(e) => { if (!isBooking && estimatedPrice > 0) e.currentTarget.style.backgroundColor = '#1e40af'; }}        
+            onMouseOut={(e) => { if (!isBooking && estimatedPrice > 0) e.currentTarget.style.backgroundColor = '#1e3a8a'; }}      
           >        
-            Book an appointment      
+            {isBooking ? 'Booking...' : 'Book an appointment'}      
           </button>    
         </div>
       </main>
       
-      {/* Image Modal */}
+      {/* Image Modal (Unchanged) */}
       <ImageModal 
         isOpen={!!selectedImage}
         onClose={() => setSelectedImage(null)}
