@@ -166,6 +166,7 @@ export default function SPManageListing() {
                 {provider.social_media_url && (
                     <p><strong>Social:</strong> <a href={provider.social_media_url} target="_blank" rel="noreferrer" className="link-text">{provider.social_media_url}</a></p>
                 )}
+                <p><strong>Description:</strong> {provider.description}</p>
             </div>
 
             {/* Address */}
