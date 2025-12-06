@@ -1,14 +1,14 @@
 // src/pages/auth/Dashboard.jsx
 import React, { useEffect, useState } from "react";
 import { supabase } from "../../config/supabase";
-import { Heart, Store } from "lucide-react";
-import { useNavigate } from "react-router-dom";   // ⭐ Added
+import { Store } from "lucide-react"; // 1. Removed 'Heart' import
+import { useNavigate } from "react-router-dom"; 
 import Header from "../../components/Header/LoggedInNavbar";
 import Footer from "../../components/Footer/Footer";
 import "./Dashboard.css";
 
 const Dashboard = () => {
-  const navigate = useNavigate(); // ⭐ Added
+  const navigate = useNavigate();
 
   const [profile, setProfile] = useState(null);
   const [providers, setProviders] = useState([]);
@@ -114,15 +114,12 @@ const Dashboard = () => {
 
           <div className="providers-grid">
             {providers.map((provider) => (
-              
-              // ⭐ Added clickable card
               <div
                 key={provider.id}
                 className="provider-card"
                 onClick={() => navigate(`/listing/${provider.id}`)}
                 style={{ cursor: "pointer" }}
               >
-
                 <div className="provider-image-container">
                   {provider.imageUrl ? (
                     <img
@@ -140,13 +137,7 @@ const Dashboard = () => {
                 <div className="provider-info">
                   <div className="provider-header">
                     <h3 className="provider-name">{provider.business_name}</h3>
-                    <button
-                      className="favorite-btn"
-                      aria-label="Add to favorites"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <Heart size={20} />
-                    </button>
+                    {/* 2. Removed the favorite button with the Heart icon here */}
                   </div>
 
                   <p className="provider-location">{provider.city}</p>
@@ -156,7 +147,6 @@ const Dashboard = () => {
                     <span className="rating-value">0.0</span>
                   </div>
                 </div>
-
               </div>
             ))}
           </div>
