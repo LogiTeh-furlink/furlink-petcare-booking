@@ -50,12 +50,41 @@
   border-bottom-color: #2563eb;
 }
 
-/* Image Gallery */
+/* Image Gallery - Dynamic Grid */
 .listing-images {
   display: grid;
-  grid-template-columns: 2fr 1fr;
   gap: 1rem;
   margin-bottom: 2rem;
+}
+
+/* 0 images: show message */
+.listing-images.images-0 {
+  grid-template-columns: 1fr;
+}
+
+/* 1 image: single large image */
+.listing-images.images-1 {
+  grid-template-columns: 1fr;
+}
+
+/* 2 images: two equal columns */
+.listing-images.images-2 {
+  grid-template-columns: 1fr 1fr;
+}
+
+/* 3 images: first spans 2 rows, others stack on right */
+.listing-images.images-3 {
+  grid-template-columns: 2fr 1fr;
+}
+
+/* 4 images: first spans 2 rows, others in 2x2 grid on right */
+.listing-images.images-4 {
+  grid-template-columns: 2fr 1fr;
+}
+
+/* 5+ images: first spans 2 rows, others in 2x2 grid on right */
+.listing-images.images-5-plus {
+  grid-template-columns: 2fr 1fr;
 }
 
 .main-image-placeholder {
@@ -70,11 +99,21 @@
   overflow: hidden;
 }
 
+.images-3 .main-image-placeholder,
+.images-4 .main-image-placeholder,
+.images-5-plus .main-image-placeholder {
+  grid-row: span 2;
+}
+
 .main-image-placeholder img {
   width: 100%;
   height: 100%;
   object-fit: cover;
   transition: transform 0.3s ease;
+}
+
+.main-image-placeholder:hover img {
+  transform: scale(1.05);
 }
 
 .thumbnail-grid {
@@ -100,6 +139,20 @@
   height: 100%;
   object-fit: cover;
   transition: transform 0.3s ease;
+}
+
+.thumbnail-placeholder:hover img {
+  transform: scale(1.05);
+}
+
+.no-images-message {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 4rem 2rem;
+  background-color: #f3f4f6;
+  border-radius: 12px;
+  color: #6b7280;
+  font-size: 1rem;
 }
 
 /* Content */
@@ -168,6 +221,13 @@
 
 .info-text a:hover {
   text-decoration: underline;
+}
+
+.shop-description {
+  color: #4b5563;
+  line-height: 1.8;
+  font-size: 1rem;
+  white-space: pre-wrap;
 }
 
 /* Operating Hours */
@@ -500,12 +560,20 @@
 }
 
 @media (max-width: 768px) {
-  .listing-images {
+  .listing-images.images-3,
+  .listing-images.images-4,
+  .listing-images.images-5-plus {
     grid-template-columns: 1fr;
   }
 
+  .images-3 .main-image-placeholder,
+  .images-4 .main-image-placeholder,
+  .images-5-plus .main-image-placeholder {
+    grid-row: span 1;
+  }
+
   .thumbnail-grid {
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(2, 1fr);
   }
 
   .listing-tabs {
