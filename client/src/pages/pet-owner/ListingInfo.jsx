@@ -302,8 +302,7 @@ const ListingInfo = () => {
     if (count === 1) return 'images-1';
     if (count === 2) return 'images-2';
     if (count === 3) return 'images-3';
-    if (count === 4) return 'images-4';
-    return 'images-5-plus';
+    return 'images-3'; // Max 3 images
   };
 
   if (loading) {
@@ -365,10 +364,10 @@ const ListingInfo = () => {
             </button>
           </div>
 
-          {/* Image Gallery - Dynamic */}
+          {/* Image Gallery - Dynamic (Max 3 images) */}
           {images.length > 0 ? (
             <div className={`listing-images ${getImageGridClass()}`}>
-              {/* First Image - Always displayed larger if 3+ images */}
+              {/* First Image */}
               <div 
                 className="main-image-placeholder" 
                 onClick={() => setSelectedImage(images[0].image_url)}
@@ -379,10 +378,22 @@ const ListingInfo = () => {
                 />
               </div>
 
-              {/* Remaining Images in Grid */}
-              {images.length > 1 && (
+              {/* Remaining Images */}
+              {images.length === 2 ? (
+                // For 2 images: show second image directly as equal column
+                <div 
+                  className="main-image-placeholder" 
+                  onClick={() => setSelectedImage(images[1].image_url)}
+                >
+                  <img 
+                    src={images[1].image_url} 
+                    alt="Facility 2"
+                  />
+                </div>
+              ) : images.length === 3 ? (
+                // For 3 images: show 2 smaller images stacked on the right
                 <div className="thumbnail-grid">
-                  {images.slice(1, 5).map((img, index) => (
+                  {images.slice(1, 3).map((img, index) => (
                     <div 
                       key={img.id} 
                       className="thumbnail-placeholder"
@@ -395,7 +406,7 @@ const ListingInfo = () => {
                     </div>
                   ))}
                 </div>
-              )}
+              ) : null}
             </div>
           ) : (
             <div className="listing-images">

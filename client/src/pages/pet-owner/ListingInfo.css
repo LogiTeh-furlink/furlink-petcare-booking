@@ -1,4 +1,14 @@
-/* src/pages/pet-owner/ListingInfo.css */
+.main-image-placeholder {
+  background-color: #f3f4f6;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}/* src/pages/pet-owner/ListingInfo.css */
 .listing-info-page {
   min-height: 100vh;
   display: flex;
@@ -72,9 +82,28 @@
   grid-template-columns: 1fr 1fr;
 }
 
-/* 3 images: first spans 2 rows, others stack on right */
+.images-2 .main-image-placeholder {
+  min-height: 400px;
+}
+
+/* 3 images: first larger, two smaller stacked on right */
 .listing-images.images-3 {
   grid-template-columns: 2fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 1rem;
+}
+
+.images-3 .main-image-placeholder {
+  grid-row: span 2;
+  min-height: 400px;
+}
+
+.images-3 .thumbnail-grid {
+  display: contents;
+}
+
+.images-3 .thumbnail-placeholder {
+  min-height: 195px;
 }
 
 /* 4 images: first spans 2 rows, others in 2x2 grid on right */
@@ -85,24 +114,6 @@
 /* 5+ images: first spans 2 rows, others in 2x2 grid on right */
 .listing-images.images-5-plus {
   grid-template-columns: 2fr 1fr;
-}
-
-.main-image-placeholder {
-  background-color: #f3f4f6;
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 400px;
-  cursor: pointer;
-  position: relative;
-  overflow: hidden;
-}
-
-.images-3 .main-image-placeholder,
-.images-4 .main-image-placeholder,
-.images-5-plus .main-image-placeholder {
-  grid-row: span 2;
 }
 
 .main-image-placeholder img {
