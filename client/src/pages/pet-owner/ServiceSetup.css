@@ -1,0 +1,157 @@
+/* src/pages/pet-owner/ServiceSetup.css */
+
+/* --- Main Container --- */
+.service-setup-wrapper {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 60px 20px;
+  min-height: 70vh; /* Centers content vertically on larger screens */
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+/* --- Header Section --- */
+.setup-header {
+  text-align: center;
+  margin-bottom: 50px;
+}
+
+.setup-title {
+  font-size: 2.5rem;
+  font-weight: 800;
+  color: #1e3a8a; /* Brand Blue */
+  margin: 0 0 10px 0;
+}
+
+.setup-subtitle {
+  font-size: 1.1rem;
+  color: #6b7280;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+/* --- Cards Grid --- */
+.setup-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 30px;
+  width: 100%;
+}
+
+/* --- Individual Card --- */
+.setup-card {
+  background-color: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 20px;
+  padding: 40px 30px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Hover Effect */
+.setup-card:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 20px 25px -5px rgba(30, 58, 138, 0.15);
+  border-color: #1e3a8a;
+}
+
+/* Icon Wrapper */
+.card-icon-wrapper {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 10px;
+  transition: background-color 0.3s, color 0.3s;
+}
+
+.setup-icon {
+  font-size: 2.5rem;
+}
+
+/* Card Specific Colors */
+.setup-card.package .card-icon-wrapper {
+  background-color: #eff6ff;
+  color: #1e40af;
+}
+
+.setup-card.individual .card-icon-wrapper {
+  background-color: #fdf2f8;
+  color: #fdbf00;
+}
+
+/* Icon Hover Colors */
+.setup-card:hover.package .card-icon-wrapper {
+  background-color: #1e40af;
+  color: white;
+}
+
+.setup-card:hover.individual .card-icon-wrapper {
+  background-color: #fdbf00;
+  color: white;
+}
+
+/* Content Typography */
+.card-content h3 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #1f2937;
+  margin: 0 0 10px 0;
+}
+
+.card-content p {
+  font-size: 1rem;
+  color: #6b7280;
+  line-height: 1.6;
+  margin: 0 0 20px 0;
+}
+
+/* Action Link (Animated) */
+.card-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: #1e3a8a;
+  opacity: 0; /* Hidden by default */
+  transform: translateY(10px);
+  transition: all 0.3s ease;
+}
+
+.setup-card:hover .card-action {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* --- Responsive Design --- */
+@media (max-width: 768px) {
+  .service-setup-wrapper {
+    padding: 40px 20px;
+  }
+  
+  .setup-title {
+    font-size: 2rem;
+  }
+
+  .setup-card {
+    padding: 30px;
+  }
+  
+  /* On mobile, always show the action text since there's no hover */
+  .card-action {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

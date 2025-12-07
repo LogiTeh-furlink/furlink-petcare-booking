@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useRef } from "react";
-import { useNavigate, useLocation } from "react-router-dom"; // Added useLocation
-import { FaBell, FaUserCircle, FaSignOutAlt, FaTimes, FaStore, FaListUl } from "react-icons/fa";
+import { useNavigate, useLocation } from "react-router-dom";
+import { FaBell, FaUserCircle, FaSignOutAlt, FaTimes, FaStore, FaListUl, FaExclamationCircle } from "react-icons/fa";
 import { supabase } from "../../config/supabase";
 import "./LoggedInNavbar.css";
 import logo from "../../assets/logo.png";
 
 const LoggedInNavbar = ({ hideBecomeProvider = false }) => {
   const navigate = useNavigate();
-  const location = useLocation(); // Hook to get current URL path
+  const location = useLocation();
   
   // UI Toggles
   const [showNotif, setShowNotif] = useState(false);
@@ -20,14 +20,14 @@ const LoggedInNavbar = ({ hideBecomeProvider = false }) => {
   const [profile, setProfile] = useState(null);
   
   // Provider Logic State
-  const [providerData, setProviderData] = useState(null); // { id, status, business_name }
-  const [hasServices, setHasServices] = useState(false); // Check if they finished stage 2 (ServiceListing)
+  const [providerData, setProviderData] = useState(null); 
+  const [hasServices, setHasServices] = useState(false); 
 
   const notifRef = useRef();
   const menuRef = useRef();
 
   /* ==========================
-     FETCH DATA
+      FETCH DATA
      ========================== */
   useEffect(() => {
     const fetchData = async () => {
@@ -51,10 +51,10 @@ const LoggedInNavbar = ({ hideBecomeProvider = false }) => {
         .limit(10);
       setNotifications(notifData || []);
 
-      // 3. Fetch Provider Data + Service Check
+      // 3. Fetch Provider Data
       const { data: provider } = await supabase
         .from("service_providers")
-        .select("id, status, business_name")
+        .select("id, status, business_name, rejection_reasons")
         .eq("user_id", user.id)
         .maybeSingle();
 
@@ -75,11 +75,9 @@ const LoggedInNavbar = ({ hideBecomeProvider = false }) => {
   }, [navigate]);
 
   /* ==========================
-     LOGIC HANDLERS
+      LOGIC HANDLERS
      ========================== */
 
-  // Requirement: Hide "Switch to Business" if already IN the service provider area
-  // Check if current path starts with "/service/"
   const isServiceProviderPage = location.pathname.startsWith("/service/");
 
   // Requirement 1-5: The "Become a Service Provider" Button Logic
@@ -90,11 +88,11 @@ const LoggedInNavbar = ({ hideBecomeProvider = false }) => {
       return;
     }
 
-    const { status, id } = providerData;
+    const { status } = providerData;
 
     if (status === "approved") {
-      // Case 5: Approved -> Go to Dashboard (FIXED URL)
-      navigate("/service/dashboard"); // Or `/service/dashboard/${id}` if you prefer specific
+      // Case 5: Approved -> Go to Dashboard
+      navigate("/service/dashboard");
     } else if (status === "rejected") {
       // Case 4: Rejected -> Show Modal
       setShowRejectModal(true);
@@ -120,7 +118,6 @@ const LoggedInNavbar = ({ hideBecomeProvider = false }) => {
     
     // Redirect logic based on notification type
     if (title.includes("approved")) {
-      // FIXED URL
       navigate("/service/dashboard");
       setShowNotif(false);
     } else if (title.includes("rejected")) {
@@ -148,6 +145,14 @@ const LoggedInNavbar = ({ hideBecomeProvider = false }) => {
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
+  // Helper to format enum strings
+  const formatReason = (str) => {
+    if (!str) return "";
+    return str
+      .replace(/_/g, " ")
+      .replace(/\b\w/g, (l) => l.toUpperCase());
+  };
+
   return (
     <>
       <header className="loggedin-header">
@@ -160,7 +165,7 @@ const LoggedInNavbar = ({ hideBecomeProvider = false }) => {
           {/* Right Section */}
           <div className="nav-right">
 
-            {/* ⭐ Provider Button (Dynamic Text + Visibility Logic) */}
+            {/* ⭐ Provider Button */}
             {!hideBecomeProvider && !isServiceProviderPage && (
               <button 
                 className={`provider-btn ${providerData?.status === 'approved' ? 'business-mode' : ''}`}
@@ -210,11 +215,10 @@ const LoggedInNavbar = ({ hideBecomeProvider = false }) => {
                 <div className="dropdown profile-dropdown">
                   <p className="user-name">Hi, {profile?.first_name || "User"}</p>
                   
-                  {/* Requirement 7: Manage Listing (Only if Approved) */}
                   {providerData?.status === 'approved' && (
                     <button 
                       className="menu-item-btn" 
-                      onClick={() => navigate("/service/manage-listing")} // FIXED URL
+                      onClick={() => navigate("/service/manage-listing")}
                     >
                       <FaStore className="menu-icon" /> Manage Listing
                     </button>
@@ -257,7 +261,7 @@ const LoggedInNavbar = ({ hideBecomeProvider = false }) => {
         </div>
       )}
 
-      {/* Case 4: Rejected Modal */}
+      {/* Case 4: Rejected Modal (NO UPDATE OPTION) */}
       {showRejectModal && (
         <div className="modal-overlay">
           <div className="modal-content reject-modal">
@@ -269,8 +273,31 @@ const LoggedInNavbar = ({ hideBecomeProvider = false }) => {
             </div>
             <h3>Application Rejected</h3>
             <p>
-              Your listing was not approved at this time. 
+              Your application was not approved at this time. 
             </p>
+
+            {/* Display Rejection Reasons if available */}
+            {providerData?.rejection_reasons && providerData.rejection_reasons.length > 0 ? (
+              <div className="rejection-details-box">
+                <p className="reject-reason-title">
+                   <FaExclamationCircle /> <strong>Reason(s) for rejection:</strong>
+                </p>
+                <ul className="reject-reason-list">
+                  {providerData.rejection_reasons.map((reason, idx) => (
+                    <li key={idx} className="reject-reason-item">
+                        {formatReason(reason)}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : (
+                <p>Please contact support for more details regarding your application.</p>
+            )}
+
+            <p className="reject-note">
+               Re-appealing is currently not available. Please contact support if you believe this is an error.
+            </p>
+            
             <button className="modal-ok-btn reject-bg" onClick={() => setShowRejectModal(false)}>
               Close
             </button>

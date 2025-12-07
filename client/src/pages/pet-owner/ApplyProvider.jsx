@@ -15,7 +15,7 @@ const ConfirmationModal = ({ isOpen, onClose, onConfirm, data, files, isSubmitti
 
   const formatOperatingHours = (hours) =>
     hours.map((slot, idx) => (
-      <div key={idx} style={{ marginBottom: 6 }}>
+      <div key={idx} className="modal-hours-slot">
         <strong>{slot.days.join(", ") || "—"}:</strong> {slot.startTime} - {slot.endTime}
       </div>
     ));
@@ -24,18 +24,18 @@ const ConfirmationModal = ({ isOpen, onClose, onConfirm, data, files, isSubmitti
     if (url) {
       return (
         <a href={url} target="_blank" rel="noopener noreferrer" className="modal-file-link">
-          <FileText size={14} style={{ marginRight: 4 }} /> View existing file
+          <FileText size={14} /> View existing file
         </a>
       );
     }
     if (file) {
       return (
         <span className="modal-file-new">
-          <FileText size={14} style={{ marginRight: 4 }} /> {file.name}
+          <FileText size={14} /> {file.name}
         </span>
       );
     }
-    return <span className="modal-file-none" style={{ color: "#9ca3af", fontStyle: "italic" }}>No file provided</span>;
+    return <span className="modal-file-none">No file provided</span>;
   };
 
   const renderFileList = (fileArray, existingArray) => {
@@ -46,7 +46,7 @@ const ConfirmationModal = ({ isOpen, onClose, onConfirm, data, files, isSubmitti
         items.push(
           <div key={`existing-${idx}`} className="modal-file-existing">
             <a href={url} target="_blank" rel="noopener noreferrer">
-              <FileText size={14} style={{ marginRight: 4 }} /> Existing file {idx + 1}
+              <FileText size={14} /> Existing file {idx + 1}
             </a>
           </div>
         );
@@ -56,7 +56,7 @@ const ConfirmationModal = ({ isOpen, onClose, onConfirm, data, files, isSubmitti
       fileArray.forEach((file, idx) => {
         items.push(
           <div key={`new-${idx}`} className="modal-file-new">
-            <FileText size={14} style={{ marginRight: 4 }} /> {file.name}
+            <FileText size={14} /> {file.name}
           </div>
         );
       });
@@ -70,7 +70,7 @@ const ConfirmationModal = ({ isOpen, onClose, onConfirm, data, files, isSubmitti
       <div className="modal-container">
         <div className="modal-header">
           <h2 className="modal-title">
-            <CheckCircle size={20} style={{ color: "#10b981", marginRight: 8 }} />
+            <CheckCircle size={20} />
             Confirm Your Application
           </h2>
           <button onClick={onClose} disabled={isSubmitting} className="modal-close-btn">
@@ -80,7 +80,7 @@ const ConfirmationModal = ({ isOpen, onClose, onConfirm, data, files, isSubmitti
 
         <div className="modal-body">
           <div className="modal-alert">
-            <AlertCircle size={18} style={{ color: "#f59e0b", marginRight: 8 }} />
+            <AlertCircle size={18} />
             <p>Please review all information below. Once submitted, you cannot edit this form again.</p>
           </div>
 
@@ -89,10 +89,9 @@ const ConfirmationModal = ({ isOpen, onClose, onConfirm, data, files, isSubmitti
             <div className="info-box">
               <div className="info-item"><strong>Business Name:</strong> {data.businessName}</div>
               
-              {/* Added Description to Modal */}
-              <div className="info-item" style={{alignItems: 'flex-start'}}>
+              <div className="info-item modal-description-item">
                 <strong>Description:</strong> 
-                <span style={{whiteSpace: 'pre-wrap', marginTop: '4px', display:'block'}}>{data.description}</span>
+                <span className="modal-description-text">{data.description}</span>
               </div>
 
               <div className="info-item"><strong>Email:</strong> {data.businessEmail}</div>
@@ -101,7 +100,7 @@ const ConfirmationModal = ({ isOpen, onClose, onConfirm, data, files, isSubmitti
               <div className="info-item"><strong>Social Media:</strong> {data.socialMediaUrl || "N/A"}</div>
               <div className="info-item">
                 <strong>Operating Hours:</strong>
-                <div style={{ marginTop: 8, paddingLeft: 10 }}>{formatOperatingHours(data.operatingHours || [])}</div>
+                <div className="modal-hours-display">{formatOperatingHours(data.operatingHours || [])}</div>
               </div>
             </div>
           </section>
@@ -120,19 +119,19 @@ const ConfirmationModal = ({ isOpen, onClose, onConfirm, data, files, isSubmitti
             <div className="info-box">
               <div className="info-item">
                 <strong>Business Permit:</strong>
-                <div style={{ marginTop: 6 }}>{renderFileLink(files.businessPermitFile, files.existingPermitUrl)}</div>
+                <div className="modal-hours-display">{renderFileLink(files.businessPermitFile, files.existingPermitUrl)}</div>
               </div>
               <div className="info-item">
                 <strong>Waiver:</strong>
-                <div style={{ marginTop: 6 }}>{renderFileLink(files.waiverFile, files.existingWaiverUrl)}</div>
+                <div className="modal-hours-display">{renderFileLink(files.waiverFile, files.existingWaiverUrl)}</div>
               </div>
               <div className="info-item">
                 <strong>Facility Images:</strong>
-                <div style={{ marginTop: 6 }}>{renderFileList(files.facilityImages, files.existingFacilityImages)}</div>
+                <div className="modal-hours-display">{renderFileList(files.facilityImages, files.existingFacilityImages)}</div>
               </div>
               <div className="info-item">
                 <strong>Payment Channel:</strong>
-                <div style={{ marginTop: 6 }}>{renderFileList(files.paymentChannelFiles, files.existingPaymentChannels)}</div>
+                <div className="modal-hours-display">{renderFileList(files.paymentChannelFiles, files.existingPaymentChannels)}</div>
               </div>
             </div>
           </section>
@@ -173,21 +172,20 @@ export default function ApplyProvider() {
   const [providerId, setProviderId] = useState(null);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
 
-  // Requirement 2: Defaults set here
   const [businessInfo, setBusinessInfo] = useState({
     businessName: "",
-    description: "", // New State for Description
+    description: "",
     businessEmail: "",
     businessMobile: "",
     socialMediaUrl: "",
-    typeOfService: "Pet Grooming", // Default
+    typeOfService: "Pet Grooming",
     operatingHours: [{ days: [], startTime: "09:00", endTime: "17:00" }],
     houseStreet: "",
     barangay: "",
     city: "",
     province: "",
     postalCode: "",
-    country: "Philippines", // Default
+    country: "Philippines",
   });
 
   const [waiverFile, setWaiverFile] = useState(null);
@@ -202,7 +200,6 @@ export default function ApplyProvider() {
   const [businessPermitFile, setBusinessPermitFile] = useState(null);
   const [existingPermitUrl, setExistingPermitUrl] = useState(null);
 
-  // Requirement 6: Position will be dropdown
   const [employees, setEmployees] = useState([{ fullName: "", position: "" }]);
   const [validationErrors, setValidationErrors] = useState({});
 
@@ -210,7 +207,6 @@ export default function ApplyProvider() {
   const daysOfWeekFull = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
   const positionOptions = ["Business Owner", "Pet Stylist", "Staff"];
 
-  // --- Load Data on Mount ---
   useEffect(() => {
     const loadProviderData = async () => {
       try {
@@ -231,7 +227,7 @@ export default function ApplyProvider() {
             setBusinessInfo(prev => ({
               ...prev,
               businessName: providerData.business_name || "",
-              description: providerData.description || "", // Load description
+              description: providerData.description || "",
               businessEmail: providerData.business_email || "",
               businessMobile: providerData.business_mobile || "",
               socialMediaUrl: providerData.social_media_url || "",
@@ -278,12 +274,9 @@ export default function ApplyProvider() {
     loadProviderData();
   }, []);
 
-  // --- Handlers ---
-
   const handleBusinessChange = (e) => {
     const { name, value } = e.target;
     
-    // Description: Limit to 500 chars
     if (name === "description") {
         if (value.length <= 500) {
             setBusinessInfo((prev) => ({ ...prev, [name]: value }));
@@ -291,7 +284,6 @@ export default function ApplyProvider() {
         return;
     }
 
-    // Mobile Number Validation
     if (name === "businessMobile") {
         const numbersOnly = value.replace(/\D/g, "");
         if (numbersOnly.length <= 11) {
@@ -300,7 +292,6 @@ export default function ApplyProvider() {
         return;
     }
     
-    // Postal Code Validation
     if (name === "postalCode") {
         const numbersOnly = value.replace(/\D/g, "");
         if (numbersOnly.length <= 4) {
@@ -375,15 +366,13 @@ export default function ApplyProvider() {
   const addEmployee = () => setEmployees((prev) => [...prev, { fullName: "", position: "" }]);
   const removeEmployee = (index) => setEmployees((prev) => prev.filter((_, i) => i !== index));
 
-  // VALIDATION
   const validateForm = () => {
     const errors = {};
     if (!businessInfo.businessName.trim()) errors.businessName = "Business Name is required";
-    // New Required Check for Description
     if (!businessInfo.description.trim()) errors.description = "Business Description is required";
     
     if (!businessInfo.businessEmail.trim()) errors.businessEmail = "Email is required";
-    if (!/^09\d{9}$/.test(businessInfo.businessMobile)) errors.businessMobile = "Must be a valid PH mobile number (09XXXXXXXXX)";
+    if (!/^09\d{9}$/.test(businessInfo.businessMobile)) errors.businessMobile = "Must be a valid PH mobile number";
 
     if (businessInfo.socialMediaUrl && !/^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?(\?.*)?$/.test(businessInfo.socialMediaUrl)) {
         errors.socialMediaUrl = "Must be a valid URL";
@@ -398,10 +387,10 @@ export default function ApplyProvider() {
     }
 
     ["houseStreet", "barangay", "city", "province"].forEach((field) => {
-      if (!businessInfo[field] || !businessInfo[field].trim()) errors[field] = "This field is required";
+      if (!businessInfo[field] || !businessInfo[field].trim()) errors[field] = "Please provide business address details";
     });
 
-    if (!/^\d{4}$/.test(businessInfo.postalCode)) errors.postalCode = "Postal code must be 4 digits";
+    if (!/^\d{4}$/.test(businessInfo.postalCode)) errors.postalCode = "Invalid postal code";
 
     if (facilityImages.length === 0 && existingFacilityImages.length === 0) errors.facilityImages = "At least 1 facility image required";
     if (paymentChannelFiles.length === 0 && existingPaymentChannels.length === 0) errors.paymentChannelFiles = "At least 1 payment QR required";
@@ -487,17 +476,15 @@ export default function ApplyProvider() {
 
         let currentProviderId = providerId;
 
-        // Fetch current ID to ensure we don't duplicate
         if (!currentProviderId) {
              const { data: existing } = await supabase.from("service_providers").select("id").eq("user_id", user.id).maybeSingle();
              if (existing) currentProviderId = existing.id;
         }
 
-        // --- UPSERT PROVIDER ---
         const payload = {
             user_id: user.id,
             business_name: businessInfo.businessName,
-            description: businessInfo.description, // Save Description
+            description: businessInfo.description,
             business_email: businessInfo.businessEmail,
             business_mobile: businessInfo.businessMobile,
             house_street: businessInfo.houseStreet,
@@ -516,7 +503,6 @@ export default function ApplyProvider() {
             const { error: updateError } = await supabase.from("service_providers").update(payload).eq("id", currentProviderId);
             if (updateError) throw updateError;
 
-            // Safe delete of children now that parent update succeeded
             await supabase.from("service_provider_hours").delete().eq("provider_id", currentProviderId);
             await supabase.from("service_provider_staff").delete().eq("provider_id", currentProviderId);
         } else {
@@ -529,7 +515,6 @@ export default function ApplyProvider() {
             localStorage.setItem("providerId", currentProviderId);
         }
 
-        // --- INSERT RELATIONS ---
         const hoursPayload = [];
         businessInfo.operatingHours.forEach(slot => {
             slot.days.forEach(day => {
@@ -592,18 +577,18 @@ export default function ApplyProvider() {
             <h2>Business Information</h2>
             <div className="form-grid-3">
               <div className="form-group">
-                <label>Business Name *</label>
+                <label>Business Name*</label>
                 <input type="text" name="businessName" value={businessInfo.businessName} onChange={handleBusinessChange} />
                 {validationErrors.businessName && <small className="error">{validationErrors.businessName}</small>}
               </div>
               <div className="form-group">
-                <label>Email *</label>
+                <label>Email*</label>
                 <input type="email" name="businessEmail" value={businessInfo.businessEmail} onChange={handleBusinessChange} />
                 {validationErrors.businessEmail && <small className="error">{validationErrors.businessEmail}</small>}
               </div>
               <div className="form-group">
-                <label>Mobile Number * (09XXXXXXXXX)</label>
-                <input type="tel" name="businessMobile" value={businessInfo.businessMobile} onChange={handleBusinessChange} placeholder="09123456789" />
+                <label>Mobile Number*</label>
+                <input type="tel" name="businessMobile" value={businessInfo.businessMobile} onChange={handleBusinessChange} placeholder="0912 345 6789" />
                 {validationErrors.businessMobile && <small className="error">{validationErrors.businessMobile}</small>}
               </div>
             </div>
@@ -614,17 +599,16 @@ export default function ApplyProvider() {
                     <input type="text" name="typeOfService" value={businessInfo.typeOfService} disabled className="input-disabled" />
                 </div>
                 <div className="form-group">
-                    <label>Social Media URL (Optional)</label>
+                    <label>Social Media URL</label>
                     <input type="url" name="socialMediaUrl" value={businessInfo.socialMediaUrl} onChange={handleBusinessChange} placeholder="https://facebook.com/..." />
                     {validationErrors.socialMediaUrl && <small className="error">{validationErrors.socialMediaUrl}</small>}
                 </div>
             </div>
 
-            {/* --- NEW DESCRIPTION FIELD --- */}
-            <div className="form-group" style={{marginTop:'20px'}}>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom:'5px' }}>
-                    <label>Business Description *</label>
-                    <span style={{ fontSize: "0.85rem", color: businessInfo.description.length >= 500 ? "#ef4444" : "#6b7280", fontWeight:500 }}>
+            <div className="form-group description-container">
+                <div className="description-label-row">
+                    <label>Business Description*</label> 
+                    <span className={`description-char-count ${businessInfo.description.length >= 500 ? 'limit' : 'normal'}`}>
                         {businessInfo.description.length}/500
                     </span>
                 </div>
@@ -634,15 +618,14 @@ export default function ApplyProvider() {
                     onChange={handleBusinessChange}
                     rows={5}
                     maxLength={500}
-                    placeholder="Tell us about your business experience, services, and what makes you unique..."
-                    style={{ width:'100%', padding:'12px', border: validationErrors.description ? '1px solid #ef4444' : '1px solid #d1d5db', borderRadius:'8px', fontFamily:'inherit' }}
+                    placeholder="Tell us about your business, services, and what makes you unique..."
+                    className={`description-textarea ${validationErrors.description ? 'error' : ''}`}
                 />
                 {validationErrors.description && <small className="error">{validationErrors.description}</small>}
             </div>
-            {/* ----------------------------- */}
 
-            <div className="form-group" style={{marginTop:'20px'}}>
-              <label>Operating Hours *</label>
+            <div className="form-group operating-hours-container">
+              <label>Operating Hours*</label>
               {businessInfo.operatingHours.map((slot, i) => (
                 <div key={i} className="operating-slot">
                   <div className="day-buttons">
@@ -669,16 +652,14 @@ export default function ApplyProvider() {
             </div>
           </section>
 
-          {/* ... (Address, Documents, Employees Sections remain unchanged) ... */}
-          
           <section className="form-section">
             <h2>Business Address</h2>
             <div className="form-grid-3">
-              <div className="form-group"><label>Street / House No. *</label><input type="text" name="houseStreet" value={businessInfo.houseStreet} onChange={handleBusinessChange} />{validationErrors.houseStreet && <small className="error">{validationErrors.houseStreet}</small>}</div>
-              <div className="form-group"><label>Barangay *</label><input type="text" name="barangay" value={businessInfo.barangay} onChange={handleBusinessChange} />{validationErrors.barangay && <small className="error">{validationErrors.barangay}</small>}</div>
-              <div className="form-group"><label>City / Municipality *</label><input type="text" name="city" value={businessInfo.city} onChange={handleBusinessChange} />{validationErrors.city && <small className="error">{validationErrors.city}</small>}</div>
-              <div className="form-group"><label>Province *</label><input type="text" name="province" value={businessInfo.province} onChange={handleBusinessChange} />{validationErrors.province && <small className="error">{validationErrors.province}</small>}</div>
-              <div className="form-group"><label>Postal Code *</label><input type="text" name="postalCode" value={businessInfo.postalCode} onChange={handleBusinessChange} maxLength={4} />{validationErrors.postalCode && <small className="error">{validationErrors.postalCode}</small>}</div>
+              <div className="form-group"><label>Street / House No.*</label><input type="text" name="houseStreet" value={businessInfo.houseStreet} onChange={handleBusinessChange} />{validationErrors.houseStreet && <small className="error">{validationErrors.houseStreet}</small>}</div>
+              <div className="form-group"><label>Barangay*</label><input type="text" name="barangay" value={businessInfo.barangay} onChange={handleBusinessChange} />{validationErrors.barangay && <small className="error">{validationErrors.barangay}</small>}</div>
+              <div className="form-group"><label>City / Municipality*</label><input type="text" name="city" value={businessInfo.city} onChange={handleBusinessChange} />{validationErrors.city && <small className="error">{validationErrors.city}</small>}</div>
+              <div className="form-group"><label>Province*</label><input type="text" name="province" value={businessInfo.province} onChange={handleBusinessChange} />{validationErrors.province && <small className="error">{validationErrors.province}</small>}</div>
+              <div className="form-group"><label>Postal Code*</label><input type="text" name="postalCode" value={businessInfo.postalCode} onChange={handleBusinessChange} maxLength={4} />{validationErrors.postalCode && <small className="error">{validationErrors.postalCode}</small>}</div>
               <div className="form-group"><label>Country</label><input type="text" name="country" value={businessInfo.country} disabled className="input-disabled" /></div>
             </div>
           </section>
@@ -686,12 +667,12 @@ export default function ApplyProvider() {
           <section className="form-section">
             <h2>Documents & Uploads</h2>
             <div className="form-grid-2">
-              <div className="form-group"><label>Waiver (Optional)</label><label className="file-btn"><Upload size={18} /> <span>Select File</span><input type="file" accept=".pdf,.doc,.docx" onChange={(e) => handleFileSelect(setWaiverFile, e, 1, "waiverFile")} hidden /></label><div className="file-preview-small">{waiverFile ? <span>{waiverFile.name} <X size={14} onClick={() => setWaiverFile(null)} /></span> : existingWaiverUrl ? <span><a href={existingWaiverUrl} target="_blank" rel="noreferrer">View Existing</a> <X size={14} onClick={() => removeSingleFile(setWaiverFile, setExistingWaiverUrl)} /></span> : null}</div>{validationErrors.waiverFile && <small className="error">{validationErrors.waiverFile}</small>}</div>
-              <div className="form-group"><label>Business Permit *</label><label className="file-btn"><Upload size={18} /> <span>Select File</span><input type="file" accept=".pdf,.doc,.docx" onChange={(e) => handleFileSelect(setBusinessPermitFile, e, 1, "businessPermitFile")} hidden /></label><div className="file-preview-small">{businessPermitFile ? <span>{businessPermitFile.name} <X size={14} onClick={() => setBusinessPermitFile(null)} /></span> : existingPermitUrl ? <span><a href={existingPermitUrl} target="_blank" rel="noreferrer">View Existing</a> <X size={14} onClick={() => removeSingleFile(setBusinessPermitFile, setExistingPermitUrl)} /></span> : null}</div>{validationErrors.businessPermitFile && <small className="error">{validationErrors.businessPermitFile}</small>}</div>
+              <div className="form-group"><label>Waiver</label><label className="file-btn"><Upload size={18} /> <span>Select File</span><input type="file" accept=".pdf,.doc,.docx" onChange={(e) => handleFileSelect(setWaiverFile, e, 1, "waiverFile")} hidden /></label><div className="file-preview-small">{waiverFile ? <span>{waiverFile.name} <X size={14} onClick={() => setWaiverFile(null)} /></span> : existingWaiverUrl ? <span><a href={existingWaiverUrl} target="_blank" rel="noreferrer">View Existing</a> <X size={14} onClick={() => removeSingleFile(setWaiverFile, setExistingWaiverUrl)} /></span> : null}</div>{validationErrors.waiverFile && <small className="error">{validationErrors.waiverFile}</small>}</div>
+              <div className="form-group"><label>Business Permit*</label><label className="file-btn"><Upload size={18} /> <span>Select File</span><input type="file" accept=".pdf,.doc,.docx" onChange={(e) => handleFileSelect(setBusinessPermitFile, e, 1, "businessPermitFile")} hidden /></label><div className="file-preview-small">{businessPermitFile ? <span>{businessPermitFile.name} <X size={14} onClick={() => setBusinessPermitFile(null)} /></span> : existingPermitUrl ? <span><a href={existingPermitUrl} target="_blank" rel="noreferrer">View Existing</a> <X size={14} onClick={() => removeSingleFile(setBusinessPermitFile, setExistingPermitUrl)} /></span> : null}</div>{validationErrors.businessPermitFile && <small className="error">{validationErrors.businessPermitFile}</small>}</div>
             </div>
             <div className="form-grid-2">
-                <div className="form-group"><label>Facility Images * (Max 3)</label><label className="file-btn"><Upload size={18} /> <span>Select Images</span><input type="file" accept=".jpg,.jpeg,.png" multiple onChange={(e) => handleMultiFileSelect(setFacilityImages, facilityImages, e, 3, "facilityImages", existingFacilityImages.length, 2)} hidden /></label><div className="file-list">{existingFacilityImages.map(img => (<div key={img.id} className="file-item"><FileText size={14} /> Existing Img <button type="button" onClick={() => removeExistingFile("image", img.id, img.image_url)}><X size={12} /></button></div>))}{facilityImages.map((f, i) => (<div key={i} className="file-item"><FileText size={14} /> {f.name}<button type="button" onClick={() => removeFile(setFacilityImages, i)}><X size={12} /></button></div>))}</div>{validationErrors.facilityImages && <small className="error">{validationErrors.facilityImages}</small>}</div>
-                <div className="form-group"><label>Payment QR * (Max 3)</label><label className="file-btn"><Upload size={18} /> <span>Select QR Images</span><input type="file" accept=".jpg,.jpeg,.png" multiple onChange={(e) => handleMultiFileSelect(setPaymentChannelFiles, paymentChannelFiles, e, 3, "paymentChannelFiles", existingPaymentChannels.length, 2)} hidden /></label><div className="file-list">{existingPaymentChannels.map(img => (<div key={img.id} className="file-item"><FileText size={14} /> Existing QR <button type="button" onClick={() => removeExistingFile("payment", img.id, img.file_url)}><X size={12} /></button></div>))}{paymentChannelFiles.map((f, i) => (<div key={i} className="file-item"><FileText size={14} /> {f.name}<button type="button" onClick={() => removeFile(setPaymentChannelFiles, i)}><X size={12} /></button></div>))}</div>{validationErrors.paymentChannelFiles && <small className="error">{validationErrors.paymentChannelFiles}</small>}</div>
+                <div className="form-group"><label>Facility Images*</label><label className="file-btn"><Upload size={18} /> <span>Select Images</span><input type="file" accept=".jpg,.jpeg,.png" multiple onChange={(e) => handleMultiFileSelect(setFacilityImages, facilityImages, e, 3, "facilityImages", existingFacilityImages.length, 2)} hidden /></label><div className="file-list">{existingFacilityImages.map(img => (<div key={img.id} className="file-item"><FileText size={14} /> Existing Img <button type="button" onClick={() => removeExistingFile("image", img.id, img.image_url)}><X size={12} /></button></div>))}{facilityImages.map((f, i) => (<div key={i} className="file-item"><FileText size={14} /> {f.name}<button type="button" onClick={() => removeFile(setFacilityImages, i)}><X size={12} /></button></div>))}</div>{validationErrors.facilityImages && <small className="error">{validationErrors.facilityImages}</small>}</div>
+                <div className="form-group"><label>Payment QR*</label><label className="file-btn"><Upload size={18} /> <span>Select QR Images</span><input type="file" accept=".jpg,.jpeg,.png" multiple onChange={(e) => handleMultiFileSelect(setPaymentChannelFiles, paymentChannelFiles, e, 3, "paymentChannelFiles", existingPaymentChannels.length, 2)} hidden /></label><div className="file-list">{existingPaymentChannels.map(img => (<div key={img.id} className="file-item"><FileText size={14} /> Existing QR <button type="button" onClick={() => removeExistingFile("payment", img.id, img.file_url)}><X size={12} /></button></div>))}{paymentChannelFiles.map((f, i) => (<div key={i} className="file-item"><FileText size={14} /> {f.name}<button type="button" onClick={() => removeFile(setPaymentChannelFiles, i)}><X size={12} /></button></div>))}</div>{validationErrors.paymentChannelFiles && <small className="error">{validationErrors.paymentChannelFiles}</small>}</div>
             </div>
           </section>
 
@@ -700,8 +681,8 @@ export default function ApplyProvider() {
             {employees.map((emp, idx) => (
               <div className="employee-row" key={idx}>
                 <div className="form-grid-2">
-                  <div className="form-group"><label>Full Name *</label><input type="text" value={emp.fullName} onChange={(e) => handleEmployeeChange(idx, "fullName", e.target.value)} />{validationErrors[`employee_${idx}_name`] && <small className="error">{validationErrors[`employee_${idx}_name`]}</small>}</div>
-                  <div className="form-group"><label>Position *</label><div className="input-with-btn"><select value={emp.position} onChange={(e) => handleEmployeeChange(idx, "position", e.target.value)}><option value="">Select Position</option>{positionOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}</select>{employees.length > 1 && (<button type="button" onClick={() => removeEmployee(idx)} className="remove-btn"><Trash2 size={16} /></button>)}</div>{validationErrors[`employee_${idx}_pos`] && <small className="error">{validationErrors[`employee_${idx}_pos`]}</small>}</div>
+                  <div className="form-group"><label>Full Name*</label><input type="text" value={emp.fullName} onChange={(e) => handleEmployeeChange(idx, "fullName", e.target.value)} />{validationErrors[`employee_${idx}_name`] && <small className="error">{validationErrors[`employee_${idx}_name`]}</small>}</div>
+                  <div className="form-group"><label>Position*</label><div className="input-with-btn"><select value={emp.position} onChange={(e) => handleEmployeeChange(idx, "position", e.target.value)}><option value="">Select Position</option>{positionOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}</select>{employees.length > 1 && (<button type="button" onClick={() => removeEmployee(idx)} className="remove-btn"><Trash2 size={16} /></button>)}</div>{validationErrors[`employee_${idx}_pos`] && <small className="error">{validationErrors[`employee_${idx}_pos`]}</small>}</div>
                 </div>
               </div>
             ))}

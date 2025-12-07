@@ -47,7 +47,7 @@
   cursor: pointer;
   font-size: 1rem;
   transition: all 0.3s ease;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.05); /* Added slight depth */
+  /* box-shadow removed as requested */
 }
 
 .provider-btn:hover {
@@ -319,6 +319,41 @@
 }
 
 .close-modal-btn:hover { color: #0e2679; }
+
+/* Rejection Modal Specifics */
+.rejection-details-box {
+  text-align: left;
+  background-color: #fef2f2;
+  padding: 15px;
+  border-radius: 8px;
+  margin-bottom: 15px;
+  border: 1px solid #fee2e2;
+}
+
+.reject-reason-title {
+  margin-bottom: 5px;
+  color: #991b1b;
+  font-size: 0.95rem;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.reject-reason-list {
+  margin: 0;
+  padding-left: 20px;
+  color: #7f1d1d;
+  font-size: 0.9rem;
+}
+
+.reject-reason-item {
+  margin-bottom: 3px;
+}
+
+.reject-note {
+  font-size: 0.9rem;
+  color: #6b7280;
+}
 
 @keyframes fadeIn {
   from { opacity: 0; }
