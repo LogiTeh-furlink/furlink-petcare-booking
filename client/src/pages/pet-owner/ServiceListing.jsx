@@ -45,8 +45,8 @@ const FinalConfirmationModal = ({ isOpen, onClose, onConfirm, status, errorMessa
           </div>
           <div className="modal-body-center">
             <p>
-              Your service listing has been successfully saved to the database. 
-              <br/>It is now pending approval by the administrator.
+              Thank you for submitting your service listing! 
+              <br/> It has been received and is currently under review by our administrators.
             </p>
           </div>
           <div className="modal-footer-center">
@@ -329,7 +329,7 @@ export default function ServiceListing() {
         service.pricing.forEach((pricing, pi) => {
           const priceVal = parseFloat(pricing.price);
           if (!pricing.price || isNaN(priceVal) || priceVal <= 0) {
-            errs[`service_${si}_pricing_${pi}_price`] = "Required (>0)"; hasError = true;
+            errs[`service_${si}_pricing_${pi}_price`] = "Required (Must be greater than 0)"; hasError = true;
           }
           if (pricing.size !== "cat" && pricing.size !== "all") {
             if (!pricing.weight || pricing.weight.trim() === "") {
@@ -480,29 +480,29 @@ export default function ServiceListing() {
                   <div className="service-form-body">
                     <div className="form-left">
                       <div className="form-field">
-                        <label>Name of Service *</label>
+                        <label>Name of Service*</label>
                         <input
                           type="text"
                           value={service.name}
                           onChange={(e) => updateService(si, "name", e.target.value)}
-                          placeholder="e.g. Full Grooming"
+                          placeholder="e.g. Full Grooming, Nail Trimming"
                           className={validationErrors[`service_${si}_name`] ? "input-error" : ""}
                         />
                         {validationErrors[`service_${si}_name`] && <small className="error">{validationErrors[`service_${si}_name`]}</small>}
                       </div>
                       <div className="form-field">
-                        <label>Description (Optional)</label>
+                        <label>Description</label>
                         <input type="text" value={service.description} onChange={(e) => updateService(si, "description", e.target.value)} />
                       </div>
                       <div className="form-field">
-                        <label>Notes (Optional)</label>
+                        <label>Notes</label>
                         <textarea value={service.notes} onChange={(e) => updateService(si, "notes", e.target.value)} rows={3} />
                       </div>
                     </div>
 
                     <div className="form-right">
                       <div className="pricing-section">
-                        <label>Pricing Configuration *</label>
+                        <label>Pricing List*</label>
                         <div className="pricing-table">
                           <div className="pricing-header">
                             <div>Pet Type</div>
@@ -597,7 +597,7 @@ export default function ServiceListing() {
             {services.map((service, si) => (
               <div key={si} className="summary-card">
                 <div className="summary-header">
-                  <h3>{service.type === "package" ? "📦 Package Service" : "🐾 Individual Service"}</h3>
+                  <h3>{service.type === "package" ? "Package Service" : "Individual Service"}</h3>
                 </div>
                 <div className="summary-body">
                   <div className="summary-row"><strong>Name:</strong> {service.name}</div>

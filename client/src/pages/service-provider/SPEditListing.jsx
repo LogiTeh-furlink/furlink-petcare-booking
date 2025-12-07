@@ -632,7 +632,7 @@ export default function SPEditListing() {
                 <ArrowLeft size={16}/> Back to Edit
             </button>
             <button className="btn-final-submit" onClick={() => setShowFinalModal(true)} disabled={submissionStatus === 'submitting'}>
-                <Save size={16}/> Submit Updates
+                Update
             </button>
         </div>
       </div>

@@ -5,19 +5,17 @@
   margin: 0 auto;
   padding: 40px 20px;
   min-height: 80vh;
-  background-color: #f8f9fa;
+  background-color: #ffffff;
 }
 
-.sp-loading { text-align: center; padding: 60px; color: #6b7280; font-size: 1.1rem; }
+.sp-loading { 
+  text-align: center; 
+  padding: 60px; 
+  color: #6b7280; 
+  font-size: 1.1rem; 
+}
 
 /* Header */
-.header-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 30px;
-}
-
 .header-row {
   position: relative; /* Creates a reference point for the absolute button */
   display: flex;
@@ -177,13 +175,14 @@
 }
 .btn-del-row:hover { background: #fee2e2; border-radius: 4px; }
 
+/* --- UPDATED: Add Variant Button (BLUE) --- */
 .btn-add-variant {
   margin-top: 10px;
   padding: 8px;
   width: 100%;
-  border: 1px dashed #15803d;
-  color: #15803d;
-  background: #f0fdf4;
+  border: 1px dashed #3b82f6;
+  color: #1d4ed8;
+  background: #eff6ff;
   font-weight: 600;
   border-radius: 6px;
   cursor: pointer;
@@ -191,8 +190,9 @@
   align-items: center;
   justify-content: center;
   gap: 5px;
+  transition: all 0.2s;
 }
-.btn-add-variant:hover { background: #dcfce7; }
+.btn-add-variant:hover { background: #dbeafe; }
 
 /* Bottom Action Bar */
 .bottom-actions-bar {
@@ -249,6 +249,12 @@
 .summary-table th { text-align: left; padding: 10px; background: #f9fafb; border-bottom: 1px solid #e5e7eb; color: #6b7280; font-size: 0.85rem; text-transform: uppercase; }
 .summary-table td { padding: 10px; border-bottom: 1px solid #f3f4f6; color: #374151; font-size: 0.9rem; }
 
+/* --- UPDATED: Price column to BLACK --- */
+.summary-table td:last-child {
+  color: #000000;
+  font-weight: 700;
+}
+
 .summary-actions {
   display: flex;
   justify-content: center;
@@ -266,9 +272,11 @@
   gap: 8px;
   color: #374151;
 }
+
+/* --- UPDATED: Submit Update Button (BLUE) --- */
 .btn-final-submit {
   padding: 12px 24px;
-  background: #10b981;
+  background: #1e40af; /* Brand Blue */
   color: white;
   border: none;
   border-radius: 6px;
@@ -277,9 +285,13 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  box-shadow: 0 4px 6px rgba(16, 185, 129, 0.2);
+  box-shadow: 0 4px 6px rgba(30, 64, 175, 0.2);
+  transition: background 0.2s;
 }
-.btn-final-submit:hover { background: #059669; }
+
+.btn-final-submit:hover {
+  background: #1e3a8a; /* Darker Blue on Hover */
+}
 
 /* Modal Styles */
 .modal-overlay {

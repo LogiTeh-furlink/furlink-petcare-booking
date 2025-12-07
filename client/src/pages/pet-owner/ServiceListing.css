@@ -1,85 +1,61 @@
-/* src/pages/pet-owner/ServiceListing.css */
-
+/* =========================================
+   1. GLOBAL LAYOUT & TYPOGRAPHY
+   ========================================= */
 .service-listing-page {
-  min-height: calc(100vh - 200px);
-  padding: 40px 20px;
-  background-color: #f8f9fa;
+  min-height: 100vh;
+  padding: 40px 20px 80px; /* Extra bottom padding for footer space */
+  background-color: #f3f4f6; /* Light gray background for contrast */
 }
 
 .service-listing-page .container {
-  max-width: 1200px;
+  max-width: 1000px; /* Constrained width for better readability */
   margin: 0 auto;
 }
 
 .page-title {
-  font-size: 2.5rem;
-  font-weight: 700;
-  color: #1e3a8a;
-  margin-bottom: 10px;
+  font-size: 2rem;
+  font-weight: 800;
+  color: #111827;
+  margin-bottom: 8px;
   text-align: center;
 }
 
 .section-subtitle {
-  font-size: 1.25rem;
-  font-weight: 500;
-  color: #374151;
-  margin-bottom: 30px;
-  text-align: center;
-}
-
-.summary-intro {
-  text-align: center;
+  font-size: 1.1rem;
   color: #6b7280;
-  margin-bottom: 30px;
-  font-size: 1rem;
+  margin-bottom: 40px;
+  text-align: center;
 }
 
-/* Error Messages */
-.global-error {
-  background-color: #fee2e2;
-  border: 1px solid #fca5a5;
-  color: #b91c1c;
-  padding: 12px 16px;
-  border-radius: 8px;
-  margin-bottom: 20px;
-  font-size: 0.95rem;
-  display: flex;
-  align-items: center;
-}
-
-.error {
-  color: #dc2626;
-  font-size: 0.85rem;
-  display: block;
-  margin-top: 4px;
-}
-
-.input-error {
-  border-color: #dc2626 !important;
-  background-color: #fef2f2;
-}
-
-/* Service Form Card */
+/* =========================================
+   2. SERVICE FORM CARD (STEP 1)
+   ========================================= */
 .services-list {
   display: flex;
   flex-direction: column;
   gap: 30px;
-  margin-bottom: 30px;
 }
 
 .service-form-card {
   background: white;
   border: 1px solid #e5e7eb;
-  border-radius: 12px;
-  padding: 24px;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  border-radius: 16px;
+  padding: 30px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 
+              0 2px 4px -1px rgba(0, 0, 0, 0.03);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
+.service-form-card:hover {
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05);
+}
+
+/* Header & Badges */
 .service-card-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
+  margin-bottom: 25px;
   padding-bottom: 15px;
   border-bottom: 1px solid #f3f4f6;
 }
@@ -87,17 +63,17 @@
 .service-type-badge {
   display: inline-flex;
   align-items: center;
-  padding: 6px 12px;
-  border-radius: 20px;
-  font-weight: 600;
-  font-size: 0.85rem;
+  padding: 6px 14px;
+  border-radius: 9999px;
+  font-weight: 700;
+  font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
 
 .service-type-badge.package {
   background-color: #eff6ff;
-  color: #1d4ed8;
+  color: #2563eb;
   border: 1px solid #dbeafe;
 }
 
@@ -108,167 +84,142 @@
 }
 
 .icon-btn-remove {
-  background: white;
-  border: 1px solid #fee2e2;
-  color: #dc2626;
+  background: transparent;
+  border: none;
+  color: #9ca3af;
   cursor: pointer;
-  padding: 6px;
-  border-radius: 6px;
+  padding: 8px;
+  border-radius: 50%;
   transition: all 0.2s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 
 .icon-btn-remove:hover {
-  background-color: #dc2626;
-  color: white;
+  background-color: #fee2e2;
+  color: #ef4444;
 }
 
-/* Service Form Layout */
+/* Form Layout & Fields */
 .service-form-body {
   display: grid;
-  grid-template-columns: 1fr 1.5fr; /* Give more space to the pricing table side */
+  grid-template-columns: 1fr 1.5fr; /* Left (details) vs Right (pricing) */
   gap: 40px;
-}
-
-.form-left,
-.form-right {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
 }
 
 .form-field {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  margin-bottom: 15px;
 }
 
-.form-field label {
+.form-field label, .pricing-section > label {
+  font-size: 0.9rem;
   font-weight: 600;
   color: #374151;
-  font-size: 0.9rem;
 }
 
 .form-field input,
-.form-field textarea,
-.form-field select {
-  padding: 12px 14px;
+.form-field textarea {
+  padding: 12px;
   border: 1px solid #d1d5db;
   border-radius: 8px;
-  font-size: 1rem; /* Larger font for better reading */
-  transition: border-color 0.2s;
+  font-size: 0.95rem;
   background-color: #fff;
+  transition: border-color 0.2s, box-shadow 0.2s;
 }
 
 .form-field input:focus,
-.form-field textarea:focus,
-.form-field select:focus {
+.form-field textarea:focus {
   outline: none;
   border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
 }
 
 .form-field textarea {
   resize: vertical;
-  min-height: 80px;
 }
 
-/* Pricing Table */
+/* =========================================
+   3. PRICING TABLE STYLING
+   ========================================= */
 .pricing-section {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-}
-
-.pricing-section > label {
-  font-weight: 600;
-  color: #374151;
-  font-size: 0.95rem;
+  gap: 10px;
 }
 
 .pricing-table {
-  background-color: white;
-  border-radius: 8px;
-  overflow: hidden;
   border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  overflow: hidden; /* Contains the children */
+  background: #fff;
 }
 
-/* ✅ CRITICAL FIX: Updated Grid Layout for 5 Columns */
-/* Pet Type | Size | Weight | Price | Delete */
-.pricing-header {
+/* Grid Layout for Table */
+.pricing-header, .pricing-row {
   display: grid;
-  grid-template-columns: 1.2fr 1.2fr 1.2fr 1fr 50px; 
-  gap: 10px;
-  padding: 12px 16px;
-  background-color: #f3f4f6;
-  color: #4b5563;
-  font-weight: 600;
-  font-size: 0.85rem;
+  /* Columns: Type | Size | Weight | Price | Delete */
+  grid-template-columns: 1.2fr 1.2fr 1fr 1fr 40px; 
+  gap: 8px;
+  align-items: center;
+}
+
+.pricing-header {
+  background-color: #f9fafb;
+  padding: 10px 12px;
+  border-bottom: 1px solid #e5e7eb;
+  font-size: 0.75rem;
+  font-weight: 700;
   text-transform: uppercase;
+  color: #6b7280;
+  letter-spacing: 0.05em;
 }
 
 .pricing-row {
-  display: grid;
-  grid-template-columns: 1.2fr 1.2fr 1.2fr 1fr 50px; 
-  gap: 10px;
-  padding: 16px;
+  padding: 10px 12px;
   border-bottom: 1px solid #f3f4f6;
-  align-items: start;
 }
 
 .pricing-row:last-child {
   border-bottom: none;
 }
 
-.pricing-cell {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-/* ✅ CRITICAL FIX: Larger Inputs */
 .pricing-cell input,
 .pricing-cell select {
-  padding: 10px 12px;
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
-  font-size: 1rem; /* 16px font size prevents zooming on iOS and makes it readable */
   width: 100%;
-  color: #111827;
+  padding: 8px 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  color: #1f2937;
 }
 
-/* Specific style for Price input to make it distinct */
-.pricing-cell input[type="number"] {
-  font-weight: 600;
-  color: #059669; /* Green text for money */
+.pricing-cell input:focus,
+.pricing-cell select:focus {
+  border-color: #3b82f6;
+  outline: none;
 }
 
+/* Disabled Inputs (Cats/All) */
 .input-disabled {
-  background-color: #f9fafb;
+  background-color: #f3f4f6;
   color: #9ca3af !important;
   cursor: not-allowed;
+  border-color: transparent !important;
 }
 
-.pricing-cell-action {
+/* Remove Variant Button */
+.btn-remove-pricing {
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 100%; /* Center vertically */
-  padding-top: 2px;
-}
-
-.btn-remove-pricing {
   background: white;
   border: 1px solid #fee2e2;
   color: #ef4444;
-  cursor: pointer;
-  padding: 8px;
   border-radius: 6px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  width: 32px;
+  height: 32px;
+  cursor: pointer;
   transition: all 0.2s;
 }
 
@@ -277,13 +228,14 @@
   color: white;
 }
 
+/* Add Variant Button (The Blue Style) */
 .btn-add-pricing {
-  margin-top: 8px;
+  margin-top: 10px;
   padding: 10px;
-  background-color: #f0fdf4;
-  color: #15803d;
-  border: 1px dashed #15803d;
-  border-radius: 6px;
+  background-color: #eff6ff; 
+  color: #1d4ed8;
+  border: 1px dashed #3b82f6;
+  border-radius: 8px;
   font-weight: 600;
   font-size: 0.9rem;
   cursor: pointer;
@@ -291,52 +243,152 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background-color 0.2s;
+  transition: all 0.2s;
 }
 
 .btn-add-pricing:hover {
-  background-color: #dcfce7;
+  background-color: #dbeafe;
+  border-style: solid;
 }
 
-/* Bottom Actions */
-.bottom-actions {
+/* =========================================
+   4. STEP 2: SUMMARY & REVIEW CARDS
+   ========================================= */
+.summary-intro {
+  text-align: center;
+  color: #4b5563;
+  margin-bottom: 30px;
+}
+
+.summary-list {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 20px;
+  flex-direction: column;
+  gap: 25px;
+  margin-bottom: 40px;
+}
+
+.summary-card {
+  background: white;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+  border: 1px solid #e5e7eb;
+}
+
+.summary-header {
+  background-color: #f8fafc;
+  padding: 15px 25px;
+  border-bottom: 1px solid #e5e7eb;
+  border-top: 4px solid #3b82f6; /* Accent color on top */
+}
+
+.summary-header h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  color: #1e40af;
+  font-weight: 700;
+}
+
+.summary-body {
+  padding: 25px;
+}
+
+.summary-row {
+  margin-bottom: 12px;
+  font-size: 0.95rem;
+  color: #374151;
+  display: flex;
+  gap: 10px;
+}
+
+.summary-row strong {
+  min-width: 100px;
+  color: #111827;
+}
+
+/* Review Table */
+.summary-pricing {
+  margin-top: 20px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.summary-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.summary-table th {
+  background-color: #f3f4f6;
+  text-align: left;
+  padding: 10px 15px;
+  font-weight: 600;
+  color: #4b5563;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+}
+
+.summary-table td {
+  padding: 10px 15px;
+  border-top: 1px solid #f3f4f6;
+  color: #1f2937;
+}
+
+.summary-table tr:last-child td {
+  border-bottom: none;
+}
+
+.summary-table td:last-child {
+  font-weight: 700;
+  color: #059669; /* Price Green */
+}
+
+/* =========================================
+   5. ACTION BUTTONS (Bottom Bars)
+   ========================================= */
+.bottom-actions, .summary-actions {
   margin-top: 40px;
   padding-top: 20px;
   border-top: 1px solid #e5e7eb;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
-.btn-save-services {
-  padding: 12px 24px;
+/* Primary "Save/Next" Button */
+.btn-save-services, .btn-final-save {
   background-color: #2563eb;
   color: white;
   border: none;
+  padding: 12px 28px;
   border-radius: 8px;
   font-weight: 600;
   font-size: 1rem;
   cursor: pointer;
-  transition: background-color 0.2s;
   box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2);
+  transition: background 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
-.btn-save-services:hover {
+.btn-save-services:hover, .btn-final-save:hover {
   background-color: #1d4ed8;
 }
 
+/* Secondary "Add" Buttons */
 .add-service-buttons {
   display: flex;
   gap: 12px;
 }
 
-.btn-add-individual,
-.btn-add-package {
-  padding: 10px 16px;
+.btn-add-individual, .btn-add-package, .btn-back {
   background-color: white;
   color: #374151;
   border: 1px solid #d1d5db;
+  padding: 10px 20px;
   border-radius: 8px;
   font-weight: 600;
   font-size: 0.95rem;
@@ -347,156 +399,88 @@
   transition: all 0.2s;
 }
 
-.btn-add-individual:hover,
-.btn-add-package:hover {
-  background-color: #f3f4f6;
-  border-color: #9ca3af;
-}
-
-/* Summary Table Styles */
-.summary-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 10px;
-  font-size: 0.95rem;
-}
-
-.summary-table th {
-  text-align: left;
-  padding: 10px;
+.btn-add-individual:hover, .btn-add-package:hover, .btn-back:hover {
   background-color: #f9fafb;
-  border-bottom: 2px solid #e5e7eb;
-  color: #4b5563;
+  border-color: #9ca3af;
+  color: #111827;
 }
 
-.summary-table td {
-  padding: 10px;
-  border-bottom: 1px solid #f3f4f6;
+/* =========================================
+   6. ERRORS & UTILS
+   ========================================= */
+.global-error {
+  background-color: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+  padding: 15px;
+  border-radius: 8px;
+  margin-bottom: 25px;
+  display: flex;
+  align-items: center;
+  font-weight: 500;
 }
 
-/* RESPONSIVE DESIGN - CRITICAL FOR SMALL SCREENS */
-@media (max-width: 1024px) {
-  .service-form-body {
-    grid-template-columns: 1fr; /* Stack left/right columns on tablets */
-    gap: 20px;
-  }
+.error {
+  color: #dc2626;
+  font-size: 0.8rem;
+  margin-top: 4px;
+  display: block;
 }
 
-@media (max-width: 768px) {
-  /* Hide the table header on mobile */
-  .pricing-header {
-    display: none;
-  }
-
-  /* Make rows card-like */
-  .pricing-row {
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
-    padding: 20px;
-    background-color: #fff;
-    border: 1px solid #e5e7eb;
-    margin-bottom: 10px;
-    border-radius: 8px;
-  }
-
-  /* Add pseudo-labels so user knows what the field is */
-  .pricing-cell::before {
-    content: attr(data-label); /* Requires HTML update, or just use hardcoded */
-    font-size: 0.8rem;
-    font-weight: 700;
-    color: #6b7280;
-    margin-bottom: 4px;
-    display: block;
-  }
-  
-  /* Fallback since we can't change HTML data-attrs right now: */
-  .pricing-cell:nth-child(1)::before { content: "Pet Type"; }
-  .pricing-cell:nth-child(2)::before { content: "Size"; }
-  .pricing-cell:nth-child(3)::before { content: "Weight (kg)"; }
-  .pricing-cell:nth-child(4)::before { content: "Price (PHP)"; }
-
-  .pricing-cell-action {
-    justify-content: flex-end;
-    padding-top: 10px;
-    border-top: 1px dashed #e5e7eb;
-  }
-
-  .btn-remove-pricing {
-    width: 100%;
-    background-color: #fef2f2;
-  }
-
-  .bottom-actions {
-    flex-direction: column-reverse;
-  }
-  
-  .btn-save-services, .add-service-buttons {
-    width: 100%;
-  }
-  
-  .btn-add-individual, .btn-add-package {
-    flex: 1;
-    justify-content: center;
-  }
+.input-error {
+  border-color: #dc2626 !important;
+  background-color: #fef2f2 !important;
 }
 
-/* MODAL STYLES (Specific to Service Listing Final Confirm) */
+/* =========================================
+   7. MODAL STYLES
+   ========================================= */
 .modal-overlay {
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
+  top: 0; left: 0; width: 100%; height: 100%;
   background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(2px);
+  z-index: 1000;
   display: flex;
   justify-content: center;
   align-items: center;
-  z-index: 1000;
   animation: fadeIn 0.2s ease-out;
 }
 
 .modal-content.final-confirm-modal {
   background: white;
   padding: 30px;
-  border-radius: 12px;
+  border-radius: 16px;
   width: 90%;
-  max-width: 450px;
+  max-width: 480px;
   text-align: center;
-  box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
 }
 
-.modal-header-center {
-  margin-bottom: 15px;
-}
-
-.modal-icon-success {
-  color: #10b981;
-  margin-bottom: 10px;
-}
+.modal-content.final-confirm-modal.success { border-top: 6px solid #10b981; }
+.modal-content.final-confirm-modal.error { border-top: 6px solid #ef4444; }
 
 .modal-header-center h2 {
   font-size: 1.5rem;
-  color: #1f2937;
-  margin: 0;
+  margin: 10px 0;
+  color: #111827;
 }
 
 .modal-body-center {
-  color: #4b5563;
-  margin-bottom: 25px;
-  line-height: 1.5;
+  color: #6b7280;
+  margin-bottom: 30px;
+  line-height: 1.6;
 }
 
 .modal-warning-text {
-  display: block;
-  margin-top: 15px;
   background-color: #fffbeb;
   color: #b45309;
-  padding: 10px;
-  border-radius: 6px;
   border: 1px solid #fcd34d;
+  padding: 12px;
+  border-radius: 8px;
+  margin-top: 15px;
   font-size: 0.9rem;
-  font-weight: 500;
+  text-align: left;
 }
 
 .modal-footer-center {
@@ -509,59 +493,19 @@
   padding: 10px 20px;
   border: 1px solid #d1d5db;
   background: white;
-  color: #374151;
-  border-radius: 6px;
+  border-radius: 8px;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.2s;
-}
-
-.btn-modal-cancel:hover {
-  background: #f3f4f6;
 }
 
 .btn-modal-confirm {
-  padding: 10px 20px;
+  padding: 10px 24px;
   background: #1e40af;
   color: white;
   border: none;
-  border-radius: 6px;
+  border-radius: 8px;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.2s;
-}
-
-.btn-modal-confirm:hover {
-  background: #1e3a8a;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; transform: scale(0.95); }
-  to { opacity: 1; transform: scale(1); }
-}
-
-/* Modal Success/Error specific overrides */
-.modal-content.final-confirm-modal.success {
-  border-top: 5px solid #10b981;
-}
-
-.modal-content.final-confirm-modal.error {
-  border-top: 5px solid #ef4444;
-}
-
-.modal-icon-success {
-  color: #10b981;
-  margin-bottom: 10px;
-}
-
-.modal-icon-error {
-  color: #ef4444;
-  margin-bottom: 10px;
-}
-
-.modal-icon-brand {
-  color: #1e40af; /* Your brand blue */
-  margin-bottom: 10px;
 }
 
 .btn-modal-dashboard {
@@ -569,24 +513,93 @@
   background-color: #10b981;
   color: white;
   border: none;
-  border-radius: 6px;
+  border-radius: 8px;
   font-weight: 600;
-  font-size: 1rem;
   cursor: pointer;
-  transition: background 0.2s;
-}
-
-.btn-modal-dashboard:hover {
-  background-color: #059669;
 }
 
 .error-box {
-  background-color: #fef2f2;
-  border: 1px dashed #ef4444;
+  background: #fef2f2;
   color: #b91c1c;
   padding: 10px;
   border-radius: 6px;
-  font-size: 0.9rem;
-  margin-top: 10px;
-  word-break: break-word;
+  font-family: monospace;
+  font-size: 0.85rem;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* =========================================
+   8. RESPONSIVE DESIGN
+   ========================================= */
+@media (max-width: 1024px) {
+  .service-form-body {
+    grid-template-columns: 1fr; /* Stack columns on tablets */
+  }
+}
+
+@media (max-width: 768px) {
+  .service-form-card, .summary-card {
+    padding: 20px;
+  }
+
+  /* Pricing Table Mobile View */
+  .pricing-header { display: none; }
+  
+  .pricing-row {
+    grid-template-columns: 1fr; /* Stack inputs vertically */
+    gap: 15px;
+    padding: 20px 10px;
+    border-bottom: 2px dashed #e5e7eb;
+  }
+  
+  /* Add pseudo-labels so users know what the fields are on mobile */
+  .pricing-cell::before {
+    content: attr(data-label); /* Note: requires JS update to work perfectly, or hardcoded below */
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #9ca3af;
+    margin-bottom: 4px;
+  }
+  
+  /* Manual labels for CSS-only solution */
+  .pricing-cell:nth-child(1)::before { content: "Pet Type"; }
+  .pricing-cell:nth-child(2)::before { content: "Size"; }
+  .pricing-cell:nth-child(3)::before { content: "Weight (kg)"; }
+  .pricing-cell:nth-child(4)::before { content: "Price (PHP)"; }
+
+  .pricing-cell-action {
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  .btn-remove-pricing {
+    width: 100%;
+    background-color: #fef2f2;
+    margin-top: 10px;
+  }
+
+  /* Summary Table Scrollable on Mobile */
+  .summary-pricing {
+    overflow-x: auto;
+  }
+  
+  .summary-table th, .summary-table td {
+    white-space: nowrap;
+  }
+
+  /* Buttons */
+  .bottom-actions, .summary-actions {
+    flex-direction: column-reverse;
+    gap: 15px;
+  }
+  
+  .btn-save-services, .btn-final-save, .add-service-buttons, .btn-back {
+    width: 100%;
+    justify-content: center;
+  }
 }
