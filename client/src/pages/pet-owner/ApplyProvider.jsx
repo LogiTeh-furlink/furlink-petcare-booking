@@ -1,6 +1,6 @@
 // /src/pages/pet-owner/ApplyProvider.jsx
 import React, { useState, useEffect } from "react";
-import { X, Upload, FileText, CheckCircle, AlertCircle, Trash2, Plus } from "lucide-react";
+import { X, Upload, FileText, CheckCircle, AlertCircle, Trash2, Plus, MapPin, Users, FileCheck } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import LoggedInNavbar from "../../components/Header/LoggedInNavbar";
 import Footer from "../../components/Footer/Footer";
@@ -8,70 +8,70 @@ import { supabase } from "../../config/supabase";
 import "./ApplyProvider.css";
 
 /* =========================================
-   CONFIRMATION MODAL COMPONENT
+   CONFIRMATION MODAL COMPONENT (UPDATED)
    ========================================= */
 const ConfirmationModal = ({ isOpen, onClose, onConfirm, data, files, isSubmitting }) => {
   if (!isOpen) return null;
 
-  const formatOperatingHours = (hours) =>
-    hours.map((slot, idx) => (
-      <div key={idx} className="modal-hours-slot">
-        <strong>{slot.days.join(", ") || "—"}:</strong> {slot.startTime} - {slot.endTime}
-      </div>
-    ));
-
-  const renderFileLink = (file, url) => {
-    if (url) {
-      return (
-        <a href={url} target="_blank" rel="noopener noreferrer" className="modal-file-link">
-          <FileText size={14} /> View existing file
-        </a>
-      );
+  // Helper to extract clean filenames
+  const getFileName = (fileOrUrl) => {
+    if (!fileOrUrl) return "None";
+    // Check if it's a File object (New Upload)
+    if (fileOrUrl instanceof File) return fileOrUrl.name;
+    
+    // Check if it's a URL string (Existing)
+    if (typeof fileOrUrl === 'string') {
+        try {
+            const decoded = decodeURIComponent(fileOrUrl);
+            const baseName = decoded.split('/').pop(); 
+            // Remove timestamp prefix if present (e.g. 173456_name.jpg)
+            return baseName.replace(/^\d+_/, ''); 
+        } catch (e) { return "Existing File"; }
     }
-    if (file) {
-      return (
-        <span className="modal-file-new">
-          <FileText size={14} /> {file.name}
-        </span>
-      );
-    }
-    return <span className="modal-file-none">No file provided</span>;
+    return "File";
   };
 
-  const renderFileList = (fileArray, existingArray) => {
-    const items = [];
-    if (existingArray && existingArray.length > 0) {
-      existingArray.forEach((item, idx) => {
-        const url = item.image_url || item.file_url;
-        items.push(
-          <div key={`existing-${idx}`} className="modal-file-existing">
-            <a href={url} target="_blank" rel="noopener noreferrer">
-              <FileText size={14} /> Existing file {idx + 1}
-            </a>
-          </div>
-        );
-      });
-    }
-    if (fileArray && fileArray.length > 0) {
-      fileArray.forEach((file, idx) => {
-        items.push(
-          <div key={`new-${idx}`} className="modal-file-new">
-            <FileText size={14} /> {file.name}
-          </div>
-        );
-      });
-    }
-    if (items.length === 0) return <span className="modal-file-none">No files</span>;
-    return items;
-  };
+  // --- PREPARE DATA LISTS ---
+
+  // 1. Facilities (Combine New Arrays + Existing Objects)
+  const finalFacilities = [
+    ...(files.existingFacilityImages || []).map(f => ({ name: getFileName(f.image_url), status: 'Existing' })),
+    ...(files.facilityImages || []).map(f => ({ name: f.name, status: 'New' }))
+  ];
+
+  // 2. Payments
+  const finalPayments = [
+    ...(files.existingPaymentChannels || []).map(f => ({ name: getFileName(f.file_url), status: 'Existing' })),
+    ...(files.paymentChannelFiles || []).map(f => ({ name: f.name, status: 'New' }))
+  ];
+
+  // 3. Waiver
+  let waiverInfo = { name: "None", status: "" };
+  if (files.waiverFile) {
+    waiverInfo = { name: files.waiverFile.name, status: "New" };
+  } else if (files.existingWaiverUrl) {
+    waiverInfo = { name: getFileName(files.existingWaiverUrl), status: "Existing" };
+  }
+
+  // 4. Permit
+  let permitInfo = { name: "Missing", status: "Missing" };
+  if (files.businessPermitFile) {
+    permitInfo = { name: files.businessPermitFile.name, status: "New" };
+  } else if (files.existingPermitUrl) {
+    permitInfo = { name: getFileName(files.existingPermitUrl), status: "Existing" };
+  }
+
+  // 5. Operating Hours Formatting
+  const hoursDisplay = (data.operatingHours || []).map(slot => 
+    `${slot.days.join(", ")} (${slot.startTime} - ${slot.endTime})`
+  ).join("; ");
 
   return (
     <div className="modal-overlay">
       <div className="modal-container">
         <div className="modal-header">
           <h2 className="modal-title">
-            <CheckCircle size={20} />
-            Confirm Your Application
+            Review Application
           </h2>
           <button onClick={onClose} disabled={isSubmitting} className="modal-close-btn">
             <X size={20} />
@@ -79,73 +79,103 @@ const ConfirmationModal = ({ isOpen, onClose, onConfirm, data, files, isSubmitti
         </div>
 
         <div className="modal-body">
-          <div className="modal-alert">
-            <AlertCircle size={18} />
-            <p>Please review all information below. Once submitted, you cannot edit this form again.</p>
+          <div className="review-grid">
+            
+            {/* SECTION 1: BUSINESS INFO */}
+            <div className="review-group">
+                <h4><MapPin size={14}/> Business Details</h4>
+                <div className="review-row"><span className="review-label">Name:</span> <span className="review-value">{data.businessName}</span></div>
+                <div className="review-row"><span className="review-label">Email:</span> <span className="review-value">{data.businessEmail}</span></div>
+                <div className="review-row"><span className="review-label">Mobile:</span> <span className="review-value">{data.businessMobile}</span></div>
+                <div className="review-row"><span className="review-label">Type:</span> <span className="review-value">{data.typeOfService}</span></div>
+                
+                <div className="review-row" style={{display:'block'}}>
+                    <span className="review-label">Description:</span>
+                    <span className="review-value long-text">{data.description}</span>
+                </div>
+
+                <div className="review-row"><span className="review-label">Hours:</span> <span className="review-value">{hoursDisplay}</span></div>
+                <div className="review-row"><span className="review-label">Social:</span> <span className="review-value">{data.socialMediaUrl || "N/A"}</span></div>
+                <div className="review-row"><span className="review-label">Map Link:</span> <span className="review-value">{data.googleMapUrl || "N/A"}</span></div>
+            </div>
+
+            {/* SECTION 2: ADDRESS */}
+            <div className="review-group">
+                <h4><MapPin size={14}/> Location</h4>
+                <div className="review-row"><span className="review-label">Street:</span> <span className="review-value">{data.houseStreet}</span></div>
+                <div className="review-row"><span className="review-label">Barangay:</span> <span className="review-value">{data.barangay}</span></div>
+                <div className="review-row"><span className="review-label">City:</span> <span className="review-value">{data.city}</span></div>
+                <div className="review-row"><span className="review-label">Province:</span> <span className="review-value">{data.province}</span></div>
+                <div className="review-row"><span className="review-label">Postal:</span> <span className="review-value">{data.postalCode}</span></div>
+                <div className="review-row"><span className="review-label">Country:</span> <span className="review-value">{data.country}</span></div>
+            </div>
+
+            {/* SECTION 3: EMPLOYEES */}
+            <div className="review-group">
+                <h4><Users size={14}/> Employees ({(files.employees || []).length})</h4>
+                <ul className="review-list">
+                    {(files.employees || []).map((emp, idx) => (
+                        <li key={idx}>
+                            <strong>{emp.fullName}</strong> — <span style={{color:'#6b7280'}}>{emp.position}</span>
+                        </li>
+                    ))}
+                </ul>
+            </div>
+
+            {/* SECTION 4: ATTACHMENTS */}
+            <div className="review-group">
+                <h4><FileCheck size={14}/> Attachments</h4>
+                
+                {/* PERMIT */}
+                <div className="review-row"><span className="review-label">Business Permit:</span></div>
+                <ul className="review-list">
+                    <li>
+                        <span className={`review-file-tag tag-${permitInfo.status.toLowerCase()}`}>{permitInfo.status}</span>
+                        {permitInfo.name}
+                    </li>
+                </ul>
+
+                {/* WAIVER */}
+                <div className="review-row" style={{marginTop:'10px'}}><span className="review-label">Waiver:</span></div>
+                <ul className="review-list">
+                    {waiverInfo.name !== "None" ? (
+                        <li>
+                            <span className={`review-file-tag tag-${waiverInfo.status.toLowerCase()}`}>{waiverInfo.status}</span>
+                            {waiverInfo.name}
+                        </li>
+                    ) : (
+                        <li style={{fontStyle:'italic', color:'#9ca3af'}}>No waiver provided</li>
+                    )}
+                </ul>
+
+                {/* FACILITIES */}
+                <div className="review-row" style={{marginTop:'10px'}}><span className="review-label">Facilities ({finalFacilities.length}):</span></div>
+                <ul className="review-list">
+                    {finalFacilities.map((f, i) => (
+                        <li key={i}>
+                            <span className={`review-file-tag tag-${f.status.toLowerCase()}`}>{f.status}</span>
+                            {f.name}
+                        </li>
+                    ))}
+                </ul>
+
+                {/* PAYMENTS */}
+                <div className="review-row" style={{marginTop:'10px'}}><span className="review-label">Payment QR ({finalPayments.length}):</span></div>
+                <ul className="review-list">
+                    {finalPayments.map((f, i) => (
+                        <li key={i}>
+                            <span className={`review-file-tag tag-${f.status.toLowerCase()}`}>{f.status}</span>
+                            {f.name}
+                        </li>
+                    ))}
+                </ul>
+            </div>
           </div>
 
-          <section className="modal-section">
-            <h3>Business Information</h3>
-            <div className="info-box">
-              <div className="info-item"><strong>Business Name:</strong> {data.businessName}</div>
-              
-              <div className="info-item modal-description-item">
-                <strong>Description:</strong> 
-                <span className="modal-description-text">{data.description}</span>
-              </div>
-
-              <div className="info-item"><strong>Email:</strong> {data.businessEmail}</div>
-              <div className="info-item"><strong>Mobile:</strong> {data.businessMobile}</div>
-              <div className="info-item"><strong>Service Type:</strong> {data.typeOfService}</div>
-              <div className="info-item"><strong>Social Media:</strong> {data.socialMediaUrl || "N/A"}</div>
-              <div className="info-item">
-                <strong>Operating Hours:</strong>
-                <div className="modal-hours-display">{formatOperatingHours(data.operatingHours || [])}</div>
-              </div>
-            </div>
-          </section>
-
-          <section className="modal-section">
-            <h3>Address</h3>
-            <div className="info-box">
-              <div className="info-item">{data.houseStreet}, {data.barangay}</div>
-              <div className="info-item">{data.city}, {data.province}</div>
-              <div className="info-item">{data.postalCode}, {data.country}</div>
-            </div>
-          </section>
-
-          <section className="modal-section">
-            <h3>Documents & Images</h3>
-            <div className="info-box">
-              <div className="info-item">
-                <strong>Business Permit:</strong>
-                <div className="modal-hours-display">{renderFileLink(files.businessPermitFile, files.existingPermitUrl)}</div>
-              </div>
-              <div className="info-item">
-                <strong>Waiver:</strong>
-                <div className="modal-hours-display">{renderFileLink(files.waiverFile, files.existingWaiverUrl)}</div>
-              </div>
-              <div className="info-item">
-                <strong>Facility Images:</strong>
-                <div className="modal-hours-display">{renderFileList(files.facilityImages, files.existingFacilityImages)}</div>
-              </div>
-              <div className="info-item">
-                <strong>Payment Channel:</strong>
-                <div className="modal-hours-display">{renderFileList(files.paymentChannelFiles, files.existingPaymentChannels)}</div>
-              </div>
-            </div>
-          </section>
-
-          <section className="modal-section">
-            <h3>Employees</h3>
-            <div className="info-box">
-              {(files.employees || []).map((emp, idx) => (
-                <div key={idx} className="info-item">
-                  <strong>{emp.fullName}</strong> — {emp.position}
-                </div>
-              ))}
-            </div>
-          </section>
+          <div className="review-note">
+            <AlertCircle size={16} /> 
+            <span>Please double-check all details. You cannot edit this form after submitting.</span>
+          </div>
         </div>
 
         <div className="modal-footer">
@@ -153,7 +183,7 @@ const ConfirmationModal = ({ isOpen, onClose, onConfirm, data, files, isSubmitti
             Go Back & Edit
           </button>
           <button onClick={onConfirm} disabled={isSubmitting} className="btn-confirm">
-            {isSubmitting ? "Submitting..." : "Save & Submit"}
+            {isSubmitting ? "Submitting..." : "Confirm & Submit"}
           </button>
         </div>
       </div>
@@ -178,6 +208,7 @@ export default function ApplyProvider() {
     businessEmail: "",
     businessMobile: "",
     socialMediaUrl: "",
+    googleMapUrl: "", 
     typeOfService: "Pet Grooming",
     operatingHours: [{ days: [], startTime: "09:00", endTime: "17:00" }],
     houseStreet: "",
@@ -214,7 +245,7 @@ export default function ApplyProvider() {
         const { data: { user } } = await supabase.auth.getUser();
         if(!user) return;
 
-        const { data: providerData, error } = await supabase
+        const { data: providerData } = await supabase
             .from("service_providers")
             .select("*")
             .eq("user_id", user.id)
@@ -231,6 +262,7 @@ export default function ApplyProvider() {
               businessEmail: providerData.business_email || "",
               businessMobile: providerData.business_mobile || "",
               socialMediaUrl: providerData.social_media_url || "",
+              googleMapUrl: providerData.google_map_url || "", 
               houseStreet: providerData.house_street || "",
               barangay: providerData.barangay || "",
               city: providerData.city || "",
@@ -378,6 +410,12 @@ export default function ApplyProvider() {
         errors.socialMediaUrl = "Must be a valid URL";
     }
 
+    if (!businessInfo.googleMapUrl.trim()) {
+        errors.googleMapUrl = "Google Map Link is required";
+    } else if (!/^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?(\?.*)?$/.test(businessInfo.googleMapUrl)) {
+        errors.googleMapUrl = "Must be a valid URL";
+    }
+
     if (!businessInfo.operatingHours || businessInfo.operatingHours.length === 0) {
       errors.operatingHours = "At least one operating hour slot is required";
     } else {
@@ -495,6 +533,7 @@ export default function ApplyProvider() {
             country: businessInfo.country,
             type_of_service: businessInfo.typeOfService,
             social_media_url: businessInfo.socialMediaUrl,
+            google_map_url: businessInfo.googleMapUrl, 
             waiver_url: waiverUrl || existingWaiverUrl || null,
             updated_at: new Date().toISOString()
         };
@@ -557,10 +596,6 @@ export default function ApplyProvider() {
     }
   };
 
-  const getFileNameFromUrl = (url) => {
-    try { return decodeURIComponent(url.split('/').pop().split('_').slice(1).join('_')); } catch { return "File"; }
-  };
-
   if (isLoading) return <div className="loading-screen">Loading Application...</div>;
 
   return (
@@ -602,6 +637,11 @@ export default function ApplyProvider() {
                     <label>Social Media URL</label>
                     <input type="url" name="socialMediaUrl" value={businessInfo.socialMediaUrl} onChange={handleBusinessChange} placeholder="https://facebook.com/..." />
                     {validationErrors.socialMediaUrl && <small className="error">{validationErrors.socialMediaUrl}</small>}
+                </div>
+                <div className="form-group">
+                    <label>Google Map Link*</label>
+                    <input type="url" name="googleMapUrl" value={businessInfo.googleMapUrl} onChange={handleBusinessChange} placeholder="https://maps.google.com/..." />
+                    {validationErrors.googleMapUrl && <small className="error">{validationErrors.googleMapUrl}</small>}
                 </div>
             </div>
 

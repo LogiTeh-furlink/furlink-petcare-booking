@@ -2,26 +2,55 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "../../config/supabase";
-import { MapPin, X, ChevronDown } from "lucide-react";
+import { 
+  MapPin, X, ChevronDown, 
+  ChevronLeft, ChevronRight, // Added for Carousel
+  Facebook, Instagram, Globe // Added for Social Media
+} from "lucide-react";
 import Header from "../../components/Header/LoggedInNavbar";
 import Footer from "../../components/Footer/Footer";
 import "./ListingInfo.css";
 
-// Image Modal Component
-const ImageModal = ({ isOpen, onClose, imageUrl }) => {
-  if (!isOpen || !imageUrl) return null;
+// Updated Image Modal Component with Carousel
+const ImageModal = ({ isOpen, onClose, images, currentIndex, onNext, onPrev }) => {
+  if (!isOpen || !images || images.length === 0) return null;
+
+  const currentUrl = images[currentIndex]?.image_url;
 
   return (
     <div className="image-modal-overlay" onClick={onClose}>
       <button className="image-modal-close" onClick={onClose}>
         <X size={24} />
       </button>
+      
+      {/* Previous Button */}
+      {images.length > 1 && (
+        <button 
+          className="image-nav-btn prev" 
+          onClick={(e) => { e.stopPropagation(); onPrev(); }}
+          style={{ position: 'absolute', left: '20px', background: 'rgba(0,0,0,0.5)', border: 'none', color: 'white', borderRadius: '50%', padding: '10px', cursor: 'pointer', zIndex: 1001 }}
+        >
+          <ChevronLeft size={32} />
+        </button>
+      )}
+
       <img 
-        src={imageUrl} 
+        src={currentUrl} 
         alt="Full view" 
         onClick={(e) => e.stopPropagation()}
         className="image-modal-img"
       />
+
+      {/* Next Button */}
+      {images.length > 1 && (
+        <button 
+          className="image-nav-btn next" 
+          onClick={(e) => { e.stopPropagation(); onNext(); }}
+          style={{ position: 'absolute', right: '20px', background: 'rgba(0,0,0,0.5)', border: 'none', color: 'white', borderRadius: '50%', padding: '10px', cursor: 'pointer', zIndex: 1001 }}
+        >
+          <ChevronRight size={32} />
+        </button>
+      )}
     </div>
   );
 };
@@ -36,7 +65,10 @@ const ListingInfo = () => {
   const [loading, setLoading] = useState(true);
   const [isBooking, setIsBooking] = useState(false); 
   const [activeTab, setActiveTab] = useState("overview");
-  const [selectedImage, setSelectedImage] = useState(null);
+  
+  // Changed from selectedImage URL to Index for Carousel logic
+  const [selectedImageIndex, setSelectedImageIndex] = useState(null);
+  
   const [error, setError] = useState(null); 
 
   // Booking form states
@@ -305,6 +337,24 @@ const ListingInfo = () => {
     return 'images-3'; // Max 3 images
   };
 
+  // Carousel Handlers
+  const handleNextImage = () => {
+    setSelectedImageIndex((prev) => (prev + 1) % images.length);
+  };
+
+  const handlePrevImage = () => {
+    setSelectedImageIndex((prev) => (prev - 1 + images.length) % images.length);
+  };
+
+  // Social Media Icon Helper
+  const getSocialIcon = (url) => {
+    if (!url) return null;
+    const lowerUrl = url.toLowerCase();
+    if (lowerUrl.includes('facebook')) return <Facebook size={20} className="social-icon" />;
+    if (lowerUrl.includes('instagram')) return <Instagram size={20} className="social-icon" />;
+    return <Globe size={20} className="social-icon" />;
+  };
+
   if (loading) {
     return (
       <div className="listing-info-page">
@@ -364,13 +414,13 @@ const ListingInfo = () => {
             </button>
           </div>
 
-          {/* Image Gallery - Dynamic (Max 3 images) */}
+          {/* Image Gallery */}
           {images.length > 0 ? (
             <div className={`listing-images ${getImageGridClass()}`}>
               {/* First Image */}
               <div 
                 className="main-image-placeholder" 
-                onClick={() => setSelectedImage(images[0].image_url)}
+                onClick={() => setSelectedImageIndex(0)}
               >
                 <img 
                   src={images[0].image_url} 
@@ -383,7 +433,7 @@ const ListingInfo = () => {
                 // For 2 images: show second image directly as equal column
                 <div 
                   className="main-image-placeholder" 
-                  onClick={() => setSelectedImage(images[1].image_url)}
+                  onClick={() => setSelectedImageIndex(1)}
                 >
                   <img 
                     src={images[1].image_url} 
@@ -397,7 +447,7 @@ const ListingInfo = () => {
                     <div 
                       key={img.id} 
                       className="thumbnail-placeholder"
-                      onClick={() => setSelectedImage(img.image_url)}
+                      onClick={() => setSelectedImageIndex(index + 1)}
                     >
                       <img 
                         src={img.image_url} 
@@ -431,7 +481,6 @@ const ListingInfo = () => {
                 </div>
 
                 <div className="info-section">
-                  <h2 className="section-title">About the shop</h2>
                   {provider.description ? (
                     <p className="shop-description">{provider.description}</p>
                   ) : (
@@ -441,27 +490,21 @@ const ListingInfo = () => {
                   )}
                   
                   {provider.social_media_url && (
-                    <div className="info-text" style={{ marginTop: '1rem' }}>
-                      <p>
-                        <strong>Social Media:</strong>{" "}
-                        <a href={provider.social_media_url} target="_blank" rel="noopener noreferrer">
-                          Visit Page
-                        </a>
-                      </p>
+                    <div className="info-text" style={{ marginTop: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <a href={provider.social_media_url} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', color: 'inherit', textDecoration: 'none' }}>
+                        {getSocialIcon(provider.social_media_url)}
+                      </a>
                     </div>
                   )}
                 </div>
 
                 <div className="info-section">
-                  <h2 className="section-title">Location</h2>
                   <div className="location-info">
-                    <MapPin size={20} />
-                    <div>
-                      <p>{provider.house_street}</p>
-                      <p>{provider.barangay}, {provider.city}</p>
-                      <p>{provider.province}, {provider.postal_code}</p>
-                      <p>{provider.country}</p>
-                    </div>
+                    <MapPin size={20} style={{ flexShrink: 0 }} />
+                    {/* Changed Address Format to One Line */}
+                    <p>
+                        {`${provider.house_street}, ${provider.barangay}, ${provider.city}, ${provider.province}, ${provider.country}, ${provider.postal_code}`}
+                    </p>
                   </div>
                 </div>
 
@@ -631,15 +674,13 @@ const ListingInfo = () => {
             {/* Location Tab */}
             {activeTab === "location" && (
               <div className="tab-content">
-                <h2 className="section-title">Location</h2>
                 <div className="location-info">
                   <MapPin size={20} />
                   <div>
-                    <p><strong>Address:</strong></p>
-                    <p>{provider.house_street}</p>
-                    <p>{provider.barangay}, {provider.city}</p>
-                    <p>{provider.province}, {provider.postal_code}</p>
-                    <p>{provider.country}</p>
+                    {/* Changed Address Format to One Line */}
+                    <p>
+                        {`${provider.house_street}, ${provider.barangay}, ${provider.city}, ${provider.province}, ${provider.country}, ${provider.postal_code}`}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -793,11 +834,16 @@ const ListingInfo = () => {
       </main>
     
     <ImageModal 
-      isOpen={!!selectedImage}
-      onClose={() => setSelectedImage(null)}
-      imageUrl={selectedImage}
+      isOpen={selectedImageIndex !== null}
+      onClose={() => setSelectedImageIndex(null)}
+      images={images}
+      currentIndex={selectedImageIndex}
+      onNext={handleNextImage}
+      onPrev={handlePrevImage}
     />
     <Footer />
-</div>);
+  </div>
+  );
 };
+
 export default ListingInfo;

@@ -1,3 +1,4 @@
+// src/pages/service-provider/SPManageListing.jsx
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../config/supabase";
@@ -10,8 +11,8 @@ import "./SPManageListing.css";
 const FilePreviewModal = ({ isOpen, onClose, fileUrl, fileType }) => {
   if (!isOpen || !fileUrl) return null;
 
-  const isImage = fileType === 'image' || fileUrl.match(/\.(jpeg|jpg|gif|png)$/) != null;
-  const isPdf = fileType === 'pdf' || fileUrl.match(/\.pdf$/) != null;
+  const isImage = fileType === 'image' || fileUrl.match(/\.(jpeg|jpg|gif|png|webp)$/i) != null;
+  const isPdf = fileType === 'pdf' || fileUrl.match(/\.pdf$/i) != null;
   const isDoc = !isImage && !isPdf; 
 
   return (
@@ -23,21 +24,19 @@ const FilePreviewModal = ({ isOpen, onClose, fileUrl, fileType }) => {
           {isImage && <img src={fileUrl} alt="Preview" className="modal-img-preview" />}
           
           {isPdf && (
-            <object data={fileUrl} type="application/pdf" width="100%" height="100%">
-              <iframe src={fileUrl} title="PDF Preview" width="100%" height="100%">
-                <p>This browser does not support PDFs. <a href={fileUrl}>Download the PDF</a>.</p>
-              </iframe>
-            </object>
+            <iframe src={fileUrl} title="PDF Preview" width="100%" height="100%" style={{ border: 'none' }}>
+              <p>This browser does not support PDFs. <a href={fileUrl}>Download the PDF</a>.</p>
+            </iframe>
           )}
 
           {isDoc && (
-            <iframe 
-              src={`https://docs.google.com/gview?url=${encodeURIComponent(fileUrl)}&embedded=true`} 
-              width="100%" 
-              height="100%" 
-              frameBorder="0"
-              title="Doc Preview"
-            />
+             <div style={{ textAlign: 'center', padding: '40px' }}>
+                <FileText size={64} color="#9ca3af" />
+                <p style={{ marginTop: '15px', color: '#4b5563' }}>Preview not available for this file type.</p>
+                <a href={fileUrl} target="_blank" rel="noopener noreferrer" className="btn-download-link" style={{ display: 'inline-block', marginTop: '10px', color: '#2563eb' }}>
+                    Download File
+                </a>
+             </div>
           )}
         </div>
         
@@ -143,7 +142,7 @@ export default function SPManageListing() {
 
         {/* ===================================================
             SECTION 1: BUSINESS INFORMATION
-           =================================================== */}
+            =================================================== */}
         <section className="manage-card business-info-section">
           <div className="card-header">
             <h2>Business Information</h2>
@@ -163,9 +162,16 @@ export default function SPManageListing() {
                 <p><strong>Email:</strong> {provider.business_email}</p>
                 <p><strong>Mobile:</strong> {provider.business_mobile}</p>
                 <p><strong>Service Type:</strong> {provider.type_of_service}</p>
+                
                 {provider.social_media_url && (
                     <p><strong>Social:</strong> <a href={provider.social_media_url} target="_blank" rel="noreferrer" className="link-text">{provider.social_media_url}</a></p>
                 )}
+
+                {/* --- GOOGLE MAP DISPLAY (UPDATED to match Social Media style) --- */}
+                {provider.google_map_url && (
+                    <p><strong>Google Map:</strong> <a href={provider.google_map_url} target="_blank" rel="noreferrer" className="link-text">{provider.google_map_url}</a></p>
+                )}
+
                 <p><strong>Description:</strong> {provider.description}</p>
             </div>
 
@@ -247,10 +253,9 @@ export default function SPManageListing() {
                         <FileText size={16} /> Waiver Form
                     </div>
                 )}
-                {/* Removed Payment from here to move it to image gallery below */}
             </div>
 
-            {/* Payment QR Gallery - Moved here to show as images */}
+            {/* Payment QR Gallery */}
             {files.payments.length > 0 && (
                 <div className="image-gallery" style={{ marginTop: '20px' }}>
                     <label className="sub-label">Payment QR Codes</label>
@@ -284,7 +289,7 @@ export default function SPManageListing() {
 
         {/* ===================================================
             SECTION 2: SERVICE LISTINGS
-           =================================================== */}
+            =================================================== */}
         <section className="manage-card service-list-section">
           <div className="card-header">
             <h2>Service Listings</h2>
