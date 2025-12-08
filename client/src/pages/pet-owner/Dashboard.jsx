@@ -10,29 +10,38 @@ import "./Dashboard.css";
 const Dashboard = () => {
   const navigate = useNavigate();
 
+  const [currentUser, setCurrentUser] = useState(null); // 1. Store the full user object
   const [profile, setProfile] = useState(null);
   const [providers, setProviders] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // --- Handle Click & Count ---
-  const handleProviderClick = async (providerId) => {
+  // --- UPDATED: Handle Click & Count ---
+  const handleProviderClick = async (providerId, providerOwnerId) => {
     try {
-        supabase.rpc('increment_provider_click', { provider_id: providerId }).then(({ error }) => {
-            if (error) console.error("Error counting click:", error);
-        });
+        // 2. CHECK: Is the person clicking the owner?
+        const isOwner = currentUser && currentUser.id === providerOwnerId;
+
+        // Only count the view if it is NOT the owner
+        if (!isOwner) {
+            supabase.rpc('increment_provider_click', { provider_id: providerId }).then(({ error }) => {
+                if (error) console.error("Error counting click:", error);
+            });
+        }
     } catch (err) {
         console.error("Click handler error:", err);
     } finally {
-        // FIX: Changed from '/service/listing/...' back to '/listing/...'
-        navigate(`/listing/${providerId}`); 
+        navigate(`/listing/${providerId}`);
     }
   };
 
   useEffect(() => {
     const fetchProfile = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
 
       if (user) {
+        setCurrentUser(user); // Save user for comparison later
         const { data, error } = await supabase
           .from("profiles")
           .select("first_name, display_name")
@@ -46,7 +55,8 @@ const Dashboard = () => {
     const fetchProviders = async () => {
       const { data, error } = await supabase
         .from("service_providers")
-        .select("id, business_name, city")
+        // 3. IMPORTANT: Select 'user_id' so we know who owns this shop
+        .select("id, business_name, city, user_id") 
         .eq("status", "approved")
         .order("created_at", { ascending: false });
 
@@ -129,7 +139,8 @@ const Dashboard = () => {
               <div
                 key={provider.id}
                 className="provider-card"
-                onClick={() => handleProviderClick(provider.id)}
+                // 4. Pass the provider.user_id (owner ID) to the handler
+                onClick={() => handleProviderClick(provider.id, provider.user_id)}
               >
                 <div className="provider-image-container">
                   {provider.imageUrl ? (

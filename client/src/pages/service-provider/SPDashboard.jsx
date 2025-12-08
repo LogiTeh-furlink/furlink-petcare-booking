@@ -76,7 +76,8 @@ export default function SPDashboard() {
                 <FaEye />
             </div>
             <div className="stat-info">
-              <h3>{provider?.click_count || 0}</h3>
+              {/* Ensure this matches your DB column name exactly */}
+              <h3>{provider?.click_count || 0}</h3> 
               <p>Profile Views</p>
             </div>
           </div>
