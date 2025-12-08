@@ -154,21 +154,21 @@
 .listing-title {
   font-size: 2rem;
   font-weight: 700;
-  color: #111827;
+  color: #0e2679;
   margin: 0;
 }
 
 /* Social Icon Styling */
 .social-link-inline {
   display: flex; align-items: center; justify-content: center;
-  color: #4b5563;
+  color: #ffffff;
   transition: all 0.2s;
   padding: 8px;
   border-radius: 50%;
-  background-color: #f3f4f6;
+  background-color: #ffffff;
 }
 .social-link-inline:hover {
-  background-color: #e5e7eb;
+  background-color: #fdbf00;
   color: #2563eb;
   transform: translateY(-2px);
 }
@@ -201,17 +201,17 @@
 .subsection-title, .section-title {
   font-size: 1.5rem;
   font-weight: 600;
-  color: #111827;
+  color: #0e2679;
   margin-bottom: 1rem;
   margin-top: 0;
 }
 
 .shop-description {
-  color: #4b5563;
+  color: #062c61;
   line-height: 1.8;
   font-size: 1rem;
   white-space: pre-wrap;
-  margin-bottom: 2rem;
+  margin-bottom: 1rem;
 }
 
 .italic-gray { font-style: italic; color: #9ca3af; }

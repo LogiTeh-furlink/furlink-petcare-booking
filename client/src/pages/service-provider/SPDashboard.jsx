@@ -1,10 +1,11 @@
+// src/pages/service-provider/SPDashboard.jsx
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../config/supabase";
 import LoggedInNavbar from "../../components/Header/LoggedInNavbar";
 import Footer from "../../components/Footer/Footer";
-import { FaStore, FaCalendarCheck, FaStar, FaEdit } from "react-icons/fa";
-import "./SPDashboard.css"; // We will create this CSS file next
+import { FaStore, FaCalendarCheck, FaStar, FaEdit, FaEye } from "react-icons/fa"; // Added FaEye
+import "./SPDashboard.css";
 
 export default function SPDashboard() {
   const navigate = useNavigate();
@@ -18,6 +19,7 @@ export default function SPDashboard() {
         if (!user) return navigate("/login");
 
         // Fetch provider details associated with the logged-in user
+        // Ensure click_count is selected (it is by default with "*")
         const { data, error } = await supabase
           .from("service_providers")
           .select("*")
@@ -56,8 +58,10 @@ export default function SPDashboard() {
           </div>
         </div>
 
-        {/* Quick Stats Row (Placeholders for future booking features) */}
+        {/* Quick Stats Row */}
         <div className="sp-stats-grid">
+          
+          {/* Service Listing Status */}
           <div className="sp-stat-card">
             <div className="icon-wrapper blue"><FaStore /></div>
             <div className="stat-info">
@@ -65,6 +69,19 @@ export default function SPDashboard() {
               <p>Active</p>
             </div>
           </div>
+
+          {/* NEW: Profile Views / Click Counter */}
+          <div className="sp-stat-card">
+            <div className="icon-wrapper purple" style={{ backgroundColor: '#f3e8ff', color: '#9333ea' }}>
+                <FaEye />
+            </div>
+            <div className="stat-info">
+              <h3>{provider?.click_count || 0}</h3>
+              <p>Profile Views</p>
+            </div>
+          </div>
+
+          {/* Bookings (Placeholder) */}
           <div className="sp-stat-card">
             <div className="icon-wrapper green"><FaCalendarCheck /></div>
             <div className="stat-info">
@@ -72,6 +89,8 @@ export default function SPDashboard() {
               <p>Upcoming</p>
             </div>
           </div>
+
+          {/* Rating (Placeholder) */}
           <div className="sp-stat-card">
             <div className="icon-wrapper yellow"><FaStar /></div>
             <div className="stat-info">
@@ -79,6 +98,7 @@ export default function SPDashboard() {
               <p>Rating</p>
             </div>
           </div>
+
         </div>
 
         {/* Quick Actions */}

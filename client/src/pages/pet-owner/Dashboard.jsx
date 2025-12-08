@@ -1,7 +1,7 @@
 // src/pages/auth/Dashboard.jsx
 import React, { useEffect, useState } from "react";
 import { supabase } from "../../config/supabase";
-import { Store } from "lucide-react"; // 1. Removed 'Heart' import
+import { Store } from "lucide-react"; 
 import { useNavigate } from "react-router-dom"; 
 import Header from "../../components/Header/LoggedInNavbar";
 import Footer from "../../components/Footer/Footer";
@@ -14,11 +14,23 @@ const Dashboard = () => {
   const [providers, setProviders] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  // --- Handle Click & Count ---
+  const handleProviderClick = async (providerId) => {
+    try {
+        supabase.rpc('increment_provider_click', { provider_id: providerId }).then(({ error }) => {
+            if (error) console.error("Error counting click:", error);
+        });
+    } catch (err) {
+        console.error("Click handler error:", err);
+    } finally {
+        // FIX: Changed from '/service/listing/...' back to '/listing/...'
+        navigate(`/listing/${providerId}`); 
+    }
+  };
+
   useEffect(() => {
     const fetchProfile = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      const { data: { user } } = await supabase.auth.getUser();
 
       if (user) {
         const { data, error } = await supabase
@@ -97,7 +109,7 @@ const Dashboard = () => {
     return (
       <div className="dashboard-page">
         <Header />
-        <main className="dashboard-container" style={{ textAlign: "center", padding: "4rem" }}>
+        <main className="dashboard-container dashboard-loading">
           <h2>Loading...</h2>
         </main>
         <Footer />
@@ -117,8 +129,7 @@ const Dashboard = () => {
               <div
                 key={provider.id}
                 className="provider-card"
-                onClick={() => navigate(`/listing/${provider.id}`)}
-                style={{ cursor: "pointer" }}
+                onClick={() => handleProviderClick(provider.id)}
               >
                 <div className="provider-image-container">
                   {provider.imageUrl ? (
@@ -137,7 +148,6 @@ const Dashboard = () => {
                 <div className="provider-info">
                   <div className="provider-header">
                     <h3 className="provider-name">{provider.business_name}</h3>
-                    {/* 2. Removed the favorite button with the Heart icon here */}
                   </div>
 
                   <p className="provider-location">{provider.city}</p>
@@ -152,7 +162,7 @@ const Dashboard = () => {
           </div>
 
           {providers.length === 0 && (
-            <p style={{ textAlign: "center", color: "#6b7280", marginTop: "2rem" }}>
+            <p className="dashboard-empty-message">
               No pet grooming shops available yet.
             </p>
           )}

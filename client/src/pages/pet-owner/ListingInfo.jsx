@@ -202,8 +202,8 @@ const ListingInfo = () => {
                                 {service.service_options.map(opt => (
                                     <tr key={opt.id}>
                                         <td style={{textTransform:'capitalize'}}>{opt.pet_type === 'dog-cat' ? 'Dog & Cat' : opt.pet_type}</td>
-                                        <td>{opt.size.replace('_', ' ')}</td>
-                                        <td>{opt.weight_range || '-'}</td>
+                                        <td style={{textTransform:'capitalize'}}>{opt.size.replace('_', ' ')}</td>
+                                        <td>{opt.weight_range || '-'} kg</td>
                                         <td>₱{parseFloat(opt.price).toFixed(2)}</td>
                                     </tr>
                                 ))}
@@ -279,18 +279,21 @@ const ListingInfo = () => {
                  </div>
 
                  {/* 2. Full Clickable Address */}
-                 <div className="listing-full-location">
-                    <MapPin size={18} className="text-primary"/>
-                    <a 
-                        href={provider.google_map_url || "#"} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className={`location-link ${!provider.google_map_url ? 'disabled' : ''}`}
-                    >
-                        {`${provider.house_street}, ${provider.barangay}, ${provider.city}, ${provider.province}, ${provider.country} ${provider.postal_code}`}
-                        {provider.google_map_url && <ExternalLink size={12} style={{marginLeft:'4px'}}/>}
-                    </a>
-                 </div>
+                  <div className="location-info-block">
+                      <div className="listing-full-location" style={{marginBottom:'1rem'}}>
+                          <MapPin size={24} className="text-primary"/>
+                          <a 
+                              href={provider.google_map_url || "#"} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className={`location-link ${!provider.google_map_url ? 'disabled' : ''}`}
+                              style={{fontSize:'1.1rem'}}
+                          >
+                              {`${provider.house_street}, ${provider.barangay}, ${provider.city}, ${provider.province}, ${provider.country} ${provider.postal_code}`}
+                              {provider.google_map_url && <ExternalLink size={16} style={{marginLeft:'6px'}}/>}
+                          </a>
+                      </div>
+                  </div>
 
                  {/* 3. Description (NO 'About Us' Title) */}
                  <div className="info-section">
