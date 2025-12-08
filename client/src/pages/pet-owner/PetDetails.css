@@ -1,0 +1,254 @@
+/* src/pages/pet-owner/PetDetails.css */
+
+.pet-details-page {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    background-color: #f9fafb;
+}
+
+.pet-details-container {
+    flex: 1;
+    max-width: 600px;
+    margin: 2rem auto;
+    width: 100%;
+    padding: 0 1rem;
+    padding-bottom: 120px;
+    display: flex;
+    flex-direction: column;
+}
+
+.pet-details-container.error-state {
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding-bottom: 2rem;
+}
+
+.page-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+}
+
+.back-link {
+    display: flex;
+    align-items: center;
+    background: none;
+    border: none;
+    color: #6b7280;
+    font-weight: 500;
+    cursor: pointer;
+    padding: 0;
+    font-size: 0.9rem;
+}
+
+.back-link:hover {
+    color: #111827;
+}
+
+.booking-summary-badge {
+    background-color: #e0e7ff;
+    color: #3730a3;
+    padding: 0.25rem 0.75rem;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+/* Card Container */
+.pet-details-card {
+    background-color: white;
+    border-radius: 12px;
+    padding: 2rem;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    border: 1px solid #f3f4f6;
+    margin-bottom: 1.5rem;
+}
+
+.card-header-block {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #e5e7eb;
+    padding-bottom: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.card-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #111827;
+    margin: 0;
+}
+
+.card-price-tag {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #059669;
+}
+
+/* Form Styles */
+.all-pets-form {
+    display: flex;
+    flex-direction: column;
+}
+
+.pet-form-content {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.form-section-label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #374151;
+    background-color: #f3f4f6;
+    padding: 0.5rem;
+    border-radius: 6px;
+    margin-bottom: 0.5rem;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+}
+
+.form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+.form-label {
+    display: flex;
+    align-items: center;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #6b7280;
+    margin-bottom: 0.4rem;
+    text-transform: uppercase;
+    letter-spacing: 0.025em;
+}
+
+.label-icon {
+    margin-right: 6px;
+    margin-bottom: -1px;
+}
+
+.form-input {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    color: #1f2937;
+    background-color: white;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.form-input:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.form-input::placeholder {
+    color: #9ca3af;
+}
+
+.form-input.textarea {
+    resize: vertical;
+    min-height: 70px;
+    font-family: inherit;
+}
+
+.form-input.read-only {
+    background-color: #f9fafb;
+    color: #6b7280;
+    cursor: default;
+}
+
+.select-wrapper {
+    position: relative;
+}
+
+/* Sticky Footer */
+.booking-footer-sticky {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background-color: white;
+    border-top: 1px solid #e5e7eb;
+    padding: 1rem 2rem;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.05);
+    z-index: 50;
+    gap: 2rem;
+}
+
+.total-display {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+}
+
+.total-display span:first-child {
+    font-size: 0.8rem;
+    color: #6b7280;
+    font-weight: 500;
+}
+
+.total-amount {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #111827;
+}
+
+.submit-btn {
+    padding: 0.875rem 2rem;
+    background-color: #1e3a8a;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    min-width: 200px;
+}
+
+.submit-btn:hover:not(:disabled) {
+    background-color: #1e40af;
+}
+
+.submit-btn:disabled {
+    background-color: #9ca3af;
+    cursor: not-allowed;
+}
+
+@media (max-width: 640px) {
+    .pet-details-card {
+        padding: 1.5rem;
+    }
+    .form-row {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+    .booking-footer-sticky {
+        flex-direction: column;
+        gap: 1rem;
+        padding: 1rem;
+    }
+    .total-display {
+        align-items: center;
+    }
+    .submit-btn {
+        width: 100%;
+    }
+}
