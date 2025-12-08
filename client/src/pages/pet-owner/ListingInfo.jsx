@@ -8,8 +8,8 @@ import {
   Facebook, Instagram, Globe, ExternalLink,
   Calendar, Users 
 } from "lucide-react";
-import DatePicker from "react-datepicker"; // 1. Import DatePicker
-import "react-datepicker/dist/react-datepicker.css"; // 2. Import CSS
+import DatePicker from "react-datepicker"; 
+import "react-datepicker/dist/react-datepicker.css"; 
 import Header from "../../components/Header/LoggedInNavbar";
 import Footer from "../../components/Footer/Footer";
 import "./ListingInfo.css";
@@ -51,7 +51,7 @@ const ListingInfo = () => {
   const [selectedImageIndex, setSelectedImageIndex] = useState(null);
   
   // --- BOOKING STATES ---
-  const [bookingDate, setBookingDate] = useState(null); // Changed to null for DatePicker
+  const [bookingDate, setBookingDate] = useState(null);
   const [bookingTime, setBookingTime] = useState("");
   const [numberOfPets, setNumberOfPets] = useState(1);
   const [availableTimeSlots, setAvailableTimeSlots] = useState([]);
@@ -109,9 +109,7 @@ const ListingInfo = () => {
 
   // --- LOGIC: Filter Dates (Disable Closed Days) ---
   const isDateEnabled = (date) => {
-    // 1. Get the day name (e.g., "Monday")
     const dayName = date.toLocaleDateString('en-US', { weekday: 'long' });
-    // 2. Check if this day exists in the provider's operating hours
     return hours.some(h => h.day_of_week === dayName);
   };
 
@@ -128,18 +126,17 @@ const ListingInfo = () => {
     const workingDay = hours.find(h => h.day_of_week === dayName);
 
     if (workingDay) {
-        // Generate Slots
-        const slots = [];
-        const start = new Date(`2000-01-01T${workingDay.start_time}`);
-        const end = new Date(`2000-01-01T${workingDay.end_time}`);
+      const slots = [];
+      const start = new Date(`2000-01-01T${workingDay.start_time}`);
+      const end = new Date(`2000-01-01T${workingDay.end_time}`);
 
-        while (start < end) {
-            const timeValue = start.toTimeString().split(' ')[0];
-            const displayLabel = start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-            slots.push({ value: timeValue, label: displayLabel });
-            start.setHours(start.getHours() + 1);
-        }
-        setAvailableTimeSlots(slots);
+      while (start < end) {
+        const timeValue = start.toTimeString().split(' ')[0];
+        const displayLabel = start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+        slots.push({ value: timeValue, label: displayLabel });
+        start.setHours(start.getHours() + 1);
+      }
+      setAvailableTimeSlots(slots);
     }
   };
 
@@ -155,46 +152,47 @@ const ListingInfo = () => {
     // Convert Date Object to String for passing to next page
     const dateStr = bookingDate.toLocaleDateString('en-CA'); // YYYY-MM-DD format
 
-    navigate(`/booking/finalize/${id}`, {
-        state: {
-            providerId: id,
-            providerName: provider.business_name,
-            bookingDate: dateStr,
-            bookingTime,
-            numberOfPets: parseInt(numberOfPets, 10)
-        }
+    // ⭐ Redirect to PetDetails page passing the booking data state
+    navigate('/pet-details', {
+      state: {
+        providerId: id,
+        providerName: provider.business_name,
+        bookingDate: dateStr,
+        bookingTime,
+        numberOfPets: parseInt(numberOfPets, 10)
+      }
     });
   };
 
   // Services List Helper
   const ServicesList = () => (
     <>
-        {services.length > 0 ? services.map(service => (
-            <div key={service.id} className="service-section">
-                <div className="service-header">
-                    <h3 className="service-name">{service.name}</h3>
-                    <span className={`service-type-badge ${service.type}`}>{service.type}</span>
-                </div>
-                {service.description && <p className="service-description">{service.description}</p>}
-                {service.service_options && (
-                    <div className="pricing-wrapper">
-                        <table className="pricing-table">
-                            <thead><tr><th>Type</th><th>Size</th><th>Weight</th><th>Price</th></tr></thead>
-                            <tbody>
-                                {service.service_options.map(opt => (
-                                    <tr key={opt.id}>
-                                        <td style={{textTransform:'capitalize'}}>{opt.pet_type === 'dog-cat' ? 'Dog & Cat' : opt.pet_type}</td>
-                                        <td>{opt.size.replace('_', ' ')}</td>
-                                        <td>{opt.weight_range || '-'}</td>
-                                        <td>₱{parseFloat(opt.price).toFixed(2)}</td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                )}
+      {services.length > 0 ? services.map(service => (
+        <div key={service.id} className="service-section">
+          <div className="service-header">
+            <h3 className="service-name">{service.name}</h3>
+            <span className={`service-type-badge ${service.type}`}>{service.type}</span>
+          </div>
+          {service.description && <p className="service-description">{service.description}</p>}
+          {service.service_options && (
+            <div className="pricing-wrapper">
+              <table className="pricing-table">
+                <thead><tr><th>Type</th><th>Size</th><th>Weight</th><th>Price</th></tr></thead>
+                <tbody>
+                  {service.service_options.map(opt => (
+                    <tr key={opt.id}>
+                      <td style={{textTransform:'capitalize'}}>{opt.pet_type === 'dog-cat' ? 'Dog & Cat' : opt.pet_type}</td>
+                      <td>{opt.size.replace('_', ' ')}</td>
+                      <td>{opt.weight_range || '-'}</td>
+                      <td>₱{parseFloat(opt.price).toFixed(2)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-        )) : <p>No services listed.</p>}
+          )}
+        </div>
+      )) : <p>No services listed.</p>}
     </>
   );
 
@@ -209,9 +207,9 @@ const ListingInfo = () => {
         <div className="listing-main-content">
           <div className="listing-tabs">
             {["overview", "prices", "location", "reviews"].map(tab => (
-                <button key={tab} className={`tab-button ${activeTab === tab ? "active" : ""}`} onClick={() => setActiveTab(tab)}>
-                    {tab.charAt(0).toUpperCase() + tab.slice(1)}
-                </button>
+              <button key={tab} className={`tab-button ${activeTab === tab ? "active" : ""}`} onClick={() => setActiveTab(tab)}>
+                {tab.charAt(0).toUpperCase() + tab.slice(1)}
+              </button>
             ))}
           </div>
 
@@ -240,66 +238,66 @@ const ListingInfo = () => {
             {activeTab === "overview" && (
               <div className="tab-content">
                  <div className="listing-header-row">
-                    <h1 className="listing-title">{provider.business_name}</h1>
-                    {provider.social_media_url && (
-                        <a href={provider.social_media_url} target="_blank" rel="noopener noreferrer" className="social-link-inline">
-                            {getSocialIcon(provider.social_media_url)}
-                        </a>
-                    )}
+                   <h1 className="listing-title">{provider.business_name}</h1>
+                   {provider.social_media_url && (
+                     <a href={provider.social_media_url} target="_blank" rel="noopener noreferrer" className="social-link-inline">
+                       {getSocialIcon(provider.social_media_url)}
+                     </a>
+                   )}
                  </div>
                  <div className="location-info-block">
-                      <div className="listing-full-location" style={{marginBottom:'1rem'}}>
-                          <MapPin size={24} className="text-primary"/>
-                          <a href={provider.google_map_url || "#"} target="_blank" rel="noopener noreferrer" className={`location-link ${!provider.google_map_url ? 'disabled' : ''}`} style={{fontSize:'1.1rem'}}>
-                              {`${provider.house_street}, ${provider.barangay}, ${provider.city}, ${provider.province}, ${provider.country} ${provider.postal_code}`}
-                              {provider.google_map_url && <ExternalLink size={16} style={{marginLeft:'6px'}}/>}
-                          </a>
-                      </div>
-                 </div>
-                 <div className="info-section">
-                    <p className="shop-description">{provider.description || <span className="italic-gray">No description provided.</span>}</p>
-                 </div>
-                 <div className="info-section">
-                    <h3 className="subsection-title">Operating Hours</h3>
-                    <div className="hours-horizontal-container">
-                        {daysOrder.map((day) => {
-                            const dayHours = hours.filter(h => h.day_of_week === day);
-                            const isOpen = dayHours.length > 0;
-                            return (
-                                <div key={day} className={`hour-card ${isOpen ? 'open' : 'closed'}`}>
-                                    <div className="hour-header">
-                                        <Clock size={14} />
-                                        <span>{day}</span>
-                                    </div>
-                                    <div className="hour-body">
-                                        {isOpen ? (
-                                            dayHours.map((h, i) => (
-                                                <div key={i} className="time-badge">
-                                                    {formatTime(h.start_time)} - {formatTime(h.end_time)}
-                                                </div>
-                                            ))
-                                        ) : (
-                                            <span className="closed-text">Closed</span>
-                                        )}
-                                    </div>
-                                </div>
-                            );
-                        })}
+                    <div className="listing-full-location" style={{marginBottom:'1rem'}}>
+                      <MapPin size={24} className="text-primary"/>
+                      <a href={provider.google_map_url || "#"} target="_blank" rel="noopener noreferrer" className={`location-link ${!provider.google_map_url ? 'disabled' : ''}`} style={{fontSize:'1.1rem'}}>
+                        {`${provider.house_street}, ${provider.barangay}, ${provider.city}, ${provider.province}, ${provider.country} ${provider.postal_code}`}
+                        {provider.google_map_url && <ExternalLink size={16} style={{marginLeft:'6px'}}/>}
+                      </a>
                     </div>
                  </div>
+                 <div className="info-section">
+                   <p className="shop-description">{provider.description || <span className="italic-gray">No description provided.</span>}</p>
+                 </div>
+                 <div className="info-section">
+                   <h3 className="subsection-title">Operating Hours</h3>
+                   <div className="hours-horizontal-container">
+                     {daysOrder.map((day) => {
+                       const dayHours = hours.filter(h => h.day_of_week === day);
+                       const isOpen = dayHours.length > 0;
+                       return (
+                         <div key={day} className={`hour-card ${isOpen ? 'open' : 'closed'}`}>
+                           <div className="hour-header">
+                             <Clock size={14} />
+                             <span>{day}</span>
+                           </div>
+                           <div className="hour-body">
+                             {isOpen ? (
+                               dayHours.map((h, i) => (
+                                 <div key={i} className="time-badge">
+                                   {formatTime(h.start_time)} - {formatTime(h.end_time)}
+                                 </div>
+                               ))
+                             ) : (
+                               <span className="closed-text">Closed</span>
+                             )}
+                           </div>
+                         </div>
+                       );
+                     })}
+                   </div>
+                 </div>
                  <div className="info-section" style={{marginTop:'3rem', borderTop:'1px solid #e5e7eb', paddingTop:'2rem'}}>
-                    <h3 className="subsection-title">Service Prices</h3>
-                    <ServicesList />
+                   <h3 className="subsection-title">Service Prices</h3>
+                   <ServicesList />
                  </div>
               </div>
             )}
             {activeTab === "prices" && <div className="tab-content"><h2 className="section-title">Service Prices</h2><ServicesList /></div>}
-            {activeTab === "location" && <div className="tab-content"><h2 className="section-title">Location</h2>...</div>}
+            {activeTab === "location" && <div className="tab-content"><h2 className="section-title">Location</h2><div className="location-info"><MapPin size={20} /><p>{provider.house_street}, {provider.barangay}, {provider.city}</p></div></div>}
             {activeTab === "reviews" && <div className="tab-content"><h2 className="section-title">Reviews</h2><p style={{ color: "#6b7280" }}>No reviews yet.</p></div>}
           </div>
         </div>
 
-        {/* --- BOOKING SIDEBAR (UPDATED) --- */}
+        {/* --- BOOKING SIDEBAR --- */}
         <div className="booking-sidebar">
           <h3 className="booking-header">Book Appointment</h3>
           
@@ -308,17 +306,17 @@ const ListingInfo = () => {
           {/* 1. Date Selection (DatePicker) */}
           <div className="booking-field">
             <label className="booking-label">
-                <Calendar size={14} style={{marginRight:'6px', marginBottom:'-2px'}}/>
-                Select Date
+              <Calendar size={14} style={{marginRight:'6px', marginBottom:'-2px'}}/>
+              Select Date
             </label>
             <DatePicker
-                selected={bookingDate}
-                onChange={handleDateChange}
-                filterDate={isDateEnabled} // VISUALLY DISABLES CLOSED DAYS
-                minDate={new Date(new Date().setDate(new Date().getDate() + 1))} // Minimum = Tomorrow
-                placeholderText="Select a date"
-                className={`booking-date-input ${dateError ? 'input-error' : ''}`}
-                dateFormat="MMMM d, yyyy"
+              selected={bookingDate}
+              onChange={handleDateChange}
+              filterDate={isDateEnabled}
+              minDate={new Date(new Date().setDate(new Date().getDate() + 1))}
+              placeholderText="Select a date"
+              className={`booking-date-input ${dateError ? 'input-error' : ''}`}
+              dateFormat="MMMM d, yyyy"
             />
             {dateError && <span className="field-error-text">{dateError}</span>}
           </div>
@@ -326,40 +324,40 @@ const ListingInfo = () => {
           {/* 2. Time Slot Selection */}
           <div className="booking-field">
             <label className="booking-label">
-                <Clock size={14} style={{marginRight:'6px', marginBottom:'-2px'}}/>
-                Select Time Slot
+              <Clock size={14} style={{marginRight:'6px', marginBottom:'-2px'}}/>
+              Select Time Slot
             </label>
             <div className="booking-select-wrapper">
-                <select 
-                    value={bookingTime} 
-                    onChange={(e) => setBookingTime(e.target.value)} 
-                    className="booking-select"
-                    disabled={!bookingDate || availableTimeSlots.length === 0}
-                >
-                    <option value="">
-                        {availableTimeSlots.length > 0 ? "Select Time" : "No slots available"}
-                    </option>
-                    {availableTimeSlots.map((slot, idx) => (
-                        <option key={idx} value={slot.value}>{slot.label}</option>
-                    ))}
-                </select>
-                <ChevronDown size={20} className="booking-select-icon" />
+              <select 
+                value={bookingTime} 
+                onChange={(e) => setBookingTime(e.target.value)} 
+                className="booking-select"
+                disabled={!bookingDate || availableTimeSlots.length === 0}
+              >
+                <option value="">
+                  {availableTimeSlots.length > 0 ? "Select Time" : "No slots available"}
+                </option>
+                {availableTimeSlots.map((slot, idx) => (
+                  <option key={idx} value={slot.value}>{slot.label}</option>
+                ))}
+              </select>
+              <ChevronDown size={20} className="booking-select-icon" />
             </div>
           </div>
 
           {/* 3. Number of Pets */}
           <div className="booking-field">
             <label className="booking-label">
-                <Users size={14} style={{marginRight:'6px', marginBottom:'-2px'}}/>
-                Number of Pets
+              <Users size={14} style={{marginRight:'6px', marginBottom:'-2px'}}/>
+              Number of Pets
             </label>
             <input 
-                type="number" 
-                min="1" 
-                max="5"
-                value={numberOfPets} 
-                onChange={(e) => setNumberOfPets(e.target.value)} 
-                className="booking-date-input"
+              type="number" 
+              min="1" 
+              max="5"
+              value={numberOfPets} 
+              onChange={(e) => setNumberOfPets(e.target.value)} 
+              className="booking-date-input"
             />
           </div>
 
