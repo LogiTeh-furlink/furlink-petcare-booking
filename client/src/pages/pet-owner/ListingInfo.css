@@ -319,33 +319,50 @@
   height: fit-content;
 }
 
+.booking-header {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #111827;
+  margin-top: 0;
+  margin-bottom: 1.5rem;
+  border-bottom: 1px solid #e5e7eb;
+  padding-bottom: 1rem;
+}
+
 .booking-error {
   margin-bottom: 1rem; padding: 0.75rem;
   background-color: #fee2e2; color: #dc2626;
   border-radius: 8px; font-size: 0.875rem; border: 1px solid #fca5a5;
 }
 
-.booking-price { font-size: 2rem; font-weight: 700; margin-bottom: 1.5rem; text-align: center; }
-.booking-price.has-price { color: #059669; }
-.booking-price.no-price { color: #9ca3af; }
-
+/* Field Styles */
 .booking-field { margin-bottom: 1rem; }
+
 .booking-label {
   display: block; font-size: 0.75rem; font-weight: 600; color: #6b7280;
   margin-bottom: 0.5rem; text-transform: uppercase;
 }
 
-.booking-select-wrapper { position: relative; }
-
+/* Common Input Styling */
 .booking-select, .booking-date-input {
   width: 100%; padding: 0.75rem;
   border: 1px solid #e5e7eb; border-radius: 8px;
   font-size: 1rem; font-weight: 600;
   appearance: none; cursor: pointer; background-color: white;
   box-sizing: border-box;
+  font-family: inherit;
+  transition: all 0.2s;
 }
+
+.booking-date-input:focus, .booking-select:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
 .booking-select:disabled { cursor: not-allowed; background-color: #f9fafb; }
 
+.booking-select-wrapper { position: relative; }
 .booking-select-icon {
   position: absolute; right: 0.75rem; top: 50%;
   transform: translateY(-50%); pointer-events: none; color: #6b7280;
@@ -360,6 +377,81 @@
 }
 .booking-button:hover:not(:disabled) { background-color: #1e40af; }
 .booking-button:disabled { background-color: #9ca3af; cursor: not-allowed; }
+
+/* ERROR STATES (Red Border & Text) */
+.field-error-text {
+  display: block;
+  color: #ef4444; /* Red color */
+  font-size: 0.8rem;
+  margin-top: 4px;
+  font-weight: 500;
+  animation: fadeIn 0.2s ease;
+}
+
+.input-error {
+  border-color: #ef4444 !important;
+  background-color: #fef2f2 !important;
+}
+
+/* Ensure date input looks good */
+.booking-date-input {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  box-sizing: border-box;
+  font-family: inherit;
+  transition: all 0.2s;
+}
+
+.booking-date-input:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.booking-header {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #111827;
+  margin-top: 0;
+  margin-bottom: 1.5rem;
+  border-bottom: 1px solid #e5e7eb;
+  padding-bottom: 1rem;
+}
+
+/* Make React Datepicker fill the container and look like standard input */
+.react-datepicker-wrapper {
+  width: 100%;
+}
+
+.react-datepicker__input-container input {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  box-sizing: border-box;
+  font-family: inherit;
+  transition: all 0.2s;
+  color: #374151;
+}
+
+.react-datepicker__input-container input:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+/* Style disabled days in the calendar to look clearly unavailable */
+.react-datepicker__day--disabled {
+  color: #ccc;
+  background-color: #f3f4f6;
+  pointer-events: none;
+}
 
 /* =========================================
    IMAGE MODAL (CAROUSEL)
