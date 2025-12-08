@@ -197,7 +197,7 @@ const ListingInfo = () => {
                 {service.service_options && (
                     <div className="pricing-wrapper">
                         <table className="pricing-table">
-                            <thead><tr><th>Type</th><th>Size</th><th>Weight</th><th>Price</th></tr></thead>
+                            <thead><tr><th>Type</th><th>Size</th><th>Weight (kg)</th><th>Price</th></tr></thead>
                             <tbody>
                                 {service.service_options.map(opt => (
                                     <tr key={opt.id}>

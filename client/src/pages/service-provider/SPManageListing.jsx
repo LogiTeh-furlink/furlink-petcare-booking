@@ -330,7 +330,7 @@ export default function SPManageListing() {
                             <tr>
                                 <th>Pet Type</th>
                                 <th>Size</th>
-                                <th>Weight</th>
+                                <th>Weight (kg) </th>
                                 <th>Price</th>
                             </tr>
                         </thead>
@@ -341,7 +341,7 @@ export default function SPManageListing() {
                                     {opt.pet_type === 'dog-cat' ? 'Dog & Cat' : opt.pet_type}
                                 </td>
                                 <td>{opt.size.replace('_', ' ')}</td>
-                                <td>{opt.weight_range || 'N/A'}</td>
+                                <td>{opt.weight_range || 'N/A'} kg</td>
                                 <td className="price-col">₱{opt.price}</td>
                             </tr>
                             ))}

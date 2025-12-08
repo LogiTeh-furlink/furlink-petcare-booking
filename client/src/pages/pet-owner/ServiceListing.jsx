@@ -605,13 +605,13 @@ export default function ServiceListing() {
                   <div className="summary-row"><strong>Description:</strong> {service.notes || "N/A"}</div>
                   <div className="summary-pricing">
                     <table className="summary-table">
-                      <thead><tr><th>Type</th><th>Size</th><th>Weight</th><th>Price</th></tr></thead>
+                      <thead><tr><th>Type</th><th>Size</th><th>Weight (kg)</th><th>Price</th></tr></thead>
                       <tbody>
                         {service.pricing.map((p, pi) => (
                           <tr key={pi}>
                             <td style={{ textTransform: "capitalize" }}>{p.petType === "dog-cat" ? "Dog & Cat" : p.petType}</td>
                             <td>{p.sizeLabel}</td>
-                            <td>{p.weight}</td>
+                            <td>{p.weight} kg</td>
                             <td>₱{parseFloat(p.price).toFixed(2)}</td>
                           </tr>
                         ))}

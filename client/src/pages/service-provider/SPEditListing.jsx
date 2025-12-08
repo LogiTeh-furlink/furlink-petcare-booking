@@ -530,7 +530,7 @@ export default function SPEditListing() {
                             <div className="pricing-grid-header">
                                 <span>Type</span>
                                 <span>Size</span>
-                                <span>Weight</span>
+                                <span>Weight (kg)</span>
                                 <span>Price</span>
                                 <span></span>
                             </div>
@@ -611,13 +611,13 @@ export default function SPEditListing() {
                     </div>
                     <p className="summary-desc">{service.description || "No description"}</p>
                     <table className="summary-table">
-                        <thead><tr><th>Type</th><th>Size</th><th>Weight</th><th>Price</th></tr></thead>
+                        <thead><tr><th>Type</th><th>Size</th><th>Weight (kg)</th><th>Price</th></tr></thead>
                         <tbody>
                             {service.pricing.map((p, pi) => (
                                 <tr key={pi}>
                                     <td style={{textTransform:'capitalize'}}>{p.petType === 'dog-cat' ? 'Dog & Cat' : p.petType}</td>
                                     <td>{p.sizeLabel}</td>
-                                    <td>{p.weight}</td>
+                                    <td>{p.weight} kg</td>
                                     <td>₱{p.price}</td>
                                 </tr>
                             ))}
