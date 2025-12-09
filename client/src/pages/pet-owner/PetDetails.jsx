@@ -14,29 +14,109 @@ const PetDetails = () => {
   const { state } = useLocation();
   const navigate = useNavigate();
 
-  // Booking data passed from ListingInfo.jsx
   const { providerId, providerName, bookingDate, bookingTime, numberOfPets } = state || {};
 
-  // Data State
   const [providerServices, setProviderServices] = useState([]);
   const [loadingServices, setLoadingServices] = useState(true);
-  
-  // Form State
   const [petsData, setPetsData] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Initialize petsData array based on numberOfPets
+  // --- HELPER: CHECK IF WEIGHT IS IN RANGE ---
+  const isWeightInRange = (weight, rangeString) => {
+    // 1. Handle "Any Weight" cases (N/A, All, empty)
+    if (!rangeString) return true; // If null/undefined in DB, assume generic
+    const cleanRange = rangeString.replace(/\s+/g, '').toUpperCase();
+    if (cleanRange === 'N/A' || cleanRange === 'ALL' || cleanRange === '') return true;
+
+    // 2. Validate User Input
+    const w = parseFloat(weight);
+    if (isNaN(w)) return false; 
+
+    try {
+      // Handle "5-14" format
+      if (cleanRange.includes('-')) {
+        const parts = cleanRange.split('-');
+        if (parts.length === 2 && !isNaN(parseFloat(parts[0])) && !isNaN(parseFloat(parts[1]))) {
+            const min = parseFloat(parts[0]);
+            const max = parseFloat(parts[1]);
+            return w >= min && w <= max;
+        }
+      }
+      // Handle "10+" or ">10" format
+      if (cleanRange.includes('+')) {
+        const min = parseFloat(cleanRange.replace('+', ''));
+        return w >= min;
+      }
+      
+      // Exact match fallback
+      if (!isNaN(parseFloat(cleanRange)) && cleanRange.indexOf('-') === -1) {
+          return w === parseFloat(cleanRange);
+      }
+      
+      return false;
+    } catch (e) {
+      return false;
+    }
+  };
+
+  // --- LOGIC: FIND MATCHING SERVICE OPTION ---
+  const findServiceOption = (pet, services) => {
+    if (!pet.service_id) return null; // Weight might not be required for N/A services
+
+    const service = services.find(s => s.id === pet.service_id);
+    if (!service || !service.service_options) return null;
+
+    const userType = (pet.pet_type || "Dog").toLowerCase();
+
+    return service.service_options.find(opt => {
+      // 1. Check Type
+      const dbType = (opt.pet_type || "").toLowerCase();
+      const typeMatch = dbType === userType || dbType === 'dog-cat';
+
+      // 2. Check Weight Range (Logic handles N/A cases)
+      // Note: We pass pet.weight_kg even if empty/0 to let isWeightInRange decide
+      const weightMatch = isWeightInRange(pet.weight_kg, opt.weight_range);
+
+      return typeMatch && weightMatch;
+    });
+  };
+
+  // --- UPDATE HELPER ---
+  const updatePetDataAndPrice = (index, petUpdate) => {
+    setPetsData(prev => {
+        const updated = [...prev];
+        let updatedPet = { ...updated[index], ...petUpdate };
+
+        const matchedOption = findServiceOption(updatedPet, providerServices);
+
+        if (matchedOption) {
+            updatedPet.price = parseFloat(matchedOption.price).toFixed(2);
+            // If the DB size is generic (e.g. "all"), keep user input cleaner or show "Standard"
+            // Otherwise show the matched size label (e.g. "extra large")
+            const rawSize = matchedOption.size.replace(/_/g, ' ');
+            updatedPet.calculated_size = (rawSize.toLowerCase() === 'all') ? 'Standard' : rawSize; 
+        } else {
+            updatedPet.price = "0.00";
+            if (petUpdate.weight_kg !== undefined && parseFloat(petUpdate.weight_kg) > 0) {
+               updatedPet.calculated_size = "N/A";
+            } else if (!petUpdate.weight_kg) {
+               updatedPet.calculated_size = ""; // Clear if empty
+            }
+        }
+        
+        updated[index] = updatedPet;
+        return updated;
+    });
+  };
+
   useEffect(() => {
     if (numberOfPets) {
       setPetsData(Array.from({ length: numberOfPets }, () => ({
-        // Service Data
         service_id: "",
         service_name: "",
         service_type: "",
-        price: "",
-        
-        // Pet Data
-        pet_type: "Dog", // Default value
+        price: "0.00",
+        pet_type: "Dog", 
         pet_name: "",
         birth_date: "",
         weight_kg: "",
@@ -48,7 +128,6 @@ const PetDetails = () => {
     }
   }, [numberOfPets]);
 
-  // Fetch Provider Services
   useEffect(() => {
     const fetchServices = async () => {
       if (!providerId) return;
@@ -56,11 +135,8 @@ const PetDetails = () => {
         const { data, error } = await supabase
           .from('services')
           .select(`
-            id, 
-            name, 
-            type, 
-            description, 
-            service_options (id, price, size, pet_type)
+            id, name, type, description, 
+            service_options (id, price, size, pet_type, weight_range)
           `)
           .eq('provider_id', providerId);
 
@@ -72,7 +148,6 @@ const PetDetails = () => {
         setLoadingServices(false);
       }
     };
-
     fetchServices();
   }, [providerId]);
 
@@ -80,61 +155,32 @@ const PetDetails = () => {
 
   const handleInputChange = (index, e) => {
     const { name, value } = e.target;
-    setPetsData(prev => {
-      const updated = [...prev];
-      updated[index] = { ...updated[index], [name]: value };
-      return updated;
-    });
+    updatePetDataAndPrice(index, { [name]: value });
   };
 
   const handleServiceChange = (index, e) => {
     const selectedServiceId = e.target.value;
     const serviceObj = providerServices.find(s => s.id === selectedServiceId);
     
-    setPetsData(prev => {
-      const updated = [...prev];
-      if (serviceObj) {
-        const basePrice = serviceObj.service_options?.[0]?.price || 0;
-        updated[index] = {
-          ...updated[index],
+    let serviceUpdate = {};
+    if (serviceObj) {
+        serviceUpdate = {
           service_id: serviceObj.id,
           service_name: serviceObj.name,
           service_type: serviceObj.type,
-          price: basePrice 
         };
-      } else {
-        updated[index] = {
-          ...updated[index],
+    } else {
+        serviceUpdate = {
           service_id: "",
           service_name: "",
           service_type: "",
-          price: ""
         };
-      }
-      return updated;
-    });
+    }
+    updatePetDataAndPrice(index, serviceUpdate);
   };
 
   const handleWeightChange = (index, e) => {
-    const weight = e.target.value;
-    let size = "";
-    const w = parseFloat(weight);
-    if (!isNaN(w)) {
-        if (w < 5) size = "Small";
-        else if (w < 15) size = "Medium";
-        else if (w < 30) size = "Large";
-        else size = "Extra Large";
-    }
-    
-    setPetsData(prev => {
-      const updated = [...prev];
-      updated[index] = {
-        ...updated[index],
-        weight_kg: weight,
-        calculated_size: size
-      };
-      return updated;
-    });
+    updatePetDataAndPrice(index, { weight_kg: e.target.value });
   };
 
   const calculateTotal = () => {
@@ -144,10 +190,12 @@ const PetDetails = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Validation: Ensure ALL pets have a service
-    const incompletePets = petsData.some(pet => !pet.service_id || !pet.pet_name || !pet.weight_kg);
+    const incompletePets = petsData.some(pet => 
+      !pet.service_id || !pet.pet_name || !pet.weight_kg || parseFloat(pet.price) === 0
+    );
+    
     if (incompletePets) {
-        alert("Please fill in all required fields (Service, Name, Weight) for all pets.");
+        alert("Unable to calculate price. Please check that your Pet Type and Weight match the chosen Service options.");
         return;
     }
 
@@ -156,7 +204,6 @@ const PetDetails = () => {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) throw new Error("User not logged in");
 
-        // 1. Insert into 'bookings'
         const { data: booking, error: bookingError } = await supabase
             .from('bookings')
             .insert({
@@ -172,14 +219,12 @@ const PetDetails = () => {
 
         if (bookingError) throw bookingError;
 
-        // 2. Process each pet
         for (const petData of petsData) {
-            // Insert into 'booking_pets'
             const { data: petRecord, error: petError } = await supabase
                 .from('booking_pets')
                 .insert({
                     booking_id: booking.id,
-                    pet_type: petData.pet_type, // Added Pet Type
+                    pet_type: petData.pet_type,
                     pet_name: petData.pet_name,
                     birth_date: petData.birth_date,
                     weight_kg: petData.weight_kg,
@@ -195,7 +240,6 @@ const PetDetails = () => {
 
             if (petError) throw petError;
 
-            // Insert into 'booking_services'
             const { error: serviceError } = await supabase
                 .from('booking_services')
                 .insert({
@@ -225,7 +269,6 @@ const PetDetails = () => {
   return (
     <div className="pet-details-page">
       <Header />
-      
       <main className="pet-details-container">
         
         <div className="page-header-row">
@@ -249,13 +292,9 @@ const PetDetails = () => {
                     </div>
                     
                     <div className="pet-form-content">
-                        {/* --- SECTION 1: SERVICE SELECTION --- */}
                         <div className="form-section-label">Service Selection</div>
-                        
                         <div className="form-group">
-                            <label className="form-label">
-                                <Tag size={14} className="label-icon" /> Choose Service
-                            </label>
+                            <label className="form-label"><Tag size={14} className="label-icon" /> Choose Service</label>
                             <div className="select-wrapper">
                                 <select 
                                     name="service_id"
@@ -275,15 +314,11 @@ const PetDetails = () => {
                             </div>
                         </div>
 
-                        {/* --- SECTION 2: PET INFORMATION --- */}
                         <div className="form-section-label" style={{marginTop: '1rem'}}>Pet Information</div>
 
-                        {/* Pet Type & Name Row */}
                         <div className="form-row">
                             <div className="form-group">
-                                <label className="form-label">
-                                    <Cat size={14} className="label-icon" /> Pet Type
-                                </label>
+                                <label className="form-label"><Cat size={14} className="label-icon" /> Pet Type</label>
                                 <div className="select-wrapper">
                                     <select 
                                         name="pet_type" 
@@ -297,9 +332,7 @@ const PetDetails = () => {
                                 </div>
                             </div>
                             <div className="form-group">
-                                <label className="form-label">
-                                    <PawPrint size={14} className="label-icon" /> Pet Name
-                                </label>
+                                <label className="form-label"><PawPrint size={14} className="label-icon" /> Pet Name</label>
                                 <input 
                                     type="text" 
                                     name="pet_name"
@@ -314,9 +347,7 @@ const PetDetails = () => {
 
                         <div className="form-row">
                             <div className="form-group">
-                                <label className="form-label">
-                                    <Dna size={14} className="label-icon" /> Breed
-                                </label>
+                                <label className="form-label"><Dna size={14} className="label-icon" /> Breed</label>
                                 <input 
                                     type="text" 
                                     name="breed"
@@ -343,9 +374,7 @@ const PetDetails = () => {
                         </div>
 
                         <div className="form-group">
-                            <label className="form-label">
-                                <Calendar size={14} className="label-icon" /> Birth Date
-                            </label>
+                            <label className="form-label"><Calendar size={14} className="label-icon" /> Birth Date</label>
                             <input 
                                 type="date" 
                                 name="birth_date"
@@ -357,9 +386,7 @@ const PetDetails = () => {
 
                         <div className="form-row">
                             <div className="form-group">
-                                <label className="form-label">
-                                    <Weight size={14} className="label-icon" /> Weight (kg)
-                                </label>
+                                <label className="form-label"><Weight size={14} className="label-icon" /> Weight (kg)</label>
                                 <input 
                                     type="number" 
                                     name="weight_kg"
@@ -372,21 +399,20 @@ const PetDetails = () => {
                                 />
                             </div>
                             <div className="form-group">
-                                <label className="form-label">Size</label>
+                                <label className="form-label">Size (Matched)</label>
                                 <input 
                                     type="text" 
                                     className="form-input read-only" 
                                     value={pet.calculated_size}
                                     readOnly
-                                    placeholder="Auto-calc"
+                                    placeholder="Waiting for valid weight..."
+                                    style={{textTransform: 'capitalize'}}
                                 />
                             </div>
                         </div>
 
                         <div className="form-group">
-                            <label className="form-label">
-                                <Activity size={14} className="label-icon" /> Behavior / Notes
-                            </label>
+                            <label className="form-label"><Activity size={14} className="label-icon" /> Behavior / Notes</label>
                             <textarea 
                                 name="behavior"
                                 className="form-input textarea" 
@@ -412,7 +438,6 @@ const PetDetails = () => {
 
         </form>
       </main>
-
       <Footer />
     </div>
   );
