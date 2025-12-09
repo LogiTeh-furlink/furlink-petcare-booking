@@ -22,7 +22,7 @@ const PetDetails = () => {
   const [petsData, setPetsData] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // --- HELPER: CHECK IF WEIGHT IS IN RANGE ---
+  // --- 1. HELPER: CHECK IF WEIGHT IS IN RANGE ---
   const isWeightInRange = (weight, rangeString) => {
     if (!rangeString) return true; 
     const cleanRange = rangeString.replace(/\s+/g, '').toUpperCase();
@@ -53,7 +53,7 @@ const PetDetails = () => {
     }
   };
 
-  // --- LOGIC: FIND MATCHING SERVICE OPTION ---
+  // --- 2. LOGIC: FIND MATCHING SERVICE OPTION ---
   const findServiceOption = (pet, services) => {
     if (!pet.service_id) return null; 
 
@@ -70,7 +70,7 @@ const PetDetails = () => {
     });
   };
 
-  // --- UPDATE HELPER ---
+  // --- 3. UPDATE HELPER ---
   const updatePetDataAndPrice = (index, petUpdate) => {
     setPetsData(prev => {
         const updated = [...prev];
@@ -100,7 +100,6 @@ const PetDetails = () => {
     });
   };
 
-  // Initialize petsData array
   useEffect(() => {
     if (numberOfPets) {
       setPetsData(Array.from({ length: numberOfPets }, () => ({
@@ -121,7 +120,7 @@ const PetDetails = () => {
         vaccine_preview: null,
         illness_file: null,
         illness_preview: null,
-        emergency_consent: false // ⭐ NEW STATE FIELD
+        emergency_consent: false
       })));
     }
   }, [numberOfPets]);
@@ -149,8 +148,7 @@ const PetDetails = () => {
     fetchServices();
   }, [providerId]);
 
-  // --- HANDLERS ---
-
+  // --- FILE/INPUT HANDLERS ---
   const handleInputChange = (index, e) => {
     const { name, value } = e.target;
     updatePetDataAndPrice(index, { [name]: value });
@@ -182,9 +180,9 @@ const PetDetails = () => {
   };
 
   const handleFileUpload = (index, type, e) => {
-    // [Kept file upload logic]
     const file = e.target.files[0];
     if (!file) return;
+
     if (!file.type.startsWith('image/')) { alert('Please select an image file.'); return; }
     if (file.size > 1024 * 1024) { alert('File size exceeds 1MB limit.'); return; }
 
@@ -197,7 +195,6 @@ const PetDetails = () => {
   };
 
   const removeFile = (index, type) => {
-    // [Kept file removal logic]
     setPetsData(prev => {
         const updated = [...prev];
         if (updated[index][`${type}_preview`]) URL.revokeObjectURL(updated[index][`${type}_preview`]);
@@ -222,24 +219,25 @@ const PetDetails = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // ⭐ NEW VALIDATION: Ensure consent is given for ALL pets
-    const consentMissing = petsData.some(pet => !pet.emergency_consent);
-    if (consentMissing) {
-        alert("Please check the Emergency Consent box for all pets.");
-        return;
+    const incompletePets = petsData.some(pet => 
+      !pet.service_id || !pet.pet_name || !pet.weight_kg || pet.error || !pet.vaccine_file || !pet.emergency_consent
+    );
+    
+    if (incompletePets) { 
+        alert("Please complete all forms. Ensure valid pricing, Vaccine Records are uploaded, and Emergency Consent is given for all pets."); 
+        return; 
     }
-
-    const incompletePets = petsData.some(pet => !pet.service_id || !pet.pet_name || !pet.weight_kg || pet.error || !pet.vaccine_file);
-    if (incompletePets) { alert("Please complete all required fields and resolve pricing errors."); return; }
 
     setIsSubmitting(true);
     try {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) throw new Error("User not logged in");
 
-        const { data: booking, error: bookingError } = await supabase.from('bookings').insert({
-            provider_id: providerId, pet_owner_id: user.id, booking_date: bookingDate, time_slot: bookingTime, status: 'pending', total_price: calculateTotal()
-        }).select().single();
+        const { data: booking, error: bookingError } = await supabase
+            .from('bookings')
+            .insert({
+                provider_id: providerId, pet_owner_id: user.id, booking_date: bookingDate, time_slot: bookingTime, status: 'pending', total_price: calculateTotal()
+            }).select().single();
 
         if (bookingError) throw bookingError;
 
@@ -249,16 +247,11 @@ const PetDetails = () => {
             let vaccineUrl = await uploadFileToSupabase(petData.vaccine_file, `${petStoragePath}/vaccine`);
             let illnessUrl = petData.illness_file ? await uploadFileToSupabase(petData.illness_file, `${petStoragePath}/illness`) : null;
 
-            const { data: petRecord, error: petError } = await supabase
-                .from('booking_pets')
-                .insert({
-                    booking_id: booking.id, 
-                    pet_type: petData.pet_type, pet_name: petData.pet_name, birth_date: petData.birth_date,
-                    weight_kg: petData.weight_kg, calculated_size: petData.calculated_size, breed: petData.breed, gender: petData.gender,
-                    behavior: petData.behavior, vaccine_card_url: vaccineUrl, illness_record_url: illnessUrl, 
-                    emergency_consent: petData.emergency_consent // ⭐ SAVING CONSENT STATUS
-                })
-                .select().single();
+            const { data: petRecord, error: petError } = await supabase.from('booking_pets').insert({
+                booking_id: booking.id, pet_type: petData.pet_type, pet_name: petData.pet_name, birth_date: petData.birth_date,
+                weight_kg: petData.weight_kg, calculated_size: petData.calculated_size, breed: petData.breed, gender: petData.gender,
+                behavior: petData.behavior, vaccine_card_url: vaccineUrl, illness_record_url: illnessUrl, emergency_consent: petData.emergency_consent
+            }).select().single();
 
             if (petError) throw petError;
 
@@ -402,7 +395,7 @@ const PetDetails = () => {
                             </div>
                         </div>
 
-                        {/* --- EMERGENCY CONSENT CHECKBOX --- */}
+                        {/* EMERGENCY CONSENT CHECKBOX */}
                         <div className="consent-form-group">
                             <label className="consent-checkbox-label">
                                 <input 
@@ -422,18 +415,20 @@ const PetDetails = () => {
                     </div>
                 </div>
             ))}
-
-            <div className="booking-footer-sticky">
-                <div className="total-display">
-                    <span>Total Est. Price:</span>
-                    <span className="total-amount">₱{calculateTotal().toFixed(2)}</span>
-                </div>
-                <button type="submit" className="submit-btn" disabled={isSubmitting}>
-                    {isSubmitting ? "Processing..." : `Confirm Booking (${numberOfPets} Pets)`}
-                </button>
-            </div>
         </form>
       </main>
+
+      {/* NON-STICKY BUTTON/TOTAL BLOCK */}
+      <div className="non-sticky-footer-block">
+          <div className="total-display">
+              <span>Total Est. Price:</span>
+              <span className="total-amount">₱{calculateTotal().toFixed(2)}</span>
+          </div>
+          <button onClick={handleSubmit} type="button" className="submit-btn" disabled={isSubmitting}>
+              {isSubmitting ? "Processing..." : "Proceed to Payment"}
+          </button>
+      </div>
+
       <Footer />
     </div>
   );

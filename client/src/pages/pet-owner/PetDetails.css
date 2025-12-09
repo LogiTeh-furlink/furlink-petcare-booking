@@ -13,7 +13,7 @@
     margin: 2rem auto;
     width: 100%;
     padding: 0 1.5rem;
-    padding-bottom: 120px; 
+    padding-bottom: 2rem; /* Reduced padding-bottom as footer is no longer fixed */
     display: flex;
     flex-direction: column;
 }
@@ -25,35 +25,16 @@
     margin-bottom: 1.5rem;
 }
 
-.back-link {
-    display: flex;
-    align-items: center;
-    background: none;
-    border: none;
-    color: #6b7280;
-    font-weight: 500;
-    cursor: pointer;
-    padding: 0;
-    font-size: 0.9rem;
-}
-
-.booking-summary-badge {
-    background-color: #e0e7ff;
-    color: #3730a3;
-    padding: 0.25rem 0.75rem;
-    border-radius: 999px;
-    font-size: 0.8rem;
-    font-weight: 600;
-}
-
 /* FORM GRID LAYOUT */
 .all-pets-form {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
     gap: 1.5rem;
     width: 100%;
+    margin-bottom: 3rem; /* Space before the static footer block */
 }
 
+/* Card Container */
 .pet-details-card {
     background-color: white;
     border-radius: 12px;
@@ -61,27 +42,69 @@
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
     border: 1px solid #f3f4f6;
     height: fit-content;
-    display: flex; /* Fixes inner content height consistency */
-    flex-direction: column;
-}
-
-.pet-form-content {
     display: flex;
     flex-direction: column;
-    gap: 1.25rem;
-    flex-grow: 1;
 }
 
-.card-header-block {
+/* --- STATIC FOOTER BLOCK (New Class) --- */
+.non-sticky-footer-block {
+    /* Uses main container width context */
+    max-width: 1400px;
+    margin: 0 auto 3rem auto; /* Margin at the bottom of the page */
+    padding: 1.5rem 1.5rem;
+    border-top: 1px solid #e5e7eb;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    border-bottom: 1px solid #e5e7eb;
-    padding-bottom: 1rem;
-    margin-bottom: 1.5rem;
+    gap: 2rem;
+    background-color: white;
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    width: 100%; /* Ensure it spans the full content width */
 }
 
-/* --- NEW CONSENT STYLING --- */
+.total-display {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+}
+
+.total-display span:first-child {
+    font-size: 0.85rem;
+    color: #6b7280;
+    font-weight: 500;
+}
+
+.total-amount {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: #111827;
+}
+
+.submit-btn {
+    padding: 1rem 3rem;
+    background-color: #1e3a8a;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 1.1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    min-width: 250px;
+}
+
+.submit-btn:hover:not(:disabled) {
+    background-color: #1e40af;
+}
+
+.submit-btn:disabled {
+    background-color: #9ca3af;
+    cursor: not-allowed;
+}
+
+
+/* --- Other Styles (Keeping all functional elements) --- */
 .consent-form-group {
     margin-top: 1rem;
     padding-top: 0.5rem;
@@ -104,12 +127,9 @@
     width: 16px;
     height: 16px;
     border: 1px solid #9ca3af;
-    accent-color: #1e3a8a; /* Sets the color of the checked box */
+    accent-color: #1e3a8a;
 }
 
-/* ... [Keep all other existing styles for inputs, uploads, errors, and footer] ... */
-
-/* Inputs */
 .form-input {
     width: 100%;
     padding: 0.75rem 1rem;
@@ -121,19 +141,23 @@
     transition: border-color 0.2s, box-shadow 0.2s;
 }
 
-.upload-helper-text {
-    font-size: 0.7rem;
-    color: #9ca3af;
-    margin-bottom: 0.5rem;
-    display: block;
-    margin-top: -0.2rem;
+.form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
 }
 
-.text-red {
-    color: #ef4444;
+.form-label {
+    display: flex;
+    align-items: center;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #6b7280;
+    margin-bottom: 0.4rem;
+    text-transform: uppercase;
+    letter-spacing: 0.025em;
 }
 
-/* Error Banner */
 .error-banner {
     display: flex;
     align-items: center;
@@ -145,25 +169,6 @@
     border-radius: 8px;
     font-size: 0.85rem;
     margin-top: 0.5rem;
-}
-
-/* Sticky Footer */
-.booking-footer-sticky {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    background-color: white;
-    border-top: 1px solid #e5e7eb;
-    padding: 1.5rem 2rem;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    box-shadow: 0 -4px 10px rgba(0, 0, 0, 0.05);
-    z-index: 50;
-    max-width: 1400px;
-    margin: 0 auto; 
-    width: 100%;
 }
 
 /* Responsive Breakpoints */
@@ -182,11 +187,21 @@
         padding: 0 1rem;
     }
 
-    .booking-footer-sticky {
+    .non-sticky-footer-block {
+        /* Standardize button block on mobile */
         flex-direction: column;
         gap: 1rem;
         padding: 1rem;
         align-items: stretch;
         text-align: center;
+        margin-bottom: 2rem;
+    }
+
+    .total-display {
+        align-items: center;
+    }
+
+    .submit-btn {
+        width: 100%;
     }
 }
