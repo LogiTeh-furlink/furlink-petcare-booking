@@ -85,6 +85,7 @@ const PetDetails = () => {
             updatedPet.error = null; 
         } else {
             updatedPet.price = "0.00";
+            
             if (updatedPet.service_id && updatedPet.weight_kg && parseFloat(updatedPet.weight_kg) > 0) {
                updatedPet.calculated_size = "N/A";
                updatedPet.error = "Service unavailable for this weight/type.";
@@ -99,6 +100,7 @@ const PetDetails = () => {
     });
   };
 
+  // Initialize petsData array
   useEffect(() => {
     if (numberOfPets) {
       setPetsData(Array.from({ length: numberOfPets }, () => ({
@@ -118,7 +120,8 @@ const PetDetails = () => {
         vaccine_file: null,
         vaccine_preview: null,
         illness_file: null,
-        illness_preview: null
+        illness_preview: null,
+        emergency_consent: false // ⭐ NEW STATE FIELD
       })));
     }
   }, [numberOfPets]);
@@ -146,14 +149,26 @@ const PetDetails = () => {
     fetchServices();
   }, [providerId]);
 
+  // --- HANDLERS ---
+
   const handleInputChange = (index, e) => {
     const { name, value } = e.target;
     updatePetDataAndPrice(index, { [name]: value });
   };
 
+  const handleConsentChange = (index, e) => {
+    const { checked } = e.target;
+    setPetsData(prev => {
+        const updated = [...prev];
+        updated[index] = { ...updated[index], emergency_consent: checked };
+        return updated;
+    });
+  };
+
   const handleServiceChange = (index, e) => {
     const selectedServiceId = e.target.value;
     const serviceObj = providerServices.find(s => s.id === selectedServiceId);
+    
     let serviceUpdate = serviceObj ? {
         service_id: serviceObj.id,
         service_name: serviceObj.name,
@@ -167,6 +182,7 @@ const PetDetails = () => {
   };
 
   const handleFileUpload = (index, type, e) => {
+    // [Kept file upload logic]
     const file = e.target.files[0];
     if (!file) return;
     if (!file.type.startsWith('image/')) { alert('Please select an image file.'); return; }
@@ -181,6 +197,7 @@ const PetDetails = () => {
   };
 
   const removeFile = (index, type) => {
+    // [Kept file removal logic]
     setPetsData(prev => {
         const updated = [...prev];
         if (updated[index][`${type}_preview`]) URL.revokeObjectURL(updated[index][`${type}_preview`]);
@@ -191,6 +208,7 @@ const PetDetails = () => {
 
   const calculateTotal = () => petsData.reduce((acc, pet) => acc + parseFloat(pet.price || 0), 0);
 
+  // --- SUBMISSION ---
   const uploadFileToSupabase = async (file, path) => {
       const fileExt = file.name.split('.').pop();
       const fileName = `${Math.random().toString(36).substring(2)}_${Date.now()}.${fileExt}`;
@@ -203,8 +221,16 @@ const PetDetails = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    // ⭐ NEW VALIDATION: Ensure consent is given for ALL pets
+    const consentMissing = petsData.some(pet => !pet.emergency_consent);
+    if (consentMissing) {
+        alert("Please check the Emergency Consent box for all pets.");
+        return;
+    }
+
     const incompletePets = petsData.some(pet => !pet.service_id || !pet.pet_name || !pet.weight_kg || pet.error || !pet.vaccine_file);
-    if (incompletePets) { alert("Please complete all forms. Ensure valid pricing and Vaccine Records are uploaded."); return; }
+    if (incompletePets) { alert("Please complete all required fields and resolve pricing errors."); return; }
 
     setIsSubmitting(true);
     try {
@@ -219,14 +245,20 @@ const PetDetails = () => {
 
         for (const [i, petData] of petsData.entries()) {
             const petStoragePath = `${user.id}/${booking.id}/pet_${i}`;
+            
             let vaccineUrl = await uploadFileToSupabase(petData.vaccine_file, `${petStoragePath}/vaccine`);
             let illnessUrl = petData.illness_file ? await uploadFileToSupabase(petData.illness_file, `${petStoragePath}/illness`) : null;
 
-            const { data: petRecord, error: petError } = await supabase.from('booking_pets').insert({
-                booking_id: booking.id, pet_type: petData.pet_type, pet_name: petData.pet_name, birth_date: petData.birth_date,
-                weight_kg: petData.weight_kg, calculated_size: petData.calculated_size, breed: petData.breed, gender: petData.gender,
-                behavior: petData.behavior, vaccine_card_url: vaccineUrl, illness_record_url: illnessUrl, emergency_consent: false
-            }).select().single();
+            const { data: petRecord, error: petError } = await supabase
+                .from('booking_pets')
+                .insert({
+                    booking_id: booking.id, 
+                    pet_type: petData.pet_type, pet_name: petData.pet_name, birth_date: petData.birth_date,
+                    weight_kg: petData.weight_kg, calculated_size: petData.calculated_size, breed: petData.breed, gender: petData.gender,
+                    behavior: petData.behavior, vaccine_card_url: vaccineUrl, illness_record_url: illnessUrl, 
+                    emergency_consent: petData.emergency_consent // ⭐ SAVING CONSENT STATUS
+                })
+                .select().single();
 
             if (petError) throw petError;
 
@@ -267,7 +299,9 @@ const PetDetails = () => {
                             {pet.error ? '---' : (pet.price ? `₱${parseFloat(pet.price).toFixed(2)}` : '₱0.00')}
                         </span>
                     </div>
+                    
                     <div className="pet-form-content">
+                        {/* Service Selection */}
                         <div className="form-section-label">Service Selection</div>
                         <div className="form-group">
                             <label className="form-label"><Tag size={14} className="label-icon" /> Choose Service</label>
@@ -281,6 +315,7 @@ const PetDetails = () => {
                             </div>
                         </div>
 
+                        {/* INFO */}
                         <div className="form-section-label" style={{marginTop: '1rem'}}>Pet Information</div>
                         <div className="form-row">
                             <div className="form-group">
@@ -332,6 +367,7 @@ const PetDetails = () => {
 
                         {pet.error && <div className="error-banner"><AlertCircle size={16} /><span>{pet.error}</span></div>}
 
+                        {/* MEDICAL RECORDS */}
                         <div className="form-section-label" style={{marginTop: '1rem'}}>Medical Records</div>
                         <div className="form-row">
                             <div className="form-group">
@@ -364,6 +400,19 @@ const PetDetails = () => {
                                     </label>
                                 )}
                             </div>
+                        </div>
+
+                        {/* --- EMERGENCY CONSENT CHECKBOX --- */}
+                        <div className="consent-form-group">
+                            <label className="consent-checkbox-label">
+                                <input 
+                                    type="checkbox" 
+                                    checked={pet.emergency_consent} 
+                                    onChange={(e) => handleConsentChange(index, e)} 
+                                    required
+                                />
+                                I agree that in a critical emergency, the Service Provider has my permission to place my pet in their care, and transport them to the nearest emergency facility. I understand that I am responsible for all related costs.
+                            </label>
                         </div>
 
                         <div className="form-group" style={{marginTop:'1rem'}}>
