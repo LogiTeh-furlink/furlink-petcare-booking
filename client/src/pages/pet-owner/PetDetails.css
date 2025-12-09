@@ -7,13 +7,14 @@
     background-color: #f9fafb;
 }
 
+/* Base Container */
 .pet-details-container {
     flex: 1;
-    max-width: 1400px; 
+    width: 95%; /* Occupies most of screen width */
+    max-width: 1600px; 
     margin: 2rem auto;
-    width: 100%;
     padding: 0 1.5rem;
-    padding-bottom: 2rem; /* Reduced padding-bottom as footer is no longer fixed */
+    padding-bottom: 4rem;
     display: flex;
     flex-direction: column;
 }
@@ -22,129 +23,186 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 1.5rem;
+    margin-bottom: 2rem;
 }
 
-/* FORM GRID LAYOUT */
-.all-pets-form {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
-    gap: 1.5rem;
-    width: 100%;
-    margin-bottom: 3rem; /* Space before the static footer block */
-}
-
-/* Card Container */
-.pet-details-card {
-    background-color: white;
-    border-radius: 12px;
-    padding: 1.5rem;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-    border: 1px solid #f3f4f6;
-    height: fit-content;
+.back-link {
     display: flex;
-    flex-direction: column;
-}
-
-/* --- STATIC FOOTER BLOCK (New Class) --- */
-.non-sticky-footer-block {
-    /* Uses main container width context */
-    max-width: 1400px;
-    margin: 0 auto 3rem auto; /* Margin at the bottom of the page */
-    padding: 1.5rem 1.5rem;
-    border-top: 1px solid #e5e7eb;
-    display: flex;
-    justify-content: space-between;
     align-items: center;
-    gap: 2rem;
-    background-color: white;
-    border-radius: 12px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-    width: 100%; /* Ensure it spans the full content width */
-}
-
-.total-display {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-}
-
-.total-display span:first-child {
-    font-size: 0.85rem;
+    background: none;
+    border: none;
     color: #6b7280;
     font-weight: 500;
+    cursor: pointer;
+    padding: 0;
+    font-size: 1rem;
 }
 
-.total-amount {
-    font-size: 1.75rem;
-    font-weight: 700;
+.back-link:hover {
     color: #111827;
 }
 
-.submit-btn {
-    padding: 1rem 3rem;
-    background-color: #1e3a8a;
-    color: white;
+.booking-summary-badge {
+    background-color: #e0e7ff;
+    color: #3730a3;
+    padding: 0.5rem 1rem;
+    border-radius: 999px;
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+/* --- DYNAMIC FORM LAYOUT --- */
+
+/* Default Grid (for 3+ pets or generic resize) */
+.all-pets-form {
+    display: grid;
+    gap: 2rem;
+    width: 100%;
+    /* Default behavior: fit as many 400px cards as possible */
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+}
+
+/* SPECIFIC OVERRIDES based on class applied in JSX */
+
+/* 1 Pet: Full width block */
+.all-pets-form.layout-1 {
+    display: block; 
+}
+.all-pets-form.layout-1 .pet-details-card {
+    max-width: 100%; /* Ensure it fills container */
+}
+
+/* 2 Pets: Two equal columns */
+.all-pets-form.layout-2 {
+    grid-template-columns: 1fr 1fr;
+}
+
+/* Card Styling */
+.pet-details-card {
+    background-color: white;
+    border-radius: 12px;
+    padding: 2rem;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    border: 1px solid #f3f4f6;
+    height: 100%; 
+    display: flex;
+    flex-direction: column;
+}
+
+.pet-details-card.card-has-error {
+    border-color: #fca5a5;
+    box-shadow: 0 4px 6px -1px rgba(239, 68, 68, 0.1);
+}
+
+.pet-form-content {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    flex-grow: 1;
+}
+
+.card-header-block {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #e5e7eb;
+    padding-bottom: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.card-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #111827;
+    margin: 0;
+}
+
+.card-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.card-price-tag {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #059669;
+}
+
+.card-price-tag.text-red {
+    color: #ef4444;
+}
+
+.icon-btn-danger {
+    background: none;
     border: none;
-    border-radius: 8px;
+    color: #ef4444;
+    cursor: pointer;
+    padding: 6px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    transition: background-color 0.2s;
+}
+
+.icon-btn-danger:hover {
+    background-color: #fee2e2;
+}
+
+/* Add Pet Button */
+.add-pet-container {
+    grid-column: 1 / -1; 
+    display: flex;
+    justify-content: center;
+    margin-top: 1rem;
+    margin-bottom: 2rem;
+}
+
+.add-pet-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    background-color: transparent;
+    border: 2px dashed #d1d5db;
+    color: #6b7280;
+    padding: 1.5rem;
+    border-radius: 12px;
     font-size: 1.1rem;
     font-weight: 600;
     cursor: pointer;
-    transition: background-color 0.2s;
-    min-width: 250px;
-}
-
-.submit-btn:hover:not(:disabled) {
-    background-color: #1e40af;
-}
-
-.submit-btn:disabled {
-    background-color: #9ca3af;
-    cursor: not-allowed;
-}
-
-
-/* --- Other Styles (Keeping all functional elements) --- */
-.consent-form-group {
-    margin-top: 1rem;
-    padding-top: 0.5rem;
-    border-top: 1px solid #f3f4f6;
-}
-
-.consent-checkbox-label {
-    display: flex;
-    align-items: flex-start;
-    gap: 0.75rem;
-    font-size: 0.85rem;
-    color: #4b5563;
-    line-height: 1.4;
-    cursor: pointer;
-}
-
-.consent-checkbox-label input[type="checkbox"] {
-    margin-top: 3px;
-    flex-shrink: 0;
-    width: 16px;
-    height: 16px;
-    border: 1px solid #9ca3af;
-    accent-color: #1e3a8a;
-}
-
-.form-input {
+    transition: all 0.2s;
     width: 100%;
+    /* Max width prevents button from being uncomfortably wide on huge screens */
+    max-width: 600px; 
+    justify-content: center;
+}
+
+.add-pet-btn:hover {
+    border-color: #1e3a8a;
+    color: #1e3a8a;
+    background-color: #eff6ff;
+}
+
+/* Form Groups */
+.form-section-label {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #374151;
+    background-color: #f3f4f6;
     padding: 0.75rem 1rem;
-    border: 1px solid #e5e7eb;
-    border-radius: 8px;
-    font-size: 0.95rem;
-    color: #1f2937;
-    background-color: white;
-    transition: border-color 0.2s, box-shadow 0.2s;
+    border-radius: 6px;
+    margin-bottom: 0.5rem;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
 }
 
 .form-row {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 1rem;
+    gap: 1.5rem;
 }
 
 .form-label {
@@ -153,9 +211,141 @@
     font-size: 0.75rem;
     font-weight: 700;
     color: #6b7280;
-    margin-bottom: 0.4rem;
+    margin-bottom: 0.5rem;
     text-transform: uppercase;
     letter-spacing: 0.025em;
+}
+
+.label-icon {
+    margin-right: 6px;
+    margin-bottom: -2px;
+}
+
+/* Inputs */
+.form-input {
+    width: 100%;
+    padding: 0.875rem 1rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    font-size: 1rem;
+    color: #1f2937;
+    background-color: white;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.form-input:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.form-input.input-error {
+    border-color: #ef4444;
+    background-color: #fef2f2;
+}
+
+.form-input.textarea {
+    resize: vertical;
+    min-height: 100px;
+    font-family: inherit;
+}
+
+.form-input.read-only {
+    background-color: #f9fafb;
+    color: #6b7280;
+    cursor: default;
+}
+
+.select-wrapper {
+    position: relative;
+}
+
+/* Upload Styles */
+.upload-helper-text {
+    font-size: 0.75rem;
+    color: #9ca3af;
+    margin-bottom: 0.5rem;
+    display: block;
+    margin-top: -0.2rem;
+}
+
+.text-red { color: #ef4444; }
+
+.upload-box {
+    border: 2px dashed #d1d5db;
+    border-radius: 8px;
+    padding: 1.5rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    background-color: #f9fafb;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 120px;
+}
+
+.upload-box:hover {
+    border-color: #3b82f6;
+    background-color: #eff6ff;
+}
+
+.upload-box.upload-error {
+    border-color: #ef4444;
+    background-color: #fef2f2;
+}
+
+.upload-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    color: #6b7280;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.upload-icon {
+    color: #9ca3af;
+}
+
+.image-preview-container {
+    position: relative;
+    width: 100%;
+    height: 150px;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid #e5e7eb;
+}
+
+.image-preview {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.remove-file-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background-color: rgba(255, 255, 255, 0.95);
+    border: 1px solid #e5e7eb;
+    border-radius: 50%;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: #ef4444;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    transition: all 0.2s;
+}
+
+.remove-file-btn:hover {
+    background-color: #ef4444;
+    color: white;
 }
 
 .error-banner {
@@ -171,37 +361,114 @@
     margin-top: 0.5rem;
 }
 
-/* Responsive Breakpoints */
-@media (max-width: 1150px) {
-    .all-pets-form {
+.consent-form-group {
+    margin-top: 1.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid #f3f4f6;
+}
+
+.consent-checkbox-label {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    font-size: 0.9rem;
+    color: #4b5563;
+    line-height: 1.5;
+    cursor: pointer;
+}
+
+.consent-checkbox-label input[type="checkbox"] {
+    margin-top: 4px;
+    width: 18px;
+    height: 18px;
+    accent-color: #1e3a8a;
+}
+
+/* Payment Block */
+.payment-block {
+    background-color: white;
+    border-radius: 12px;
+    padding: 2rem;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    border: 1px solid #f3f4f6;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 2rem;
+}
+
+.payment-summary {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.payment-label {
+    font-size: 0.9rem;
+    color: #6b7280;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.payment-total {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #111827;
+}
+
+.proceed-btn {
+    padding: 1rem 3rem;
+    background-color: #1e3a8a;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 1.1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    min-width: 250px;
+    box-shadow: 0 4px 6px -1px rgba(30, 58, 138, 0.3);
+}
+
+.proceed-btn:hover:not(:disabled) {
+    background-color: #1e40af;
+    transform: translateY(-1px);
+}
+
+.proceed-btn:disabled {
+    background-color: #9ca3af;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+/* Responsive */
+@media (max-width: 1200px) {
+    /* Below 1200px (tablet/small laptop), enforce 2 columns if applicable */
+    .all-pets-form.layout-3-plus {
         grid-template-columns: 1fr 1fr;
     }
 }
 
 @media (max-width: 768px) {
-    .all-pets-form {
-        grid-template-columns: 1fr;
+    .all-pets-form,
+    .all-pets-form.layout-2, 
+    .all-pets-form.layout-3-plus {
+        grid-template-columns: 1fr; /* Always stack on mobile */
     }
     
     .pet-details-container {
         padding: 0 1rem;
+        width: 100%;
     }
 
-    .non-sticky-footer-block {
-        /* Standardize button block on mobile */
+    .payment-block {
         flex-direction: column;
-        gap: 1rem;
-        padding: 1rem;
-        align-items: stretch;
+        gap: 1.5rem;
         text-align: center;
-        margin-bottom: 2rem;
     }
 
-    .total-display {
-        align-items: center;
-    }
-
-    .submit-btn {
+    .proceed-btn {
         width: 100%;
     }
 }
