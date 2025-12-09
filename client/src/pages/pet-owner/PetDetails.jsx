@@ -15,14 +15,82 @@ const PetDetails = () => {
   const { state } = useLocation();
   const navigate = useNavigate();
 
-  const { providerId, providerName, bookingDate, bookingTime, numberOfPets: initialPetsCount } = state || {};
+  const initialProviderId = state?.providerId || sessionStorage.getItem('current_provider_id');
+  const STORAGE_KEY = `booking_draft_${initialProviderId}`;
 
   const [providerServices, setProviderServices] = useState([]);
   const [loadingServices, setLoadingServices] = useState(true);
-  const [petsData, setPetsData] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // --- HELPER FUNCTIONS ---
+  const emptyPetTemplate = {
+    service_id: "", service_name: "", service_type: "", price: "0.00",
+    pet_type: "Dog", pet_name: "", birth_date: "", weight_kg: "", calculated_size: "",
+    breed: "", gender: "Male", behavior: "", grooming_specifications: "",
+    error: null, vaccine_file: null, vaccine_preview: null, illness_file: null, illness_preview: null, emergency_consent: false
+  };
+
+  const initializePetsData = () => {
+    const savedSession = sessionStorage.getItem(STORAGE_KEY);
+    if (savedSession) {
+      try {
+        const parsed = JSON.parse(savedSession);
+        if (parsed.petsData && Array.isArray(parsed.petsData) && parsed.petsData.length > 0) {
+          return parsed.petsData;
+        }
+      } catch (e) { console.error(e); }
+    }
+    if (state && state.numberOfPets) {
+      return Array.from({ length: state.numberOfPets }, () => ({ ...emptyPetTemplate }));
+    }
+    return [{ ...emptyPetTemplate }];
+  };
+
+  const [petsData, setPetsData] = useState(initializePetsData);
+
+  const getBookingMeta = () => {
+    const saved = sessionStorage.getItem(STORAGE_KEY) ? JSON.parse(sessionStorage.getItem(STORAGE_KEY)) : {};
+    return {
+        date: state?.bookingDate || saved.date || "Date not selected",
+        time: state?.bookingTime || saved.time || "Time not selected",
+        pName: state?.providerName || saved.providerName || "Provider"
+    };
+  };
+  const { date: displayDate, time: displayTime } = getBookingMeta();
+
+  useEffect(() => {
+    if (initialProviderId && petsData.length > 0) {
+      const currentStorage = sessionStorage.getItem(STORAGE_KEY) ? JSON.parse(sessionStorage.getItem(STORAGE_KEY)) : {};
+      const updatedStorage = {
+        ...currentStorage,
+        providerId: initialProviderId,
+        pets: petsData.length,
+        petsData: petsData
+      };
+      if (state?.bookingDate) updatedStorage.date = state.bookingDate;
+      if (state?.bookingTime) updatedStorage.time = state.bookingTime;
+      if (state?.providerName) updatedStorage.providerName = state.providerName;
+
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(updatedStorage));
+      sessionStorage.setItem('current_provider_id', initialProviderId);
+    }
+  }, [petsData, initialProviderId, state]);
+
+  useEffect(() => {
+    const fetchServices = async () => {
+      if (!initialProviderId) return;
+      try {
+        const { data, error } = await supabase.from('services').select(`
+            id, name, type, description, 
+            service_options (id, price, size, pet_type, weight_range)
+          `).eq('provider_id', initialProviderId);
+        if (error) throw error;
+        setProviderServices(data || []);
+      } catch (err) { console.error(err); } finally { setLoadingServices(false); }
+    };
+    fetchServices();
+  }, [initialProviderId]);
+
+  // --- HELPERS ---
   const isWeightInRange = (weight, rangeString) => {
     if (!rangeString) return true; 
     const cleanRange = rangeString.replace(/\s+/g, '').toUpperCase();
@@ -78,37 +146,6 @@ const PetDetails = () => {
     });
   };
 
-  const emptyPetTemplate = {
-    service_id: "", service_name: "", service_type: "", price: "0.00",
-    pet_type: "Dog", pet_name: "", birth_date: "", weight_kg: "", calculated_size: "",
-    breed: "", gender: "Male", behavior: "", grooming_specifications: "",
-    error: null, vaccine_file: null, vaccine_preview: null, illness_file: null, illness_preview: null, emergency_consent: false
-  };
-
-  useEffect(() => {
-    if (initialPetsCount) {
-      setPetsData(Array.from({ length: initialPetsCount }, () => ({ ...emptyPetTemplate })));
-    } else if (petsData.length === 0) {
-      setPetsData([{ ...emptyPetTemplate }]);
-    }
-  }, [initialPetsCount]);
-
-  useEffect(() => {
-    const fetchServices = async () => {
-      if (!providerId) return;
-      try {
-        const { data, error } = await supabase.from('services').select(`
-            id, name, type, description, 
-            service_options (id, price, size, pet_type, weight_range)
-          `).eq('provider_id', providerId);
-        if (error) throw error;
-        setProviderServices(data || []);
-      } catch (err) { console.error(err); } finally { setLoadingServices(false); }
-    };
-    fetchServices();
-  }, [providerId]);
-
-  // --- HANDLERS ---
   const handleAddPet = () => setPetsData(prev => [...prev, { ...emptyPetTemplate }]);
   const handleRemovePet = (index) => setPetsData(prev => prev.filter((_, i) => i !== index));
   const handleInputChange = (index, e) => updatePetDataAndPrice(index, { [e.target.name]: e.target.value });
@@ -135,7 +172,6 @@ const PetDetails = () => {
   };
   const calculateTotal = () => petsData.reduce((acc, pet) => acc + parseFloat(pet.price || 0), 0);
 
-  // --- SUBMISSION ---
   const uploadFileToSupabase = async (file, path) => {
       const ext = file.name.split('.').pop();
       const pathName = `${path}/${Math.random().toString(36).substring(2)}_${Date.now()}.${ext}`;
@@ -156,7 +192,7 @@ const PetDetails = () => {
         if (!user) throw new Error("User not logged in");
 
         const { data: booking, error: bError } = await supabase.from('bookings').insert({
-            provider_id: providerId, pet_owner_id: user.id, booking_date: bookingDate, time_slot: bookingTime, status: 'pending', total_price: calculateTotal()
+            provider_id: initialProviderId, pet_owner_id: user.id, booking_date: displayDate, time_slot: displayTime, status: 'pending', total_price: calculateTotal()
         }).select().single();
         if (bError) throw bError;
 
@@ -178,32 +214,34 @@ const PetDetails = () => {
             });
             if (sError) throw sError;
         }
+        
+        sessionStorage.removeItem(STORAGE_KEY);
+        sessionStorage.removeItem('current_provider_id');
         alert("Booking Confirmed!");
         navigate("/dashboard");
     } catch (err) { console.error(err); alert(err.message); } finally { setIsSubmitting(false); }
   };
 
-  // --- LAYOUT LOGIC ---
-  // Return different classes based on number of pets to trigger CSS Grid behaviors
+  // --- LAYOUT LOGIC (Restored) ---
   const getGridClass = () => {
-      if (petsData.length === 1) return "all-pets-form layout-1";
-      if (petsData.length === 2) return "all-pets-form layout-2";
-      return "all-pets-form"; // Default grid for 3+
+      if (petsData.length === 1) return "layout-1";
+      if (petsData.length === 2) return "layout-2";
+      return "layout-3-plus";
   };
 
-  if (!state) return <div className="pet-details-page"><Header /><main className="pet-details-container error-state"><h2>No booking in progress</h2><button onClick={() => navigate("/dashboard")}>Go Home</button></main><Footer /></div>;
+  if (!initialProviderId) return <div className="pet-details-page"><Header /><main className="pet-details-container error-state"><h2>Session Expired</h2><button onClick={() => navigate("/dashboard")}>Go Home</button></main><Footer /></div>;
 
   return (
     <div className="pet-details-page">
       <Header />
-      
       <main className="pet-details-container">
         <div className="page-header-row">
             <button className="back-link" onClick={() => navigate(-1)}><ChevronLeft size={20} /> Back to Listing</button>
-            <div className="booking-summary-badge">{bookingDate} @ {bookingTime}</div>
+            <div className="booking-summary-badge">{displayDate} @ {displayTime}</div>
         </div>
 
-        <form className={getGridClass()}>
+        {/* APPLY DYNAMIC LAYOUT CLASS HERE */}
+        <form className={`all-pets-form ${getGridClass()}`}>
             {petsData.map((pet, index) => (
                 <div key={index} className={`pet-details-card ${pet.error ? 'card-has-error' : ''}`}>
                     <div className="card-header-block">
@@ -215,7 +253,6 @@ const PetDetails = () => {
                     </div>
                     
                     <div className="pet-form-content">
-                        {/* Service Selection */}
                         <div className="form-section-label">Service Selection</div>
                         <div className="form-group">
                             <label className="form-label"><Tag size={14} className="label-icon" /> Choose Service</label>
@@ -227,7 +264,6 @@ const PetDetails = () => {
                             </div>
                         </div>
 
-                        {/* INFO */}
                         <div className="form-section-label" style={{marginTop: '1rem'}}>Pet Information</div>
                         <div className="form-row">
                             <div className="form-group"><label className="form-label"><Cat size={14} className="label-icon" /> Pet Type</label><div className="select-wrapper"><select name="pet_type" className="form-input" value={pet.pet_type} onChange={(e) => handleInputChange(index, e)}><option value="Dog">Dog</option><option value="Cat">Cat</option></select></div></div>
@@ -244,7 +280,6 @@ const PetDetails = () => {
                         </div>
                         {pet.error && <div className="error-banner"><AlertCircle size={16} /><span>{pet.error}</span></div>}
 
-                        {/* Medical */}
                         <div className="form-section-label" style={{marginTop: '1rem'}}>Medical Records</div>
                         <div className="form-row">
                             <div className="form-group">
@@ -259,7 +294,6 @@ const PetDetails = () => {
                             </div>
                         </div>
 
-                        {/* Consent */}
                         <div className="consent-form-group">
                             <label className="consent-checkbox-label">
                                 <input type="checkbox" checked={pet.emergency_consent} onChange={(e) => handleConsentChange(index, e)} required />
@@ -278,7 +312,6 @@ const PetDetails = () => {
             </div>
         </form>
 
-        {/* PAYMENT BLOCK (Non-Sticky) */}
         <div className="payment-block">
             <div className="payment-summary">
                 <span className="payment-label">Total Estimated Price</span>
@@ -296,3 +329,4 @@ const PetDetails = () => {
 };
 
 export default PetDetails;
+//edit for later ay nagsesave din sa ibang account yung selected ng different account

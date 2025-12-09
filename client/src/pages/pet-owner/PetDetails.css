@@ -7,10 +7,10 @@
     background-color: #f9fafb;
 }
 
-/* Base Container */
+/* WIDE CONTAINER */
 .pet-details-container {
     flex: 1;
-    width: 95%; /* Occupies most of screen width */
+    width: 95%; 
     max-width: 1600px; 
     margin: 2rem auto;
     padding: 0 1.5rem;
@@ -38,10 +38,6 @@
     font-size: 1rem;
 }
 
-.back-link:hover {
-    color: #111827;
-}
-
 .booking-summary-badge {
     background-color: #e0e7ff;
     color: #3730a3;
@@ -51,30 +47,26 @@
     font-weight: 600;
 }
 
-/* --- DYNAMIC FORM LAYOUT --- */
-
-/* Default Grid (for 3+ pets or generic resize) */
+/* --- GRID LAYOUT --- */
 .all-pets-form {
     display: grid;
     gap: 2rem;
     width: 100%;
-    /* Default behavior: fit as many 400px cards as possible */
-    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
 }
 
-/* SPECIFIC OVERRIDES based on class applied in JSX */
-
-/* 1 Pet: Full width block */
+/* 1 PET: FULL WIDTH */
 .all-pets-form.layout-1 {
-    display: block; 
-}
-.all-pets-form.layout-1 .pet-details-card {
-    max-width: 100%; /* Ensure it fills container */
+    grid-template-columns: 1fr;
 }
 
-/* 2 Pets: Two equal columns */
+/* 2 PETS: 50/50 SPLIT */
 .all-pets-form.layout-2 {
     grid-template-columns: 1fr 1fr;
+}
+
+/* 3+ PETS: 3 COLUMNS */
+.all-pets-form.layout-3-plus {
+    grid-template-columns: repeat(3, 1fr);
 }
 
 /* Card Styling */
@@ -172,7 +164,6 @@
     cursor: pointer;
     transition: all 0.2s;
     width: 100%;
-    /* Max width prevents button from being uncomfortably wide on huge screens */
     max-width: 600px; 
     justify-content: center;
 }
@@ -444,17 +435,17 @@
 
 /* Responsive */
 @media (max-width: 1200px) {
-    /* Below 1200px (tablet/small laptop), enforce 2 columns if applicable */
+    /* Below 1200px, 3-column becomes 2-column */
     .all-pets-form.layout-3-plus {
         grid-template-columns: 1fr 1fr;
     }
 }
 
 @media (max-width: 768px) {
-    .all-pets-form,
+    /* Stack everything on mobile */
     .all-pets-form.layout-2, 
     .all-pets-form.layout-3-plus {
-        grid-template-columns: 1fr; /* Always stack on mobile */
+        grid-template-columns: 1fr; 
     }
     
     .pet-details-container {

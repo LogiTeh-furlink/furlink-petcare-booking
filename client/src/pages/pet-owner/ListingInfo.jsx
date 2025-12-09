@@ -1,5 +1,5 @@
 // src/pages/pet-owner/ListingInfo.jsx
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom"; 
 import { supabase } from "../../config/supabase";
 import { 
@@ -50,10 +50,31 @@ const ListingInfo = () => {
   const [activeTab, setActiveTab] = useState("overview");
   const [selectedImageIndex, setSelectedImageIndex] = useState(null);
   
-  // --- BOOKING STATES ---
-  const [bookingDate, setBookingDate] = useState(null);
-  const [bookingTime, setBookingTime] = useState("");
-  const [numberOfPets, setNumberOfPets] = useState(1);
+  // --- HELPER: Read Session Storage Safely ---
+  const getSavedState = () => {
+    try {
+      const saved = sessionStorage.getItem(`booking_draft_${id}`);
+      return saved ? JSON.parse(saved) : null;
+    } catch (e) {
+      return null;
+    }
+  };
+
+  const savedState = getSavedState();
+
+  // --- BOOKING STATES (Initialized directly from Storage) ---
+  const [bookingDate, setBookingDate] = useState(() => 
+    savedState?.date ? new Date(savedState.date) : null
+  );
+  
+  const [bookingTime, setBookingTime] = useState(() => 
+    savedState?.time || ""
+  );
+  
+  const [numberOfPets, setNumberOfPets] = useState(() => 
+    savedState?.pets ? parseInt(savedState.pets, 10) : 1
+  );
+
   const [availableTimeSlots, setAvailableTimeSlots] = useState([]);
   
   // --- ERROR STATES ---
@@ -61,6 +82,18 @@ const ListingInfo = () => {
   const [bookingError, setBookingError] = useState(null);
 
   const daysOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
+  // --- SAVE STATE TO SESSION STORAGE ON CHANGE ---
+  useEffect(() => {
+    if (bookingDate || bookingTime || numberOfPets !== 1) {
+      const draft = {
+        date: bookingDate ? bookingDate.toISOString() : null,
+        time: bookingTime,
+        pets: numberOfPets
+      };
+      sessionStorage.setItem(`booking_draft_${id}`, JSON.stringify(draft));
+    }
+  }, [bookingDate, bookingTime, numberOfPets, id]);
 
   useEffect(() => { fetchAllData(); fetchUser(); }, [id]);
 
@@ -83,6 +116,25 @@ const ListingInfo = () => {
 
       const { data: imagesData } = await supabase.from("service_provider_images").select("*").eq("provider_id", id);
       setImages(imagesData || []);
+
+      // --- RE-GENERATE TIME SLOTS IF DATE WAS RESTORED ---
+      if (bookingDate && hoursData.length > 0) {
+          const dayName = bookingDate.toLocaleDateString('en-US', { weekday: 'long' });
+          const workingDay = hoursData.find(h => h.day_of_week === dayName);
+          if (workingDay) {
+              const slots = [];
+              const start = new Date(`2000-01-01T${workingDay.start_time}`);
+              const end = new Date(`2000-01-01T${workingDay.end_time}`);
+              while (start < end) {
+                  const timeValue = start.toTimeString().split(' ')[0];
+                  const displayLabel = start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+                  slots.push({ value: timeValue, label: displayLabel });
+                  start.setHours(start.getHours() + 1);
+              }
+              setAvailableTimeSlots(slots);
+          }
+      }
+
     } catch (error) { console.error("Error fetching data:", error); } finally { setLoading(false); }
   };
 
@@ -107,13 +159,11 @@ const ListingInfo = () => {
     return 'images-3'; 
   };
 
-  // --- LOGIC: Filter Dates (Disable Closed Days) ---
   const isDateEnabled = (date) => {
     const dayName = date.toLocaleDateString('en-US', { weekday: 'long' });
     return hours.some(h => h.day_of_week === dayName);
   };
 
-  // --- LOGIC: Handle Date Change ---
   const handleDateChange = (date) => {
     setBookingDate(date);
     setDateError(null);
@@ -140,7 +190,6 @@ const ListingInfo = () => {
     }
   };
 
-  // --- LOGIC: Complete Booking ---
   const handleCompleteBooking = () => {
     setBookingError(null);
 
@@ -152,7 +201,7 @@ const ListingInfo = () => {
     // Convert Date Object to String for passing to next page
     const dateStr = bookingDate.toLocaleDateString('en-CA'); // YYYY-MM-DD format
 
-    // ⭐ Redirect to PetDetails page passing the booking data state
+    // Redirect to PetDetails page passing the booking data state
     navigate('/pet-details', {
       state: {
         providerId: id,
@@ -303,7 +352,6 @@ const ListingInfo = () => {
           
           {bookingError && <div className="booking-error">{bookingError}</div>}
 
-          {/* 1. Date Selection (DatePicker) */}
           <div className="booking-field">
             <label className="booking-label">
               <Calendar size={14} style={{marginRight:'6px', marginBottom:'-2px'}}/>
@@ -321,7 +369,6 @@ const ListingInfo = () => {
             {dateError && <span className="field-error-text">{dateError}</span>}
           </div>
 
-          {/* 2. Time Slot Selection */}
           <div className="booking-field">
             <label className="booking-label">
               <Clock size={14} style={{marginRight:'6px', marginBottom:'-2px'}}/>
@@ -345,7 +392,6 @@ const ListingInfo = () => {
             </div>
           </div>
 
-          {/* 3. Number of Pets */}
           <div className="booking-field">
             <label className="booking-label">
               <Users size={14} style={{marginRight:'6px', marginBottom:'-2px'}}/>
