@@ -65,6 +65,13 @@
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
     border: 1px solid #f3f4f6;
     margin-bottom: 1.5rem;
+    transition: border-color 0.2s;
+}
+
+/* Red border on card if there's an error */
+.pet-details-card.card-has-error {
+    border-color: #fca5a5;
+    box-shadow: 0 4px 6px -1px rgba(239, 68, 68, 0.1);
 }
 
 .card-header-block {
@@ -87,6 +94,10 @@
     font-size: 1.1rem;
     font-weight: 700;
     color: #059669;
+}
+
+.card-price-tag.text-red {
+    color: #ef4444;
 }
 
 /* Form Styles */
@@ -155,6 +166,15 @@
     box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
+.form-input.input-error {
+    border-color: #ef4444;
+    background-color: #fef2f2;
+}
+
+.form-input.input-error:focus {
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+}
+
 .form-input::placeholder {
     color: #9ca3af;
 }
@@ -173,6 +193,20 @@
 
 .select-wrapper {
     position: relative;
+}
+
+/* ERROR BANNER */
+.error-banner {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background-color: #fef2f2;
+    color: #b91c1c;
+    border: 1px solid #fecaca;
+    padding: 0.75rem;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    margin-top: 0.5rem;
 }
 
 /* Sticky Footer */

@@ -4,7 +4,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "../../config/supabase";
 import { 
   PawPrint, Calendar, Weight, 
-  Dna, Activity, ChevronLeft, Tag, Cat 
+  Dna, Activity, ChevronLeft, Tag, Cat, AlertCircle 
 } from "lucide-react";
 import Header from "../../components/Header/LoggedInNavbar";
 import Footer from "../../components/Footer/Footer";
@@ -24,7 +24,7 @@ const PetDetails = () => {
   // --- HELPER: CHECK IF WEIGHT IS IN RANGE ---
   const isWeightInRange = (weight, rangeString) => {
     // 1. Handle "Any Weight" cases (N/A, All, empty)
-    if (!rangeString) return true; // If null/undefined in DB, assume generic
+    if (!rangeString) return true; 
     const cleanRange = rangeString.replace(/\s+/g, '').toUpperCase();
     if (cleanRange === 'N/A' || cleanRange === 'ALL' || cleanRange === '') return true;
 
@@ -33,7 +33,6 @@ const PetDetails = () => {
     if (isNaN(w)) return false; 
 
     try {
-      // Handle "5-14" format
       if (cleanRange.includes('-')) {
         const parts = cleanRange.split('-');
         if (parts.length === 2 && !isNaN(parseFloat(parts[0])) && !isNaN(parseFloat(parts[1]))) {
@@ -42,17 +41,13 @@ const PetDetails = () => {
             return w >= min && w <= max;
         }
       }
-      // Handle "10+" or ">10" format
       if (cleanRange.includes('+')) {
         const min = parseFloat(cleanRange.replace('+', ''));
         return w >= min;
       }
-      
-      // Exact match fallback
       if (!isNaN(parseFloat(cleanRange)) && cleanRange.indexOf('-') === -1) {
           return w === parseFloat(cleanRange);
       }
-      
       return false;
     } catch (e) {
       return false;
@@ -61,7 +56,7 @@ const PetDetails = () => {
 
   // --- LOGIC: FIND MATCHING SERVICE OPTION ---
   const findServiceOption = (pet, services) => {
-    if (!pet.service_id) return null; // Weight might not be required for N/A services
+    if (!pet.service_id) return null; 
 
     const service = services.find(s => s.id === pet.service_id);
     if (!service || !service.service_options) return null;
@@ -69,14 +64,9 @@ const PetDetails = () => {
     const userType = (pet.pet_type || "Dog").toLowerCase();
 
     return service.service_options.find(opt => {
-      // 1. Check Type
       const dbType = (opt.pet_type || "").toLowerCase();
       const typeMatch = dbType === userType || dbType === 'dog-cat';
-
-      // 2. Check Weight Range (Logic handles N/A cases)
-      // Note: We pass pet.weight_kg even if empty/0 to let isWeightInRange decide
       const weightMatch = isWeightInRange(pet.weight_kg, opt.weight_range);
-
       return typeMatch && weightMatch;
     });
   };
@@ -90,17 +80,23 @@ const PetDetails = () => {
         const matchedOption = findServiceOption(updatedPet, providerServices);
 
         if (matchedOption) {
+            // Match Found: Set Price and Clear Error
             updatedPet.price = parseFloat(matchedOption.price).toFixed(2);
-            // If the DB size is generic (e.g. "all"), keep user input cleaner or show "Standard"
-            // Otherwise show the matched size label (e.g. "extra large")
             const rawSize = matchedOption.size.replace(/_/g, ' ');
             updatedPet.calculated_size = (rawSize.toLowerCase() === 'all') ? 'Standard' : rawSize; 
+            updatedPet.error = null; // Clear previous errors
         } else {
+            // No Match Found
             updatedPet.price = "0.00";
-            if (petUpdate.weight_kg !== undefined && parseFloat(petUpdate.weight_kg) > 0) {
+            
+            // Only set error if user has actually selected a service and entered a weight
+            if (updatedPet.service_id && updatedPet.weight_kg && parseFloat(updatedPet.weight_kg) > 0) {
                updatedPet.calculated_size = "N/A";
-            } else if (!petUpdate.weight_kg) {
-               updatedPet.calculated_size = ""; // Clear if empty
+               updatedPet.error = "Service unavailable for this weight/type.";
+            } else {
+               // Incomplete form, just reset logic without error
+               updatedPet.calculated_size = ""; 
+               updatedPet.error = null;
             }
         }
         
@@ -123,7 +119,8 @@ const PetDetails = () => {
         calculated_size: "",
         breed: "",
         gender: "Male",
-        behavior: ""
+        behavior: "",
+        error: null // Track errors per pet
       })));
     }
   }, [numberOfPets]);
@@ -190,12 +187,13 @@ const PetDetails = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    // Validation: Check for empty fields OR existing errors
     const incompletePets = petsData.some(pet => 
-      !pet.service_id || !pet.pet_name || !pet.weight_kg || parseFloat(pet.price) === 0
+      !pet.service_id || !pet.pet_name || !pet.weight_kg || pet.error
     );
     
     if (incompletePets) {
-        alert("Unable to calculate price. Please check that your Pet Type and Weight match the chosen Service options.");
+        alert("Please fix the errors in your form. Ensure all pets have valid services and pricing.");
         return;
     }
 
@@ -283,15 +281,16 @@ const PetDetails = () => {
         <form onSubmit={handleSubmit} className="all-pets-form">
             
             {petsData.map((pet, index) => (
-                <div key={index} className="pet-details-card">
+                <div key={index} className={`pet-details-card ${pet.error ? 'card-has-error' : ''}`}>
                     <div className="card-header-block">
                         <h2 className="card-title">Pet {index + 1}</h2>
-                        <span className="card-price-tag">
-                            {pet.price ? `₱${parseFloat(pet.price).toFixed(2)}` : '₱0.00'}
+                        <span className={`card-price-tag ${pet.error ? 'text-red' : ''}`}>
+                            {pet.error ? '---' : (pet.price ? `₱${parseFloat(pet.price).toFixed(2)}` : '₱0.00')}
                         </span>
                     </div>
                     
                     <div className="pet-form-content">
+                        {/* Service Selection */}
                         <div className="form-section-label">Service Selection</div>
                         <div className="form-group">
                             <label className="form-label"><Tag size={14} className="label-icon" /> Choose Service</label>
@@ -316,6 +315,7 @@ const PetDetails = () => {
 
                         <div className="form-section-label" style={{marginTop: '1rem'}}>Pet Information</div>
 
+                        {/* Pet Type & Name */}
                         <div className="form-row">
                             <div className="form-group">
                                 <label className="form-label"><Cat size={14} className="label-icon" /> Pet Type</label>
@@ -345,6 +345,7 @@ const PetDetails = () => {
                             </div>
                         </div>
 
+                        {/* Breed & Gender */}
                         <div className="form-row">
                             <div className="form-group">
                                 <label className="form-label"><Dna size={14} className="label-icon" /> Breed</label>
@@ -384,13 +385,14 @@ const PetDetails = () => {
                             />
                         </div>
 
+                        {/* Weight & Size */}
                         <div className="form-row">
                             <div className="form-group">
                                 <label className="form-label"><Weight size={14} className="label-icon" /> Weight (kg)</label>
                                 <input 
                                     type="number" 
                                     name="weight_kg"
-                                    className="form-input" 
+                                    className={`form-input ${pet.error ? 'input-error' : ''}`}
                                     placeholder="0.0"
                                     step="0.1"
                                     value={pet.weight_kg}
@@ -405,11 +407,19 @@ const PetDetails = () => {
                                     className="form-input read-only" 
                                     value={pet.calculated_size}
                                     readOnly
-                                    placeholder="Waiting for valid weight..."
+                                    placeholder="Auto-calc"
                                     style={{textTransform: 'capitalize'}}
                                 />
                             </div>
                         </div>
+
+                        {/* Error Message Display */}
+                        {pet.error && (
+                            <div className="error-banner">
+                                <AlertCircle size={16} />
+                                <span>{pet.error}</span>
+                            </div>
+                        )}
 
                         <div className="form-group">
                             <label className="form-label"><Activity size={14} className="label-icon" /> Behavior / Notes</label>
