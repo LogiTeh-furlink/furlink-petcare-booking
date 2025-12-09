@@ -5,7 +5,7 @@ import { supabase } from "../../config/supabase";
 import { 
   PawPrint, Calendar, Weight, 
   Dna, Activity, ChevronLeft, Tag, Cat, AlertCircle,
-  UploadCloud, X, FileText
+  UploadCloud, X, FileText, Scissors // Added Scissors icon
 } from "lucide-react";
 import Header from "../../components/Header/LoggedInNavbar";
 import Footer from "../../components/Footer/Footer";
@@ -85,7 +85,6 @@ const PetDetails = () => {
             updatedPet.error = null; 
         } else {
             updatedPet.price = "0.00";
-            
             if (updatedPet.service_id && updatedPet.weight_kg && parseFloat(updatedPet.weight_kg) > 0) {
                updatedPet.calculated_size = "N/A";
                updatedPet.error = "Service unavailable for this weight/type.";
@@ -115,6 +114,7 @@ const PetDetails = () => {
         breed: "",
         gender: "Male",
         behavior: "",
+        grooming_specifications: "", // ⭐ NEW FIELD
         error: null,
         vaccine_file: null,
         vaccine_preview: null,
@@ -148,7 +148,7 @@ const PetDetails = () => {
     fetchServices();
   }, [providerId]);
 
-  // --- FILE/INPUT HANDLERS ---
+  // --- HANDLERS ---
   const handleInputChange = (index, e) => {
     const { name, value } = e.target;
     updatePetDataAndPrice(index, { [name]: value });
@@ -166,7 +166,6 @@ const PetDetails = () => {
   const handleServiceChange = (index, e) => {
     const selectedServiceId = e.target.value;
     const serviceObj = providerServices.find(s => s.id === selectedServiceId);
-    
     let serviceUpdate = serviceObj ? {
         service_id: serviceObj.id,
         service_name: serviceObj.name,
@@ -182,7 +181,6 @@ const PetDetails = () => {
   const handleFileUpload = (index, type, e) => {
     const file = e.target.files[0];
     if (!file) return;
-
     if (!file.type.startsWith('image/')) { alert('Please select an image file.'); return; }
     if (file.size > 1024 * 1024) { alert('File size exceeds 1MB limit.'); return; }
 
@@ -233,11 +231,9 @@ const PetDetails = () => {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) throw new Error("User not logged in");
 
-        const { data: booking, error: bookingError } = await supabase
-            .from('bookings')
-            .insert({
-                provider_id: providerId, pet_owner_id: user.id, booking_date: bookingDate, time_slot: bookingTime, status: 'pending', total_price: calculateTotal()
-            }).select().single();
+        const { data: booking, error: bookingError } = await supabase.from('bookings').insert({
+            provider_id: providerId, pet_owner_id: user.id, booking_date: bookingDate, time_slot: bookingTime, status: 'pending', total_price: calculateTotal()
+        }).select().single();
 
         if (bookingError) throw bookingError;
 
@@ -250,7 +246,9 @@ const PetDetails = () => {
             const { data: petRecord, error: petError } = await supabase.from('booking_pets').insert({
                 booking_id: booking.id, pet_type: petData.pet_type, pet_name: petData.pet_name, birth_date: petData.birth_date,
                 weight_kg: petData.weight_kg, calculated_size: petData.calculated_size, breed: petData.breed, gender: petData.gender,
-                behavior: petData.behavior, vaccine_card_url: vaccineUrl, illness_record_url: illnessUrl, emergency_consent: petData.emergency_consent
+                behavior: petData.behavior, 
+                grooming_specifications: petData.grooming_specifications, // ⭐ SAVE NEW FIELD
+                vaccine_card_url: vaccineUrl, illness_record_url: illnessUrl, emergency_consent: petData.emergency_consent
             }).select().single();
 
             if (petError) throw petError;
@@ -395,7 +393,7 @@ const PetDetails = () => {
                             </div>
                         </div>
 
-                        {/* EMERGENCY CONSENT CHECKBOX */}
+                        {/* --- EMERGENCY CONSENT CHECKBOX --- */}
                         <div className="consent-form-group">
                             <label className="consent-checkbox-label">
                                 <input 
@@ -408,9 +406,22 @@ const PetDetails = () => {
                             </label>
                         </div>
 
+                        {/* --- NOTES & SPECS --- */}
                         <div className="form-group" style={{marginTop:'1rem'}}>
                             <label className="form-label"><Activity size={14} className="label-icon" /> Behavior / Notes</label>
-                            <textarea name="behavior" className="form-input textarea" placeholder="Aggression, allergies, etc." value={pet.behavior} onChange={(e) => handleInputChange(index, e)} rows={2} />
+                            <textarea name="behavior" className="form-input textarea" placeholder="Aggression, allergies, specific behavior etc." value={pet.behavior} onChange={(e) => handleInputChange(index, e)} rows={2} />
+                        </div>
+
+                        <div className="form-group">
+                            <label className="form-label"><Scissors size={14} className="label-icon" /> Grooming Specifications</label>
+                            <textarea 
+                                name="grooming_specifications" 
+                                className="form-input textarea" 
+                                placeholder="Specific cut style, fur length, sensitive areas, etc." 
+                                value={pet.grooming_specifications} 
+                                onChange={(e) => handleInputChange(index, e)} 
+                                rows={2} 
+                            />
                         </div>
                     </div>
                 </div>
@@ -418,7 +429,6 @@ const PetDetails = () => {
         </form>
       </main>
 
-      {/* NON-STICKY BUTTON/TOTAL BLOCK */}
       <div className="non-sticky-footer-block">
           <div className="total-display">
               <span>Total Est. Price:</span>
