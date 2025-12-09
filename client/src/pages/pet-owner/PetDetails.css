@@ -7,12 +7,13 @@
     background-color: #f9fafb;
 }
 
+/* WIDER CONTAINER: Increased to 1400px to comfortably fit 3 cards */
 .pet-details-container {
     flex: 1;
-    max-width: 600px;
+    max-width: 1400px; 
     margin: 2rem auto;
     width: 100%;
-    padding: 0 1rem;
+    padding: 0 1.5rem;
     padding-bottom: 120px;
     display: flex;
     flex-direction: column;
@@ -57,18 +58,27 @@
     font-weight: 600;
 }
 
+/* FORM GRID LAYOUT 
+   Changed minmax from 450px to 350px. 
+   This allows 3 cards to fit if screen is > ~1150px wide.
+*/
+.all-pets-form {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: 1.5rem;
+    width: 100%;
+}
+
 /* Card Container */
 .pet-details-card {
     background-color: white;
     border-radius: 12px;
-    padding: 2rem;
+    padding: 1.5rem; /* Slightly reduced padding to save space */
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
     border: 1px solid #f3f4f6;
-    margin-bottom: 1.5rem;
-    transition: border-color 0.2s;
+    height: fit-content;
 }
 
-/* Red border on card if there's an error */
 .pet-details-card.card-has-error {
     border-color: #fca5a5;
     box-shadow: 0 4px 6px -1px rgba(239, 68, 68, 0.1);
@@ -100,16 +110,11 @@
     color: #ef4444;
 }
 
-/* Form Styles */
-.all-pets-form {
-    display: flex;
-    flex-direction: column;
-}
-
+/* Form Inner Content */
 .pet-form-content {
     display: flex;
     flex-direction: column;
-    gap: 1rem;
+    gap: 1.25rem;
 }
 
 .form-section-label {
@@ -117,7 +122,7 @@
     font-weight: 600;
     color: #374151;
     background-color: #f3f4f6;
-    padding: 0.5rem;
+    padding: 0.5rem 0.75rem;
     border-radius: 6px;
     margin-bottom: 0.5rem;
 }
@@ -127,6 +132,7 @@
     flex-direction: column;
 }
 
+/* Internal rows (Breed/Gender, etc) */
 .form-row {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -149,6 +155,7 @@
     margin-bottom: -1px;
 }
 
+/* Inputs */
 .form-input {
     width: 100%;
     padding: 0.75rem 1rem;
@@ -171,17 +178,13 @@
     background-color: #fef2f2;
 }
 
-.form-input.input-error:focus {
-    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
-}
-
 .form-input::placeholder {
     color: #9ca3af;
 }
 
 .form-input.textarea {
     resize: vertical;
-    min-height: 70px;
+    min-height: 80px;
     font-family: inherit;
 }
 
@@ -195,7 +198,97 @@
     position: relative;
 }
 
-/* ERROR BANNER */
+/* Upload Styles */
+.upload-helper-text {
+    font-size: 0.7rem;
+    color: #9ca3af;
+    margin-bottom: 0.5rem;
+    display: block;
+    margin-top: -0.2rem;
+}
+
+.text-red {
+    color: #ef4444;
+}
+
+.upload-box {
+    border: 2px dashed #d1d5db;
+    border-radius: 8px;
+    padding: 1rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    background-color: #f9fafb;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100px;
+}
+
+.upload-box:hover {
+    border-color: #3b82f6;
+    background-color: #eff6ff;
+}
+
+.upload-box.upload-error {
+    border-color: #ef4444;
+    background-color: #fef2f2;
+}
+
+.upload-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    color: #6b7280;
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+.upload-icon {
+    color: #9ca3af;
+}
+
+.image-preview-container {
+    position: relative;
+    width: 100%;
+    height: 120px;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid #e5e7eb;
+}
+
+.image-preview {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.remove-file-btn {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    background-color: rgba(255, 255, 255, 0.9);
+    border: 1px solid #e5e7eb;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: #ef4444;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    transition: all 0.2s;
+}
+
+.remove-file-btn:hover {
+    background-color: #ef4444;
+    color: white;
+    border-color: #ef4444;
+}
+
+/* Error Banner */
 .error-banner {
     display: flex;
     align-items: center;
@@ -217,19 +310,21 @@
     right: 0;
     background-color: white;
     border-top: 1px solid #e5e7eb;
-    padding: 1rem 2rem;
+    padding: 1.5rem 2rem;
     display: flex;
-    justify-content: center;
+    justify-content: space-between;
     align-items: center;
-    box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.05);
+    box-shadow: 0 -4px 10px rgba(0, 0, 0, 0.05);
     z-index: 50;
-    gap: 2rem;
+    max-width: 1400px; /* Match main container width */
+    margin: 0 auto; 
+    width: 100%;
 }
 
 .total-display {
     display: flex;
     flex-direction: column;
-    align-items: flex-end;
+    align-items: flex-start;
 }
 
 .total-display span:first-child {
@@ -239,22 +334,22 @@
 }
 
 .total-amount {
-    font-size: 1.5rem;
+    font-size: 1.75rem;
     font-weight: 700;
     color: #111827;
 }
 
 .submit-btn {
-    padding: 0.875rem 2rem;
+    padding: 1rem 3rem;
     background-color: #1e3a8a;
     color: white;
     border: none;
     border-radius: 8px;
-    font-size: 1rem;
+    font-size: 1.1rem;
     font-weight: 600;
     cursor: pointer;
     transition: background-color 0.2s;
-    min-width: 200px;
+    min-width: 250px;
 }
 
 .submit-btn:hover:not(:disabled) {
@@ -266,22 +361,35 @@
     cursor: not-allowed;
 }
 
-@media (max-width: 640px) {
-    .pet-details-card {
-        padding: 1.5rem;
+/* Responsive Breakpoints */
+@media (max-width: 1150px) {
+    .all-pets-form {
+        grid-template-columns: 1fr 1fr; /* Force 2 cols on medium screens */
     }
-    .form-row {
-        grid-template-columns: 1fr;
-        gap: 1rem;
+}
+
+@media (max-width: 768px) {
+    .all-pets-form {
+        grid-template-columns: 1fr; /* 1 col on mobile */
     }
+    
+    .pet-details-container {
+        padding: 0 1rem;
+    }
+
     .booking-footer-sticky {
         flex-direction: column;
         gap: 1rem;
         padding: 1rem;
+        align-items: stretch;
+        text-align: center;
     }
+
     .total-display {
         align-items: center;
+        margin-bottom: 0.5rem;
     }
+
     .submit-btn {
         width: 100%;
     }

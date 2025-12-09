@@ -4,7 +4,8 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "../../config/supabase";
 import { 
   PawPrint, Calendar, Weight, 
-  Dna, Activity, ChevronLeft, Tag, Cat, AlertCircle 
+  Dna, Activity, ChevronLeft, Tag, Cat, AlertCircle,
+  UploadCloud, X, FileText
 } from "lucide-react";
 import Header from "../../components/Header/LoggedInNavbar";
 import Footer from "../../components/Footer/Footer";
@@ -23,12 +24,10 @@ const PetDetails = () => {
 
   // --- HELPER: CHECK IF WEIGHT IS IN RANGE ---
   const isWeightInRange = (weight, rangeString) => {
-    // 1. Handle "Any Weight" cases (N/A, All, empty)
     if (!rangeString) return true; 
     const cleanRange = rangeString.replace(/\s+/g, '').toUpperCase();
     if (cleanRange === 'N/A' || cleanRange === 'ALL' || cleanRange === '') return true;
 
-    // 2. Validate User Input
     const w = parseFloat(weight);
     if (isNaN(w)) return false; 
 
@@ -80,21 +79,16 @@ const PetDetails = () => {
         const matchedOption = findServiceOption(updatedPet, providerServices);
 
         if (matchedOption) {
-            // Match Found: Set Price and Clear Error
             updatedPet.price = parseFloat(matchedOption.price).toFixed(2);
             const rawSize = matchedOption.size.replace(/_/g, ' ');
             updatedPet.calculated_size = (rawSize.toLowerCase() === 'all') ? 'Standard' : rawSize; 
-            updatedPet.error = null; // Clear previous errors
+            updatedPet.error = null; 
         } else {
-            // No Match Found
             updatedPet.price = "0.00";
-            
-            // Only set error if user has actually selected a service and entered a weight
             if (updatedPet.service_id && updatedPet.weight_kg && parseFloat(updatedPet.weight_kg) > 0) {
                updatedPet.calculated_size = "N/A";
                updatedPet.error = "Service unavailable for this weight/type.";
             } else {
-               // Incomplete form, just reset logic without error
                updatedPet.calculated_size = ""; 
                updatedPet.error = null;
             }
@@ -120,7 +114,11 @@ const PetDetails = () => {
         breed: "",
         gender: "Male",
         behavior: "",
-        error: null // Track errors per pet
+        error: null,
+        vaccine_file: null,
+        vaccine_preview: null,
+        illness_file: null,
+        illness_preview: null
       })));
     }
   }, [numberOfPets]);
@@ -148,8 +146,6 @@ const PetDetails = () => {
     fetchServices();
   }, [providerId]);
 
-  // --- HANDLERS ---
-
   const handleInputChange = (index, e) => {
     const { name, value } = e.target;
     updatePetDataAndPrice(index, { [name]: value });
@@ -158,21 +154,11 @@ const PetDetails = () => {
   const handleServiceChange = (index, e) => {
     const selectedServiceId = e.target.value;
     const serviceObj = providerServices.find(s => s.id === selectedServiceId);
-    
-    let serviceUpdate = {};
-    if (serviceObj) {
-        serviceUpdate = {
-          service_id: serviceObj.id,
-          service_name: serviceObj.name,
-          service_type: serviceObj.type,
-        };
-    } else {
-        serviceUpdate = {
-          service_id: "",
-          service_name: "",
-          service_type: "",
-        };
-    }
+    let serviceUpdate = serviceObj ? {
+        service_id: serviceObj.id,
+        service_name: serviceObj.name,
+        service_type: serviceObj.type,
+    } : { service_id: "", service_name: "", service_type: "" };
     updatePetDataAndPrice(index, serviceUpdate);
   };
 
@@ -180,80 +166,79 @@ const PetDetails = () => {
     updatePetDataAndPrice(index, { weight_kg: e.target.value });
   };
 
-  const calculateTotal = () => {
-    return petsData.reduce((acc, pet) => acc + parseFloat(pet.price || 0), 0);
+  const handleFileUpload = (index, type, e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) { alert('Please select an image file.'); return; }
+    if (file.size > 1024 * 1024) { alert('File size exceeds 1MB limit.'); return; }
+
+    const previewUrl = URL.createObjectURL(file);
+    setPetsData(prev => {
+        const updated = [...prev];
+        updated[index] = { ...updated[index], [`${type}_file`]: file, [`${type}_preview`]: previewUrl };
+        return updated;
+    });
+  };
+
+  const removeFile = (index, type) => {
+    setPetsData(prev => {
+        const updated = [...prev];
+        if (updated[index][`${type}_preview`]) URL.revokeObjectURL(updated[index][`${type}_preview`]);
+        updated[index] = { ...updated[index], [`${type}_file`]: null, [`${type}_preview`]: null };
+        return updated;
+    });
+  };
+
+  const calculateTotal = () => petsData.reduce((acc, pet) => acc + parseFloat(pet.price || 0), 0);
+
+  const uploadFileToSupabase = async (file, path) => {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Math.random().toString(36).substring(2)}_${Date.now()}.${fileExt}`;
+      const filePath = `${path}/${fileName}`;
+      const { error: uploadError } = await supabase.storage.from('pet_documents').upload(filePath, file);
+      if (uploadError) throw uploadError;
+      const { data: { publicUrl } } = supabase.storage.from('pet_documents').getPublicUrl(filePath);
+      return publicUrl;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    // Validation: Check for empty fields OR existing errors
-    const incompletePets = petsData.some(pet => 
-      !pet.service_id || !pet.pet_name || !pet.weight_kg || pet.error
-    );
-    
-    if (incompletePets) {
-        alert("Please fix the errors in your form. Ensure all pets have valid services and pricing.");
-        return;
-    }
+    const incompletePets = petsData.some(pet => !pet.service_id || !pet.pet_name || !pet.weight_kg || pet.error || !pet.vaccine_file);
+    if (incompletePets) { alert("Please complete all forms. Ensure valid pricing and Vaccine Records are uploaded."); return; }
 
     setIsSubmitting(true);
     try {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) throw new Error("User not logged in");
 
-        const { data: booking, error: bookingError } = await supabase
-            .from('bookings')
-            .insert({
-                provider_id: providerId,
-                pet_owner_id: user.id,
-                booking_date: bookingDate,
-                time_slot: bookingTime,
-                status: 'pending',
-                total_price: calculateTotal()
-            })
-            .select()
-            .single();
+        const { data: booking, error: bookingError } = await supabase.from('bookings').insert({
+            provider_id: providerId, pet_owner_id: user.id, booking_date: bookingDate, time_slot: bookingTime, status: 'pending', total_price: calculateTotal()
+        }).select().single();
 
         if (bookingError) throw bookingError;
 
-        for (const petData of petsData) {
-            const { data: petRecord, error: petError } = await supabase
-                .from('booking_pets')
-                .insert({
-                    booking_id: booking.id,
-                    pet_type: petData.pet_type,
-                    pet_name: petData.pet_name,
-                    birth_date: petData.birth_date,
-                    weight_kg: petData.weight_kg,
-                    calculated_size: petData.calculated_size,
-                    breed: petData.breed,
-                    gender: petData.gender,
-                    behavior: petData.behavior,
-                    vaccine_card_url: "pending_upload", 
-                    emergency_consent: false
-                })
-                .select()
-                .single();
+        for (const [i, petData] of petsData.entries()) {
+            const petStoragePath = `${user.id}/${booking.id}/pet_${i}`;
+            let vaccineUrl = await uploadFileToSupabase(petData.vaccine_file, `${petStoragePath}/vaccine`);
+            let illnessUrl = petData.illness_file ? await uploadFileToSupabase(petData.illness_file, `${petStoragePath}/illness`) : null;
+
+            const { data: petRecord, error: petError } = await supabase.from('booking_pets').insert({
+                booking_id: booking.id, pet_type: petData.pet_type, pet_name: petData.pet_name, birth_date: petData.birth_date,
+                weight_kg: petData.weight_kg, calculated_size: petData.calculated_size, breed: petData.breed, gender: petData.gender,
+                behavior: petData.behavior, vaccine_card_url: vaccineUrl, illness_record_url: illnessUrl, emergency_consent: false
+            }).select().single();
 
             if (petError) throw petError;
 
-            const { error: serviceError } = await supabase
-                .from('booking_services')
-                .insert({
-                    booking_pet_id: petRecord.id,
-                    service_id: petData.service_id,
-                    service_name: petData.service_name,
-                    service_type: petData.service_type,
-                    price: petData.price
-                });
+            const { error: serviceError } = await supabase.from('booking_services').insert({
+                booking_pet_id: petRecord.id, service_id: petData.service_id, service_name: petData.service_name,
+                service_type: petData.service_type, price: petData.price
+            });
 
             if (serviceError) throw serviceError;
         }
-
         alert("Booking Confirmed!");
         navigate("/dashboard");
-
     } catch (error) {
         console.error("Booking Error:", error);
         alert(`Failed to complete booking: ${error.message}`);
@@ -268,18 +253,12 @@ const PetDetails = () => {
     <div className="pet-details-page">
       <Header />
       <main className="pet-details-container">
-        
         <div className="page-header-row">
-            <button className="back-link" onClick={() => navigate(-1)}>
-                <ChevronLeft size={20} /> Back to Listing
-            </button>
-            <div className="booking-summary-badge">
-                {bookingDate} @ {bookingTime}
-            </div>
+            <button className="back-link" onClick={() => navigate(-1)}><ChevronLeft size={20} /> Back to Listing</button>
+            <div className="booking-summary-badge">{bookingDate} @ {bookingTime}</div>
         </div>
 
         <form onSubmit={handleSubmit} className="all-pets-form">
-            
             {petsData.map((pet, index) => (
                 <div key={index} className={`pet-details-card ${pet.error ? 'card-has-error' : ''}`}>
                     <div className="card-header-block">
@@ -288,44 +267,26 @@ const PetDetails = () => {
                             {pet.error ? '---' : (pet.price ? `₱${parseFloat(pet.price).toFixed(2)}` : '₱0.00')}
                         </span>
                     </div>
-                    
                     <div className="pet-form-content">
-                        {/* Service Selection */}
                         <div className="form-section-label">Service Selection</div>
                         <div className="form-group">
                             <label className="form-label"><Tag size={14} className="label-icon" /> Choose Service</label>
                             <div className="select-wrapper">
-                                <select 
-                                    name="service_id"
-                                    className="form-input"
-                                    value={pet.service_id}
-                                    onChange={(e) => handleServiceChange(index, e)}
-                                    disabled={loadingServices}
-                                    required
-                                >
+                                <select name="service_id" className="form-input" value={pet.service_id} onChange={(e) => handleServiceChange(index, e)} disabled={loadingServices} required>
                                     <option value="">Select a service...</option>
                                     {providerServices.map(service => (
-                                        <option key={service.id} value={service.id}>
-                                            {service.name} ({service.type})
-                                        </option>
+                                        <option key={service.id} value={service.id}>{service.name} ({service.type})</option>
                                     ))}
                                 </select>
                             </div>
                         </div>
 
                         <div className="form-section-label" style={{marginTop: '1rem'}}>Pet Information</div>
-
-                        {/* Pet Type & Name */}
                         <div className="form-row">
                             <div className="form-group">
                                 <label className="form-label"><Cat size={14} className="label-icon" /> Pet Type</label>
                                 <div className="select-wrapper">
-                                    <select 
-                                        name="pet_type" 
-                                        className="form-input"
-                                        value={pet.pet_type}
-                                        onChange={(e) => handleInputChange(index, e)}
-                                    >
+                                    <select name="pet_type" className="form-input" value={pet.pet_type} onChange={(e) => handleInputChange(index, e)}>
                                         <option value="Dog">Dog</option>
                                         <option value="Cat">Cat</option>
                                     </select>
@@ -333,40 +294,19 @@ const PetDetails = () => {
                             </div>
                             <div className="form-group">
                                 <label className="form-label"><PawPrint size={14} className="label-icon" /> Pet Name</label>
-                                <input 
-                                    type="text" 
-                                    name="pet_name"
-                                    className="form-input" 
-                                    placeholder="Pet's Name"
-                                    value={pet.pet_name}
-                                    onChange={(e) => handleInputChange(index, e)}
-                                    required
-                                />
+                                <input type="text" name="pet_name" className="form-input" placeholder="Pet's Name" value={pet.pet_name} onChange={(e) => handleInputChange(index, e)} required />
                             </div>
                         </div>
 
-                        {/* Breed & Gender */}
                         <div className="form-row">
                             <div className="form-group">
                                 <label className="form-label"><Dna size={14} className="label-icon" /> Breed</label>
-                                <input 
-                                    type="text" 
-                                    name="breed"
-                                    className="form-input" 
-                                    placeholder="Breed"
-                                    value={pet.breed}
-                                    onChange={(e) => handleInputChange(index, e)}
-                                />
+                                <input type="text" name="breed" className="form-input" placeholder="Breed" value={pet.breed} onChange={(e) => handleInputChange(index, e)} />
                             </div>
                             <div className="form-group">
                                 <label className="form-label">Gender</label>
                                 <div className="select-wrapper">
-                                    <select 
-                                        name="gender" 
-                                        className="form-input"
-                                        value={pet.gender}
-                                        onChange={(e) => handleInputChange(index, e)}
-                                    >
+                                    <select name="gender" className="form-input" value={pet.gender} onChange={(e) => handleInputChange(index, e)}>
                                         <option value="Male">Male</option>
                                         <option value="Female">Female</option>
                                     </select>
@@ -376,61 +316,59 @@ const PetDetails = () => {
 
                         <div className="form-group">
                             <label className="form-label"><Calendar size={14} className="label-icon" /> Birth Date</label>
-                            <input 
-                                type="date" 
-                                name="birth_date"
-                                className="form-input"
-                                value={pet.birth_date}
-                                onChange={(e) => handleInputChange(index, e)}
-                            />
+                            <input type="date" name="birth_date" className="form-input" value={pet.birth_date} onChange={(e) => handleInputChange(index, e)} />
                         </div>
 
-                        {/* Weight & Size */}
                         <div className="form-row">
                             <div className="form-group">
                                 <label className="form-label"><Weight size={14} className="label-icon" /> Weight (kg)</label>
-                                <input 
-                                    type="number" 
-                                    name="weight_kg"
-                                    className={`form-input ${pet.error ? 'input-error' : ''}`}
-                                    placeholder="0.0"
-                                    step="0.1"
-                                    value={pet.weight_kg}
-                                    onChange={(e) => handleWeightChange(index, e)}
-                                    required
-                                />
+                                <input type="number" name="weight_kg" className={`form-input ${pet.error ? 'input-error' : ''}`} placeholder="0.0" step="0.1" value={pet.weight_kg} onChange={(e) => handleWeightChange(index, e)} required />
                             </div>
                             <div className="form-group">
                                 <label className="form-label">Size (Matched)</label>
-                                <input 
-                                    type="text" 
-                                    className="form-input read-only" 
-                                    value={pet.calculated_size}
-                                    readOnly
-                                    placeholder="Auto-calc"
-                                    style={{textTransform: 'capitalize'}}
-                                />
+                                <input type="text" className="form-input read-only" value={pet.calculated_size} readOnly placeholder="Auto-calc" style={{textTransform: 'capitalize'}} />
                             </div>
                         </div>
 
-                        {/* Error Message Display */}
-                        {pet.error && (
-                            <div className="error-banner">
-                                <AlertCircle size={16} />
-                                <span>{pet.error}</span>
-                            </div>
-                        )}
+                        {pet.error && <div className="error-banner"><AlertCircle size={16} /><span>{pet.error}</span></div>}
 
-                        <div className="form-group">
+                        <div className="form-section-label" style={{marginTop: '1rem'}}>Medical Records</div>
+                        <div className="form-row">
+                            <div className="form-group">
+                                <label className="form-label">Vaccine Record <span className="text-red">*</span></label>
+                                <span className="upload-helper-text">Max 1MB. Image only.</span>
+                                {pet.vaccine_preview ? (
+                                    <div className="image-preview-container">
+                                        <img src={pet.vaccine_preview} alt="Vaccine Preview" className="image-preview" />
+                                        <button type="button" className="remove-file-btn" onClick={() => removeFile(index, 'vaccine')}><X size={16} /></button>
+                                    </div>
+                                ) : (
+                                    <label className={`upload-box ${!pet.vaccine_file && isSubmitting ? 'upload-error' : ''}`}>
+                                        <input type="file" accept="image/*" onChange={(e) => handleFileUpload(index, 'vaccine', e)} hidden required />
+                                        <div className="upload-content"><UploadCloud size={24} className="upload-icon" /><span>Click to Upload</span></div>
+                                    </label>
+                                )}
+                            </div>
+                            <div className="form-group">
+                                <label className="form-label">Illness Record</label>
+                                <span className="upload-helper-text">Optional. Max 1MB.</span>
+                                {pet.illness_preview ? (
+                                    <div className="image-preview-container">
+                                        <img src={pet.illness_preview} alt="Illness Preview" className="image-preview" />
+                                        <button type="button" className="remove-file-btn" onClick={() => removeFile(index, 'illness')}><X size={16} /></button>
+                                    </div>
+                                ) : (
+                                    <label className="upload-box">
+                                        <input type="file" accept="image/*" onChange={(e) => handleFileUpload(index, 'illness', e)} hidden />
+                                        <div className="upload-content"><FileText size={24} className="upload-icon" /><span>Click to Upload</span></div>
+                                    </label>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="form-group" style={{marginTop:'1rem'}}>
                             <label className="form-label"><Activity size={14} className="label-icon" /> Behavior / Notes</label>
-                            <textarea 
-                                name="behavior"
-                                className="form-input textarea" 
-                                placeholder="Aggression, allergies, etc."
-                                value={pet.behavior}
-                                onChange={(e) => handleInputChange(index, e)}
-                                rows={2}
-                            />
+                            <textarea name="behavior" className="form-input textarea" placeholder="Aggression, allergies, etc." value={pet.behavior} onChange={(e) => handleInputChange(index, e)} rows={2} />
                         </div>
                     </div>
                 </div>
@@ -445,7 +383,6 @@ const PetDetails = () => {
                     {isSubmitting ? "Processing..." : `Confirm Booking (${numberOfPets} Pets)`}
                 </button>
             </div>
-
         </form>
       </main>
       <Footer />
