@@ -50,31 +50,10 @@ const ListingInfo = () => {
   const [activeTab, setActiveTab] = useState("overview");
   const [selectedImageIndex, setSelectedImageIndex] = useState(null);
   
-  // --- HELPER: Read Session Storage Safely ---
-  const getSavedState = () => {
-    try {
-      const saved = sessionStorage.getItem(`booking_draft_${id}`);
-      return saved ? JSON.parse(saved) : null;
-    } catch (e) {
-      return null;
-    }
-  };
-
-  const savedState = getSavedState();
-
-  // --- BOOKING STATES (Initialized directly from Storage) ---
-  const [bookingDate, setBookingDate] = useState(() => 
-    savedState?.date ? new Date(savedState.date) : null
-  );
-  
-  const [bookingTime, setBookingTime] = useState(() => 
-    savedState?.time || ""
-  );
-  
-  const [numberOfPets, setNumberOfPets] = useState(() => 
-    savedState?.pets ? parseInt(savedState.pets, 10) : 1
-  );
-
+  // --- BOOKING STATES ---
+  const [bookingDate, setBookingDate] = useState(null);
+  const [bookingTime, setBookingTime] = useState("");
+  const [numberOfPets, setNumberOfPets] = useState(1);
   const [availableTimeSlots, setAvailableTimeSlots] = useState([]);
   
   // --- ERROR STATES ---
@@ -83,24 +62,72 @@ const ListingInfo = () => {
 
   const daysOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
-  // --- SAVE STATE TO SESSION STORAGE ON CHANGE ---
+  // 1. Fetch User First
   useEffect(() => {
-    if (bookingDate || bookingTime || numberOfPets !== 1) {
+    const fetchUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setUser(user);
+    };
+    fetchUser();
+    fetchAllData();
+  }, [id]);
+
+  // 2. RESTORE FROM SESSION STORAGE (Only when User is loaded)
+  useEffect(() => {
+    if (user && id) {
+      const storageKey = `booking_draft_${user.id}_${id}`; // ⭐ SCOPED TO USER
+      const savedData = sessionStorage.getItem(storageKey);
+      
+      if (savedData) {
+        try {
+          const parsed = JSON.parse(savedData);
+          if (parsed.date) setBookingDate(new Date(parsed.date));
+          if (parsed.time) setBookingTime(parsed.time);
+          if (parsed.pets) setNumberOfPets(parsed.pets);
+          
+          // Trigger slot regeneration if date exists (requires hours to be loaded)
+          // We handle the actual regeneration logic inside the data fetching or separate effect below
+        } catch (e) {
+          console.error("Failed to restore draft", e);
+        }
+      }
+    }
+  }, [user, id]);
+
+  // 3. SAVE TO SESSION STORAGE (Scoped to User)
+  useEffect(() => {
+    if (user && id && (bookingDate || bookingTime || numberOfPets !== 1)) {
+      const storageKey = `booking_draft_${user.id}_${id}`; // ⭐ SCOPED TO USER
       const draft = {
         date: bookingDate ? bookingDate.toISOString() : null,
         time: bookingTime,
         pets: numberOfPets
       };
-      sessionStorage.setItem(`booking_draft_${id}`, JSON.stringify(draft));
+      sessionStorage.setItem(storageKey, JSON.stringify(draft));
     }
-  }, [bookingDate, bookingTime, numberOfPets, id]);
+  }, [bookingDate, bookingTime, numberOfPets, id, user]);
 
-  useEffect(() => { fetchAllData(); fetchUser(); }, [id]);
-
-  const fetchUser = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    setUser(user);
-  };
+  // 4. Regenerate Slots when Date or Hours change
+  useEffect(() => {
+     if (bookingDate && hours.length > 0) {
+        const dayName = bookingDate.toLocaleDateString('en-US', { weekday: 'long' });
+        const workingDay = hours.find(h => h.day_of_week === dayName);
+        if (workingDay) {
+            const slots = [];
+            const start = new Date(`2000-01-01T${workingDay.start_time}`);
+            const end = new Date(`2000-01-01T${workingDay.end_time}`);
+            while (start < end) {
+                const timeValue = start.toTimeString().split(' ')[0];
+                const displayLabel = start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+                slots.push({ value: timeValue, label: displayLabel });
+                start.setHours(start.getHours() + 1);
+            }
+            setAvailableTimeSlots(slots);
+        } else {
+            setAvailableTimeSlots([]); // Reset if day is closed
+        }
+     }
+  }, [bookingDate, hours]);
 
   const fetchAllData = async () => {
     try {
@@ -116,28 +143,10 @@ const ListingInfo = () => {
 
       const { data: imagesData } = await supabase.from("service_provider_images").select("*").eq("provider_id", id);
       setImages(imagesData || []);
-
-      // --- RE-GENERATE TIME SLOTS IF DATE WAS RESTORED ---
-      if (bookingDate && hoursData.length > 0) {
-          const dayName = bookingDate.toLocaleDateString('en-US', { weekday: 'long' });
-          const workingDay = hoursData.find(h => h.day_of_week === dayName);
-          if (workingDay) {
-              const slots = [];
-              const start = new Date(`2000-01-01T${workingDay.start_time}`);
-              const end = new Date(`2000-01-01T${workingDay.end_time}`);
-              while (start < end) {
-                  const timeValue = start.toTimeString().split(' ')[0];
-                  const displayLabel = start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-                  slots.push({ value: timeValue, label: displayLabel });
-                  start.setHours(start.getHours() + 1);
-              }
-              setAvailableTimeSlots(slots);
-          }
-      }
-
     } catch (error) { console.error("Error fetching data:", error); } finally { setLoading(false); }
   };
 
+  // ... [Keep formatTime, getSocialIcon, getImageGridClass, isDateEnabled, handleDateChange same as before] ...
   const formatTime = (time) => {
     if (!time) return "";
     return new Date(`2000-01-01T${time}`).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
@@ -169,25 +178,6 @@ const ListingInfo = () => {
     setDateError(null);
     setBookingTime(""); 
     setAvailableTimeSlots([]);
-
-    if (!date) return;
-
-    const dayName = date.toLocaleDateString('en-US', { weekday: 'long' });
-    const workingDay = hours.find(h => h.day_of_week === dayName);
-
-    if (workingDay) {
-      const slots = [];
-      const start = new Date(`2000-01-01T${workingDay.start_time}`);
-      const end = new Date(`2000-01-01T${workingDay.end_time}`);
-
-      while (start < end) {
-        const timeValue = start.toTimeString().split(' ')[0];
-        const displayLabel = start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-        slots.push({ value: timeValue, label: displayLabel });
-        start.setHours(start.getHours() + 1);
-      }
-      setAvailableTimeSlots(slots);
-    }
   };
 
   const handleCompleteBooking = () => {
@@ -198,10 +188,8 @@ const ListingInfo = () => {
     if (!bookingTime) { setBookingError("Please select a time slot."); return; }
     if (numberOfPets < 1) { setBookingError("Please enter at least 1 pet."); return; }
 
-    // Convert Date Object to String for passing to next page
-    const dateStr = bookingDate.toLocaleDateString('en-CA'); // YYYY-MM-DD format
+    const dateStr = bookingDate.toLocaleDateString('en-CA'); 
 
-    // Redirect to PetDetails page passing the booking data state
     navigate('/pet-details', {
       state: {
         providerId: id,
@@ -213,7 +201,7 @@ const ListingInfo = () => {
     });
   };
 
-  // Services List Helper
+  // [Render logic same as before...]
   const ServicesList = () => (
     <>
       {services.length > 0 ? services.map(service => (

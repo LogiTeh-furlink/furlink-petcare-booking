@@ -15,12 +15,19 @@ const PetDetails = () => {
   const { state } = useLocation();
   const navigate = useNavigate();
 
+  // We need to fetch the User ID first to ensure we use the correct storage key
+  const [currentUser, setCurrentUser] = useState(null);
+
+  // Fallback Provider ID (from state or storage if user refreshed)
+  // Note: We need a temporary non-user-scoped key just to recover the provider ID if page is refreshed
   const initialProviderId = state?.providerId || sessionStorage.getItem('current_provider_id');
-  const STORAGE_KEY = `booking_draft_${initialProviderId}`;
 
   const [providerServices, setProviderServices] = useState([]);
   const [loadingServices, setLoadingServices] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // We initialize petsData as empty, then populate it once User is loaded
+  const [petsData, setPetsData] = useState([]); 
 
   const emptyPetTemplate = {
     service_id: "", service_name: "", service_type: "", price: "0.00",
@@ -29,51 +36,79 @@ const PetDetails = () => {
     error: null, vaccine_file: null, vaccine_preview: null, illness_file: null, illness_preview: null, emergency_consent: false
   };
 
-  const initializePetsData = () => {
-    const savedSession = sessionStorage.getItem(STORAGE_KEY);
-    if (savedSession) {
-      try {
-        const parsed = JSON.parse(savedSession);
-        if (parsed.petsData && Array.isArray(parsed.petsData) && parsed.petsData.length > 0) {
-          return parsed.petsData;
-        }
-      } catch (e) { console.error(e); }
-    }
-    if (state && state.numberOfPets) {
-      return Array.from({ length: state.numberOfPets }, () => ({ ...emptyPetTemplate }));
-    }
-    return [{ ...emptyPetTemplate }];
-  };
-
-  const [petsData, setPetsData] = useState(initializePetsData);
-
-  const getBookingMeta = () => {
-    const saved = sessionStorage.getItem(STORAGE_KEY) ? JSON.parse(sessionStorage.getItem(STORAGE_KEY)) : {};
-    return {
-        date: state?.bookingDate || saved.date || "Date not selected",
-        time: state?.bookingTime || saved.time || "Time not selected",
-        pName: state?.providerName || saved.providerName || "Provider"
-    };
-  };
-  const { date: displayDate, time: displayTime } = getBookingMeta();
-
+  // 1. Fetch User & Initialize Data
   useEffect(() => {
-    if (initialProviderId && petsData.length > 0) {
-      const currentStorage = sessionStorage.getItem(STORAGE_KEY) ? JSON.parse(sessionStorage.getItem(STORAGE_KEY)) : {};
+    const init = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setCurrentUser(user);
+
+      if (user && initialProviderId) {
+        const storageKey = `booking_draft_${user.id}_${initialProviderId}`;
+        const savedSession = sessionStorage.getItem(storageKey);
+        
+        if (savedSession) {
+          try {
+            const parsed = JSON.parse(savedSession);
+            if (parsed.petsData && Array.isArray(parsed.petsData) && parsed.petsData.length > 0) {
+               setPetsData(parsed.petsData);
+               return; // Loaded from storage, stop here
+            }
+          } catch (e) { console.error(e); }
+        }
+
+        // If no storage, use State from Navigation
+        if (state && state.numberOfPets) {
+            setPetsData(Array.from({ length: state.numberOfPets }, () => ({ ...emptyPetTemplate })));
+        } else {
+            setPetsData([{ ...emptyPetTemplate }]);
+        }
+      } else {
+          // No user or provider ID yet (should handle redirect/error)
+           setPetsData([{ ...emptyPetTemplate }]);
+      }
+    };
+    init();
+  }, [initialProviderId]); // Run once when ID is resolved
+
+  // 2. Persist Data (Scoped to User)
+  useEffect(() => {
+    if (currentUser && initialProviderId && petsData.length > 0) {
+      const storageKey = `booking_draft_${currentUser.id}_${initialProviderId}`;
+      const currentStorage = sessionStorage.getItem(storageKey) 
+        ? JSON.parse(sessionStorage.getItem(storageKey)) 
+        : {};
+
       const updatedStorage = {
         ...currentStorage,
         providerId: initialProviderId,
         pets: petsData.length,
         petsData: petsData
       };
+
       if (state?.bookingDate) updatedStorage.date = state.bookingDate;
       if (state?.bookingTime) updatedStorage.time = state.bookingTime;
       if (state?.providerName) updatedStorage.providerName = state.providerName;
 
-      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(updatedStorage));
-      sessionStorage.setItem('current_provider_id', initialProviderId);
+      sessionStorage.setItem(storageKey, JSON.stringify(updatedStorage));
+      // Keep provider ID generic so we can find the specific key later
+      sessionStorage.setItem('current_provider_id', initialProviderId); 
     }
-  }, [petsData, initialProviderId, state]);
+  }, [petsData, currentUser, initialProviderId, state]);
+
+  // Display Vars
+  const getBookingMeta = () => {
+    // We can only reliably get display info if we have the user
+    if(!currentUser || !initialProviderId) return { date: state?.bookingDate, time: state?.bookingTime };
+
+    const storageKey = `booking_draft_${currentUser.id}_${initialProviderId}`;
+    const saved = sessionStorage.getItem(storageKey) ? JSON.parse(sessionStorage.getItem(storageKey)) : {};
+    return {
+        date: state?.bookingDate || saved.date || "Date not selected",
+        time: state?.bookingTime || saved.time || "Time not selected",
+    };
+  };
+  const { date: displayDate, time: displayTime } = getBookingMeta();
+
 
   useEffect(() => {
     const fetchServices = async () => {
@@ -90,7 +125,7 @@ const PetDetails = () => {
     fetchServices();
   }, [initialProviderId]);
 
-  // --- HELPERS ---
+  // --- HELPERS (Same as before) ---
   const isWeightInRange = (weight, rangeString) => {
     if (!rangeString) return true; 
     const cleanRange = rangeString.replace(/\s+/g, '').toUpperCase();
@@ -146,6 +181,7 @@ const PetDetails = () => {
     });
   };
 
+  // --- HANDLERS ---
   const handleAddPet = () => setPetsData(prev => [...prev, { ...emptyPetTemplate }]);
   const handleRemovePet = (index) => setPetsData(prev => prev.filter((_, i) => i !== index));
   const handleInputChange = (index, e) => updatePetDataAndPrice(index, { [e.target.name]: e.target.value });
@@ -172,6 +208,7 @@ const PetDetails = () => {
   };
   const calculateTotal = () => petsData.reduce((acc, pet) => acc + parseFloat(pet.price || 0), 0);
 
+  // --- SUBMISSION ---
   const uploadFileToSupabase = async (file, path) => {
       const ext = file.name.split('.').pop();
       const pathName = `${path}/${Math.random().toString(36).substring(2)}_${Date.now()}.${ext}`;
@@ -188,16 +225,15 @@ const PetDetails = () => {
 
     setIsSubmitting(true);
     try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) throw new Error("User not logged in");
+        if (!currentUser) throw new Error("User not logged in");
 
         const { data: booking, error: bError } = await supabase.from('bookings').insert({
-            provider_id: initialProviderId, pet_owner_id: user.id, booking_date: displayDate, time_slot: displayTime, status: 'pending', total_price: calculateTotal()
+            provider_id: initialProviderId, pet_owner_id: currentUser.id, booking_date: displayDate, time_slot: displayTime, status: 'pending', total_price: calculateTotal()
         }).select().single();
         if (bError) throw bError;
 
         for (const [i, pet] of petsData.entries()) {
-            const path = `${user.id}/${booking.id}/pet_${i}`;
+            const path = `${currentUser.id}/${booking.id}/pet_${i}`;
             const vUrl = await uploadFileToSupabase(pet.vaccine_file, path);
             const iUrl = pet.illness_file ? await uploadFileToSupabase(pet.illness_file, path) : null;
 
@@ -215,14 +251,17 @@ const PetDetails = () => {
             if (sError) throw sError;
         }
         
-        sessionStorage.removeItem(STORAGE_KEY);
+        // Clear Storage
+        const storageKey = `booking_draft_${currentUser.id}_${initialProviderId}`;
+        sessionStorage.removeItem(storageKey);
         sessionStorage.removeItem('current_provider_id');
+        
         alert("Booking Confirmed!");
         navigate("/dashboard");
     } catch (err) { console.error(err); alert(err.message); } finally { setIsSubmitting(false); }
   };
 
-  // --- LAYOUT LOGIC (Restored) ---
+  // --- LAYOUT LOGIC ---
   const getGridClass = () => {
       if (petsData.length === 1) return "layout-1";
       if (petsData.length === 2) return "layout-2";
@@ -240,7 +279,6 @@ const PetDetails = () => {
             <div className="booking-summary-badge">{displayDate} @ {displayTime}</div>
         </div>
 
-        {/* APPLY DYNAMIC LAYOUT CLASS HERE */}
         <form className={`all-pets-form ${getGridClass()}`}>
             {petsData.map((pet, index) => (
                 <div key={index} className={`pet-details-card ${pet.error ? 'card-has-error' : ''}`}>
@@ -253,6 +291,7 @@ const PetDetails = () => {
                     </div>
                     
                     <div className="pet-form-content">
+                        {/* Service Selection */}
                         <div className="form-section-label">Service Selection</div>
                         <div className="form-group">
                             <label className="form-label"><Tag size={14} className="label-icon" /> Choose Service</label>
@@ -264,6 +303,7 @@ const PetDetails = () => {
                             </div>
                         </div>
 
+                        {/* INFO */}
                         <div className="form-section-label" style={{marginTop: '1rem'}}>Pet Information</div>
                         <div className="form-row">
                             <div className="form-group"><label className="form-label"><Cat size={14} className="label-icon" /> Pet Type</label><div className="select-wrapper"><select name="pet_type" className="form-input" value={pet.pet_type} onChange={(e) => handleInputChange(index, e)}><option value="Dog">Dog</option><option value="Cat">Cat</option></select></div></div>
@@ -280,6 +320,7 @@ const PetDetails = () => {
                         </div>
                         {pet.error && <div className="error-banner"><AlertCircle size={16} /><span>{pet.error}</span></div>}
 
+                        {/* Medical */}
                         <div className="form-section-label" style={{marginTop: '1rem'}}>Medical Records</div>
                         <div className="form-row">
                             <div className="form-group">
@@ -294,6 +335,7 @@ const PetDetails = () => {
                             </div>
                         </div>
 
+                        {/* Consent */}
                         <div className="consent-form-group">
                             <label className="consent-checkbox-label">
                                 <input type="checkbox" checked={pet.emergency_consent} onChange={(e) => handleConsentChange(index, e)} required />
@@ -312,6 +354,7 @@ const PetDetails = () => {
             </div>
         </form>
 
+        {/* PAYMENT BLOCK (Non-Sticky) */}
         <div className="payment-block">
             <div className="payment-summary">
                 <span className="payment-label">Total Estimated Price</span>
@@ -328,5 +371,4 @@ const PetDetails = () => {
   );
 };
 
-export default PetDetails;
-//edit for later ay nagsesave din sa ibang account yung selected ng different account
+export default PetDetails; //update 
