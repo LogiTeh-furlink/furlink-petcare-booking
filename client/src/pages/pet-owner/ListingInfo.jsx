@@ -1,6 +1,6 @@
 // src/pages/pet-owner/ListingInfo.jsx
 import React, { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom"; 
+import { useParams, useNavigate, useLocation } from "react-router-dom"; 
 import { supabase } from "../../config/supabase";
 import { 
   MapPin, X, ChevronDown, 
@@ -41,6 +41,8 @@ const ImageModal = ({ isOpen, onClose, images, currentIndex, onNext, onPrev }) =
 const ListingInfo = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  
   const [user, setUser] = useState(null); 
   const [provider, setProvider] = useState(null);
   const [services, setServices] = useState([]);
@@ -51,83 +53,32 @@ const ListingInfo = () => {
   const [selectedImageIndex, setSelectedImageIndex] = useState(null);
   
   // --- BOOKING STATES ---
-  const [bookingDate, setBookingDate] = useState(null);
-  const [bookingTime, setBookingTime] = useState("");
-  const [numberOfPets, setNumberOfPets] = useState(1);
-  const [availableTimeSlots, setAvailableTimeSlots] = useState([]);
+  // Initialize from location.state if available, otherwise defaults.
+  const [bookingDate, setBookingDate] = useState(() => 
+    location.state?.bookingDate ? new Date(location.state.bookingDate) : null
+  );
   
-  // --- ERROR STATES ---
+  const [bookingTime, setBookingTime] = useState(() => 
+    location.state?.bookingTime || ""
+  );
+  
+  // ⭐ UPDATED: Default value is now 0 if no state is passed.
+  const [numberOfPets, setNumberOfPets] = useState(() => 
+    location.state?.numberOfPets ? parseInt(location.state.numberOfPets, 10) : 0
+  );
+
+  const [availableTimeSlots, setAvailableTimeSlots] = useState([]);
   const [dateError, setDateError] = useState(null);
   const [bookingError, setBookingError] = useState(null);
 
   const daysOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
-  // 1. Fetch User First
-  useEffect(() => {
-    const fetchUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      setUser(user);
-    };
-    fetchUser();
-    fetchAllData();
-  }, [id]);
+  useEffect(() => { fetchAllData(); fetchUser(); }, [id]);
 
-  // 2. RESTORE FROM SESSION STORAGE (Only when User is loaded)
-  useEffect(() => {
-    if (user && id) {
-      const storageKey = `booking_draft_${user.id}_${id}`; // ⭐ SCOPED TO USER
-      const savedData = sessionStorage.getItem(storageKey);
-      
-      if (savedData) {
-        try {
-          const parsed = JSON.parse(savedData);
-          if (parsed.date) setBookingDate(new Date(parsed.date));
-          if (parsed.time) setBookingTime(parsed.time);
-          if (parsed.pets) setNumberOfPets(parsed.pets);
-          
-          // Trigger slot regeneration if date exists (requires hours to be loaded)
-          // We handle the actual regeneration logic inside the data fetching or separate effect below
-        } catch (e) {
-          console.error("Failed to restore draft", e);
-        }
-      }
-    }
-  }, [user, id]);
-
-  // 3. SAVE TO SESSION STORAGE (Scoped to User)
-  useEffect(() => {
-    if (user && id && (bookingDate || bookingTime || numberOfPets !== 1)) {
-      const storageKey = `booking_draft_${user.id}_${id}`; // ⭐ SCOPED TO USER
-      const draft = {
-        date: bookingDate ? bookingDate.toISOString() : null,
-        time: bookingTime,
-        pets: numberOfPets
-      };
-      sessionStorage.setItem(storageKey, JSON.stringify(draft));
-    }
-  }, [bookingDate, bookingTime, numberOfPets, id, user]);
-
-  // 4. Regenerate Slots when Date or Hours change
-  useEffect(() => {
-     if (bookingDate && hours.length > 0) {
-        const dayName = bookingDate.toLocaleDateString('en-US', { weekday: 'long' });
-        const workingDay = hours.find(h => h.day_of_week === dayName);
-        if (workingDay) {
-            const slots = [];
-            const start = new Date(`2000-01-01T${workingDay.start_time}`);
-            const end = new Date(`2000-01-01T${workingDay.end_time}`);
-            while (start < end) {
-                const timeValue = start.toTimeString().split(' ')[0];
-                const displayLabel = start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-                slots.push({ value: timeValue, label: displayLabel });
-                start.setHours(start.getHours() + 1);
-            }
-            setAvailableTimeSlots(slots);
-        } else {
-            setAvailableTimeSlots([]); // Reset if day is closed
-        }
-     }
-  }, [bookingDate, hours]);
+  const fetchUser = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    setUser(user);
+  };
 
   const fetchAllData = async () => {
     try {
@@ -143,10 +94,28 @@ const ListingInfo = () => {
 
       const { data: imagesData } = await supabase.from("service_provider_images").select("*").eq("provider_id", id);
       setImages(imagesData || []);
+
+      // --- RE-GENERATE TIME SLOTS IF DATE WAS RESTORED (From Back Button) ---
+      if (bookingDate && hoursData.length > 0) {
+          const dayName = bookingDate.toLocaleDateString('en-US', { weekday: 'long' });
+          const workingDay = hoursData.find(h => h.day_of_week === dayName);
+          if (workingDay) {
+              const slots = [];
+              const start = new Date(`2000-01-01T${workingDay.start_time}`);
+              const end = new Date(`2000-01-01T${workingDay.end_time}`);
+              while (start < end) {
+                  const timeValue = start.toTimeString().split(' ')[0];
+                  const displayLabel = start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+                  slots.push({ value: timeValue, label: displayLabel });
+                  start.setHours(start.getHours() + 1);
+              }
+              setAvailableTimeSlots(slots);
+          }
+      }
+
     } catch (error) { console.error("Error fetching data:", error); } finally { setLoading(false); }
   };
 
-  // ... [Keep formatTime, getSocialIcon, getImageGridClass, isDateEnabled, handleDateChange same as before] ...
   const formatTime = (time) => {
     if (!time) return "";
     return new Date(`2000-01-01T${time}`).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
@@ -178,6 +147,25 @@ const ListingInfo = () => {
     setDateError(null);
     setBookingTime(""); 
     setAvailableTimeSlots([]);
+
+    if (!date) return;
+
+    const dayName = date.toLocaleDateString('en-US', { weekday: 'long' });
+    const workingDay = hours.find(h => h.day_of_week === dayName);
+
+    if (workingDay) {
+      const slots = [];
+      const start = new Date(`2000-01-01T${workingDay.start_time}`);
+      const end = new Date(`2000-01-01T${workingDay.end_time}`);
+
+      while (start < end) {
+        const timeValue = start.toTimeString().split(' ')[0];
+        const displayLabel = start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+        slots.push({ value: timeValue, label: displayLabel });
+        start.setHours(start.getHours() + 1);
+      }
+      setAvailableTimeSlots(slots);
+    }
   };
 
   const handleCompleteBooking = () => {
@@ -186,10 +174,14 @@ const ListingInfo = () => {
     if (!user) { setBookingError("You must be logged in to book."); return; }
     if (!bookingDate) { setDateError("Please select a date."); return; }
     if (!bookingTime) { setBookingError("Please select a time slot."); return; }
-    if (numberOfPets < 1) { setBookingError("Please enter at least 1 pet."); return; }
+    
+    // Check if pet count is at least 1 (since default is now 0)
+    if (numberOfPets < 1) { setBookingError("Please select at least 1 pet."); return; } 
 
+    // Convert Date Object to String for passing to next page
     const dateStr = bookingDate.toLocaleDateString('en-CA'); 
 
+    // Redirect to PetDetails page passing the booking data state
     navigate('/pet-details', {
       state: {
         providerId: id,
@@ -201,7 +193,6 @@ const ListingInfo = () => {
     });
   };
 
-  // [Render logic same as before...]
   const ServicesList = () => (
     <>
       {services.length > 0 ? services.map(service => (
@@ -387,7 +378,7 @@ const ListingInfo = () => {
             </label>
             <input 
               type="number" 
-              min="1" 
+              min="0" // Changed min to 0
               max="5"
               value={numberOfPets} 
               onChange={(e) => setNumberOfPets(e.target.value)} 

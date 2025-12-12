@@ -15,19 +15,12 @@ const PetDetails = () => {
   const { state } = useLocation();
   const navigate = useNavigate();
 
-  // We need to fetch the User ID first to ensure we use the correct storage key
-  const [currentUser, setCurrentUser] = useState(null);
-
-  // Fallback Provider ID (from state or storage if user refreshed)
-  // Note: We need a temporary non-user-scoped key just to recover the provider ID if page is refreshed
   const initialProviderId = state?.providerId || sessionStorage.getItem('current_provider_id');
+  const STORAGE_KEY = `booking_draft_${initialProviderId}`;
 
   const [providerServices, setProviderServices] = useState([]);
   const [loadingServices, setLoadingServices] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
-  // We initialize petsData as empty, then populate it once User is loaded
-  const [petsData, setPetsData] = useState([]); 
 
   const emptyPetTemplate = {
     service_id: "", service_name: "", service_type: "", price: "0.00",
@@ -36,79 +29,70 @@ const PetDetails = () => {
     error: null, vaccine_file: null, vaccine_preview: null, illness_file: null, illness_preview: null, emergency_consent: false
   };
 
-  // 1. Fetch User & Initialize Data
-  useEffect(() => {
-    const init = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      setCurrentUser(user);
-
-      if (user && initialProviderId) {
-        const storageKey = `booking_draft_${user.id}_${initialProviderId}`;
-        const savedSession = sessionStorage.getItem(storageKey);
-        
-        if (savedSession) {
-          try {
-            const parsed = JSON.parse(savedSession);
-            if (parsed.petsData && Array.isArray(parsed.petsData) && parsed.petsData.length > 0) {
-               setPetsData(parsed.petsData);
-               return; // Loaded from storage, stop here
-            }
-          } catch (e) { console.error(e); }
+  // --- INITIALIZATION LOGIC (FIXED) ---
+  const initializePetsData = () => {
+    // 1. Retrieve any saved session data (to preserve typed info if possible)
+    let savedPets = [];
+    const savedSession = sessionStorage.getItem(STORAGE_KEY);
+    if (savedSession) {
+      try {
+        const parsed = JSON.parse(savedSession);
+        if (parsed.petsData && Array.isArray(parsed.petsData)) {
+          savedPets = parsed.petsData;
         }
-
-        // If no storage, use State from Navigation
-        if (state && state.numberOfPets) {
-            setPetsData(Array.from({ length: state.numberOfPets }, () => ({ ...emptyPetTemplate })));
-        } else {
-            setPetsData([{ ...emptyPetTemplate }]);
-        }
-      } else {
-          // No user or provider ID yet (should handle redirect/error)
-           setPetsData([{ ...emptyPetTemplate }]);
-      }
-    };
-    init();
-  }, [initialProviderId]); // Run once when ID is resolved
-
-  // 2. Persist Data (Scoped to User)
-  useEffect(() => {
-    if (currentUser && initialProviderId && petsData.length > 0) {
-      const storageKey = `booking_draft_${currentUser.id}_${initialProviderId}`;
-      const currentStorage = sessionStorage.getItem(storageKey) 
-        ? JSON.parse(sessionStorage.getItem(storageKey)) 
-        : {};
-
-      const updatedStorage = {
-        ...currentStorage,
-        providerId: initialProviderId,
-        pets: petsData.length,
-        petsData: petsData
-      };
-
-      if (state?.bookingDate) updatedStorage.date = state.bookingDate;
-      if (state?.bookingTime) updatedStorage.time = state.bookingTime;
-      if (state?.providerName) updatedStorage.providerName = state.providerName;
-
-      sessionStorage.setItem(storageKey, JSON.stringify(updatedStorage));
-      // Keep provider ID generic so we can find the specific key later
-      sessionStorage.setItem('current_provider_id', initialProviderId); 
+      } catch (e) { console.error(e); }
     }
-  }, [petsData, currentUser, initialProviderId, state]);
 
-  // Display Vars
+    // 2. CHECK NAVIGATION STATE FIRST (The user's fresh selection)
+    if (state && state.numberOfPets !== undefined) {
+       const freshCount = parseInt(state.numberOfPets, 10);
+       
+       // Create an array of the requested length. 
+       // If we have saved data for index i, reuse it (preserve inputs). 
+       // If not, use a blank template.
+       return Array.from({ length: freshCount }, (_, i) => {
+          return savedPets[i] ? savedPets[i] : { ...emptyPetTemplate };
+       });
+    }
+
+    // 3. If no navigation state (e.g. Page Refresh), fallback to full session data
+    if (savedPets.length > 0) {
+      return savedPets;
+    }
+
+    // 4. Default fallback
+    return [{ ...emptyPetTemplate }];
+  };
+
+  const [petsData, setPetsData] = useState(initializePetsData);
+
   const getBookingMeta = () => {
-    // We can only reliably get display info if we have the user
-    if(!currentUser || !initialProviderId) return { date: state?.bookingDate, time: state?.bookingTime };
-
-    const storageKey = `booking_draft_${currentUser.id}_${initialProviderId}`;
-    const saved = sessionStorage.getItem(storageKey) ? JSON.parse(sessionStorage.getItem(storageKey)) : {};
+    const saved = sessionStorage.getItem(STORAGE_KEY) ? JSON.parse(sessionStorage.getItem(STORAGE_KEY)) : {};
     return {
         date: state?.bookingDate || saved.date || "Date not selected",
         time: state?.bookingTime || saved.time || "Time not selected",
+        providerName: state?.providerName || saved.providerName || "Provider"
     };
   };
-  const { date: displayDate, time: displayTime } = getBookingMeta();
+  const { date: displayDate, time: displayTime, providerName } = getBookingMeta();
 
+  // --- PERSISTENCE ---
+  useEffect(() => {
+    if (initialProviderId && petsData.length > 0) {
+      const currentStorage = sessionStorage.getItem(STORAGE_KEY) ? JSON.parse(sessionStorage.getItem(STORAGE_KEY)) : {};
+      const updatedStorage = {
+        ...currentStorage,
+        providerId: initialProviderId,
+        providerName: providerName,
+        date: displayDate,
+        time: displayTime,
+        pets: petsData.length,
+        petsData: petsData
+      };
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(updatedStorage));
+      sessionStorage.setItem('current_provider_id', initialProviderId);
+    }
+  }, [petsData, initialProviderId, displayDate, displayTime, providerName]);
 
   useEffect(() => {
     const fetchServices = async () => {
@@ -125,7 +109,18 @@ const PetDetails = () => {
     fetchServices();
   }, [initialProviderId]);
 
-  // --- HELPERS (Same as before) ---
+  // --- HANDLERS ---
+  const handleBack = () => {
+    navigate(`/listing/${initialProviderId}`, {
+        state: {
+            bookingDate: displayDate,
+            bookingTime: displayTime,
+            numberOfPets: petsData.length
+        }
+    });
+  };
+
+  // --- HELPERS (No Changes) ---
   const isWeightInRange = (weight, rangeString) => {
     if (!rangeString) return true; 
     const cleanRange = rangeString.replace(/\s+/g, '').toUpperCase();
@@ -181,7 +176,6 @@ const PetDetails = () => {
     });
   };
 
-  // --- HANDLERS ---
   const handleAddPet = () => setPetsData(prev => [...prev, { ...emptyPetTemplate }]);
   const handleRemovePet = (index) => setPetsData(prev => prev.filter((_, i) => i !== index));
   const handleInputChange = (index, e) => updatePetDataAndPrice(index, { [e.target.name]: e.target.value });
@@ -208,7 +202,6 @@ const PetDetails = () => {
   };
   const calculateTotal = () => petsData.reduce((acc, pet) => acc + parseFloat(pet.price || 0), 0);
 
-  // --- SUBMISSION ---
   const uploadFileToSupabase = async (file, path) => {
       const ext = file.name.split('.').pop();
       const pathName = `${path}/${Math.random().toString(36).substring(2)}_${Date.now()}.${ext}`;
@@ -225,15 +218,16 @@ const PetDetails = () => {
 
     setIsSubmitting(true);
     try {
-        if (!currentUser) throw new Error("User not logged in");
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error("User not logged in");
 
         const { data: booking, error: bError } = await supabase.from('bookings').insert({
-            provider_id: initialProviderId, pet_owner_id: currentUser.id, booking_date: displayDate, time_slot: displayTime, status: 'pending', total_price: calculateTotal()
+            provider_id: initialProviderId, pet_owner_id: user.id, booking_date: displayDate, time_slot: displayTime, status: 'pending', total_price: calculateTotal()
         }).select().single();
         if (bError) throw bError;
 
         for (const [i, pet] of petsData.entries()) {
-            const path = `${currentUser.id}/${booking.id}/pet_${i}`;
+            const path = `${user.id}/${booking.id}/pet_${i}`;
             const vUrl = await uploadFileToSupabase(pet.vaccine_file, path);
             const iUrl = pet.illness_file ? await uploadFileToSupabase(pet.illness_file, path) : null;
 
@@ -251,11 +245,8 @@ const PetDetails = () => {
             if (sError) throw sError;
         }
         
-        // Clear Storage
-        const storageKey = `booking_draft_${currentUser.id}_${initialProviderId}`;
-        sessionStorage.removeItem(storageKey);
+        sessionStorage.removeItem(STORAGE_KEY);
         sessionStorage.removeItem('current_provider_id');
-        
         alert("Booking Confirmed!");
         navigate("/dashboard");
     } catch (err) { console.error(err); alert(err.message); } finally { setIsSubmitting(false); }
@@ -275,7 +266,7 @@ const PetDetails = () => {
       <Header />
       <main className="pet-details-container">
         <div className="page-header-row">
-            <button className="back-link" onClick={() => navigate(-1)}><ChevronLeft size={20} /> Back to Listing</button>
+            <button className="back-link" onClick={handleBack}><ChevronLeft size={20} /> Back to Listing</button>
             <div className="booking-summary-badge">{displayDate} @ {displayTime}</div>
         </div>
 
@@ -289,9 +280,8 @@ const PetDetails = () => {
                             {petsData.length > 1 && <button type="button" className="icon-btn-danger" onClick={() => handleRemovePet(index)}><Trash2 size={18} /></button>}
                         </div>
                     </div>
-                    
                     <div className="pet-form-content">
-                        {/* Service Selection */}
+                        {/* Service */}
                         <div className="form-section-label">Service Selection</div>
                         <div className="form-group">
                             <label className="form-label"><Tag size={14} className="label-icon" /> Choose Service</label>
@@ -303,7 +293,7 @@ const PetDetails = () => {
                             </div>
                         </div>
 
-                        {/* INFO */}
+                        {/* Info */}
                         <div className="form-section-label" style={{marginTop: '1rem'}}>Pet Information</div>
                         <div className="form-row">
                             <div className="form-group"><label className="form-label"><Cat size={14} className="label-icon" /> Pet Type</label><div className="select-wrapper"><select name="pet_type" className="form-input" value={pet.pet_type} onChange={(e) => handleInputChange(index, e)}><option value="Dog">Dog</option><option value="Cat">Cat</option></select></div></div>
@@ -325,12 +315,12 @@ const PetDetails = () => {
                         <div className="form-row">
                             <div className="form-group">
                                 <label className="form-label">Vaccine Record <span className="text-red">*</span></label>
-                                <span className="upload-helper-text">Max 1MB.</span>
+                                <span className="upload-helper-text">Max 1MB. Image only.</span>
                                 {pet.vaccine_preview ? <div className="image-preview-container"><img src={pet.vaccine_preview} alt="Vaccine" className="image-preview"/><button className="remove-file-btn" onClick={()=>removeFile(index, 'vaccine')}><X size={16}/></button></div> : <label className={`upload-box ${!pet.vaccine_file && isSubmitting?'upload-error':''}`}><input type="file" accept="image/*" onChange={(e)=>handleFileUpload(index,'vaccine',e)} hidden required /><div className="upload-content"><UploadCloud size={24} className="upload-icon"/><span>Upload</span></div></label>}
                             </div>
                             <div className="form-group">
                                 <label className="form-label">Illness Record</label>
-                                <span className="upload-helper-text">Optional.</span>
+                                <span className="upload-helper-text">Optional. Max 1MB.</span>
                                 {pet.illness_preview ? <div className="image-preview-container"><img src={pet.illness_preview} alt="Illness" className="image-preview"/><button className="remove-file-btn" onClick={()=>removeFile(index, 'illness')}><X size={16}/></button></div> : <label className="upload-box"><input type="file" accept="image/*" onChange={(e)=>handleFileUpload(index,'illness',e)} hidden /><div className="upload-content"><FileText size={24} className="upload-icon"/><span>Upload</span></div></label>}
                             </div>
                         </div>
@@ -348,13 +338,11 @@ const PetDetails = () => {
                     </div>
                 </div>
             ))}
-
             <div className="add-pet-container">
                 <button type="button" className="add-pet-btn" onClick={handleAddPet}><Plus size={20} /> Add Another Pet</button>
             </div>
         </form>
 
-        {/* PAYMENT BLOCK (Non-Sticky) */}
         <div className="payment-block">
             <div className="payment-summary">
                 <span className="payment-label">Total Estimated Price</span>
@@ -364,11 +352,10 @@ const PetDetails = () => {
                 {isSubmitting ? "Processing..." : "Proceed to Payment"}
             </button>
         </div>
-
       </main>
       <Footer />
     </div>
   );
 };
 
-export default PetDetails; //update 
+export default PetDetails;
