@@ -53,7 +53,8 @@ const ListingInfo = () => {
   const [selectedImageIndex, setSelectedImageIndex] = useState(null);
   
   // --- BOOKING STATES ---
-  // Initialize from location.state if available, otherwise defaults.
+  // We ONLY initialize from location.state (which happens when user clicks "Back" from next page)
+  // We do NOT initialize from sessionStorage anymore.
   const [bookingDate, setBookingDate] = useState(() => 
     location.state?.bookingDate ? new Date(location.state.bookingDate) : null
   );
@@ -62,7 +63,6 @@ const ListingInfo = () => {
     location.state?.bookingTime || ""
   );
   
-  // ⭐ UPDATED: Default value is now 0 if no state is passed.
   const [numberOfPets, setNumberOfPets] = useState(() => 
     location.state?.numberOfPets ? parseInt(location.state.numberOfPets, 10) : 0
   );
@@ -73,12 +73,25 @@ const ListingInfo = () => {
 
   const daysOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
-  useEffect(() => { fetchAllData(); fetchUser(); }, [id]);
+  // 1. Fetch User & Data
+  useEffect(() => {
+    const init = async () => {
+        const { data: { user } } = await supabase.auth.getUser();
+        setUser(user);
+        fetchAllData();
+    };
+    init();
+  }, [id]);
 
-  const fetchUser = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    setUser(user);
-  };
+  // 2. FORCE CLEANUP (New Feature)
+  // This ensures that if there was any old "draft" data hanging around from a previous session,
+  // we wipe it immediately so it doesn't interfere with the logic down the line.
+  useEffect(() => {
+    if (user && id) {
+       const storageKey = `booking_draft_${user.id}_${id}`;
+       sessionStorage.removeItem(storageKey);
+    }
+  }, [user, id]);
 
   const fetchAllData = async () => {
     try {
@@ -95,7 +108,7 @@ const ListingInfo = () => {
       const { data: imagesData } = await supabase.from("service_provider_images").select("*").eq("provider_id", id);
       setImages(imagesData || []);
 
-      // --- RE-GENERATE TIME SLOTS IF DATE WAS RESTORED (From Back Button) ---
+      // Re-gen slots if date exists (e.g. from "Back" button state)
       if (bookingDate && hoursData.length > 0) {
           const dayName = bookingDate.toLocaleDateString('en-US', { weekday: 'long' });
           const workingDay = hoursData.find(h => h.day_of_week === dayName);
@@ -112,7 +125,6 @@ const ListingInfo = () => {
               setAvailableTimeSlots(slots);
           }
       }
-
     } catch (error) { console.error("Error fetching data:", error); } finally { setLoading(false); }
   };
 
@@ -175,13 +187,12 @@ const ListingInfo = () => {
     if (!bookingDate) { setDateError("Please select a date."); return; }
     if (!bookingTime) { setBookingError("Please select a time slot."); return; }
     
-    // Check if pet count is at least 1 (since default is now 0)
+    // Validate positive integer
     if (numberOfPets < 1) { setBookingError("Please select at least 1 pet."); return; } 
 
-    // Convert Date Object to String for passing to next page
     const dateStr = bookingDate.toLocaleDateString('en-CA'); 
 
-    // Redirect to PetDetails page passing the booking data state
+    // We pass state forward, but we do NOT save to SessionStorage here anymore.
     navigate('/pet-details', {
       state: {
         providerId: id,
@@ -193,6 +204,7 @@ const ListingInfo = () => {
     });
   };
 
+  // Services List Helper
   const ServicesList = () => (
     <>
       {services.length > 0 ? services.map(service => (
@@ -378,8 +390,7 @@ const ListingInfo = () => {
             </label>
             <input 
               type="number" 
-              min="0" // Changed min to 0
-              max="5"
+              min="0"
               value={numberOfPets} 
               onChange={(e) => setNumberOfPets(e.target.value)} 
               className="booking-date-input"
