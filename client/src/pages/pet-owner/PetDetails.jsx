@@ -124,7 +124,7 @@ const ReviewBookingModal = ({ isOpen, onClose, onConfirm, pets, date, time, tota
                         Back to Edit
                     </button>
                     <button className="btn-modal-confirm" onClick={onConfirm} disabled={isSubmitting}>
-                        {isSubmitting ? "Processing..." : "Confirm & Pay"}
+                        {isSubmitting ? "Processing..." : "Submit Booking Request"}
                     </button>
                 </div>
             </div>
@@ -669,7 +669,7 @@ const PetDetails = () => {
             <div className="header-right-actions">
                 <div className="booking-summary-badge">{displayDate} @ {displayTime}</div>
                 <div className="top-price-display">
-                    <span className="label">Grand Total:</span>
+                    <span className="label">Total:</span>
                     <span className="value">₱{calculateGrandTotal().toFixed(2)}</span>
                 </div>
                 <button onClick={handleProceedClick} className="top-proceed-btn" disabled={isSubmitting}>
