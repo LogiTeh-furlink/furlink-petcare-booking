@@ -33,7 +33,6 @@ const ReviewBookingModal = ({ isOpen, onClose, onConfirm, pets, date, time, tota
 
                 <div className="review-scroll-area">
                     {pets.map((pet, idx) => {
-                        // FILTER: Only show services that actually have an ID selected
                         const validServices = pet.services.filter(s => s.id && s.service_name);
 
                         return (
@@ -190,7 +189,6 @@ const PetDetails = () => {
           const newPetsArray = Array.from({ length: targetCount }, (_, i) => sessionPets[i] ? sessionPets[i] : { ...emptyPetTemplate });
           setPetsData(newPetsArray);
       } else if (parsedSession && Array.isArray(parsedSession.petsData)) {
-          // CRITICAL FIX: Sanitize File Objects
           const sanitizedPets = parsedSession.petsData.map(p => ({
             ...p,
             vaccine_file: null,
@@ -275,16 +273,12 @@ const PetDetails = () => {
     } catch (e) { return false; }
   };
 
-  // ============================================
-  // UPDATED: PRECISE ERROR DETECTION
-  // ============================================
   const getServicePriceAndSize = (serviceId, petType, weight) => {
     const service = providerServices.find(s => s.id === serviceId);
     if (!service || !service.service_options) return { price: "0.00", size: "", matched: false, errorReason: null };
     
     const userType = (petType || "Dog").toLowerCase();
     
-    // 1. Try to find a perfect match
     const perfectMatch = service.service_options.find(opt => {
       const dbType = (opt.pet_type || "").toLowerCase();
       return (dbType === userType || dbType === 'dog-cat') && isWeightInRange(weight, opt.weight_range);
@@ -296,8 +290,6 @@ const PetDetails = () => {
         return { price: parseFloat(perfectMatch.price).toFixed(2), size: displaySize, matched: true, errorReason: null };
     }
 
-    // 2. If no match, figure out why (Type mismatch vs Weight mismatch)
-    // Check if ANY option exists for this Pet Type
     const typeMatchExists = service.service_options.some(opt => {
         const dbType = (opt.pet_type || "").toLowerCase();
         return (dbType === userType || dbType === 'dog-cat');
@@ -307,7 +299,6 @@ const PetDetails = () => {
         return { price: "0.00", size: "N/A", matched: false, errorReason: `Service unavailable for ${petType}s` };
     }
 
-    // If type exists, it must be the weight
     return { price: "0.00", size: "N/A", matched: false, errorReason: `Service unavailable for ${weight}kg` };
   };
 
@@ -330,7 +321,6 @@ const PetDetails = () => {
                 petTotalPrice += parseFloat(price);
                 return { ...srv, price };
             } else if (currentPet.weight_kg && parseFloat(currentPet.weight_kg) > 0) {
-                 // UPDATED: Use specific error reason
                  hasError = errorReason || `Service unavailable for this pet.`;
                  return { ...srv, price: "0.00" };
             }
@@ -429,7 +419,6 @@ const PetDetails = () => {
               targetPet.error = null;
           } else if (targetPet.weight_kg && parseFloat(targetPet.weight_kg) > 0) {
               newServices[serviceIndex].price = "0.00";
-              // UPDATED: Use specific error reason
               targetPet.error = errorReason || "Service unavailable for this pet.";
           }
 
@@ -480,7 +469,6 @@ const PetDetails = () => {
   const calculateGrandTotal = () => petsData.reduce((acc, pet) => acc + parseFloat(pet.total_price_display || 0), 0);
   
   const uploadFileToSupabase = async (file, path) => {
-      // SAFETY CHECK: Prevent crash if file object is invalid
       if (!file || !file.name) {
           throw new Error("Missing file data. Please re-upload your documents.");
       }
@@ -500,7 +488,6 @@ const PetDetails = () => {
   };
 
   const isPetFormComplete = (pet) => {
-    // Check if at least one VALID service is selected (has an ID)
     const hasService = pet.services.some(s => s.id && s.id !== "");
     const isFileValid = pet.vaccine_file && pet.vaccine_file.name;
     return (hasService && pet.pet_name.trim() && pet.breed.trim() && pet.birth_date && pet.weight_kg && parseFloat(pet.weight_kg) > 0 && pet.behavior.trim() && isFileValid && !pet.error);
@@ -570,7 +557,6 @@ const PetDetails = () => {
             if (pError) throw pError;
 
             for (const srv of pet.services) {
-                // FILTER: Only insert service if ID exists (Skips "No Service Selected")
                 if (srv.id && srv.id !== "") { 
                     const { error: sError } = await supabase.from('booking_services').insert({
                         booking_pet_id: pRec.id, 
@@ -685,9 +671,9 @@ const PetDetails = () => {
                                                     value={service.id} 
                                                     onChange={(e) => handleServiceSelect(index, sIndex, e)} 
                                                     disabled={loadingServices} 
-                                                    required={sIndex === 0} // Only first service is mandatory
+                                                    required={sIndex === 0} 
                                                 >
-                                                    <option value="">-- Select Service --</option>
+                                                    <option value="" disabled hidden>Select Service</option>
                                                     {getAvailableOptions(index, sIndex).map(s => (
                                                         <option key={s.id} value={s.id}>
                                                             {s.name} ({s.type})
@@ -753,10 +739,10 @@ const PetDetails = () => {
                         <div className="form-section-label" style={{marginTop: '1rem'}}>Medical Records</div>
                         <div className="form-row">
                             <div className="form-group"><label className="form-label">Vaccine Record <span className="required-asterisk">*</span></label><span className="upload-helper-text">Max 1MB. Image only.</span>
-                                {pet.vaccine_preview ? <div className="image-preview-container"><img src={pet.vaccine_preview} alt="Vaccine" className="image-preview"/><button type="button" className="remove-file-btn" onClick={()=>removeFile(index, 'vaccine')}><X size={16}/></button></div> : <label className={`upload-box ${!pet.vaccine_file && isSubmitting?'upload-error':''}`}><input type="file" accept="image/*" onChange={(e)=>handleFileUpload(index,'vaccine',e)} hidden required /><div className="upload-content"><UploadCloud size={24} className="upload-icon"/><span>Upload</span></div></label>}
+                                {pet.vaccine_preview ? <div className="image-preview-container"><img src={pet.vaccine_preview} alt="Vaccine" className="image-preview"/><button type="button" className="remove-file-btn" onClick={()=>removeFile(index, 'vaccine')}><X size={16}/></button></div> : <label className={`upload-box ${!pet.vaccine_file && isSubmitting?'upload-error':''}`}><input type="file" accept="image/*" onChange={(e)=>handleFileUpload(index,'vaccine',e)} hidden required /><div className="upload-content" style={{display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%'}}><UploadCloud size={24} className="upload-icon"/><span>Upload</span></div></label>}
                             </div>
                             <div className="form-group"><label className="form-label">Illness Record (Optional)</label><span className="upload-helper-text">Optional. Max 1MB.</span>
-                                {pet.illness_preview ? <div className="image-preview-container"><img src={pet.illness_preview} alt="Illness" className="image-preview"/><button type="button" className="remove-file-btn" onClick={()=>removeFile(index, 'illness')}><X size={16}/></button></div> : <label className="upload-box"><input type="file" accept="image/*" onChange={(e)=>handleFileUpload(index,'illness',e)} hidden /><div className="upload-content"><FileText size={24} className="upload-icon"/><span>Upload</span></div></label>}
+                                {pet.illness_preview ? <div className="image-preview-container"><img src={pet.illness_preview} alt="Illness" className="image-preview"/><button type="button" className="remove-file-btn" onClick={()=>removeFile(index, 'illness')}><X size={16}/></button></div> : <label className="upload-box"><input type="file" accept="image/*" onChange={(e)=>handleFileUpload(index,'illness',e)} hidden /><div className="upload-content" style={{display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%'}}><FileText size={24} className="upload-icon"/><span>Upload</span></div></label>}
                             </div>
                         </div>
 
