@@ -5,7 +5,7 @@ import {
   PawPrint, Calendar, Weight, 
   Dna, Activity, Tag, Cat, AlertCircle,
   UploadCloud, X, FileText, Scissors, Trash2, Plus, ArrowRight,
-  Clock, FileCheck, ShieldCheck, ArrowLeft, Minus
+  Clock, FileCheck, ShieldCheck, ArrowLeft, Info
 } from "lucide-react";
 import Header from "../../components/Header/LoggedInNavbar";
 import Footer from "../../components/Footer/Footer";
@@ -145,12 +145,14 @@ const PetDetails = () => {
   const [providerServices, setProviderServices] = useState([]);
   const [loadingServices, setLoadingServices] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [attemptedSubmit, setAttemptedSubmit] = useState(false); 
   
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [petsData, setPetsData] = useState([]); 
   const [isInitializing, setIsInitializing] = useState(true); 
 
   const [globalError, setGlobalError] = useState(null);
+  const [globalInfo, setGlobalInfo] = useState(null); 
 
   const emptyPetTemplate = {
     services: [{ _tempId: Date.now(), id: "", service_name: "", service_type: "", price: "0.00" }], 
@@ -162,8 +164,16 @@ const PetDetails = () => {
 
   const triggerError = (msg) => {
     setGlobalError(msg);
+    setGlobalInfo(null);
     window.scrollTo({ top: 0, behavior: 'smooth' });
-    setTimeout(() => setGlobalError(null), 5000);
+    setTimeout(() => setGlobalError(null), 8000);
+  };
+
+  const triggerInfo = (msg) => {
+    setGlobalInfo(msg);
+    setGlobalError(null);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setTimeout(() => setGlobalInfo(null), 8000);
   };
 
   useEffect(() => {
@@ -183,21 +193,39 @@ const PetDetails = () => {
         try { parsedSession = JSON.parse(savedSession); } catch (e) { console.error(e); }
       }
 
-      if (state && state.numberOfPets !== undefined) {
-          const targetCount = parseInt(state.numberOfPets, 10);
-          const sessionPets = parsedSession?.petsData || [];
-          const newPetsArray = Array.from({ length: targetCount }, (_, i) => sessionPets[i] ? sessionPets[i] : { ...emptyPetTemplate });
-          setPetsData(newPetsArray);
-      } else if (parsedSession && Array.isArray(parsedSession.petsData)) {
-          const sanitizedPets = parsedSession.petsData.map(p => ({
-            ...p,
-            vaccine_file: null,
-            vaccine_preview: null, 
-            illness_file: null,
-            illness_preview: null
+      // Helper to strip ghost images from session data
+      const cleanSessionPets = (pets) => {
+          if (!Array.isArray(pets)) return [];
+          return pets.map(p => ({
+              ...p,
+              vaccine_file: null,
+              vaccine_preview: null, // Clear preview string
+              illness_file: null,
+              illness_preview: null  // Clear preview string
           }));
+      };
+
+      if (state && state.numberOfPets !== undefined) {
+          // SCENARIO 1: Coming from Listing Info (Passed State)
+          const targetCount = parseInt(state.numberOfPets, 10);
+          
+          // CRITICAL FIX: Clean the session data BEFORE using it
+          const rawSessionPets = parsedSession?.petsData || [];
+          const safeSessionPets = cleanSessionPets(rawSessionPets);
+
+          const newPetsArray = Array.from({ length: targetCount }, (_, i) => safeSessionPets[i] ? safeSessionPets[i] : { ...emptyPetTemplate });
+          
+          setPetsData(newPetsArray);
+          // Only show info if we actually restored data
+          if (rawSessionPets.length > 0) triggerInfo("Welcome back! Please re-upload your medical images.");
+
+      } else if (parsedSession && Array.isArray(parsedSession.petsData)) {
+          // SCENARIO 2: Reloading Page (No State)
+          const sanitizedPets = cleanSessionPets(parsedSession.petsData);
           setPetsData(sanitizedPets);
+          triggerInfo("Welcome back! Please re-upload your medical images.");
       } else {
+          // SCENARIO 3: Fresh Start
           setPetsData([{ ...emptyPetTemplate }]);
       }
       setIsInitializing(false);
@@ -246,7 +274,7 @@ const PetDetails = () => {
               time: displayTime,
               providerName: getBookingMeta().providerName,
               pets: petsData.length,
-              petsData: petsData
+              petsData: petsData 
           };
           
           sessionStorage.setItem(userStorageKey, JSON.stringify(updatedStorage));
@@ -454,7 +482,7 @@ const PetDetails = () => {
         return; 
     }
     setPetsData(prev => { const upd = [...prev]; upd[index] = { ...upd[index], [`${type}_file`]: file, [`${type}_preview`]: URL.createObjectURL(file) }; return upd; });
-    setGlobalError(null);
+    setGlobalError(null); 
   };
 
   const removeFile = (index, type) => {
@@ -489,21 +517,32 @@ const PetDetails = () => {
 
   const isPetFormComplete = (pet) => {
     const hasService = pet.services.some(s => s.id && s.id !== "");
+    // Check if FILE OBJECT exists (not just preview string)
     const isFileValid = pet.vaccine_file && pet.vaccine_file.name;
     return (hasService && pet.pet_name.trim() && pet.breed.trim() && pet.birth_date && pet.weight_kg && parseFloat(pet.weight_kg) > 0 && pet.behavior.trim() && isFileValid && !pet.error);
   };
 
   const handleProceedClick = (e) => {
     e.preventDefault();
+    setAttemptedSubmit(true);
+
     if (petsData.length === 0) { 
         triggerError("Please add at least one pet."); 
         return; 
     }
-    const incompleteForms = petsData.filter((pet) => !isPetFormComplete(pet));
-    if (incompleteForms.length > 0) { 
-        triggerError("Please complete all required fields (*) and select at least one valid service per pet."); 
-        return; 
+
+    const incompletePets = petsData.filter(pet => !isPetFormComplete(pet));
+    
+    if (incompletePets.length > 0) {
+        const missingFile = incompletePets.find(p => !p.vaccine_file || !p.vaccine_file.name);
+        if (missingFile) {
+            triggerError(`Missing vaccine record for ${missingFile.pet_name || 'Pet ' + (petsData.indexOf(missingFile) + 1)}.`);
+        } else {
+            triggerError("Please complete all required fields (*) and select at least one valid service per pet.");
+        }
+        return;
     }
+    
     setGlobalError(null);
     setShowReviewModal(true);
   };
@@ -601,6 +640,20 @@ const PetDetails = () => {
                 <AlertCircle size={20} />
                 <span style={{flex: 1, fontSize: '0.95rem', fontWeight: 500}}>{globalError}</span>
                 <button onClick={() => setGlobalError(null)} style={{background: 'transparent', border: 'none', cursor: 'pointer', color: '#b91c1c'}}>
+                    <X size={18}/>
+                </button>
+            </div>
+        )}
+
+        {globalInfo && (
+            <div className="global-error-banner" style={{
+                background: '#dbeafe', color: '#1e40af', padding: '12px', 
+                borderRadius: '8px', marginBottom: '16px', display: 'flex', 
+                alignItems: 'center', gap: '10px', border: '1px solid #93c5fd'
+            }}>
+                <Info size={20} />
+                <span style={{flex: 1, fontSize: '0.95rem', fontWeight: 500}}>{globalInfo}</span>
+                <button onClick={() => setGlobalInfo(null)} style={{background: 'transparent', border: 'none', cursor: 'pointer', color: '#1e40af'}}>
                     <X size={18}/>
                 </button>
             </div>
@@ -739,7 +792,8 @@ const PetDetails = () => {
                         <div className="form-section-label" style={{marginTop: '1rem'}}>Medical Records</div>
                         <div className="form-row">
                             <div className="form-group"><label className="form-label">Vaccine Record <span className="required-asterisk">*</span></label><span className="upload-helper-text">Max 1MB. Image only.</span>
-                                {pet.vaccine_preview ? <div className="image-preview-container"><img src={pet.vaccine_preview} alt="Vaccine" className="image-preview"/><button type="button" className="remove-file-btn" onClick={()=>removeFile(index, 'vaccine')}><X size={16}/></button></div> : <label className={`upload-box ${!pet.vaccine_file && isSubmitting?'upload-error':''}`}><input type="file" accept="image/*" onChange={(e)=>handleFileUpload(index,'vaccine',e)} hidden required /><div className="upload-content" style={{display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%'}}><UploadCloud size={24} className="upload-icon"/><span>Upload</span></div></label>}
+                                {/* Add conditional class to create red border if missing and attempted submit */}
+                                {pet.vaccine_preview ? <div className="image-preview-container"><img src={pet.vaccine_preview} alt="Vaccine" className="image-preview"/><button type="button" className="remove-file-btn" onClick={()=>removeFile(index, 'vaccine')}><X size={16}/></button></div> : <label className={`upload-box ${!pet.vaccine_file && attemptedSubmit ? 'upload-error-border' : ''}`}><input type="file" accept="image/*" onChange={(e)=>handleFileUpload(index,'vaccine',e)} hidden required /><div className="upload-content" style={{display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%'}}><UploadCloud size={24} className="upload-icon"/><span>Upload</span></div></label>}
                             </div>
                             <div className="form-group"><label className="form-label">Illness Record (Optional)</label><span className="upload-helper-text">Optional. Max 1MB.</span>
                                 {pet.illness_preview ? <div className="image-preview-container"><img src={pet.illness_preview} alt="Illness" className="image-preview"/><button type="button" className="remove-file-btn" onClick={()=>removeFile(index, 'illness')}><X size={16}/></button></div> : <label className="upload-box"><input type="file" accept="image/*" onChange={(e)=>handleFileUpload(index,'illness',e)} hidden /><div className="upload-content" style={{display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%'}}><FileText size={24} className="upload-icon"/><span>Upload</span></div></label>}
