@@ -32,83 +32,92 @@ const ReviewBookingModal = ({ isOpen, onClose, onConfirm, pets, date, time, tota
                 </div>
 
                 <div className="review-scroll-area">
-                    {pets.map((pet, idx) => (
-                        <div key={idx} className="review-pet-card detailed-card">
-                            <div className="review-card-header">
-                                <h3>Pet {idx + 1}: {pet.pet_name}</h3>
-                                <span className="review-price">₱{pet.total_price_display}</span>
-                            </div>
+                    {pets.map((pet, idx) => {
+                        // FILTER: Only show services that actually have an ID selected
+                        const validServices = pet.services.filter(s => s.id && s.service_name);
 
-                            <div className="review-grid-section">
-                                <div className="review-group full-width">
-                                    <label>Selected Services</label>
-                                    <div className="value highlight">
-                                        {pet.services.map((s, i) => (
-                                            <div key={i}>• {s.service_name || "No Service Selected"} ({s.service_type}) - ₱{s.price}</div>
-                                        ))}
-                                    </div>
+                        return (
+                            <div key={idx} className="review-pet-card detailed-card">
+                                <div className="review-card-header">
+                                    <h3>Pet {idx + 1}: {pet.pet_name}</h3>
+                                    <span className="review-price">₱{pet.total_price_display}</span>
                                 </div>
 
-                                <div className="review-group">
-                                    <label>Type & Breed</label>
-                                    <div className="value">{pet.pet_type} - {pet.breed}</div>
-                                </div>
-                                <div className="review-group">
-                                    <label>Gender & DOB</label>
-                                    <div className="value">{pet.gender}, {pet.birth_date}</div>
-                                </div>
-                                <div className="review-group">
-                                    <label>Physical</label>
-                                    <div className="value">{pet.weight_kg}kg ({pet.calculated_size})</div>
-                                </div>
-                                
-                                <div className="review-group full-width">
-                                    <label>Behavior Note</label>
-                                    <div className="value text-block">{pet.behavior}</div>
-                                </div>
-                                {pet.grooming_specifications && (
+                                <div className="review-grid-section">
                                     <div className="review-group full-width">
-                                        <label>Grooming Specs</label>
-                                        <div className="value text-block">{pet.grooming_specifications}</div>
+                                        <label>Selected Services</label>
+                                        <div className="value highlight">
+                                            {validServices.length > 0 ? (
+                                                validServices.map((s, i) => (
+                                                    <div key={i}>• {s.service_name} ({s.service_type}) - ₱{s.price}</div>
+                                                ))
+                                            ) : (
+                                                <div style={{color: '#ef4444'}}>• No valid services selected</div>
+                                            )}
+                                        </div>
                                     </div>
-                                )}
 
-                                <div className="review-divider">Attachments</div>
-                                
-                                <div className="review-file-row">
-                                    <div className="file-preview-item">
-                                        <span className="file-label">Vaccine Record</span>
-                                        {pet.vaccine_preview ? (
-                                            <div className="thumb-container">
-                                                <img src={pet.vaccine_preview} alt="Vaccine" />
-                                            </div>
-                                        ) : (
-                                            <span className="missing-file">Missing</span>
-                                        )}
+                                    <div className="review-group">
+                                        <label>Type & Breed</label>
+                                        <div className="value">{pet.pet_type} - {pet.breed}</div>
+                                    </div>
+                                    <div className="review-group">
+                                        <label>Gender & DOB</label>
+                                        <div className="value">{pet.gender}, {pet.birth_date}</div>
+                                    </div>
+                                    <div className="review-group">
+                                        <label>Physical</label>
+                                        <div className="value">{pet.weight_kg}kg ({pet.calculated_size})</div>
                                     </div>
                                     
-                                    <div className="file-preview-item">
-                                        <span className="file-label">Illness Record</span>
-                                        {pet.illness_preview ? (
-                                            <div className="thumb-container">
-                                                <img src={pet.illness_preview} alt="Illness" />
-                                            </div>
+                                    <div className="review-group full-width">
+                                        <label>Behavior Note</label>
+                                        <div className="value text-block">{pet.behavior}</div>
+                                    </div>
+                                    {pet.grooming_specifications && (
+                                        <div className="review-group full-width">
+                                            <label>Grooming Specs</label>
+                                            <div className="value text-block">{pet.grooming_specifications}</div>
+                                        </div>
+                                    )}
+
+                                    <div className="review-divider">Attachments</div>
+                                    
+                                    <div className="review-file-row">
+                                        <div className="file-preview-item">
+                                            <span className="file-label">Vaccine Record</span>
+                                            {pet.vaccine_preview ? (
+                                                <div className="thumb-container">
+                                                    <img src={pet.vaccine_preview} alt="Vaccine" />
+                                                </div>
+                                            ) : (
+                                                <span className="missing-file">Missing</span>
+                                            )}
+                                        </div>
+                                        
+                                        <div className="file-preview-item">
+                                            <span className="file-label">Illness Record</span>
+                                            {pet.illness_preview ? (
+                                                <div className="thumb-container">
+                                                    <img src={pet.illness_preview} alt="Illness" />
+                                                </div>
+                                            ) : (
+                                                <span className="no-file">None provided</span>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <div className="review-consent-status">
+                                        {pet.emergency_consent ? (
+                                            <span className="consent-yes"><ShieldCheck size={14}/> Emergency Transport Consented</span>
                                         ) : (
-                                            <span className="no-file">None provided</span>
+                                            <span className="consent-no"><AlertCircle size={14}/> No Emergency Consent</span>
                                         )}
                                     </div>
                                 </div>
-
-                                <div className="review-consent-status">
-                                    {pet.emergency_consent ? (
-                                        <span className="consent-yes"><ShieldCheck size={14}/> Emergency Transport Consented</span>
-                                    ) : (
-                                        <span className="consent-no"><AlertCircle size={14}/> No Emergency Consent</span>
-                                    )}
-                                </div>
                             </div>
-                        </div>
-                    ))}
+                        );
+                    })}
                 </div>
 
                 <div className="modal-actions">
@@ -182,8 +191,6 @@ const PetDetails = () => {
           setPetsData(newPetsArray);
       } else if (parsedSession && Array.isArray(parsedSession.petsData)) {
           // CRITICAL FIX: Sanitize File Objects
-          // Files cannot be restored from sessionStorage (they become empty objects).
-          // We must clear them to force re-upload, otherwise submit crashes.
           const sanitizedPets = parsedSession.petsData.map(p => ({
             ...p,
             vaccine_file: null,
@@ -268,22 +275,40 @@ const PetDetails = () => {
     } catch (e) { return false; }
   };
 
+  // ============================================
+  // UPDATED: PRECISE ERROR DETECTION
+  // ============================================
   const getServicePriceAndSize = (serviceId, petType, weight) => {
     const service = providerServices.find(s => s.id === serviceId);
-    if (!service || !service.service_options) return { price: "0.00", size: "", matched: false };
+    if (!service || !service.service_options) return { price: "0.00", size: "", matched: false, errorReason: null };
     
     const userType = (petType || "Dog").toLowerCase();
-    const matchedOption = service.service_options.find(opt => {
+    
+    // 1. Try to find a perfect match
+    const perfectMatch = service.service_options.find(opt => {
       const dbType = (opt.pet_type || "").toLowerCase();
       return (dbType === userType || dbType === 'dog-cat') && isWeightInRange(weight, opt.weight_range);
     });
 
-    if (matchedOption) {
-        const rawSize = matchedOption.size.replace(/_/g, ' ');
+    if (perfectMatch) {
+        const rawSize = perfectMatch.size.replace(/_/g, ' ');
         const displaySize = (rawSize.toLowerCase() === 'all') ? 'Standard' : rawSize;
-        return { price: parseFloat(matchedOption.price).toFixed(2), size: displaySize, matched: true };
+        return { price: parseFloat(perfectMatch.price).toFixed(2), size: displaySize, matched: true, errorReason: null };
     }
-    return { price: "0.00", size: "N/A", matched: false };
+
+    // 2. If no match, figure out why (Type mismatch vs Weight mismatch)
+    // Check if ANY option exists for this Pet Type
+    const typeMatchExists = service.service_options.some(opt => {
+        const dbType = (opt.pet_type || "").toLowerCase();
+        return (dbType === userType || dbType === 'dog-cat');
+    });
+
+    if (!typeMatchExists) {
+        return { price: "0.00", size: "N/A", matched: false, errorReason: `Service unavailable for ${petType}s` };
+    }
+
+    // If type exists, it must be the weight
+    return { price: "0.00", size: "N/A", matched: false, errorReason: `Service unavailable for ${weight}kg` };
   };
 
   const updatePetData = (index, updates) => {
@@ -298,14 +323,15 @@ const PetDetails = () => {
         const updatedServices = currentPet.services.map(srv => {
             if (!srv.id) return srv; 
 
-            const { price, size, matched } = getServicePriceAndSize(srv.id, currentPet.pet_type, currentPet.weight_kg);
+            const { price, size, matched, errorReason } = getServicePriceAndSize(srv.id, currentPet.pet_type, currentPet.weight_kg);
             
             if (matched) {
                 finalCalculatedSize = size; 
                 petTotalPrice += parseFloat(price);
                 return { ...srv, price };
             } else if (currentPet.weight_kg && parseFloat(currentPet.weight_kg) > 0) {
-                 hasError = `Service "${srv.service_name}" unavailable for this weight.`;
+                 // UPDATED: Use specific error reason
+                 hasError = errorReason || `Service unavailable for this pet.`;
                  return { ...srv, price: "0.00" };
             }
             return srv;
@@ -396,14 +422,15 @@ const PetDetails = () => {
           
           newServices[serviceIndex] = newServiceObj;
           
-          const { price, size, matched } = getServicePriceAndSize(selectedId, targetPet.pet_type, targetPet.weight_kg);
+          const { price, size, matched, errorReason } = getServicePriceAndSize(selectedId, targetPet.pet_type, targetPet.weight_kg);
           if (matched) {
               newServices[serviceIndex].price = price;
               targetPet.calculated_size = size;
               targetPet.error = null;
           } else if (targetPet.weight_kg && parseFloat(targetPet.weight_kg) > 0) {
               newServices[serviceIndex].price = "0.00";
-              targetPet.error = "Service unavailable for this weight.";
+              // UPDATED: Use specific error reason
+              targetPet.error = errorReason || "Service unavailable for this pet.";
           }
 
           targetPet.services = newServices;
@@ -473,8 +500,8 @@ const PetDetails = () => {
   };
 
   const isPetFormComplete = (pet) => {
-    const hasService = pet.services.some(s => s.id !== "");
-    // Check if vaccine_file is actually a valid object, not just present
+    // Check if at least one VALID service is selected (has an ID)
+    const hasService = pet.services.some(s => s.id && s.id !== "");
     const isFileValid = pet.vaccine_file && pet.vaccine_file.name;
     return (hasService && pet.pet_name.trim() && pet.breed.trim() && pet.birth_date && pet.weight_kg && parseFloat(pet.weight_kg) > 0 && pet.behavior.trim() && isFileValid && !pet.error);
   };
@@ -487,7 +514,7 @@ const PetDetails = () => {
     }
     const incompleteForms = petsData.filter((pet) => !isPetFormComplete(pet));
     if (incompleteForms.length > 0) { 
-        triggerError("Please complete all required fields (*). If you navigated away, please re-upload vaccine records."); 
+        triggerError("Please complete all required fields (*) and select at least one valid service per pet."); 
         return; 
     }
     setGlobalError(null);
@@ -543,7 +570,8 @@ const PetDetails = () => {
             if (pError) throw pError;
 
             for (const srv of pet.services) {
-                if (srv.id) { 
+                // FILTER: Only insert service if ID exists (Skips "No Service Selected")
+                if (srv.id && srv.id !== "") { 
                     const { error: sError } = await supabase.from('booking_services').insert({
                         booking_pet_id: pRec.id, 
                         service_id: srv.id, 
@@ -657,7 +685,7 @@ const PetDetails = () => {
                                                     value={service.id} 
                                                     onChange={(e) => handleServiceSelect(index, sIndex, e)} 
                                                     disabled={loadingServices} 
-                                                    required
+                                                    required={sIndex === 0} // Only first service is mandatory
                                                 >
                                                     <option value="">-- Select Service --</option>
                                                     {getAvailableOptions(index, sIndex).map(s => (
