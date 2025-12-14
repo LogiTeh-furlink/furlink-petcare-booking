@@ -5,7 +5,7 @@ import {
   PawPrint, Calendar, Weight, 
   Dna, Activity, Tag, Cat, AlertCircle,
   UploadCloud, X, FileText, Scissors, Trash2, Plus, ArrowRight,
-  Clock, FileCheck, ShieldCheck, ArrowLeft, Minus, CheckCircle
+  Clock, FileCheck, ShieldCheck, ArrowLeft, Minus
 } from "lucide-react";
 import Header from "../../components/Header/LoggedInNavbar";
 import Footer from "../../components/Footer/Footer";
@@ -142,11 +142,9 @@ const PetDetails = () => {
   const [petsData, setPetsData] = useState([]); 
   const [isInitializing, setIsInitializing] = useState(true); 
 
-  // New State for In-Page Error Handling
   const [globalError, setGlobalError] = useState(null);
 
   const emptyPetTemplate = {
-    // We use a random ID for keys to prevent React rendering issues when removing items
     services: [{ _tempId: Date.now(), id: "", service_name: "", service_type: "", price: "0.00" }], 
     total_price_display: "0.00",
     pet_type: "Dog", pet_name: "", birth_date: "", weight_kg: "", calculated_size: "",
@@ -154,11 +152,9 @@ const PetDetails = () => {
     error: null, vaccine_file: null, vaccine_preview: null, illness_file: null, illness_preview: null, emergency_consent: false
   };
 
-  // Helper to trigger error and scroll to top
   const triggerError = (msg) => {
     setGlobalError(msg);
     window.scrollTo({ top: 0, behavior: 'smooth' });
-    // Optional: Auto-clear error after 5 seconds
     setTimeout(() => setGlobalError(null), 5000);
   };
 
@@ -185,7 +181,17 @@ const PetDetails = () => {
           const newPetsArray = Array.from({ length: targetCount }, (_, i) => sessionPets[i] ? sessionPets[i] : { ...emptyPetTemplate });
           setPetsData(newPetsArray);
       } else if (parsedSession && Array.isArray(parsedSession.petsData)) {
-          setPetsData(parsedSession.petsData);
+          // CRITICAL FIX: Sanitize File Objects
+          // Files cannot be restored from sessionStorage (they become empty objects).
+          // We must clear them to force re-upload, otherwise submit crashes.
+          const sanitizedPets = parsedSession.petsData.map(p => ({
+            ...p,
+            vaccine_file: null,
+            vaccine_preview: null, 
+            illness_file: null,
+            illness_preview: null
+          }));
+          setPetsData(sanitizedPets);
       } else {
           setPetsData([{ ...emptyPetTemplate }]);
       }
@@ -244,7 +250,7 @@ const PetDetails = () => {
   };
 
   const isWeightInRange = (weight, rangeString) => {
-    if (!rangeString) return true; 
+    if (!rangeString || typeof rangeString !== 'string') return true; 
     const cleanRange = rangeString.replace(/\s+/g, '').toUpperCase();
     if (cleanRange === 'N/A' || cleanRange === 'ALL' || cleanRange === '') return true;
     const w = parseFloat(weight);
@@ -345,9 +351,35 @@ const PetDetails = () => {
       });
   };
 
+  const getAvailableOptions = (petIndex, currentServiceRowIndex) => {
+      const currentPet = petsData[petIndex];
+      const otherRowsHavePackage = currentPet.services.some((s, idx) => {
+          return idx !== currentServiceRowIndex && s.service_type && s.service_type.toLowerCase() === 'package';
+      });
+
+      return providerServices.filter(s => {
+          if (otherRowsHavePackage && s.type && s.type.toLowerCase() === 'package') {
+              return false;
+          }
+          return true;
+      });
+  };
+
   const handleServiceSelect = (petIndex, serviceIndex, e) => {
       const selectedId = e.target.value;
       const sObj = providerServices.find(s => s.id === selectedId);
+      
+      if (sObj?.type && sObj.type.toLowerCase() === 'package') {
+          const currentPet = petsData[petIndex];
+          const hasExistingPackage = currentPet.services.some(
+              (s, idx) => idx !== serviceIndex && s.service_type && s.service_type.toLowerCase() === 'package'
+          );
+          
+          if (hasExistingPackage) {
+              triggerError("Only one Package service is allowed per pet.");
+              return; 
+          }
+      }
       
       setPetsData(prev => {
           const newPetsData = [...prev];
@@ -385,18 +417,8 @@ const PetDetails = () => {
       });
   };
 
-  const getAvailableOptions = (petIndex, currentServiceId) => {
-      const currentPet = petsData[petIndex];
-      const hasPackage = currentPet.services.some(s => s.service_type === 'Package' && s.id !== currentServiceId);
-      return providerServices.filter(s => {
-          if (hasPackage && s.type === 'Package') return false;
-          return true;
-      });
-  };
-
   const handleAddPet = () => setPetsData(prev => [...prev, { ...emptyPetTemplate, services: [{_tempId: Date.now(), id: "", service_name: "", service_type: "", price: "0.00"}] }]);
   const handleRemovePet = (index) => {
-    // Replaced alert with triggerError
     if (petsData.length === 1) { 
         triggerError("You must have at least one pet."); 
         return; 
@@ -407,7 +429,6 @@ const PetDetails = () => {
   const handleFileUpload = (index, type, e) => {
     const file = e.target.files[0];
     if (!file) return;
-    // Replaced alert with triggerError
     if (!file.type.startsWith('image/')) { 
         triggerError('Invalid file format. Please upload images only.'); 
         return; 
@@ -417,7 +438,6 @@ const PetDetails = () => {
         return; 
     }
     setPetsData(prev => { const upd = [...prev]; upd[index] = { ...upd[index], [`${type}_file`]: file, [`${type}_preview`]: URL.createObjectURL(file) }; return upd; });
-    // Clear global errors on successful upload to be helpful
     setGlobalError(null);
   };
 
@@ -433,17 +453,30 @@ const PetDetails = () => {
   const calculateGrandTotal = () => petsData.reduce((acc, pet) => acc + parseFloat(pet.total_price_display || 0), 0);
   
   const uploadFileToSupabase = async (file, path) => {
+      // SAFETY CHECK: Prevent crash if file object is invalid
+      if (!file || !file.name) {
+          throw new Error("Missing file data. Please re-upload your documents.");
+      }
+
       const ext = file.name.split('.').pop();
       const pathName = `${path}/${Math.random().toString(36).substring(2)}_${Date.now()}.${ext}`;
+      
       const { error } = await supabase.storage.from('pet_documents').upload(pathName, file);
-      if (error) throw error;
+      
+      if (error) {
+          console.error("Upload Error:", error);
+          throw new Error("Failed to upload document. Please ensure the 'pet_documents' storage bucket exists and policies are set.");
+      }
+      
       const { data } = supabase.storage.from('pet_documents').getPublicUrl(pathName);
       return data.publicUrl;
   };
 
   const isPetFormComplete = (pet) => {
     const hasService = pet.services.some(s => s.id !== "");
-    return (hasService && pet.pet_name.trim() && pet.breed.trim() && pet.birth_date && pet.weight_kg && parseFloat(pet.weight_kg) > 0 && pet.behavior.trim() && pet.vaccine_file && !pet.error);
+    // Check if vaccine_file is actually a valid object, not just present
+    const isFileValid = pet.vaccine_file && pet.vaccine_file.name;
+    return (hasService && pet.pet_name.trim() && pet.breed.trim() && pet.birth_date && pet.weight_kg && parseFloat(pet.weight_kg) > 0 && pet.behavior.trim() && isFileValid && !pet.error);
   };
 
   const handleProceedClick = (e) => {
@@ -454,8 +487,7 @@ const PetDetails = () => {
     }
     const incompleteForms = petsData.filter((pet) => !isPetFormComplete(pet));
     if (incompleteForms.length > 0) { 
-        // Replaced alert with triggerError
-        triggerError("Please complete all required fields (*), upload vaccine records, and ensure at least one service is selected per pet."); 
+        triggerError("Please complete all required fields (*). If you navigated away, please re-upload vaccine records."); 
         return; 
     }
     setGlobalError(null);
@@ -467,28 +499,57 @@ const PetDetails = () => {
     try {
         if (!currentUser) throw new Error("User not logged in");
         
-        const { data: booking, error: bError } = await supabase.from('bookings').insert({
-            provider_id: initialProviderId, pet_owner_id: currentUser.id, booking_date: displayDate, time_slot: displayTime, status: 'pending', total_price: calculateGrandTotal()
-        }).select().single();
+        const { data: booking, error: bError } = await supabase
+            .from('bookings')
+            .insert({
+                provider_id: initialProviderId, 
+                user_id: currentUser.id,
+                booking_date: displayDate, 
+                time_slot: displayTime, 
+                status: 'pending', 
+                total_estimated_price: calculateGrandTotal()
+            })
+            .select()
+            .single();
+            
         if (bError) throw bError;
 
         for (const [i, pet] of petsData.entries()) {
             const path = `${currentUser.id}/${booking.id}/pet_${i}`;
+            
             const vUrl = await uploadFileToSupabase(pet.vaccine_file, path);
             const iUrl = pet.illness_file ? await uploadFileToSupabase(pet.illness_file, path) : null;
 
-            const { data: pRec, error: pError } = await supabase.from('booking_pets').insert({
-                booking_id: booking.id, pet_type: pet.pet_type, pet_name: pet.pet_name, birth_date: pet.birth_date,
-                weight_kg: pet.weight_kg, calculated_size: pet.calculated_size, breed: pet.breed, gender: pet.gender,
-                behavior: pet.behavior, grooming_specifications: pet.grooming_specifications,
-                vaccine_card_url: vUrl, illness_record_url: iUrl, emergency_consent: pet.emergency_consent
-            }).select().single();
+            const { data: pRec, error: pError } = await supabase
+                .from('booking_pets')
+                .insert({
+                    booking_id: booking.id, 
+                    pet_name: pet.pet_name, 
+                    pet_type: pet.pet_type, 
+                    birth_date: pet.birth_date,
+                    weight_kg: pet.weight_kg, 
+                    calculated_size: pet.calculated_size, 
+                    breed: pet.breed, 
+                    gender: pet.gender,
+                    behavior: pet.behavior, 
+                    grooming_specifications: pet.grooming_specifications, 
+                    emergency_consent: pet.emergency_consent,
+                    vaccine_card_url: vUrl,
+                    illness_proof_url: iUrl
+                })
+                .select()
+                .single();
+            
             if (pError) throw pError;
 
             for (const srv of pet.services) {
                 if (srv.id) { 
                     const { error: sError } = await supabase.from('booking_services').insert({
-                        booking_pet_id: pRec.id, service_id: srv.id, service_name: srv.service_name, service_type: srv.service_type, price: srv.price
+                        booking_pet_id: pRec.id, 
+                        service_id: srv.id, 
+                        service_name: srv.service_name, 
+                        service_type: srv.service_type,
+                        price: srv.price 
                     });
                     if (sError) throw sError;
                 }
@@ -498,14 +559,15 @@ const PetDetails = () => {
         sessionStorage.removeItem(`booking_draft_${currentUser.id}_${initialProviderId}`);
         sessionStorage.removeItem('current_provider_id');
         setShowReviewModal(false);
-        // Navigate away (success implies moving forward, no alert needed)
         navigate("/dashboard");
+        
     } catch (err) { 
         console.error(err); 
-        // Replaced alert with triggerError and closed modal
         setShowReviewModal(false);
         triggerError(`Booking failed: ${err.message}`); 
-    } finally { setIsSubmitting(false); }
+    } finally { 
+        setIsSubmitting(false); 
+    }
   };
 
   const getGridClass = () => petsData.length === 1 ? "layout-1" : petsData.length === 2 ? "layout-2" : "layout-3-plus";
@@ -516,7 +578,6 @@ const PetDetails = () => {
       <Header />
       <main className="pet-details-container">
         
-        {/* GLOBAL ERROR BANNER */}
         {globalError && (
             <div className="global-error-banner" style={{
                 background: '#fee2e2', color: '#b91c1c', padding: '12px', 
@@ -599,7 +660,7 @@ const PetDetails = () => {
                                                     required
                                                 >
                                                     <option value="">-- Select Service --</option>
-                                                    {getAvailableOptions(index, service.id).map(s => (
+                                                    {getAvailableOptions(index, sIndex).map(s => (
                                                         <option key={s.id} value={s.id}>
                                                             {s.name} ({s.type})
                                                         </option>
@@ -644,14 +705,12 @@ const PetDetails = () => {
                             <div className="form-group"><label className="form-label"><Cat size={14} className="label-icon" /> Pet Type <span className="required-asterisk">*</span></label><div className="select-wrapper"><select name="pet_type" className="form-input" value={pet.pet_type} onChange={(e) => handleInputChange(index, e)}><option value="Dog">Dog</option><option value="Cat">Cat</option></select></div></div>
                             <div className="form-group">
                                 <label className="form-label"><PawPrint size={14} className="label-icon" /> Pet Name <span className="required-asterisk">*</span></label>
-                                {/* Added maxLength 20 */}
                                 <input type="text" name="pet_name" className="form-input" placeholder="Pet's Name" value={pet.pet_name} onChange={(e) => handleInputChange(index, e)} maxLength={20} required />
                             </div>
                         </div>
                         <div className="form-row">
                             <div className="form-group">
                                 <label className="form-label"><Dna size={14} className="label-icon" /> Breed <span className="required-asterisk">*</span></label>
-                                {/* Added maxLength 20 */}
                                 <input type="text" name="breed" className="form-input" placeholder="Breed" value={pet.breed} onChange={(e) => handleInputChange(index, e)} maxLength={20} required />
                             </div>
                             <div className="form-group"><label className="form-label">Gender <span className="required-asterisk">*</span></label><div className="select-wrapper"><select name="gender" className="form-input" value={pet.gender} onChange={(e) => handleInputChange(index, e)}><option value="Male">Male</option><option value="Female">Female</option></select></div></div>
@@ -676,12 +735,10 @@ const PetDetails = () => {
                         <div className="consent-form-group"><label className="consent-checkbox-label"><input type="checkbox" checked={pet.emergency_consent} onChange={(e) => handleConsentChange(index, e)} /><span>I agree that in a critical emergency, the Service Provider has my permission to place my pet in their care, and transport them to the nearest emergency facility.</span></label></div>
                         <div className="form-group" style={{marginTop:'1rem'}}>
                             <label className="form-label"><Activity size={14} className="label-icon" /> Behavior <span className="required-asterisk">*</span></label>
-                            {/* Added maxLength 280 */}
                             <textarea name="behavior" className="form-input textarea" value={pet.behavior} onChange={(e) => handleInputChange(index, e)} rows={2} maxLength={280} required />
                         </div>
                         <div className="form-group">
                             <label className="form-label"><Scissors size={14} className="label-icon" /> Grooming Specs (Optional)</label>
-                            {/* Added maxLength 280 */}
                             <textarea name="grooming_specifications" className="form-input textarea" value={pet.grooming_specifications} onChange={(e) => handleInputChange(index, e)} rows={2} maxLength={280} />
                         </div>
                     </div>
