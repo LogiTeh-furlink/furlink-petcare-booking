@@ -793,3 +793,106 @@
         padding: 1rem;
     }
 }
+/* ... Keep all your existing CSS above this ... */
+
+/* ... Keep your existing styles ... */
+
+/* ========================================
+   MULTI-SERVICE SELECTION STYLES (UPDATED)
+   ======================================== */
+
+.service-rows-container {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+/* Wrapper for the Input + Button combo */
+.service-input-group {
+    display: flex;
+    align-items: center; /* Ensures vertical center alignment */
+    gap: 0.5rem;
+    width: 100%;
+}
+
+.service-input-group .select-wrapper {
+    flex-grow: 1; /* Dropdown takes all available width */
+}
+
+/* The Plus/Minus Buttons */
+.btn-action-service {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.75rem; 
+    height: 2.75rem; /* Matches the height of standard inputs */
+    border-radius: 0.5rem;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s;
+    flex-shrink: 0;
+    margin-top: 1px; /* Micro-adjustment for perfect visual alignment with border */
+}
+
+.btn-add-service {
+    background-color: #dcfce7;
+    color: #16a34a;
+    border: 1px solid #86efac;
+}
+
+.btn-add-service:hover {
+    background-color: #16a34a;
+    color: white;
+}
+
+.btn-remove-service {
+    background-color: #fee2e2;
+    color: #ef4444;
+    border: 1px solid #fca5a5;
+}
+
+.btn-remove-service:hover {
+    background-color: #ef4444;
+    color: white;
+}
+
+/* Price Hint Text */
+.service-price-hint {
+    font-size: 0.75rem;
+    color: #6b7280;
+    margin-top: 0.25rem;
+    display: flex;
+    justify-content: space-between;
+    padding-left: 2px;
+}
+
+.service-price-hint .price-val {
+    font-weight: 700;
+    color: #16a34a;
+}
+
+/* The Remove (X) Button */
+.btn-remove-service {
+    background-color: #fee2e2;
+    color: #ef4444;
+    border: 1px solid #fca5a5;
+}
+
+.btn-remove-service:hover {
+    background-color: #ef4444;
+    color: white;
+}
+
+/* Service Price Helper Text */
+.service-price-hint {
+    font-size: 0.75rem;
+    color: #6b7280;
+    margin-top: 0.25rem;
+    display: flex;
+    justify-content: space-between;
+}
+
+.service-price-hint .price-val {
+    font-weight: 700;
+    color: #16a34a;
+}

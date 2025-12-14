@@ -1,4 +1,3 @@
-// src/pages/pet-owner/PetDetails.jsx
 import React, { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "../../config/supabase";
@@ -6,15 +5,15 @@ import {
   PawPrint, Calendar, Weight, 
   Dna, Activity, Tag, Cat, AlertCircle,
   UploadCloud, X, FileText, Scissors, Trash2, Plus, ArrowRight,
-  CheckCircle, Clock, FileCheck, ShieldCheck, ArrowLeft
+  Clock, FileCheck, ShieldCheck, ArrowLeft, Minus, CheckCircle
 } from "lucide-react";
 import Header from "../../components/Header/LoggedInNavbar";
 import Footer from "../../components/Footer/Footer";
 import "./PetDetails.css";
 
-/* =========================================
-   HELPER COMPONENT: DETAILED REVIEW MODAL
-   ========================================= */
+// =========================================
+// HELPER COMPONENT: DETAILED REVIEW MODAL
+// =========================================
 const ReviewBookingModal = ({ isOpen, onClose, onConfirm, pets, date, time, total, isSubmitting }) => {
     if (!isOpen) return null;
 
@@ -37,13 +36,17 @@ const ReviewBookingModal = ({ isOpen, onClose, onConfirm, pets, date, time, tota
                         <div key={idx} className="review-pet-card detailed-card">
                             <div className="review-card-header">
                                 <h3>Pet {idx + 1}: {pet.pet_name}</h3>
-                                <span className="review-price">₱{pet.price}</span>
+                                <span className="review-price">₱{pet.total_price_display}</span>
                             </div>
 
                             <div className="review-grid-section">
                                 <div className="review-group full-width">
-                                    <label>Service</label>
-                                    <div className="value highlight">{pet.service_name} ({pet.service_type})</div>
+                                    <label>Selected Services</label>
+                                    <div className="value highlight">
+                                        {pet.services.map((s, i) => (
+                                            <div key={i}>• {s.service_name || "No Service Selected"} ({s.service_type}) - ₱{s.price}</div>
+                                        ))}
+                                    </div>
                                 </div>
 
                                 <div className="review-group">
@@ -121,9 +124,9 @@ const ReviewBookingModal = ({ isOpen, onClose, onConfirm, pets, date, time, tota
     );
 };
 
-/* =========================================
-   MAIN COMPONENT
-   ========================================= */
+// =========================================
+// MAIN COMPONENT
+// =========================================
 const PetDetails = () => {
   const { state } = useLocation();
   const navigate = useNavigate();
@@ -139,11 +142,24 @@ const PetDetails = () => {
   const [petsData, setPetsData] = useState([]); 
   const [isInitializing, setIsInitializing] = useState(true); 
 
+  // New State for In-Page Error Handling
+  const [globalError, setGlobalError] = useState(null);
+
   const emptyPetTemplate = {
-    service_id: "", service_name: "", service_type: "", price: "0.00",
+    // We use a random ID for keys to prevent React rendering issues when removing items
+    services: [{ _tempId: Date.now(), id: "", service_name: "", service_type: "", price: "0.00" }], 
+    total_price_display: "0.00",
     pet_type: "Dog", pet_name: "", birth_date: "", weight_kg: "", calculated_size: "",
     breed: "", gender: "Male", behavior: "", grooming_specifications: "",
     error: null, vaccine_file: null, vaccine_preview: null, illness_file: null, illness_preview: null, emergency_consent: false
+  };
+
+  // Helper to trigger error and scroll to top
+  const triggerError = (msg) => {
+    setGlobalError(msg);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    // Optional: Auto-clear error after 5 seconds
+    setTimeout(() => setGlobalError(null), 5000);
   };
 
   useEffect(() => {
@@ -178,23 +194,6 @@ const PetDetails = () => {
     initializePage();
   }, [initialProviderId]); 
 
-  useEffect(() => {
-    if (currentUser && initialProviderId && petsData.length > 0 && !isInitializing) {
-      const userStorageKey = `booking_draft_${currentUser.id}_${initialProviderId}`;
-      const currentStorage = sessionStorage.getItem(userStorageKey) ? JSON.parse(sessionStorage.getItem(userStorageKey)) : {};
-      const updatedStorage = {
-        ...currentStorage,
-        providerId: initialProviderId,
-        date: getBookingMeta().date, 
-        time: getBookingMeta().time,
-        providerName: getBookingMeta().providerName,
-        pets: petsData.length,
-        petsData: petsData
-      };
-      sessionStorage.setItem(userStorageKey, JSON.stringify(updatedStorage));
-    }
-  }, [petsData, currentUser, initialProviderId, isInitializing]);
-
   const getBookingMeta = () => {
     if (state?.bookingDate && state?.bookingTime) {
         return { date: state.bookingDate, time: state.bookingTime, providerName: state.providerName };
@@ -224,6 +223,26 @@ const PetDetails = () => {
     fetchServices();
   }, [initialProviderId]);
 
+  const handleBackAndSave = () => {
+      if (currentUser && initialProviderId && petsData.length > 0) {
+          const userStorageKey = `booking_draft_${currentUser.id}_${initialProviderId}`;
+          const currentStorage = sessionStorage.getItem(userStorageKey) ? JSON.parse(sessionStorage.getItem(userStorageKey)) : {};
+          
+          const updatedStorage = {
+              ...currentStorage,
+              providerId: initialProviderId,
+              date: displayDate,
+              time: displayTime,
+              providerName: getBookingMeta().providerName,
+              pets: petsData.length,
+              petsData: petsData
+          };
+          
+          sessionStorage.setItem(userStorageKey, JSON.stringify(updatedStorage));
+      }
+      navigate(-1);
+  };
+
   const isWeightInRange = (weight, rangeString) => {
     if (!rangeString) return true; 
     const cleanRange = rangeString.replace(/\s+/g, '').toUpperCase();
@@ -243,67 +262,165 @@ const PetDetails = () => {
     } catch (e) { return false; }
   };
 
-  const findServiceOption = (pet, services) => {
-    if (!pet.service_id) return null; 
-    const service = services.find(s => s.id === pet.service_id);
-    if (!service || !service.service_options) return null;
-    const userType = (pet.pet_type || "Dog").toLowerCase();
-    return service.service_options.find(opt => {
+  const getServicePriceAndSize = (serviceId, petType, weight) => {
+    const service = providerServices.find(s => s.id === serviceId);
+    if (!service || !service.service_options) return { price: "0.00", size: "", matched: false };
+    
+    const userType = (petType || "Dog").toLowerCase();
+    const matchedOption = service.service_options.find(opt => {
       const dbType = (opt.pet_type || "").toLowerCase();
-      return (dbType === userType || dbType === 'dog-cat') && isWeightInRange(pet.weight_kg, opt.weight_range);
+      return (dbType === userType || dbType === 'dog-cat') && isWeightInRange(weight, opt.weight_range);
     });
+
+    if (matchedOption) {
+        const rawSize = matchedOption.size.replace(/_/g, ' ');
+        const displaySize = (rawSize.toLowerCase() === 'all') ? 'Standard' : rawSize;
+        return { price: parseFloat(matchedOption.price).toFixed(2), size: displaySize, matched: true };
+    }
+    return { price: "0.00", size: "N/A", matched: false };
   };
 
-  const updatePetDataAndPrice = (index, petUpdate) => {
+  const updatePetData = (index, updates) => {
     setPetsData(prev => {
-        const updated = [...prev];
-        let updatedPet = { ...updated[index], ...petUpdate };
-        const matchedOption = findServiceOption(updatedPet, providerServices);
-        if (matchedOption) {
-            updatedPet.price = parseFloat(matchedOption.price).toFixed(2);
-            const rawSize = matchedOption.size.replace(/_/g, ' ');
-            updatedPet.calculated_size = (rawSize.toLowerCase() === 'all') ? 'Standard' : rawSize; 
-            updatedPet.error = null; 
-        } else {
-            updatedPet.price = "0.00";
-            if (updatedPet.service_id && updatedPet.weight_kg && parseFloat(updatedPet.weight_kg) > 0) {
-               updatedPet.calculated_size = "N/A";
-               updatedPet.error = "Service unavailable for this weight/type.";
-            } else {
-               updatedPet.calculated_size = ""; 
-               updatedPet.error = null;
+        const allPets = [...prev];
+        const currentPet = { ...allPets[index], ...updates };
+
+        let petTotalPrice = 0;
+        let finalCalculatedSize = "";
+        let hasError = null;
+
+        const updatedServices = currentPet.services.map(srv => {
+            if (!srv.id) return srv; 
+
+            const { price, size, matched } = getServicePriceAndSize(srv.id, currentPet.pet_type, currentPet.weight_kg);
+            
+            if (matched) {
+                finalCalculatedSize = size; 
+                petTotalPrice += parseFloat(price);
+                return { ...srv, price };
+            } else if (currentPet.weight_kg && parseFloat(currentPet.weight_kg) > 0) {
+                 hasError = `Service "${srv.service_name}" unavailable for this weight.`;
+                 return { ...srv, price: "0.00" };
             }
-        }
-        updated[index] = updatedPet;
-        return updated;
+            return srv;
+        });
+
+        currentPet.services = updatedServices;
+        currentPet.total_price_display = petTotalPrice.toFixed(2);
+        currentPet.calculated_size = finalCalculatedSize;
+        currentPet.error = hasError;
+
+        allPets[index] = currentPet;
+        return allPets;
     });
   };
 
-  const isPetFormComplete = (pet) => {
-    return (pet.service_id && pet.pet_name.trim() && pet.breed.trim() && pet.birth_date && pet.weight_kg && parseFloat(pet.weight_kg) > 0 && pet.behavior.trim() && pet.vaccine_file && !pet.error);
+  const handleInputChange = (index, e) => updatePetData(index, { [e.target.name]: e.target.value });
+  const handleWeightChange = (index, e) => updatePetData(index, { weight_kg: e.target.value });
+  const handleConsentChange = (index, e) => setPetsData(prev => { const upd = [...prev]; upd[index].emergency_consent = e.target.checked; return upd; });
+
+  const handleAddServiceRow = (petIndex) => {
+      setPetsData(prev => {
+          const newPetsData = [...prev];
+          const targetPet = { ...newPetsData[petIndex] };
+          const newService = { _tempId: Date.now() + Math.random(), id: "", service_name: "", service_type: "", price: "0.00" };
+          targetPet.services = [...targetPet.services, newService];
+          newPetsData[petIndex] = targetPet;
+          return newPetsData;
+      });
   };
 
-  const handleAddPet = () => setPetsData(prev => [...prev, { ...emptyPetTemplate }]);
-  
+  const handleRemoveServiceRow = (petIndex, serviceIndex) => {
+      setPetsData(prev => {
+          const newPetsData = [...prev];
+          const targetPet = { ...newPetsData[petIndex] };
+          if (targetPet.services.length > 1) {
+              targetPet.services = targetPet.services.filter((_, idx) => idx !== serviceIndex);
+              let total = 0;
+              targetPet.services.forEach(s => total += parseFloat(s.price));
+              targetPet.total_price_display = total.toFixed(2);
+              newPetsData[petIndex] = targetPet;
+          }
+          return newPetsData;
+      });
+  };
+
+  const handleServiceSelect = (petIndex, serviceIndex, e) => {
+      const selectedId = e.target.value;
+      const sObj = providerServices.find(s => s.id === selectedId);
+      
+      setPetsData(prev => {
+          const newPetsData = [...prev];
+          const targetPet = { ...newPetsData[petIndex] };
+          const newServices = [...targetPet.services];
+
+          const newServiceObj = {
+              ...newServices[serviceIndex],
+              id: selectedId,
+              service_name: sObj ? sObj.name : "",
+              service_type: sObj ? sObj.type : "",
+              price: "0.00" 
+          };
+          
+          newServices[serviceIndex] = newServiceObj;
+          
+          const { price, size, matched } = getServicePriceAndSize(selectedId, targetPet.pet_type, targetPet.weight_kg);
+          if (matched) {
+              newServices[serviceIndex].price = price;
+              targetPet.calculated_size = size;
+              targetPet.error = null;
+          } else if (targetPet.weight_kg && parseFloat(targetPet.weight_kg) > 0) {
+              newServices[serviceIndex].price = "0.00";
+              targetPet.error = "Service unavailable for this weight.";
+          }
+
+          targetPet.services = newServices;
+
+          let total = 0;
+          targetPet.services.forEach(s => total += parseFloat(s.price));
+          targetPet.total_price_display = total.toFixed(2);
+
+          newPetsData[petIndex] = targetPet;
+          return newPetsData;
+      });
+  };
+
+  const getAvailableOptions = (petIndex, currentServiceId) => {
+      const currentPet = petsData[petIndex];
+      const hasPackage = currentPet.services.some(s => s.service_type === 'Package' && s.id !== currentServiceId);
+      return providerServices.filter(s => {
+          if (hasPackage && s.type === 'Package') return false;
+          return true;
+      });
+  };
+
+  const handleAddPet = () => setPetsData(prev => [...prev, { ...emptyPetTemplate, services: [{_tempId: Date.now(), id: "", service_name: "", service_type: "", price: "0.00"}] }]);
   const handleRemovePet = (index) => {
-    if (petsData.length === 1) { alert("You must have at least one pet."); return; }
+    // Replaced alert with triggerError
+    if (petsData.length === 1) { 
+        triggerError("You must have at least one pet."); 
+        return; 
+    }
     setPetsData(prev => prev.filter((_, i) => i !== index));
   };
   
-  const handleInputChange = (index, e) => updatePetDataAndPrice(index, { [e.target.name]: e.target.value });
-  const handleConsentChange = (index, e) => setPetsData(prev => { const upd = [...prev]; upd[index].emergency_consent = e.target.checked; return upd; });
-  const handleWeightChange = (index, e) => updatePetDataAndPrice(index, { weight_kg: e.target.value });
-  const handleServiceChange = (index, e) => {
-    const sObj = providerServices.find(s => s.id === e.target.value);
-    updatePetDataAndPrice(index, sObj ? { service_id: sObj.id, service_name: sObj.name, service_type: sObj.type } : { service_id: "", service_name: "", service_type: "" });
-  };
   const handleFileUpload = (index, type, e) => {
     const file = e.target.files[0];
     if (!file) return;
-    if (!file.type.startsWith('image/')) { alert('Images only.'); return; }
-    if (file.size > 1024 * 1024) { alert('Max 1MB.'); return; }
+    // Replaced alert with triggerError
+    if (!file.type.startsWith('image/')) { 
+        triggerError('Invalid file format. Please upload images only.'); 
+        return; 
+    }
+    if (file.size > 1024 * 1024) { 
+        triggerError('File size too large. Maximum size is 1MB.'); 
+        return; 
+    }
     setPetsData(prev => { const upd = [...prev]; upd[index] = { ...upd[index], [`${type}_file`]: file, [`${type}_preview`]: URL.createObjectURL(file) }; return upd; });
+    // Clear global errors on successful upload to be helpful
+    setGlobalError(null);
   };
+
   const removeFile = (index, type) => {
     setPetsData(prev => {
         const upd = [...prev];
@@ -312,7 +429,8 @@ const PetDetails = () => {
         return upd;
     });
   };
-  const calculateTotal = () => petsData.reduce((acc, pet) => acc + parseFloat(pet.price || 0), 0);
+
+  const calculateGrandTotal = () => petsData.reduce((acc, pet) => acc + parseFloat(pet.total_price_display || 0), 0);
   
   const uploadFileToSupabase = async (file, path) => {
       const ext = file.name.split('.').pop();
@@ -323,11 +441,24 @@ const PetDetails = () => {
       return data.publicUrl;
   };
 
+  const isPetFormComplete = (pet) => {
+    const hasService = pet.services.some(s => s.id !== "");
+    return (hasService && pet.pet_name.trim() && pet.breed.trim() && pet.birth_date && pet.weight_kg && parseFloat(pet.weight_kg) > 0 && pet.behavior.trim() && pet.vaccine_file && !pet.error);
+  };
+
   const handleProceedClick = (e) => {
     e.preventDefault();
-    if (petsData.length === 0) { alert("Add at least one pet."); return; }
-    const incompleteForms = petsData.filter((pet, index) => !isPetFormComplete(pet));
-    if (incompleteForms.length > 0) { alert("Please complete all required fields for all pets."); return; }
+    if (petsData.length === 0) { 
+        triggerError("Please add at least one pet."); 
+        return; 
+    }
+    const incompleteForms = petsData.filter((pet) => !isPetFormComplete(pet));
+    if (incompleteForms.length > 0) { 
+        // Replaced alert with triggerError
+        triggerError("Please complete all required fields (*), upload vaccine records, and ensure at least one service is selected per pet."); 
+        return; 
+    }
+    setGlobalError(null);
     setShowReviewModal(true);
   };
 
@@ -335,8 +466,9 @@ const PetDetails = () => {
     setIsSubmitting(true);
     try {
         if (!currentUser) throw new Error("User not logged in");
+        
         const { data: booking, error: bError } = await supabase.from('bookings').insert({
-            provider_id: initialProviderId, pet_owner_id: currentUser.id, booking_date: displayDate, time_slot: displayTime, status: 'pending', total_price: calculateTotal()
+            provider_id: initialProviderId, pet_owner_id: currentUser.id, booking_date: displayDate, time_slot: displayTime, status: 'pending', total_price: calculateGrandTotal()
         }).select().single();
         if (bError) throw bError;
 
@@ -353,18 +485,27 @@ const PetDetails = () => {
             }).select().single();
             if (pError) throw pError;
 
-            const { error: sError } = await supabase.from('booking_services').insert({
-                booking_pet_id: pRec.id, service_id: pet.service_id, service_name: pet.service_name, service_type: pet.service_type, price: pet.price
-            });
-            if (sError) throw sError;
+            for (const srv of pet.services) {
+                if (srv.id) { 
+                    const { error: sError } = await supabase.from('booking_services').insert({
+                        booking_pet_id: pRec.id, service_id: srv.id, service_name: srv.service_name, service_type: srv.service_type, price: srv.price
+                    });
+                    if (sError) throw sError;
+                }
+            }
         }
         
         sessionStorage.removeItem(`booking_draft_${currentUser.id}_${initialProviderId}`);
         sessionStorage.removeItem('current_provider_id');
         setShowReviewModal(false);
-        alert("Booking Confirmed!");
+        // Navigate away (success implies moving forward, no alert needed)
         navigate("/dashboard");
-    } catch (err) { console.error(err); alert(err.message); } finally { setIsSubmitting(false); }
+    } catch (err) { 
+        console.error(err); 
+        // Replaced alert with triggerError and closed modal
+        setShowReviewModal(false);
+        triggerError(`Booking failed: ${err.message}`); 
+    } finally { setIsSubmitting(false); }
   };
 
   const getGridClass = () => petsData.length === 1 ? "layout-1" : petsData.length === 2 ? "layout-2" : "layout-3-plus";
@@ -375,10 +516,24 @@ const PetDetails = () => {
       <Header />
       <main className="pet-details-container">
         
-        {/* HEADER ROW */}
+        {/* GLOBAL ERROR BANNER */}
+        {globalError && (
+            <div className="global-error-banner" style={{
+                background: '#fee2e2', color: '#b91c1c', padding: '12px', 
+                borderRadius: '8px', marginBottom: '16px', display: 'flex', 
+                alignItems: 'center', gap: '10px', border: '1px solid #fca5a5'
+            }}>
+                <AlertCircle size={20} />
+                <span style={{flex: 1, fontSize: '0.95rem', fontWeight: 500}}>{globalError}</span>
+                <button onClick={() => setGlobalError(null)} style={{background: 'transparent', border: 'none', cursor: 'pointer', color: '#b91c1c'}}>
+                    <X size={18}/>
+                </button>
+            </div>
+        )}
+
         <div className="page-header-row">
             <div className="header-left-actions">
-                <button onClick={() => navigate(-1)} className="btn-back">
+                <button onClick={handleBackAndSave} className="btn-back">
                     <ArrowLeft size={16} /> Back
                 </button>
             </div>
@@ -386,8 +541,8 @@ const PetDetails = () => {
             <div className="header-right-actions">
                 <div className="booking-summary-badge">{displayDate} @ {displayTime}</div>
                 <div className="top-price-display">
-                    <span className="label">Total:</span>
-                    <span className="value">₱{calculateTotal().toFixed(2)}</span>
+                    <span className="label">Grand Total:</span>
+                    <span className="value">₱{calculateGrandTotal().toFixed(2)}</span>
                 </div>
                 <button onClick={handleProceedClick} className="top-proceed-btn" disabled={isSubmitting}>
                     Proceed to Summary <ArrowRight size={16} />
@@ -403,10 +558,9 @@ const PetDetails = () => {
                         <h2 className="card-title">Pet {index + 1}</h2>
                         <div className="card-header-actions">
                             <span className={`card-price-tag ${pet.error ? 'text-red' : ''}`}>
-                                {pet.error ? '---' : (pet.price ? `₱${parseFloat(pet.price).toFixed(2)}` : '₱0.00')}
+                                {pet.error ? 'Check Errors' : `₱${pet.total_price_display}`}
                             </span>
                             
-                            {/* "Add a pet +" only on last card */}
                             {index === petsData.length - 1 && (
                                 <button type="button" className="btn-add-pet-rect" onClick={handleAddPet}>
                                     Add a pet <Plus size={16} />
@@ -423,18 +577,83 @@ const PetDetails = () => {
                     
                     <div className="pet-form-content">
                         <div className="form-section-label">Service Selection</div>
-                        <div className="form-group"><label className="form-label"><Tag size={14} className="label-icon" /> Choose Service <span className="required-asterisk">*</span></label>
-                            <div className="select-wrapper"><select name="service_id" className="form-input" value={pet.service_id} onChange={(e) => handleServiceChange(index, e)} disabled={loadingServices} required>
-                                    <option value="">Select a service...</option>{providerServices.map(s => <option key={s.id} value={s.id}>{s.name} ({s.type})</option>)}</select>
-                            </div></div>
+                        
+                        <div className="service-rows-container">
+                            {pet.services.map((service, sIndex) => (
+                                <div key={service._tempId || sIndex} className="service-selection-row">
+                                    <div className="form-group" style={{width: '100%'}}>
+                                        {sIndex === 0 && (
+                                            <label className="form-label">
+                                                <Tag size={14} className="label-icon" /> 
+                                                Select Service <span className="required-asterisk">*</span>
+                                            </label>
+                                        )}
+                                        
+                                        <div className="service-input-group">
+                                            <div className="select-wrapper">
+                                                <select 
+                                                    className="form-input" 
+                                                    value={service.id} 
+                                                    onChange={(e) => handleServiceSelect(index, sIndex, e)} 
+                                                    disabled={loadingServices} 
+                                                    required
+                                                >
+                                                    <option value="">-- Select Service --</option>
+                                                    {getAvailableOptions(index, service.id).map(s => (
+                                                        <option key={s.id} value={s.id}>
+                                                            {s.name} ({s.type})
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            </div>
+
+                                            {sIndex === 0 ? (
+                                                <button 
+                                                    type="button" 
+                                                    className="btn-action-service btn-add-service" 
+                                                    onClick={() => handleAddServiceRow(index)}
+                                                    title="Add another service"
+                                                >
+                                                    <Plus size={20} />
+                                                </button>
+                                            ) : (
+                                                <button 
+                                                    type="button" 
+                                                    className="btn-action-service btn-remove-service" 
+                                                    onClick={() => handleRemoveServiceRow(index, sIndex)}
+                                                    title="Remove this service"
+                                                >
+                                                    <Minus size={20} />
+                                                </button>
+                                            )}
+                                        </div>
+
+                                        {service.id && (
+                                            <div className="service-price-hint">
+                                                <span>{service.service_type}</span>
+                                                <span className="price-val">₱{service.price}</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
 
                         <div className="form-section-label" style={{marginTop: '1rem'}}>Pet Information</div>
                         <div className="form-row">
                             <div className="form-group"><label className="form-label"><Cat size={14} className="label-icon" /> Pet Type <span className="required-asterisk">*</span></label><div className="select-wrapper"><select name="pet_type" className="form-input" value={pet.pet_type} onChange={(e) => handleInputChange(index, e)}><option value="Dog">Dog</option><option value="Cat">Cat</option></select></div></div>
-                            <div className="form-group"><label className="form-label"><PawPrint size={14} className="label-icon" /> Pet Name <span className="required-asterisk">*</span></label><input type="text" name="pet_name" className="form-input" placeholder="Pet's Name" value={pet.pet_name} onChange={(e) => handleInputChange(index, e)} required /></div>
+                            <div className="form-group">
+                                <label className="form-label"><PawPrint size={14} className="label-icon" /> Pet Name <span className="required-asterisk">*</span></label>
+                                {/* Added maxLength 20 */}
+                                <input type="text" name="pet_name" className="form-input" placeholder="Pet's Name" value={pet.pet_name} onChange={(e) => handleInputChange(index, e)} maxLength={20} required />
+                            </div>
                         </div>
                         <div className="form-row">
-                            <div className="form-group"><label className="form-label"><Dna size={14} className="label-icon" /> Breed <span className="required-asterisk">*</span></label><input type="text" name="breed" className="form-input" placeholder="Breed" value={pet.breed} onChange={(e) => handleInputChange(index, e)} required /></div>
+                            <div className="form-group">
+                                <label className="form-label"><Dna size={14} className="label-icon" /> Breed <span className="required-asterisk">*</span></label>
+                                {/* Added maxLength 20 */}
+                                <input type="text" name="breed" className="form-input" placeholder="Breed" value={pet.breed} onChange={(e) => handleInputChange(index, e)} maxLength={20} required />
+                            </div>
                             <div className="form-group"><label className="form-label">Gender <span className="required-asterisk">*</span></label><div className="select-wrapper"><select name="gender" className="form-input" value={pet.gender} onChange={(e) => handleInputChange(index, e)}><option value="Male">Male</option><option value="Female">Female</option></select></div></div>
                         </div>
                         <div className="form-group"><label className="form-label"><Calendar size={14} className="label-icon" /> Birth Date <span className="required-asterisk">*</span></label><input type="date" name="birth_date" className="form-input" value={pet.birth_date} onChange={(e) => handleInputChange(index, e)} required /></div>
@@ -455,14 +674,22 @@ const PetDetails = () => {
                         </div>
 
                         <div className="consent-form-group"><label className="consent-checkbox-label"><input type="checkbox" checked={pet.emergency_consent} onChange={(e) => handleConsentChange(index, e)} /><span>I agree that in a critical emergency, the Service Provider has my permission to place my pet in their care, and transport them to the nearest emergency facility.</span></label></div>
-                        <div className="form-group" style={{marginTop:'1rem'}}><label className="form-label"><Activity size={14} className="label-icon" /> Behavior <span className="required-asterisk">*</span></label><textarea name="behavior" className="form-input textarea" value={pet.behavior} onChange={(e) => handleInputChange(index, e)} rows={2} required /></div>
-                        <div className="form-group"><label className="form-label"><Scissors size={14} className="label-icon" /> Grooming Specs (Optional)</label><textarea name="grooming_specifications" className="form-input textarea" value={pet.grooming_specifications} onChange={(e) => handleInputChange(index, e)} rows={2} /></div>
+                        <div className="form-group" style={{marginTop:'1rem'}}>
+                            <label className="form-label"><Activity size={14} className="label-icon" /> Behavior <span className="required-asterisk">*</span></label>
+                            {/* Added maxLength 280 */}
+                            <textarea name="behavior" className="form-input textarea" value={pet.behavior} onChange={(e) => handleInputChange(index, e)} rows={2} maxLength={280} required />
+                        </div>
+                        <div className="form-group">
+                            <label className="form-label"><Scissors size={14} className="label-icon" /> Grooming Specs (Optional)</label>
+                            {/* Added maxLength 280 */}
+                            <textarea name="grooming_specifications" className="form-input textarea" value={pet.grooming_specifications} onChange={(e) => handleInputChange(index, e)} rows={2} maxLength={280} />
+                        </div>
                     </div>
                 </div>
             )})}
         </form>
 
-        <ReviewBookingModal isOpen={showReviewModal} onClose={() => setShowReviewModal(false)} onConfirm={handleFinalSubmit} pets={petsData} date={displayDate} time={displayTime} total={calculateTotal()} isSubmitting={isSubmitting}/>
+        <ReviewBookingModal isOpen={showReviewModal} onClose={() => setShowReviewModal(false)} onConfirm={handleFinalSubmit} pets={petsData} date={displayDate} time={displayTime} total={calculateGrandTotal()} isSubmitting={isSubmitting}/>
       </main>
       <Footer />
     </div>

@@ -53,19 +53,9 @@ const ListingInfo = () => {
   const [selectedImageIndex, setSelectedImageIndex] = useState(null);
   
   // --- BOOKING STATES ---
-  // We ONLY initialize from location.state (which happens when user clicks "Back" from next page)
-  // We do NOT initialize from sessionStorage anymore.
-  const [bookingDate, setBookingDate] = useState(() => 
-    location.state?.bookingDate ? new Date(location.state.bookingDate) : null
-  );
-  
-  const [bookingTime, setBookingTime] = useState(() => 
-    location.state?.bookingTime || ""
-  );
-  
-  const [numberOfPets, setNumberOfPets] = useState(() => 
-    location.state?.numberOfPets ? parseInt(location.state.numberOfPets, 10) : 0
-  );
+  const [bookingDate, setBookingDate] = useState(null);
+  const [bookingTime, setBookingTime] = useState("");
+  const [numberOfPets, setNumberOfPets] = useState(0);
 
   const [availableTimeSlots, setAvailableTimeSlots] = useState([]);
   const [dateError, setDateError] = useState(null);
@@ -78,20 +68,78 @@ const ListingInfo = () => {
     const init = async () => {
         const { data: { user } } = await supabase.auth.getUser();
         setUser(user);
-        fetchAllData();
+        await fetchAllData();
     };
     init();
   }, [id]);
 
-  // 2. FORCE CLEANUP (New Feature)
-  // This ensures that if there was any old "draft" data hanging around from a previous session,
-  // we wipe it immediately so it doesn't interfere with the logic down the line.
+  // 2. LOAD DRAFT FROM SESSION (Reflects "Back" button data)
   useEffect(() => {
-    if (user && id) {
-       const storageKey = `booking_draft_${user.id}_${id}`;
-       sessionStorage.removeItem(storageKey);
+    const loadDraft = async () => {
+        // Need user to verify ownership of draft
+        const { data: { user } } = await supabase.auth.getUser();
+        
+        if (user && id) {
+            const storageKey = `booking_draft_${user.id}_${id}`;
+            const savedDraft = sessionStorage.getItem(storageKey);
+            
+            if (savedDraft) {
+                try {
+                    const parsed = JSON.parse(savedDraft);
+                    
+                    // Restore Date
+                    if (parsed.date) {
+                        // Handle potential string vs Date object issues
+                        const draftDate = new Date(parsed.date);
+                        // Check if date is valid
+                        if (!isNaN(draftDate.getTime())) {
+                            setBookingDate(draftDate);
+                        }
+                    }
+
+                    // Restore Time
+                    if (parsed.time) setBookingTime(parsed.time);
+
+                    // Restore Number of Pets
+                    if (parsed.pets) setNumberOfPets(parseInt(parsed.pets, 10));
+
+                } catch (e) {
+                    console.error("Failed to parse booking draft", e);
+                }
+            } else if (location.state) {
+                // Fallback to location state if no session draft (legacy support)
+                if (location.state.bookingDate) setBookingDate(new Date(location.state.bookingDate));
+                if (location.state.bookingTime) setBookingTime(location.state.bookingTime);
+                if (location.state.numberOfPets) setNumberOfPets(parseInt(location.state.numberOfPets, 10));
+            }
+        }
+    };
+    loadDraft();
+  }, [id, location.state]);
+
+  // 3. AUTO-GENERATE TIME SLOTS whenever Date or Hours change
+  // This handles both manual selection AND loading from draft
+  useEffect(() => {
+    setAvailableTimeSlots([]);
+    if (!bookingDate || hours.length === 0) return;
+
+    const dayName = bookingDate.toLocaleDateString('en-US', { weekday: 'long' });
+    const workingDay = hours.find(h => h.day_of_week === dayName);
+
+    if (workingDay) {
+        const slots = [];
+        const start = new Date(`2000-01-01T${workingDay.start_time}`);
+        const end = new Date(`2000-01-01T${workingDay.end_time}`);
+
+        while (start < end) {
+            const timeValue = start.toTimeString().split(' ')[0];
+            const displayLabel = start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+            slots.push({ value: timeValue, label: displayLabel });
+            start.setHours(start.getHours() + 1);
+        }
+        setAvailableTimeSlots(slots);
     }
-  }, [user, id]);
+  }, [bookingDate, hours]);
 
   const fetchAllData = async () => {
     try {
@@ -108,23 +156,6 @@ const ListingInfo = () => {
       const { data: imagesData } = await supabase.from("service_provider_images").select("*").eq("provider_id", id);
       setImages(imagesData || []);
 
-      // Re-gen slots if date exists (e.g. from "Back" button state)
-      if (bookingDate && hoursData.length > 0) {
-          const dayName = bookingDate.toLocaleDateString('en-US', { weekday: 'long' });
-          const workingDay = hoursData.find(h => h.day_of_week === dayName);
-          if (workingDay) {
-              const slots = [];
-              const start = new Date(`2000-01-01T${workingDay.start_time}`);
-              const end = new Date(`2000-01-01T${workingDay.end_time}`);
-              while (start < end) {
-                  const timeValue = start.toTimeString().split(' ')[0];
-                  const displayLabel = start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-                  slots.push({ value: timeValue, label: displayLabel });
-                  start.setHours(start.getHours() + 1);
-              }
-              setAvailableTimeSlots(slots);
-          }
-      }
     } catch (error) { console.error("Error fetching data:", error); } finally { setLoading(false); }
   };
 
@@ -157,27 +188,8 @@ const ListingInfo = () => {
   const handleDateChange = (date) => {
     setBookingDate(date);
     setDateError(null);
+    // If user changes date, clear time unless it's a reload
     setBookingTime(""); 
-    setAvailableTimeSlots([]);
-
-    if (!date) return;
-
-    const dayName = date.toLocaleDateString('en-US', { weekday: 'long' });
-    const workingDay = hours.find(h => h.day_of_week === dayName);
-
-    if (workingDay) {
-      const slots = [];
-      const start = new Date(`2000-01-01T${workingDay.start_time}`);
-      const end = new Date(`2000-01-01T${workingDay.end_time}`);
-
-      while (start < end) {
-        const timeValue = start.toTimeString().split(' ')[0];
-        const displayLabel = start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-        slots.push({ value: timeValue, label: displayLabel });
-        start.setHours(start.getHours() + 1);
-      }
-      setAvailableTimeSlots(slots);
-    }
   };
 
   const handleCompleteBooking = () => {
@@ -192,7 +204,7 @@ const ListingInfo = () => {
 
     const dateStr = bookingDate.toLocaleDateString('en-CA'); 
 
-    // We pass state forward, but we do NOT save to SessionStorage here anymore.
+    // We pass state forward. Note: Session storage logic is handled in PetDetails.jsx
     navigate('/pet-details', {
       state: {
         providerId: id,
