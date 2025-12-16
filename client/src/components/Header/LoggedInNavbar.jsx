@@ -1,6 +1,15 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { FaBell, FaUserCircle, FaSignOutAlt, FaTimes, FaStore, FaListUl, FaExclamationCircle } from "react-icons/fa";
+import { 
+  FaBell, 
+  FaUserCircle, 
+  FaSignOutAlt, 
+  FaTimes, 
+  FaStore, 
+  FaListUl, 
+  FaExclamationCircle,
+  FaCalendarAlt // Added for Appointments icon
+} from "react-icons/fa";
 import { supabase } from "../../config/supabase";
 import "./LoggedInNavbar.css";
 import logo from "../../assets/logo.png";
@@ -223,6 +232,17 @@ const LoggedInNavbar = ({ hideBecomeProvider = false }) => {
                       <FaStore className="menu-icon" /> Manage Listing
                     </button>
                   )}
+
+                  {/* ⭐ MODIFIED: Appointments Button redirects to /appointments */}
+                  <button 
+                    className="menu-item-btn" 
+                    onClick={() => {
+                      navigate("/appointments"); // Updated route
+                      setShowMenu(false);
+                    }}
+                  >
+                    <FaCalendarAlt className="menu-icon" /> Appointments
+                  </button>
 
                   <button className="logout-btn" onClick={handleLogout}>
                     <FaSignOutAlt className="menu-icon" /> Logout

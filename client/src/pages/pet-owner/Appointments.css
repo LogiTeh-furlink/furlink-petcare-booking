@@ -1,0 +1,193 @@
+:root {
+  --navy: #0a1e5e;
+  --yellow: #fcbf14;
+  --white: #ffffff;
+  --gray-bg: #f3f4f6;
+  --text-dark: #1f2937;
+  --text-muted: #6b7280;
+}
+
+.appointments-wrapper {
+  background-color: var(--gray-bg);
+  min-height: 90vh;
+  padding: 30px 20px;
+  font-family: 'Poppins', sans-serif;
+}
+
+.appointments-container {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.app-header { margin-bottom: 30px; }
+.app-header h1 { color: var(--navy); font-size: 1.8rem; margin: 0 0 5px 0; font-weight: 800; }
+.app-header p { color: var(--text-muted); margin: 0; }
+
+/* --- TABS (Matches SPDashboard) --- */
+.status-tabs-container {
+  overflow-x: auto;
+  padding-bottom: 15px;
+  margin-bottom: 25px;
+}
+
+.status-tabs-row {
+  display: flex;
+  gap: 15px;
+  min-width: max-content;
+}
+
+.status-tab {
+  background-color: var(--white);
+  border: 2px solid transparent;
+  border-radius: 12px;
+  padding: 15px 25px;
+  min-width: 140px;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.3s ease;
+  color: var(--navy);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.status-tab h3 {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+.status-tab:hover {
+  border-color: rgba(10, 30, 94, 0.1);
+  transform: translateY(-2px);
+}
+
+/* Active State - Navy Background */
+.status-tab.active {
+  background-color: var(--navy);
+  color: var(--white);
+  box-shadow: 0 8px 15px rgba(10, 30, 94, 0.25);
+  border: none;
+}
+
+.status-tab.active h3 {
+  color: var(--yellow); 
+}
+
+.count-badge {
+  background-color: #e5e7eb;
+  color: var(--navy);
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+.status-tab.active .count-badge {
+  background-color: rgba(255,255,255,0.2);
+  color: var(--white);
+}
+
+/* --- LIST SECTION --- */
+.app-list-section {
+  background-color: var(--white);
+  border-radius: 16px;
+  padding: 25px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+  border: 1px solid #e5e7eb;
+}
+
+.section-header h2 {
+  margin: 0 0 25px 0;
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--navy);
+  border-bottom: 2px solid #f3f4f6;
+  padding-bottom: 15px;
+}
+
+.list-header-row {
+  display: grid;
+  grid-template-columns: 1.5fr 1.2fr 2fr 1fr 1fr;
+  padding: 0 20px 10px 20px;
+  margin-bottom: 10px;
+  border-bottom: 2px solid #e5e7eb;
+  font-weight: 700;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  text-transform: uppercase;
+}
+
+/* --- CARDS --- */
+.app-card {
+  display: grid;
+  grid-template-columns: 1.5fr 1.2fr 2fr 1fr 1fr;
+  align-items: center;
+  gap: 20px;
+  padding: 20px;
+  border-radius: 10px;
+  margin-bottom: 10px;
+  border: 1px solid #f3f4f6;
+  transition: background-color 0.2s;
+}
+
+.app-card:hover {
+  background-color: #f9fafb;
+  border-color: #e5e7eb;
+}
+
+.app-col { font-size: 0.95rem; color: var(--text-dark); }
+.provider-col strong { color: var(--navy); }
+.price { font-weight: 700; color: var(--navy); }
+
+/* View Button */
+.view-app-btn {
+  background-color: transparent;
+  color: var(--navy);
+  border: 2px solid var(--navy);
+  padding: 8px 18px;
+  border-radius: 50px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 700;
+  width: 100%;
+  transition: all 0.2s;
+}
+
+.view-app-btn:hover {
+  background-color: var(--navy);
+  color: var(--white);
+}
+
+/* Empty State */
+.no-app-state {
+  text-align: center; padding: 40px; color: var(--text-muted); font-style: italic;
+}
+.empty-icon { font-size: 3rem; margin-bottom: 15px; opacity: 0.3; }
+
+.mobile-label { display: none; }
+
+/* --- RESPONSIVE --- */
+@media (max-width: 900px) {
+  .list-header-row { display: none; }
+  
+  .app-card {
+    grid-template-columns: 1fr; /* Stack columns */
+    padding: 20px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+  }
+  
+  .app-col {
+    display: flex; justify-content: space-between; width: 100%;
+    align-items: center;
+    border-bottom: 1px solid #f3f4f6; padding-bottom: 10px; margin-bottom: 10px;
+  }
+  .app-col:last-child { border-bottom: none; margin-bottom: 0; }
+  
+  .mobile-label {
+    display: block; font-weight: 600; color: var(--text-muted); font-size: 0.85rem;
+  }
+}

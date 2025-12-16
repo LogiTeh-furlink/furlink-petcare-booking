@@ -12,6 +12,8 @@
   align-items: center;
   width: 90%;
   max-width: 1200px;
+  position: relative;
+  z-index: 1000; /* Ensure header stays on top */
 }
 
 /* ===== Inner Navbar Container ===== */
@@ -26,6 +28,7 @@
 .header-left img.header-logo {
   height: 48px;
   cursor: pointer;
+  display: block; /* Removes extra inline spacing */
 }
 
 /* ===== Right Section ===== */
@@ -33,7 +36,7 @@
   display: flex;
   align-items: center;
   gap: 1.5rem;
-  position: relative; /* ✅ makes dropdowns align properly under icons */
+  position: relative; /* makes dropdowns align properly under icons */
 }
 
 /* ===== Provider Button (Default) ===== */
@@ -47,7 +50,7 @@
   cursor: pointer;
   font-size: 1rem;
   transition: all 0.3s ease;
-  /* box-shadow removed as requested */
+  white-space: nowrap; /* Prevents text wrapping */
 }
 
 .provider-btn:hover {
@@ -55,8 +58,7 @@
   transform: translateY(-2px);
 }
 
-/* ⭐ NEW: Business Mode Button (Requirement 5) */
-/* Solid Blue background to stand out as a Dashboard link */
+/* Business Mode Button */
 .provider-btn.business-mode {
   background-color: #0e2679;
   color: white;
@@ -77,8 +79,9 @@
   color: #0e2679;
   position: relative;
   transition: color 0.3s ease-in-out;
-  display: flex; /* Ensures alignment */
+  display: flex;
   align-items: center;
+  padding: 5px; /* Increases touch target size slightly */
 }
 
 .icon-btn:hover {
@@ -88,9 +91,9 @@
 /* ===== Notification Dot ===== */
 .notif-dot {
   position: absolute;
-  top: -2px;
-  right: -2px;
-  width: 16px; /* Slightly larger for visibility */
+  top: 0;
+  right: 0;
+  width: 16px;
   height: 16px;
   font-size: 10px;
   color: white;
@@ -100,6 +103,7 @@
   background-color: #fdbf00;
   border-radius: 50%;
   font-weight: bold;
+  border: 2px solid white; /* Adds separation from icon */
 }
 
 /* ===== Dropdowns (Shared) ===== */
@@ -107,23 +111,29 @@
 .dropdown {
   position: absolute;
   right: 0;
-  top: 140%; /* Moved down slightly to clear buttons */
+  top: 160%; /* Pushed down to clear header */
   background: #fff;
   border-radius: 12px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15); /* Stronger shadow for floating effect */
-  width: 300px; /* Widened to fit messages */
-  padding: 0; /* Remove padding to flush header */
-  z-index: 999;
-  overflow: hidden; /* Contains the header */
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+  width: 320px;
+  padding: 0;
+  z-index: 2000;
+  overflow: hidden;
   border: 1px solid #f0f0f0;
+  animation: slideDown 0.2s ease-out;
 }
 
 /* Profile Dropdown specific width */
 .profile-dropdown {
-  width: 220px;
+  width: 240px;
 }
 
-/* ===== Notifications Specifics (Requirement 6) ===== */
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ===== Notifications Specifics ===== */
 .dropdown-header {
   background-color: #f8f9fa;
   padding: 12px 15px;
@@ -135,7 +145,7 @@
 
 .notif-item {
   display: flex;
-  flex-direction: column; /* Stack Title and Message */
+  flex-direction: column;
   align-items: flex-start;
   gap: 0.3rem;
   padding: 12px 15px;
@@ -146,25 +156,18 @@
   text-align: left;
 }
 
-.notif-item:last-child {
-  border-bottom: none;
-}
-
-.notif-item:hover {
-  background-color: #f9f9f9;
-}
+.notif-item:last-child { border-bottom: none; }
+.notif-item:hover { background-color: #f9f9f9; }
 
 /* Unread State */
 .notif-item.unread {
   background-color: #fff;
-  border-left: 4px solid #fdbf00; /* Yellow indicator */
+  border-left: 4px solid #fdbf00;
 }
-
 .notif-item.unread .notif-title {
   font-weight: 800;
   color: #0e2679;
 }
-
 .notif-item.unread .notif-msg {
   color: #333;
   font-weight: 500;
@@ -175,14 +178,12 @@
   background-color: #fff;
   border-left: 4px solid transparent;
 }
-
 .notif-item.read .notif-title {
   font-weight: 600;
   color: #666;
 }
-
 .notif-item.read .notif-msg {
-  color: #999; /* Lightened text */
+  color: #999;
   font-size: 0.85rem;
 }
 
@@ -193,7 +194,7 @@
   font-size: 0.9rem;
 }
 
-/* ===== Profile Menu Items (Requirement 7) ===== */
+/* ===== Profile Menu Items ===== */
 .user-name {
   padding: 15px;
   font-weight: bold;
@@ -224,163 +225,145 @@
 .logout-btn:hover {
   color: #fdbf00;
   background-color: #f9f9f9;
-  padding-left: 20px; /* Slide effect */
+  padding-left: 20px;
 }
 
-.menu-icon {
-  font-size: 1.1rem;
-}
+.menu-icon { font-size: 1.1rem; }
 
-/* ===== MODALS (Requirements 2 & 4) ===== */
+/* ===== MODALS ===== */
 .modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(14, 38, 121, 0.4); /* Blue-tinted dimmer */
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(14, 38, 121, 0.4);
   backdrop-filter: blur(3px);
-  display: flex;
-  justify-content: center;
-  align-items: center;
+  display: flex; justify-content: center; align-items: center;
   z-index: 10000;
   animation: fadeIn 0.2s ease-in-out;
 }
 
 .modal-content {
-  background: white;
-  padding: 2.5rem 2rem;
-  border-radius: 20px;
-  width: 90%;
-  max-width: 420px;
-  text-align: center;
-  position: relative;
+  background: white; padding: 2.5rem 2rem; border-radius: 20px;
+  width: 90%; max-width: 420px; text-align: center; position: relative;
   box-shadow: 0 15px 40px rgba(0,0,0,0.2);
 }
 
 .modal-icon-wrapper {
-  font-size: 3.5rem;
-  margin-bottom: 1rem;
-  display: inline-block;
-  padding: 15px;
-  border-radius: 50%;
-  background-color: #f8f9fa;
+  font-size: 3.5rem; margin-bottom: 1rem; display: inline-block;
+  padding: 15px; border-radius: 50%; background-color: #f8f9fa;
 }
-
 .modal-icon-wrapper.pending { color: #fdbf00; }
 .modal-icon-wrapper.reject { color: #e74c3c; }
 
-.modal-content h3 {
-  margin: 10px 0;
-  color: #0e2679;
-  font-size: 1.5rem;
-}
-
-.modal-content p {
-  color: #666;
-  margin-bottom: 2rem;
-  line-height: 1.6;
-}
+.modal-content h3 { margin: 10px 0; color: #0e2679; font-size: 1.5rem; }
+.modal-content p { color: #666; margin-bottom: 2rem; line-height: 1.6; }
 
 .modal-ok-btn {
-  background-color: #0e2679;
-  color: white;
-  border: none;
-  padding: 12px 30px;
-  border-radius: 30px;
-  font-weight: 600;
-  font-size: 1rem;
-  cursor: pointer;
-  transition: transform 0.2s;
+  background-color: #0e2679; color: white; border: none;
+  padding: 12px 30px; border-radius: 30px; font-weight: 600;
+  font-size: 1rem; cursor: pointer; transition: transform 0.2s;
   box-shadow: 0 4px 12px rgba(14, 38, 121, 0.2);
 }
-
-.modal-ok-btn:hover {
-  transform: translateY(-2px);
-  background-color: #0a1b55;
-}
+.modal-ok-btn:hover { transform: translateY(-2px); background-color: #0a1b55; }
 
 .modal-ok-btn.reject-bg {
-  background-color: #e74c3c;
-  box-shadow: 0 4px 12px rgba(231, 76, 60, 0.3);
+  background-color: #e74c3c; box-shadow: 0 4px 12px rgba(231, 76, 60, 0.3);
 }
 .modal-ok-btn.reject-bg:hover { background-color: #c0392b; }
 
 .close-modal-btn {
-  position: absolute;
-  top: 15px;
-  right: 20px;
-  background: none;
-  border: none;
-  font-size: 1.2rem;
-  color: #ccc;
-  cursor: pointer;
-  transition: color 0.2s;
+  position: absolute; top: 15px; right: 20px; background: none;
+  border: none; font-size: 1.2rem; color: #ccc; cursor: pointer; transition: color 0.2s;
 }
-
 .close-modal-btn:hover { color: #0e2679; }
 
-/* Rejection Modal Specifics */
+/* Rejection Modal */
 .rejection-details-box {
-  text-align: left;
-  background-color: #fef2f2;
-  padding: 15px;
-  border-radius: 8px;
-  margin-bottom: 15px;
-  border: 1px solid #fee2e2;
+  text-align: left; background-color: #fef2f2; padding: 15px;
+  border-radius: 8px; margin-bottom: 15px; border: 1px solid #fee2e2;
 }
-
 .reject-reason-title {
-  margin-bottom: 5px;
-  color: #991b1b;
-  font-size: 0.95rem;
-  display: flex;
-  align-items: center;
-  gap: 5px;
+  margin-bottom: 5px; color: #991b1b; font-size: 0.95rem; display: flex; align-items: center; gap: 5px;
 }
+.reject-reason-list { margin: 0; padding-left: 20px; color: #7f1d1d; font-size: 0.9rem; }
+.reject-reason-item { margin-bottom: 3px; }
+.reject-note { font-size: 0.9rem; color: #6b7280; }
 
-.reject-reason-list {
-  margin: 0;
-  padding-left: 20px;
-  color: #7f1d1d;
-  font-size: 0.9rem;
-}
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
-.reject-reason-item {
-  margin-bottom: 3px;
-}
+/* =========================================
+   📱 MOBILE RESPONSIVENESS (UPDATED)
+   ========================================= */
 
-.reject-note {
-  font-size: 0.9rem;
-  color: #6b7280;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-/* ===== Responsive ===== */
+/* Tablet & Mobile Breakpoint (Max-width 768px) */
 @media (max-width: 768px) {
-  .navbar-container {
-    flex-direction: column;
-    gap: 1rem;
-    padding: 1rem 1.5rem;
-    max-width: 95%;
+  .loggedin-header {
+    width: 95%; /* Use more width on mobile */
+    margin: 1rem auto;
+    padding: 0.8rem 1rem;
+    border-radius: 25px; /* Less rounded corners on small screens */
   }
 
+  /* Keep logo and icons in one row mostly */
+  .navbar-container {
+    padding: 0;
+  }
+
+  .header-left img.header-logo {
+    height: 40px; /* Slightly smaller logo */
+  }
+
+  /* Reduce gap between elements */
   .nav-right {
-    flex-direction: column;
     gap: 1rem;
-    width: 100%;
+  }
+
+  /* Provider button tweaks */
+  .provider-btn {
+    padding: 0.5rem 1rem;
+    font-size: 0.85rem;
+  }
+
+  /* Icons tweaks */
+  .icon-btn {
+    font-size: 1.2rem;
+  }
+}
+
+/* Very Small Screens (Max-width 480px) */
+@media (max-width: 480px) {
+  /* Stack logo and provider button if necessary, or simplify layout */
+  .loggedin-header {
+    padding: 0.8rem 1rem;
+  }
+
+  .header-left img.header-logo {
+    height: 36px;
+  }
+
+  /* Hide Provider button text on super small screens? 
+     Or just make it stack if you prefer. 
+     Here we'll make the gap tiny. */
+  .nav-right {
+    gap: 0.8rem;
+  }
+
+  .provider-btn {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.75rem; /* Tiny button text */
   }
   
-  .provider-btn { width: 100%; }
-
+  /* Dropdowns: Full width and centered on mobile */
   .notif-dropdown,
   .dropdown {
-    right: 50%;
-    transform: translateX(50%);
-    width: 90%; /* Full width on mobile */
+    width: 90vw; /* 90% of viewport width */
+    max-width: 300px; /* But don't get too wide */
+    right: -1rem; /* Align relative to parent or offset manually */
+    left: auto; /* Ensure no left value interferes */
+    top: 150%;
+  }
+  
+  /* Fix right alignment issue for dropdowns near edge */
+  .profile-wrapper .dropdown,
+  .notif-wrapper .notif-dropdown {
+    right: -50px; /* Shift left slightly so it doesn't go off screen */
   }
 }
