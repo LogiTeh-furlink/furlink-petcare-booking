@@ -20,6 +20,7 @@ import SPDashboard from "./pages/service-provider/SPDashboard";
 import SPManageListing from "./pages/service-provider/SPManageListing";
 import SPEditListing from "./pages/service-provider/SPEditListing";
 import SPEditProfile from "./pages/service-provider/SPEditProfile";
+import SPBookingDetails from "./pages/service-provider/SPBookingDetails";
 
 // Admin Pages
 import AdminChangePassword from "./pages/admin/AdminChangePassword";
@@ -77,6 +78,7 @@ function App() {
             {/* Operational Dashboard (Main Business Hub) */}
             <Route path="/service/dashboard" element={<SPDashboard />} />
             <Route path="/service/dashboard/:id" element={<SPDashboard />} />
+            <Route path="/service/booking-details/:id" element={<SPBookingDetails />} />
 
           
             {/* Listing Management */}
