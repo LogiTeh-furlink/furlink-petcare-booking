@@ -5,7 +5,7 @@ import LoggedInNavbar from "../../components/Header/LoggedInNavbar";
 import Footer from "../../components/Footer/Footer";
 import { 
   FaArrowLeft, FaCheck, FaTimes, FaPaw, FaSyringe, 
-  FaFileMedical, FaClock, FaCalendarDay, FaInfoCircle, FaExclamationCircle
+  FaFileMedical, FaExclamationCircle, FaImage
 } from "react-icons/fa";
 import "./SPBookingDetails.css";
 
@@ -15,31 +15,26 @@ export default function SPBookingDetails() {
   const [booking, setBooking] = useState(null);
   const [loading, setLoading] = useState(true);
   
-  // Modal States
+  // --- Modal States ---
   const [previewImage, setPreviewImage] = useState(null); 
   const [showDeclineModal, setShowDeclineModal] = useState(false);
-  
-  // ⭐ NEW: Feedback Modal State (Replaces Alerts)
   const [feedback, setFeedback] = useState({ show: false, type: '', message: '' });
 
+  // --- Form States ---
   const [declineReason, setDeclineReason] = useState("");
   const [customReason, setCustomReason] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // Helper to show modal
+  // --- Helper: Feedback Modal ---
   const showFeedback = (type, message) => {
     setFeedback({ show: true, type, message });
   };
 
   const closeFeedback = () => {
     setFeedback({ ...feedback, show: false });
-    // If it was a success, verify if we need to redirect or just stay
-    if (feedback.type === 'success') {
-       // Optional: Redirect after success if you prefer
-       // navigate("/service/dashboard");
-    }
   };
 
+  // --- Data Fetching ---
   useEffect(() => {
     const fetchBookingDetails = async () => {
       try {
@@ -58,7 +53,6 @@ export default function SPBookingDetails() {
         if (error) throw error;
         setBooking(data);
       } catch (err) {
-        // Silent error or redirect
         navigate("/service/dashboard");
       } finally {
         setLoading(false);
@@ -68,21 +62,23 @@ export default function SPBookingDetails() {
     fetchBookingDetails();
   }, [id, navigate]);
 
+  // --- Formatters ---
   const formatTime12Hour = (timeStr) => {
     if (!timeStr) return "";
     const [hour, minute] = timeStr.split(":");
     const h = parseInt(hour, 10);
-    const ampm = h >= 12 ? "PM" : "AM";
+    const ampm = h >= 12 ? "P.M." : "A.M.";
     const h12 = h % 12 || 12; 
     return `${h12}:${minute} ${ampm}`;
   };
 
   const formatDate = (dateStr) => {
     return new Date(dateStr).toLocaleDateString("en-US", {
-      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+      month: 'long', day: 'numeric', year: 'numeric'
     });
   };
 
+  // --- Handlers ---
   const handleUpdateStatus = async (newStatus, reason = null) => {
     setIsProcessing(true);
     try {
@@ -99,16 +95,11 @@ export default function SPBookingDetails() {
       if (error) throw error;
 
       setBooking(prev => ({ ...prev, ...updates }));
-      
-      // Close decline modal if open
       if (newStatus === 'declined') setShowDeclineModal(false);
-
-      // Show Success Modal
-      showFeedback('success', `Booking has been successfully ${newStatus === 'approved' ? 'ACCEPTED' : 'DECLINED'}.`);
+      showFeedback('success', `Booking has been ${newStatus === 'approved' ? 'APPROVED' : 'DECLINED'}.`);
 
     } catch (err) {
-      // Show Error Modal
-      showFeedback('error', "Failed to update booking status. Please try again.");
+      showFeedback('error', "Failed to update booking status.");
     } finally {
       setIsProcessing(false);
     }
@@ -116,14 +107,14 @@ export default function SPBookingDetails() {
 
   const submitDecline = () => {
     if (!declineReason) {
-      showFeedback('error', "Please select a reason for rejection.");
+      showFeedback('error', "Please select a reason.");
       return;
     }
     const finalReason = declineReason === "Other" ? customReason : declineReason;
     handleUpdateStatus("declined", finalReason);
   };
 
-  if (loading) return <div className="loading-screen">Loading...</div>;
+  if (loading) return <div className="sp-loading">Loading...</div>;
   if (!booking) return null;
 
   return (
@@ -132,75 +123,65 @@ export default function SPBookingDetails() {
 
       {/* --- 1. Image Zoom Modal --- */}
       {previewImage && (
-        <div className="image-modal-overlay" onClick={() => setPreviewImage(null)}>
+        <div className="modal-overlay z-max" onClick={() => setPreviewImage(null)}>
           <div className="image-modal-content">
             <img src={previewImage} alt="Preview" />
-            <button className="close-preview-btn" onClick={() => setPreviewImage(null)}><FaTimes /></button>
+            <button className="close-preview-btn"><FaTimes /></button>
           </div>
         </div>
       )}
 
-      {/* --- 2. Feedback Modal (Success/Error) --- */}
+      {/* --- 2. Feedback Modal --- */}
       {feedback.show && (
-        <div className="modal-overlay">
+        <div className="modal-overlay z-high">
           <div className={`feedback-card ${feedback.type}`}>
             <div className="feedback-icon">
               {feedback.type === 'success' ? <FaCheck /> : <FaExclamationCircle />}
             </div>
-            <h3>{feedback.type === 'success' ? 'Success!' : 'Error'}</h3>
+            <h3>{feedback.type === 'success' ? 'Success' : 'Error'}</h3>
             <p>{feedback.message}</p>
-            <button className="feedback-btn" onClick={closeFeedback}>Okay, Got it</button>
+            <button className="feedback-btn" onClick={closeFeedback}>Close</button>
           </div>
         </div>
       )}
 
-      {/* --- 3. Decline Input Modal --- */}
+      {/* --- 3. Decline Modal --- */}
       {showDeclineModal && (
-        <div className="modal-overlay">
+        <div className="modal-overlay z-high">
           <div className="decline-card">
             <div className="modal-header">
               <h3>Decline Request</h3>
-              <button className="close-icon-btn" onClick={() => setShowDeclineModal(false)}><FaTimes /></button>
+              <button onClick={() => setShowDeclineModal(false)}><FaTimes /></button>
             </div>
-            <p>Please select a reason for declining this request:</p>
-            
+            <p>Reason for rejection:</p>
             <select 
               value={declineReason} 
               onChange={(e) => setDeclineReason(e.target.value)}
               className="reason-select"
             >
               <option value="">-- Select Reason --</option>
-              <option value="Fully Booked">Fully Booked for this Time Slot</option>
+              <option value="Fully Booked">Fully Booked</option>
               <option value="Staff Unavailable">Staff Unavailable</option>
               <option value="Incomplete Documents">Incomplete Documents</option>
-              <option value="Service Mismatch">Service Not Suitable for Pet</option>
               <option value="Other">Other</option>
             </select>
-
             {declineReason === "Other" && (
               <textarea 
                 className="custom-reason-input"
-                placeholder="Please specify the reason..."
+                placeholder="Specify reason..."
                 value={customReason}
                 onChange={(e) => setCustomReason(e.target.value)}
               />
             )}
-
-            <div className="modal-actions">
-              <button className="cancel-btn" onClick={() => setShowDeclineModal(false)}>Cancel</button>
-              <button 
-                className="confirm-decline-btn" 
-                onClick={submitDecline}
-                disabled={isProcessing}
-              >
-                {isProcessing ? "Processing..." : "Confirm Decline"}
-              </button>
-            </div>
+            <button className="confirm-decline-btn" onClick={submitDecline} disabled={isProcessing}>
+              {isProcessing ? "Processing..." : "Confirm Decline"}
+            </button>
           </div>
         </div>
       )}
 
-      {/* --- Main Content --- */}
+
+      {/* --- Main Page Layout --- */}
       <div className="details-page-wrapper">
         <div className="details-container">
           
@@ -208,143 +189,118 @@ export default function SPBookingDetails() {
             <FaArrowLeft /> Back to Dashboard
           </button>
 
-          <div className="details-grid-layout">
+          <div className="wireframe-grid">
             
-            {/* LEFT COLUMN */}
-            <div className="details-left">
+            {/* --- LEFT SIDE: CONTENT --- */}
+            <div className="content-side">
               
-              <div className="detail-card highlight-card">
-                <div className="status-header">
-                  <div>
-                    <span className="label-sub">Status</span>
-                    <div className={`status-pill ${booking.status}`}>
-                      {booking.status.toUpperCase()}
-                    </div>
-                  </div>
-                  <div className="price-box">
-                    <span className="label-sub">Total Price</span>
-                    <span className="price-display">Php {booking.total_estimated_price}</span>
-                  </div>
+              {/* Header: Amount and Date (Matches Wireframe) */}
+              <div className="simple-header">
+                <div className="amount-row">
+                  <span className="amount-label">Total Amount</span>
+                  <span className="amount-value">Php {booking.total_estimated_price}</span>
+                </div>
+                <div className="date-row">
+                  {formatDate(booking.booking_date)} &nbsp; {formatTime12Hour(booking.time_slot)}
                 </div>
               </div>
 
-              <div className="detail-card">
-                <h2 className="card-title">Schedule Details</h2>
-                <div className="schedule-row">
-                  <div className="schedule-item">
-                    <div className="icon-circle"><FaCalendarDay /></div>
-                    <div>
-                      <span className="label-sub">Date</span>
-                      <p>{formatDate(booking.booking_date)}</p>
+              {/* Loop through Pets */}
+              {booking.booking_pets.map((pet, index) => (
+                <div key={pet.id} className="wf-pet-card">
+                  
+                  <h3 className="wf-pet-name">Pet {index + 1} ({pet.pet_name})</h3>
+
+                  <div className="wf-pet-columns">
+                    {/* Left Column: Details */}
+                    <div className="wf-col-left">
+                      <div className="wf-row"><span className="wf-label">Name</span> <span className="wf-val">{pet.pet_name}</span></div>
+                      <div className="wf-row"><span className="wf-label">Pet Type</span> <span className="wf-val">{pet.pet_type}</span></div>
+                      <div className="wf-row"><span className="wf-label">Breed</span> <span className="wf-val">{pet.breed || "N/A"}</span></div>
+                      <div className="wf-row"><span className="wf-label">Gender</span> <span className="wf-val">{pet.gender || "N/A"}</span></div>
+                      <div className="wf-row"><span className="wf-label">Weight and Size</span> <span className="wf-val">{pet.weight_kg}kg / {pet.calculated_size}</span></div>
+                      <div className="wf-row"><span className="wf-label">Behavior</span> <span className="wf-val">{pet.behavior || "Normal"}</span></div>
+                      <div className="wf-row"><span className="wf-label">Emergency Consent</span> <span className="wf-val">{pet.emergency_consent ? "Granted" : "Denied"}</span></div>
                     </div>
-                  </div>
-                  <div className="schedule-item">
-                     <div className="icon-circle"><FaClock /></div>
-                    <div>
-                      <span className="label-sub">Time</span>
-                      <p>{formatTime12Hour(booking.time_slot)}</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
 
-              <h2 className="section-title">Pet Information ({booking.booking_pets.length})</h2>
-              
-              {booking.booking_pets.map((pet) => (
-                <div key={pet.id} className="pet-detail-card">
-                  <div className="pet-card-header">
-                    <h3><FaPaw /> {pet.pet_name}</h3>
-                    <span className="pet-type-badge">{pet.pet_type}</span>
-                  </div>
-
-                  <div className="service-highlight">
-                    <h4>Service Selected</h4>
-                    <ul>
-                      {pet.booking_services?.map((svc, i) => (
-                        <li key={i}>
-                          <span>{svc.service_name}</span>
-                          <span className="svc-price">Php {svc.price}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-
-                  <div className="pet-info-grid">
-                    <div className="info-box"><label>Breed</label><p>{pet.breed || "N/A"}</p></div>
-                    <div className="info-box"><label>Gender</label><p>{pet.gender || "N/A"}</p></div>
-                    <div className="info-box"><label>Weight</label><p>{pet.weight_kg} kg</p></div>
-                    <div className="info-box"><label>Size</label><p>{pet.calculated_size || "Standard"}</p></div>
-                    <div className="info-box"><label>Behavior</label><p>{pet.behavior || "Normal"}</p></div>
-                  </div>
-
-                  <div className="consent-box">
-                    <FaInfoCircle /> 
-                    <span>Emergency Consent: <strong>{pet.emergency_consent ? "GRANTED" : "DENIED"}</strong></span>
-                  </div>
-
-                  <div className="medical-docs-section">
-                    <h4>Medical Records</h4>
-                    <div className="docs-flex">
-                      <div className="doc-preview-container">
-                         <span className="doc-tag"><FaSyringe /> Vaccine Record</span>
-                         {pet.vaccine_card_url ? (
-                           <img src={pet.vaccine_card_url} alt="Vaccine" onClick={() => setPreviewImage(pet.vaccine_card_url)}/>
-                         ) : <div className="no-img">No Image</div>}
-                      </div>
-                      {pet.illness_proof_url && (
-                        <div className="doc-preview-container">
-                           <span className="doc-tag alert"><FaFileMedical /> Illness Proof</span>
-                           <img src={pet.illness_proof_url} alt="Illness" onClick={() => setPreviewImage(pet.illness_proof_url)}/>
+                    {/* Right Column: Services */}
+                    <div className="wf-col-right">
+                      <div className="wf-service-group">
+                        <span className="wf-label">Availed Service</span>
+                        <div className="wf-service-list">
+                          {pet.booking_services?.map((s, i) => (
+                            <div key={i}>{s.service_name}</div>
+                          ))}
                         </div>
-                      )}
+                      </div>
+                      <div className="wf-service-group">
+                        <span className="wf-label">Grooming Specification</span>
+                        <div className="wf-spec-text">{pet.grooming_specifications || "None"}</div>
+                      </div>
                     </div>
+                  </div>
+
+                  {/* Bottom: Images (Gray Boxes style) */}
+                  <div className="wf-images-row">
+                    
+                    {/* Vaccine Box */}
+                    <div className="wf-img-box" onClick={() => pet.vaccine_card_url && setPreviewImage(pet.vaccine_card_url)}>
+                      <div className="wf-img-placeholder">
+                        {pet.vaccine_card_url ? (
+                          <img src={pet.vaccine_card_url} alt="Vaccine" />
+                        ) : (
+                          <FaImage className="wf-icon" />
+                        )}
+                      </div>
+                      <span className="wf-img-label">Vaccine</span>
+                    </div>
+
+                    {/* Proof Box */}
+                    <div className="wf-img-box" onClick={() => pet.illness_proof_url && setPreviewImage(pet.illness_proof_url)}>
+                      <div className="wf-img-placeholder">
+                        {pet.illness_proof_url ? (
+                          <img src={pet.illness_proof_url} alt="Illness" />
+                        ) : (
+                          <FaImage className="wf-icon" />
+                        )}
+                      </div>
+                      <span className="wf-img-label">Proof of Illness</span>
+                    </div>
+
                   </div>
                 </div>
               ))}
             </div>
 
-            {/* RIGHT COLUMN (Sticky) */}
-            <div className="details-right">
-              <div className="action-sticky-card">
-                <h3>Action Required</h3>
+            {/* --- RIGHT SIDE: STATUS (Sticky) --- */}
+            <div className="sidebar-side">
+              <div className="wf-status-box">
+                <div className="wf-status-header">STATUS</div>
                 
-                {booking.status === 'pending' ? (
-                  <>
-                    <p className="action-desc">Please review the details. You can accept or decline this request.</p>
-                    <div className="action-btn-group">
-                      <button className="btn-action accept" onClick={() => handleUpdateStatus('approved')} disabled={isProcessing}>
-                        <FaCheck /> {isProcessing ? "Saving..." : "Accept Request"}
+                <div className="wf-status-body">
+                  {booking.status === 'pending' ? (
+                    <>
+                      <button 
+                        className="wf-btn approve" 
+                        onClick={() => handleUpdateStatus('approved')}
+                        disabled={isProcessing}
+                      >
+                        Approved
                       </button>
-                      <button className="btn-action decline" onClick={() => setShowDeclineModal(true)} disabled={isProcessing}>
-                        <FaTimes /> Decline Request
+                      <button 
+                        className="wf-btn decline" 
+                        onClick={() => setShowDeclineModal(true)}
+                        disabled={isProcessing}
+                      >
+                        Declined
                       </button>
+                    </>
+                  ) : (
+                    <div className={`current-status-badge ${booking.status}`}>
+                      {booking.status.toUpperCase()}
                     </div>
-                  </>
-                ) : (
-                  <div className={`status-message ${booking.status}`}>
-                    {booking.status === 'approved' && (
-                      <>
-                        <div className="status-icon-circle success"><FaCheck /></div>
-                        <h4>Booking Accepted</h4>
-                        <p>You have approved this schedule.</p>
-                      </>
-                    )}
-                    {booking.status === 'declined' && (
-                      <>
-                        <div className="status-icon-circle error"><FaTimes /></div>
-                        <h4>Booking Declined</h4>
-                        <p>Reason: {booking.rejection_reason || "No reason provided"}</p>
-                      </>
-                    )}
-                    {(booking.status === 'verified' || booking.status === 'completed') && (
-                      <>
-                         <div className="status-icon-circle success"><FaCheck /></div>
-                         <h4>{booking.status.toUpperCase()}</h4>
-                         <p>This booking is processed.</p>
-                      </>
-                    )}
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
             </div>
 
