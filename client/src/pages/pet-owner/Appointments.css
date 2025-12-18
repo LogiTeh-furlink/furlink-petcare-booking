@@ -162,6 +162,292 @@
   color: var(--white);
 }
 
+/* --- Modal Overlay --- */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.6); /* Darkened backdrop */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  backdrop-filter: blur(4px);
+  padding: 20px;
+}
+
+/* --- Modal Content --- */
+.modal-content {
+  background: white;
+  width: 100%;
+  max-width: 700px;
+  max-height: 90vh;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+  display: flex;
+  flex-direction: column;
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+/* --- Modal Header --- */
+.modal-header {
+  padding: 20px 25px;
+  border-bottom: 1px solid #eee;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.modal-header h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  color: #333;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 1.2rem;
+  cursor: pointer;
+  color: #666;
+  transition: color 0.2s;
+}
+
+.close-btn:hover {
+  color: #ff4d4d;
+}
+
+/* --- Modal Body --- */
+.modal-body {
+  padding: 25px;
+  overflow-y: auto; /* Scrollable internal content */
+}
+
+.detail-section {
+  margin-bottom: 30px;
+}
+
+.detail-section h3 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 1.1rem;
+  color: #e57373; /* Theme color */
+  margin-bottom: 15px;
+  border-bottom: 2px solid #fff0f0;
+  padding-bottom: 8px;
+}
+
+/* General Info Grid */
+.detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px;
+  background: #f9f9f9;
+  padding: 15px;
+  border-radius: 8px;
+}
+
+.detail-item {
+  display: flex;
+  flex-direction: column;
+}
+
+.detail-item.full-width {
+  grid-column: 1 / -1;
+}
+
+.detail-item label {
+  font-size: 0.85rem;
+  color: #888;
+  margin-bottom: 4px;
+}
+
+.detail-item span {
+  font-weight: 600;
+  color: #333;
+}
+
+.price-text {
+  color: #27ae60 !important;
+  font-size: 1.1rem;
+}
+
+.status-tag {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  font-weight: bold;
+}
+
+/* Status specific colors */
+.status-tag.pending { background: #fff3cd; color: #856404; }
+.status-tag.approved { background: #d1ecf1; color: #0c5460; }
+.status-tag.verified { background: #d4edda; color: #155724; }
+.status-tag.declined { background: #f8d7da; color: #721c24; }
+.status-tag.completed { background: #cce5ff; color: #004085; }
+
+/* --- Pet & Service Cards --- */
+.pet-detail-card {
+  border: 1px solid #eee;
+  border-radius: 8px;
+  padding: 15px;
+  margin-bottom: 15px;
+  background: #fff;
+}
+
+.pet-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.pet-header h4 {
+  margin: 0;
+  color: #333;
+}
+
+.pet-breed {
+  font-size: 0.9rem;
+  color: #666;
+}
+
+.pet-info-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 15px;
+  padding-bottom: 15px;
+  border-bottom: 1px dashed #eee;
+}
+
+.info-block small {
+  display: block;
+  font-size: 0.75rem;
+  color: #999;
+}
+
+.info-block p {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #444;
+}
+
+.doc-links {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.doc-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: #3498db;
+  text-decoration: none;
+  font-size: 0.9rem;
+}
+
+.doc-link:hover {
+  text-decoration: underline;
+}
+
+.consent-badge {
+  font-size: 0.7rem;
+  background: #ffebee;
+  color: #c62828;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+/* Services List */
+.services-list ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.services-list h5 {
+  margin: 0 0 8px 0;
+  font-size: 0.9rem;
+  color: #666;
+}
+
+.service-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.95rem;
+  padding: 6px 0;
+  border-bottom: 1px solid #f5f5f5;
+}
+
+.service-row span:last-child {
+  font-weight: 600;
+  color: #555;
+}
+
+/* --- Modal Footer Actions --- */
+.footer-actions {
+  display: flex;
+  gap: 15px;
+  width: 100%;
+  justify-content: flex-end;
+}
+
+/* Reschedule Button - Blue */
+.resched-btn {
+  background-color: #3498db;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.resched-btn:hover {
+  background-color: #2980b9;
+}
+
+/* Cancel Button - Red Outline */
+.cancel-btn {
+  background-color: #fff;
+  color: #e74c3c;
+  border: 1px solid #e74c3c;
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.cancel-btn:hover {
+  background-color: #e74c3c;
+  color: white;
+}
+
+/* Mobile Responsive */
+@media (max-width: 600px) {
+  .footer-actions {
+    flex-direction: column;
+    gap: 10px;
+  }
+  .resched-btn, .cancel-btn {
+    width: 100%;
+  }
+}
+
 /* Empty State */
 .no-app-state {
   text-align: center; padding: 40px; color: var(--text-muted); font-style: italic;
