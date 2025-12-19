@@ -14,7 +14,8 @@ import ServiceSetup from "./pages/pet-owner/ServiceSetup";
 import ServiceListing from "./pages/pet-owner/ServiceListing";
 import ListingInfo from "./pages/pet-owner/ListingInfo";
 import PetDetails from "./pages/pet-owner/PetDetails"; 
-import Appointments from "./pages/pet-owner/Appointments"; // ⭐ NEW IMPORT
+import Appointments from "./pages/pet-owner/Appointments"; 
+import UserProfile from "./pages/pet-owner/UserProfile"; // ⭐ NEW IMPORT
 
 // Service Provider Pages
 import SPDashboard from "./pages/service-provider/SPDashboard";
@@ -54,15 +55,16 @@ function App() {
 
         <Route element={<ProtectedRoute />}>
 
-          {/* --- 1. PET OWNER SIDE --- */}
+          {/* --- 1. PET OWNER / GENERAL USER SIDE --- */}
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/listing/:id" element={<ListingInfo />} />
           
-          {/* Pet Owner Routes */}
+          {/* User & Pet Management */}
           <Route path="/pet-details" element={<PetDetails />} />
-          
-          {/* ⭐ NEW ROUTE for Appointments */}
           <Route path="/appointments" element={<Appointments />} />
+          
+          {/* ⭐ NEW ROUTE for User Profile */}
+          <Route path="/profile" element={<UserProfile />} />
           
           
           {/* --- 2. SERVICE PROVIDER SIDE --- */}

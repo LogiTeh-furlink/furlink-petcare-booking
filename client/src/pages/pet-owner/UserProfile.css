@@ -1,0 +1,342 @@
+/* =========================================
+   1. Page Layout & Container
+   ========================================= */
+.profile-page-wrapper {
+  background-color: #f3f4f6;
+  min-height: 80vh;
+  padding: 40px 20px;
+  display: flex;
+  justify-content: center;
+}
+
+.profile-container {
+  background: white;
+  width: 100%;
+  max-width: 700px;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+  padding: 40px;
+  height: fit-content;
+}
+
+/* =========================================
+   2. Header Section
+   ========================================= */
+.profile-header {
+  text-align: center;
+  margin-bottom: 30px;
+}
+
+.header-icon {
+  background-color: #e0f2fe;
+  color: #0284c7;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.8rem;
+  margin: 0 auto 15px auto;
+}
+
+.profile-header h1 {
+  font-size: 1.8rem;
+  color: #1f2937;
+  margin-bottom: 5px;
+}
+
+.profile-header p {
+  color: #6b7280;
+}
+
+/* =========================================
+   3. Form Layout & Inputs
+   ========================================= */
+.form-section {
+  margin-bottom: 30px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.form-section:last-of-type {
+  border-bottom: none;
+}
+
+.form-section h3 {
+  color: #374151;
+  font-size: 1.1rem;
+  margin-bottom: 15px;
+  font-weight: 600;
+}
+
+.section-subtitle {
+  font-size: 0.9rem;
+  color: #6b7280;
+  margin-bottom: 15px;
+}
+
+.form-row {
+  display: flex;
+  gap: 20px;
+}
+
+.input-group {
+  margin-bottom: 15px;
+  flex: 1;
+}
+
+.input-group label {
+  display: block;
+  font-size: 0.9rem;
+  color: #4b5563;
+  margin-bottom: 6px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.input-icon {
+  color: #9ca3af;
+}
+
+.input-group input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 1rem;
+  transition: border-color 0.2s;
+  box-sizing: border-box; 
+}
+
+.input-group input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.read-only-input {
+  background-color: #f9fafb;
+  color: #6b7280;
+  cursor: not-allowed;
+}
+
+.helper-text {
+  font-size: 0.8rem;
+  color: #9ca3af;
+  margin-top: 4px;
+  display: block;
+}
+
+/* =========================================
+   4. Password Visibility Toggle
+   ========================================= */
+.password-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.password-wrapper input {
+  padding-right: 45px; /* Space for the eye icon */
+}
+
+.toggle-password-btn {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #9ca3af;
+  font-size: 1.1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5px;
+  transition: color 0.2s;
+}
+
+.toggle-password-btn:hover {
+  color: #4b5563;
+}
+
+/* =========================================
+   5. Error States & Banners
+   ========================================= */
+/* Top Banner for General Errors */
+.general-error-banner {
+  background-color: #fee2e2;
+  color: #991b1b;
+  padding: 12px;
+  border-radius: 6px;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 500;
+  border: 1px solid #fecaca;
+}
+
+/* Input Field Error State */
+.input-group input.input-error {
+  border-color: #ef4444; 
+  background-color: #fef2f2;
+}
+
+.input-group input.input-error:focus {
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+}
+
+/* Password wrapper input error inheritance */
+.password-wrapper input.input-error {
+  border-color: #ef4444;
+}
+
+/* Inline Error Text */
+.field-error-msg {
+  display: block;
+  color: #dc2626;
+  font-size: 0.8rem;
+  margin-top: 5px;
+  font-weight: 500;
+  text-align: left;
+}
+
+/* =========================================
+   6. Action Buttons
+   ========================================= */
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 20px;
+}
+
+.save-btn {
+  background-color: #2563eb;
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: background 0.2s;
+}
+
+.save-btn:hover {
+  background-color: #1d4ed8;
+}
+
+.save-btn:disabled {
+  background-color: #93c5fd;
+  cursor: not-allowed;
+}
+
+/* =========================================
+   7. Modals (Success, Warn, Info)
+   ========================================= */
+.confirm-save-modal {
+  max-width: 400px;
+  text-align: center;
+  padding: 30px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+}
+
+.confirm-save-modal h3 {
+  margin-bottom: 10px;
+  color: #1f2937;
+}
+
+.confirm-save-modal p {
+  color: #6b7280;
+  margin-bottom: 25px;
+}
+
+/* Modal Icons wrapper base */
+.modal-icon-wrapper {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.8rem;
+  margin: 0 auto 15px auto;
+}
+
+/* Variant: Warning (Yellow) */
+.modal-icon-wrapper.warn {
+  background-color: #fef3c7;
+  color: #d97706;
+}
+
+/* Variant: Success (Green) */
+.modal-icon-wrapper.success {
+  background-color: #dcfce7;
+  color: #16a34a;
+}
+
+/* Variant: Info (Blue) */
+.modal-icon-wrapper.info {
+  background-color: #dbeafe;
+  color: #3b82f6;
+}
+
+/* Modal Buttons */
+.modal-actions-row {
+  display: flex;
+  gap: 15px;
+  justify-content: center;
+}
+
+.modal-btn-cancel {
+  background-color: #e5e7eb;
+  color: #374151;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: background 0.2s;
+}
+
+.modal-btn-cancel:hover {
+  background-color: #d1d5db;
+}
+
+.modal-btn-confirm {
+  background-color: #2563eb;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: background 0.2s;
+}
+
+.modal-btn-confirm:hover {
+  background-color: #1d4ed8;
+}
+
+/* =========================================
+   8. Responsive Design
+   ========================================= */
+@media (max-width: 600px) {
+  .form-row {
+    flex-direction: column;
+    gap: 0;
+  }
+  
+  .profile-container {
+    padding: 20px;
+  }
+}

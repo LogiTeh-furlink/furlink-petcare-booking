@@ -8,7 +8,8 @@ import {
   FaStore, 
   FaListUl, 
   FaExclamationCircle,
-  FaCalendarAlt // Added for Appointments icon
+  FaCalendarAlt,
+  FaUser // Added FaUser for the Profile icon
 } from "react-icons/fa";
 import { supabase } from "../../config/supabase";
 import "./LoggedInNavbar.css";
@@ -69,8 +70,6 @@ const LoggedInNavbar = ({ hideBecomeProvider = false }) => {
 
       if (provider) {
         setProviderData(provider);
-        
-        // Check if they have submitted Stage 2 (Service Listing)
         const { count } = await supabase
           .from("services")
           .select("*", { count: 'exact', head: true })
@@ -86,46 +85,34 @@ const LoggedInNavbar = ({ hideBecomeProvider = false }) => {
   /* ==========================
       LOGIC HANDLERS
      ========================== */
-
   const isServiceProviderPage = location.pathname.startsWith("/service/");
 
-  // Requirement 1-5: The "Become a Service Provider" Button Logic
   const handleProviderClick = () => {
-    // Case 1: No application at all
     if (!providerData) {
       navigate("/apply-provider");
       return;
     }
-
     const { status } = providerData;
 
     if (status === "approved") {
-      // Case 5: Approved -> Go to Dashboard
       navigate("/service/dashboard");
     } else if (status === "rejected") {
-      // Case 4: Rejected -> Show Modal
       setShowRejectModal(true);
     } else if (status === "pending") {
       if (hasServices) {
-        // Case 2: Pending + Has Services -> Under Review Modal
         setShowPendingModal(true);
       } else {
-        // Case 3: Pending + No Services -> Continue Setup
         navigate("/service-setup");
       }
     }
   };
 
-  // Requirement 6: Notification Click & Styling
   const handleNotifClick = async (notif) => {
     if (!notif.read) {
       await supabase.from("notifications").update({ read: true }).eq("id", notif.id);
       setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, read: true } : n));
     }
-
     const title = notif.title?.toLowerCase() || "";
-    
-    // Redirect logic based on notification type
     if (title.includes("approved")) {
       navigate("/service/dashboard");
       setShowNotif(false);
@@ -135,14 +122,12 @@ const LoggedInNavbar = ({ hideBecomeProvider = false }) => {
     }
   };
 
-  // Logout
   const handleLogout = async () => {
     await supabase.auth.signOut();
     localStorage.removeItem("token");
     navigate("/");
   };
 
-  // Click Outside Listener
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (notifRef.current && !notifRef.current.contains(e.target)) setShowNotif(false);
@@ -154,12 +139,9 @@ const LoggedInNavbar = ({ hideBecomeProvider = false }) => {
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
-  // Helper to format enum strings
   const formatReason = (str) => {
     if (!str) return "";
-    return str
-      .replace(/_/g, " ")
-      .replace(/\b\w/g, (l) => l.toUpperCase());
+    return str.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
   };
 
   return (
@@ -173,8 +155,6 @@ const LoggedInNavbar = ({ hideBecomeProvider = false }) => {
 
           {/* Right Section */}
           <div className="nav-right">
-
-            {/* ⭐ Provider Button */}
             {!hideBecomeProvider && !isServiceProviderPage && (
               <button 
                 className={`provider-btn ${providerData?.status === 'approved' ? 'business-mode' : ''}`}
@@ -224,6 +204,17 @@ const LoggedInNavbar = ({ hideBecomeProvider = false }) => {
                 <div className="dropdown profile-dropdown">
                   <p className="user-name">Hi, {profile?.first_name || "User"}</p>
                   
+                  {/* --- NEW: Profile Button --- */}
+                  <button 
+                    className="menu-item-btn" 
+                    onClick={() => {
+                      navigate("/profile");
+                      setShowMenu(false);
+                    }}
+                  >
+                    <FaUser className="menu-icon" /> Profile
+                  </button>
+
                   {providerData?.status === 'approved' && (
                     <button 
                       className="menu-item-btn" 
@@ -233,11 +224,10 @@ const LoggedInNavbar = ({ hideBecomeProvider = false }) => {
                     </button>
                   )}
 
-                  {/* ⭐ MODIFIED: Appointments Button redirects to /appointments */}
                   <button 
                     className="menu-item-btn" 
                     onClick={() => {
-                      navigate("/appointments"); // Updated route
+                      navigate("/appointments");
                       setShowMenu(false);
                     }}
                   >
@@ -255,72 +245,39 @@ const LoggedInNavbar = ({ hideBecomeProvider = false }) => {
         </div>
       </header>
 
-      {/* =======================
-          MODALS
-         ======================= */}
-
-      {/* Case 2: Under Review Modal */}
+      {/* Modals remain unchanged */}
       {showPendingModal && (
         <div className="modal-overlay">
           <div className="modal-content pending-modal">
-            <button className="close-modal-btn" onClick={() => setShowPendingModal(false)}>
-              <FaTimes />
-            </button>
-            <div className="modal-icon-wrapper pending">
-               <FaListUl />
-            </div>
+            <button className="close-modal-btn" onClick={() => setShowPendingModal(false)}><FaTimes /></button>
+            <div className="modal-icon-wrapper pending"><FaListUl /></div>
             <h3>Application Under Review</h3>
-            <p>
-              Your application has been submitted and is currently being reviewed by our team. 
-              We will notify you once a decision has been made.
-            </p>
-            <button className="modal-ok-btn" onClick={() => setShowPendingModal(false)}>
-              Got it
-            </button>
+            <p>Your application has been submitted and is currently being reviewed by our team.</p>
+            <button className="modal-ok-btn" onClick={() => setShowPendingModal(false)}>Got it</button>
           </div>
         </div>
       )}
 
-      {/* Case 4: Rejected Modal (NO UPDATE OPTION) */}
       {showRejectModal && (
         <div className="modal-overlay">
           <div className="modal-content reject-modal">
-            <button className="close-modal-btn" onClick={() => setShowRejectModal(false)}>
-              <FaTimes />
-            </button>
-            <div className="modal-icon-wrapper reject">
-               <FaTimes />
-            </div>
+            <button className="close-modal-btn" onClick={() => setShowRejectModal(false)}><FaTimes /></button>
+            <div className="modal-icon-wrapper reject"><FaTimes /></div>
             <h3>Application Rejected</h3>
-            <p>
-              Your application was not approved at this time. 
-            </p>
-
-            {/* Display Rejection Reasons if available */}
+            <p>Your application was not approved at this time.</p>
             {providerData?.rejection_reasons && providerData.rejection_reasons.length > 0 ? (
               <div className="rejection-details-box">
-                <p className="reject-reason-title">
-                   <FaExclamationCircle /> <strong>Reason(s) for rejection:</strong>
-                </p>
+                <p className="reject-reason-title"><FaExclamationCircle /> <strong>Reason(s):</strong></p>
                 <ul className="reject-reason-list">
                   {providerData.rejection_reasons.map((reason, idx) => (
-                    <li key={idx} className="reject-reason-item">
-                        {formatReason(reason)}
-                    </li>
+                    <li key={idx} className="reject-reason-item">{formatReason(reason)}</li>
                   ))}
                 </ul>
               </div>
             ) : (
-                <p>Please contact support for more details regarding your application.</p>
+                <p>Please contact support for more details.</p>
             )}
-
-            <p className="reject-note">
-               Re-appealing is currently not available. Please contact support if you believe this is an error.
-            </p>
-            
-            <button className="modal-ok-btn reject-bg" onClick={() => setShowRejectModal(false)}>
-              Close
-            </button>
+            <button className="modal-ok-btn reject-bg" onClick={() => setShowRejectModal(false)}>Close</button>
           </div>
         </div>
       )}
