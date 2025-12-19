@@ -23,11 +23,12 @@ export default function BookingHistory() {
   const tabs = [
     { id: 'awaiting_approval', label: 'Awaiting Approval' },
     { id: 'for_payment', label: 'For Payment' },
+    { id: 'voided', label: 'Void Payment' },
     { id: 'upcoming', label: 'Upcoming' },
     { id: 'today', label: 'Today' },
     { id: 'to_rate', label: 'To Rate' },
     { id: 'cancelled', label: 'Cancelled' },
-    { id: 'denied', label: 'Denied' } // Includes 'declined' and 'voided'
+    { id: 'denied', label: 'Denied' }
   ];
 
   // --- Modal States ---
@@ -102,25 +103,34 @@ export default function BookingHistory() {
     const today = new Date().toISOString().split('T')[0]; 
 
     return bookings.filter(b => {
-        const status = b.status || ""; 
+        const status = (b.status || "").toLowerCase(); 
         const date = b.booking_date || "";
 
         switch(activeTab) {
             case 'awaiting_approval': 
                 return status === 'pending';
+            
             case 'for_payment': 
-                return status === 'approved' || status === 'for review'; // 'for review' means user uploaded proof
+                return status === 'approved' || status === 'for review'; 
+            
+            case 'voided': 
+                return status === 'void' || status === 'voided'; 
+            
             case 'upcoming': 
                 return (status === 'paid' || status === 'confirmed') && date > today;
+            
             case 'today': 
                 return (status === 'paid' || status === 'confirmed') && date === today;
+            
             case 'to_rate': 
                 return status === 'completed';
+            
             case 'cancelled': 
                 return status === 'cancelled';
+            
             case 'denied': 
-                // Groups 'declined' (provider said no) and 'voided' (payment rejected)
-                return status === 'declined' || status === 'voided';
+                return status === 'declined'; 
+            
             default: return false;
         }
     });
@@ -255,7 +265,7 @@ export default function BookingHistory() {
 
       </div>
 
-      {/* --- 1. DETAILS MODAL (WIDE) --- */}
+      {/* --- 1. DETAILS MODAL --- */}
       {selectedBooking && !showRescheduleModal && !showCancelModal && (
         <div className="modal-overlay" onClick={handleCloseAll}>
           <div className="modal-content large-modal" onClick={e => e.stopPropagation()}>
@@ -277,7 +287,7 @@ export default function BookingHistory() {
                       <span>{formatDateTime(selectedBooking.booking_date, selectedBooking.time_slot)}</span>
                    </div>
                    <div className="info-item">
-                      <label><FaFileInvoiceDollar/> Total</label>
+                      <label><FaFileInvoiceDollar/> Total Amount</label>
                       <span className="price-tag">{formatCurrency(selectedBooking.total_estimated_price)}</span>
                    </div>
                    <div className="info-item">
@@ -289,11 +299,11 @@ export default function BookingHistory() {
                 </div>
 
                 {/* VOID/REJECTION REASON ALERT */}
-                {(selectedBooking.status === 'declined' || selectedBooking.status === 'voided') && selectedBooking.rejection_reason && (
+                {(selectedBooking.status === 'declined' || selectedBooking.status === 'void' || selectedBooking.status === 'voided') && selectedBooking.rejection_reason && (
                   <div className="void-reason-box">
                     <FaExclamationTriangle className="alert-icon"/>
                     <div>
-                      <strong>Reason for {selectedBooking.status === 'voided' ? 'Voiding' : 'Decline'}:</strong>
+                      <strong>Reason for {selectedBooking.status.includes('void') ? 'Voiding' : 'Decline'}:</strong>
                       <p>{selectedBooking.rejection_reason}</p>
                     </div>
                   </div>
@@ -316,6 +326,9 @@ export default function BookingHistory() {
                           <div><span className="label">Consent:</span> {pet.emergency_consent ? 'Yes' : 'No'}</div>
                        </div>
                        
+                       <div className="pet-specs-full">
+                          <span className="label">Grooming Specs:</span> {pet.grooming_specifications || 'None'}
+                       </div>
                        <div className="pet-specs-full">
                           <span className="label">Services:</span> {pet.booking_services?.map(s => s.service_name).join(', ')}
                        </div>
@@ -353,13 +366,16 @@ export default function BookingHistory() {
                     <button className="cancel-btn" onClick={initiateCancel}>Cancel</button>
                   </>
                 )}
+                
                 {(activeTab === 'upcoming' || activeTab === 'today') && (
                   <button className="cancel-btn" onClick={initiateCancel}>Cancel</button>
                 )}
                 {activeTab === 'to_rate' && (
                    <button className="rate-btn" onClick={handleRate}>Rate</button>
                 )}
-                {(activeTab === 'cancelled' || activeTab === 'denied') && (
+                
+                {/* Close Button for: Cancelled, Denied, and VOIDED (Now Read-only) */}
+                {(activeTab === 'cancelled' || activeTab === 'denied' || activeTab === 'voided') && (
                    <button className="secondary-btn" onClick={handleCloseAll}>Close</button>
                 )}
              </div>
