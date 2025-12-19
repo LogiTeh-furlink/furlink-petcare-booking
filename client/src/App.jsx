@@ -15,8 +15,9 @@ import ServiceListing from "./pages/pet-owner/ServiceListing";
 import ListingInfo from "./pages/pet-owner/ListingInfo";
 import PetDetails from "./pages/pet-owner/PetDetails"; 
 import Appointments from "./pages/pet-owner/Appointments"; 
-import BookingHistory from "./pages/pet-owner/BookingHistory"; // ⭐ NEW IMPORT
+import BookingHistory from "./pages/pet-owner/BookingHistory";
 import UserProfile from "./pages/pet-owner/UserProfile";
+import Payment from "./pages/pet-owner/Payment"; // ⭐ NEW IMPORT
 
 // Service Provider Pages
 import SPDashboard from "./pages/service-provider/SPDashboard";
@@ -63,8 +64,9 @@ function App() {
           {/* User & Pet Management */}
           <Route path="/pet-details" element={<PetDetails />} />
           <Route path="/appointments" element={<Appointments />} />
-          <Route path="/booking-history" element={<BookingHistory />} /> {/* ⭐ NEW ROUTE */}
+          <Route path="/booking-history" element={<BookingHistory />} />
           <Route path="/profile" element={<UserProfile />} />
+          <Route path="/payment/:id" element={<Payment />} /> {/* ⭐ NEW ROUTE */}
           
           
           {/* --- 2. SERVICE PROVIDER SIDE --- */}
