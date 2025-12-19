@@ -52,6 +52,7 @@ export default function Appointments() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return navigate("/login");
 
+      // Updated Query to fetch ALL pet details
       const { data, error } = await supabase
         .from("bookings")
         .select(`
@@ -60,6 +61,15 @@ export default function Appointments() {
           booking_pets (
             pet_name,
             pet_type,
+            breed,
+            gender,
+            weight_kg,
+            calculated_size,
+            behavior,
+            emergency_consent,
+            grooming_specifications,
+            vaccine_card_url,
+            illness_proof_url,
             booking_services (service_name, price)
           )
         `)
@@ -78,7 +88,6 @@ export default function Appointments() {
   // --- Helpers ---
   const formatDateTime = (dateStr, timeStr) => {
     if (!dateStr || !timeStr) return "TBD";
-    // Safety check for date validity
     const date = new Date(dateStr);
     if (isNaN(date.getTime())) return "Invalid Date"; 
     
@@ -88,20 +97,14 @@ export default function Appointments() {
     return `${formattedDate} @ ${timeStr}`;
   };
 
-  // --- SAFE FILTERING ---
-  // We use (b.status || "") to ensure we never check against null
   const getFilteredBookings = () => {
     if (!bookings) return [];
     
     switch (activeTab) {
-      case "awaiting": 
-        return bookings.filter(b => (b.status || "") === "pending");
-      case "payment": 
-        return bookings.filter(b => (b.status || "") === "approved");
-      case "upcoming": 
-        return bookings.filter(b => (b.status || "") === "paid" || (b.status || "") === "confirmed");
-      case "rate": 
-        return bookings.filter(b => (b.status || "") === "completed");
+      case "awaiting": return bookings.filter(b => (b.status || "") === "pending");
+      case "payment": return bookings.filter(b => (b.status || "") === "approved");
+      case "upcoming": return bookings.filter(b => (b.status || "") === "paid" || (b.status || "") === "confirmed");
+      case "rate": return bookings.filter(b => (b.status || "") === "completed");
       default: return [];
     }
   };
@@ -358,45 +361,82 @@ export default function Appointments() {
         </div>
       </div>
 
-      {/* --- 1. DETAILS MODAL --- */}
+      {/* --- 1. DETAILS MODAL (EXPANDED) --- */}
       {selectedBooking && !showRescheduleModal && !showCancelModal && !showSuccessModal && (
         <div className="modal-overlay" onClick={handleCloseAll}>
-          <div className="modal-content" onClick={e => e.stopPropagation()}>
+          <div className="modal-content large-modal" onClick={e => e.stopPropagation()}>
              <div className="modal-header">
                <h3>Appointment Details</h3>
                <button className="close-btn" onClick={handleCloseAll}><FaTimes/></button>
              </div>
              
-             <div className="modal-body">
-                <div className="detail-row">
-                   <label><FaInfoCircle/> Provider:</label>
-                   <span>{selectedBooking.service_providers?.business_name}</span>
-                </div>
-                <div className="detail-row">
-                   <label><FaClock/> Schedule:</label>
-                   <span>{formatDateTime(selectedBooking.booking_date, selectedBooking.time_slot)}</span>
-                </div>
-                <div className="detail-row">
-                   <label><FaPaw/> Total:</label>
-                   <span className="price-tag">{formatCurrency(selectedBooking.total_estimated_price)}</span>
-                </div>
-                <div className="detail-row">
-                  <label>Status:</label>
-                  {/* SAFE STATUS RENDER: Handle missing status gracefully */}
-                  <span style={{fontWeight:'bold', textTransform:'uppercase', color: 'var(--brand-blue)'}}>
-                    {selectedBooking.status ? selectedBooking.status : "UNKNOWN"}
-                  </span>
-                </div>
+             <div className="modal-body-scroll">
                 
+                {/* General Info Grid */}
+                <div className="info-grid">
+                   <div className="info-item">
+                      <label><FaInfoCircle/> Provider</label>
+                      <span>{selectedBooking.service_providers?.business_name || "Unknown"}</span>
+                   </div>
+                   <div className="info-item">
+                      <label><FaClock/> Schedule</label>
+                      <span>{formatDateTime(selectedBooking.booking_date, selectedBooking.time_slot)}</span>
+                   </div>
+                   <div className="info-item">
+                      <label><FaPaw/> Total Amount</label>
+                      <span className="price-tag">{formatCurrency(selectedBooking.total_estimated_price)}</span>
+                   </div>
+                   <div className="info-item">
+                      <label>Status</label>
+                      <span className={`status-badge ${selectedBooking.status || 'unknown'}`}>
+                        {(selectedBooking.status || 'UNKNOWN').toUpperCase()}
+                      </span>
+                   </div>
+                </div>
+
                 <hr className="divider"/>
                 
-                <h4>Pets & Services</h4>
-                {selectedBooking.booking_pets?.map(pet => (
-                  <div key={pet.id} className="pet-mini-card">
-                     <strong>{pet.pet_name}</strong>
-                     <p>{pet.booking_services?.map(s => s.service_name).join(', ')}</p>
-                  </div>
-                ))}
+                {/* Pet Information Cards */}
+                <h4 className="section-title">Pet Information & Documents</h4>
+                <div className="pets-list">
+                  {selectedBooking.booking_pets?.map((pet, idx) => (
+                    <div key={pet.id} className="pet-full-card">
+                       <h5 className="pet-name-header">Pet {idx+1}: {pet.pet_name} ({pet.pet_type})</h5>
+                       
+                       <div className="pet-specs-grid">
+                          <div><span className="label">Breed:</span> {pet.breed || 'N/A'}</div>
+                          <div><span className="label">Gender:</span> {pet.gender || 'N/A'}</div>
+                          <div><span className="label">Weight:</span> {pet.weight_kg} kg</div>
+                          <div><span className="label">Size:</span> {pet.calculated_size || 'N/A'}</div>
+                          <div><span className="label">Behavior:</span> {pet.behavior || 'N/A'}</div>
+                          <div><span className="label">Consent:</span> {pet.emergency_consent ? 'Yes' : 'No'}</div>
+                       </div>
+                       
+                       <div className="pet-specs-full">
+                          <span className="label">Grooming Specs:</span> {pet.grooming_specifications || 'None'}
+                       </div>
+                       <div className="pet-specs-full">
+                          <span className="label">Services:</span> {pet.booking_services?.map(s => s.service_name).join(', ')}
+                       </div>
+
+                       {/* Documents / Images */}
+                       <div className="pet-images-row">
+                          {pet.vaccine_card_url && (
+                            <div className="image-wrapper">
+                               <p className="img-label">Vaccine Card</p>
+                               <img src={pet.vaccine_card_url} alt="Vaccine Card" className="proof-image"/>
+                            </div>
+                          )}
+                          {pet.illness_proof_url && (
+                            <div className="image-wrapper">
+                               <p className="img-label">Proof of Illness</p>
+                               <img src={pet.illness_proof_url} alt="Illness Proof" className="proof-image"/>
+                            </div>
+                          )}
+                       </div>
+                    </div>
+                  ))}
+                </div>
              </div>
 
              <div className="modal-footer">
@@ -513,7 +553,7 @@ export default function Appointments() {
         </div>
       )}
 
-      {/* --- 4. SUCCESS MODAL (Crash-Safe) --- */}
+      {/* --- 4. SUCCESS MODAL --- */}
       {showSuccessModal && (
         <div className="modal-overlay">
            <div className="modal-content small-modal" style={{textAlign: 'center', padding: '2rem'}}>

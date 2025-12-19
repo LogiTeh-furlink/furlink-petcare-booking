@@ -430,3 +430,135 @@
   .footer-actions { flex-direction: column; }
   .resched-btn, .cancel-btn, .pay-btn { width: 100%; }
 }
+
+/* --- MODAL UPDATES --- */
+
+.modal-content.large-modal {
+  width: 90%;
+  max-width: 900px; /* Wider modal for details */
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-body-scroll {
+  padding: 1.5rem;
+  overflow-y: auto;
+  flex: 1;
+}
+
+/* Info Grid */
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  background-color: #f8fafc;
+  padding: 1rem;
+  border-radius: 8px;
+}
+
+.info-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.info-item label {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.info-item span {
+  font-weight: 600;
+  font-size: 1rem;
+  color: var(--text-main);
+}
+
+/* Pet Card Styling */
+.section-title {
+  color: var(--brand-blue);
+  margin-bottom: 1rem;
+  font-size: 1.1rem;
+  border-bottom: 2px solid var(--border-light);
+  padding-bottom: 0.5rem;
+}
+
+.pet-full-card {
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  background-color: white;
+}
+
+.pet-name-header {
+  margin: 0 0 1rem 0;
+  color: var(--brand-blue);
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.pet-specs-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  font-size: 0.95rem;
+}
+
+.label {
+  color: var(--text-muted);
+  font-weight: 500;
+  margin-right: 0.5rem;
+}
+
+.pet-specs-full {
+  margin-bottom: 0.75rem;
+  font-size: 0.95rem;
+}
+
+/* Images (Facebook Style) */
+.pet-images-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  margin-top: 1rem;
+}
+
+.image-wrapper {
+  background-color: #f1f5f9;
+  padding: 0.5rem;
+  border-radius: 8px;
+}
+
+.img-label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 0.5rem;
+}
+
+.proof-image {
+  width: 100%;
+  height: auto;
+  max-height: 300px;
+  object-fit: contain; /* Shows full image */
+  border-radius: 4px;
+  background-color: #000; /* Dark background for image contrast */
+  display: block;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .pet-specs-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+  .pet-images-row {
+    grid-template-columns: 1fr;
+  }
+}
