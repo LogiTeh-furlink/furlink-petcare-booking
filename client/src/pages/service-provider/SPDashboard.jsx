@@ -6,14 +6,12 @@ import Footer from "../../components/Footer/Footer";
 import { FaCalendarAlt, FaTimes, FaChevronLeft, FaChevronRight } from "react-icons/fa";
 import "./SPDashboard.css";
 
-// --- Helper: Simple Calendar Component ---
+// --- Helper: Calendar ---
 const BookingCalendar = ({ bookings, onClose }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
 
-  // Filter only Verified/Approved bookings for the calendar counts
-  const verifiedBookings = bookings.filter(b => 
-    b.status === 'verified' || b.status === 'approved'
-  );
+  // Count only "paid" (Upcoming) bookings
+  const activeBookings = bookings.filter(b => b.status === 'paid');
 
   const getDaysInMonth = (year, month) => new Date(year, month + 1, 0).getDate();
   const getFirstDayOfMonth = (year, month) => new Date(year, month, 1).getDay();
@@ -30,12 +28,12 @@ const BookingCalendar = ({ bookings, onClose }) => {
     }
     for (let d = 1; d <= daysInMonth; d++) {
       const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-      const count = verifiedBookings.filter(b => b.booking_date === dateStr).length;
+      const count = activeBookings.filter(b => b.booking_date === dateStr).length;
       
       days.push(
         <div key={d} className={`calendar-day ${count > 0 ? 'has-bookings' : ''}`}>
           <span className="day-number">{d}</span>
-          {count > 0 && <span className="day-badge">{count} Req</span>}
+          {count > 0 && <span className="day-badge">{count} Paid</span>}
         </div>
       );
     }
@@ -50,7 +48,7 @@ const BookingCalendar = ({ bookings, onClose }) => {
     <div className="calendar-modal-overlay">
       <div className="calendar-modal">
         <div className="calendar-header">
-          <h3>Verified Requests Calendar</h3>
+          <h3>Paid Bookings Calendar</h3>
           <button onClick={onClose}><FaTimes /></button>
         </div>
         <div className="calendar-nav">
@@ -71,253 +69,384 @@ const BookingCalendar = ({ bookings, onClose }) => {
 
 export default function SPDashboard() {
   const navigate = useNavigate();
-  const [provider, setProvider] = useState(null);
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   
-  // UI State
-  const [activeTab, setActiveTab] = useState("request"); 
+  // Tabs: 'new_request', 'for_verification', 'upcoming', 'completed'
+  const [activeTab, setActiveTab] = useState("new_request"); 
   const [showCalendar, setShowCalendar] = useState(false);
+  const [selectedBooking, setSelectedBooking] = useState(null);
+  
+  // Actions
+  const [declineReason, setDeclineReason] = useState("");
+  const [voidReason, setVoidReason] = useState("");
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return navigate("/login");
-
-        const { data: providerData, error: providerError } = await supabase
-          .from("service_providers")
-          .select("*")
-          .eq("user_id", user.id)
-          .single();
-
-        if (providerError) throw providerError;
-        setProvider(providerData);
-
-        const { data: bookingsData, error: bookingsError } = await supabase
-          .from("bookings")
-          .select(`
-            *,
-            booking_pets (
-              id,
-              pet_name,
-              booking_services (service_name, price)
-            )
-          `)
-          .eq("provider_id", providerData.id)
-          .order('booking_date', { ascending: false });
-
-        if (bookingsError) throw bookingsError;
-        setBookings(bookingsData || []);
-
-      } catch (err) {
-        console.error("Error fetching dashboard data:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchData();
   }, [navigate]);
 
-  const formatDateTime = (dateStr, timeStr) => {
-    const date = new Date(dateStr).toLocaleDateString("en-US", { 
-      month: "short", day: "numeric", year: "numeric" 
-    });
-    return `${date} ${timeStr}`;
-  };
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return navigate("/login");
 
-  const getServiceSummary = (pets) => {
-    if (!pets || pets.length === 0) return "No services selected";
-    const allServices = pets.flatMap(pet => 
-      pet.booking_services?.map(s => s.service_name) || []
-    );
-    return [...new Set(allServices)].join(", ") || "No services";
-  };
+      // 1. Get Provider ID
+      const { data: providerData, error: providerError } = await supabase
+        .from("service_providers")
+        .select("id")
+        .eq("user_id", user.id)
+        .single();
 
-  // --- Logic: Filtering ---
-  const getFilteredBookings = () => {
-    const todayStr = new Date().toISOString().split('T')[0];
+      if (providerError) throw providerError;
 
-    switch (activeTab) {
-      case "request":
-        return bookings.filter(b => b.status === 'pending');
-      case "approved":
-        return bookings.filter(b => b.status === 'approved');
-      case "verification":
-        return bookings.filter(b => b.status === 'verification_pending');
-      case "verified":
-        return bookings.filter(b => b.status === 'verified');
-      case "completed":
-        return bookings.filter(b => b.status === 'completed');
-      case "rejected":
-        return bookings.filter(b => b.status === 'declined');
-      case "today":
-        return bookings.filter(b => b.booking_date === todayStr && b.status !== 'cancelled' && b.status !== 'declined');
-      default:
-        return bookings;
+      // 2. Get Bookings
+      // Note: We use nested selects for related data
+      const { data: bookingsData, error: bookingsError } = await supabase
+        .from("bookings")
+        .select(`
+          *,
+          booking_pets (
+            *,
+            booking_services (service_name, price)
+          )
+        `)
+        .eq("provider_id", providerData.id)
+        .order('booking_date', { ascending: false });
+
+      if (bookingsError) throw bookingsError;
+      setBookings(bookingsData || []);
+
+    } catch (err) {
+      console.error("Error fetching data:", err);
+    } finally {
+      setLoading(false);
     }
   };
 
-  // --- Logic: Counts ---
-  const getCounts = () => {
-    const todayStr = new Date().toISOString().split('T')[0];
-    return {
-      request: bookings.filter(b => b.status === 'pending').length,
-      approved: bookings.filter(b => b.status === 'approved').length,
-      verification: bookings.filter(b => b.status === 'verification_pending').length,
-      verified: bookings.filter(b => b.status === 'verified').length,
-      completed: bookings.filter(b => b.status === 'completed').length,
-      rejected: bookings.filter(b => b.status === 'declined').length,
-      today: bookings.filter(b => b.booking_date === todayStr && b.status !== 'cancelled' && b.status !== 'declined').length,
-    };
+  // --- Logic: Filtering based on the 4 Cards ---
+  const getFilteredBookings = () => {
+    switch(activeTab) {
+      case 'new_request':
+        // Show 'pending'
+        return bookings.filter(b => b.status === 'pending');
+      
+      case 'for_verification':
+        // Show 'for review' (User uploaded payment) and maybe 'approved' (Waiting for payment)
+        // Adjusting strictly to "For Payment Verification" usually implies 'for review'
+        return bookings.filter(b => b.status === 'for review');
+
+      case 'upcoming':
+        // Show 'paid' (Ready for service)
+        return bookings.filter(b => b.status === 'paid');
+
+      case 'completed':
+        // Show 'completed'
+        return bookings.filter(b => b.status === 'completed');
+
+      default:
+        return [];
+    }
   };
 
-  const counts = getCounts();
-  const displayedBookings = getFilteredBookings();
+  // --- Logic: Stats Counts ---
+  const stats = {
+    revenue: bookings
+      .filter(b => b.status === 'completed')
+      .reduce((sum, b) => sum + (parseFloat(b.total_estimated_price) || 0), 0),
+    new_request: bookings.filter(b => b.status === 'pending').length,
+    for_verification: bookings.filter(b => b.status === 'for review').length,
+    upcoming: bookings.filter(b => b.status === 'paid').length,
+    completed: bookings.filter(b => b.status === 'completed').length,
+  };
+
+  const formatCurrency = (val) => `₱${parseFloat(val || 0).toLocaleString('en-PH', { minimumFractionDigits: 2 })}`;
+  
+  const formatDateTime = (dateStr, timeStr) => {
+    if (!dateStr) return "N/A";
+    const date = new Date(dateStr).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+    return `${date} @ ${timeStr}`;
+  };
+
+  // --- Handlers ---
+  const handleAction = async (actionType) => {
+    if (!selectedBooking) return;
+
+    let newStatus = '';
+    let updateData = {};
+
+    // STATUS FLOW MAPPING
+    switch(actionType) {
+      case 'approve':
+        // pending -> approved (Provider accepts, waits for user payment)
+        newStatus = 'approved'; 
+        break;
+      
+      case 'decline':
+        // pending -> decline
+        newStatus = 'decline';
+        updateData = { rejection_reason: declineReason };
+        break;
+      
+      case 'accept_payment':
+        // for review -> paid (Provider confirms receipt)
+        newStatus = 'paid';
+        break;
+      
+      case 'void_payment':
+        // for review -> void (Provider rejects receipt)
+        newStatus = 'void';
+        updateData = { rejection_reason: voidReason };
+        break;
+
+      default: return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('bookings')
+        .update({ status: newStatus, ...updateData })
+        .eq('id', selectedBooking.id);
+
+      if (error) throw error;
+
+      // Update Local State Optimistically
+      setBookings(prev => prev.map(b => 
+        b.id === selectedBooking.id ? { ...b, status: newStatus, ...updateData } : b
+      ));
+      
+      closeModal();
+    } catch (err) {
+      alert("Action failed: " + err.message);
+    }
+  };
+
+  const closeModal = () => {
+    setSelectedBooking(null);
+    setDeclineReason("");
+    setVoidReason("");
+  };
 
   if (loading) return <div className="sp-loading">Loading Dashboard...</div>;
 
   return (
-    <>
+    <div className="page-wrapper">
       <LoggedInNavbar />
       
       {showCalendar && <BookingCalendar bookings={bookings} onClose={() => setShowCalendar(false)} />}
 
       <div className="sp-dashboard-container">
         
-        {/* Header */}
-        <div className="sp-header">
-          <div className="sp-welcome">
-            <h1>{provider?.business_name || "My Business"}</h1>
-            <p>Provider Dashboard</p>
+        {/* Header Row */}
+        <div className="dashboard-top-row">
+          <div className="revenue-card">
+            <div className="revenue-info">
+              <h1>Total Revenue</h1>
+              <p>For the month of {new Date().toLocaleString('default', { month: 'long' })}</p>
+            </div>
+            <div className="revenue-value">
+              <span>{formatCurrency(stats.revenue)}</span>
+            </div>
           </div>
-          <button className="calendar-toggle-btn" onClick={() => setShowCalendar(true)}>
-             <FaCalendarAlt /> Access Calendar
+          <button className="calendar-btn" onClick={() => setShowCalendar(true)}>
+             <FaCalendarAlt size={24} />
+             <span>Access Calendar</span>
           </button>
         </div>
 
-        {/* Quick Actions / Status Tabs */}
-        <div className="status-tabs-container">
-          <div className="status-tabs-row">
-            <button 
-              className={`status-tab ${activeTab === 'request' ? 'active' : ''}`}
-              onClick={() => setActiveTab('request')}
-            >
-              <h3>REQUEST</h3>
-              <span className="count-badge">{counts.request}</span>
-            </button>
-
-            <button 
-              className={`status-tab ${activeTab === 'approved' ? 'active' : ''}`}
-              onClick={() => setActiveTab('approved')}
-            >
-              <h3>APPROVED</h3>
-              <span className="count-badge">{counts.approved}</span>
-            </button>
-
-            <button 
-              className={`status-tab ${activeTab === 'today' ? 'active' : ''}`}
-              onClick={() => setActiveTab('today')}
-            >
-              <h3>TODAY</h3>
-              <span className="count-badge">{counts.today}</span>
-            </button>
-
-            <button 
-              className={`status-tab ${activeTab === 'verification' ? 'active' : ''}`}
-              onClick={() => setActiveTab('verification')}
-            >
-              <h3>VERIFICATION</h3>
-              <span className="count-badge">{counts.verification}</span>
-            </button>
-
-            <button 
-              className={`status-tab ${activeTab === 'verified' ? 'active' : ''}`}
-              onClick={() => setActiveTab('verified')}
-            >
-              <h3>VERIFIED</h3>
-              <span className="count-badge">{counts.verified}</span>
-            </button>
-
-            <button 
-              className={`status-tab ${activeTab === 'completed' ? 'active' : ''}`}
-              onClick={() => setActiveTab('completed')}
-            >
-              <h3>COMPLETED</h3>
-              <span className="count-badge">{counts.completed}</span>
-            </button>
-
-            <button 
-              className={`status-tab ${activeTab === 'rejected' ? 'active' : ''}`}
-              onClick={() => setActiveTab('rejected')}
-            >
-              <h3>REJECTED</h3>
-              <span className="count-badge">{counts.rejected}</span>
-            </button>
-          </div>
+        {/* Status Tabs (Interactive Cards) */}
+        <div className="status-cards-grid">
+           <div className={`status-card ${activeTab === 'new_request' ? 'active' : ''}`} onClick={() => setActiveTab('new_request')}>
+             <h3>New Requests</h3>
+             <p className="status-count">{stats.new_request}</p>
+           </div>
+           <div className={`status-card ${activeTab === 'for_verification' ? 'active' : ''}`} onClick={() => setActiveTab('for_verification')}>
+             <h3>Pending Payment</h3>
+             <p className="status-count">{stats.for_verification}</p>
+           </div>
+           <div className={`status-card ${activeTab === 'upcoming' ? 'active' : ''}`} onClick={() => setActiveTab('upcoming')}>
+             <h3>Upcoming</h3>
+             <p className="status-count">{stats.upcoming}</p>
+           </div>
+           <div className={`status-card ${activeTab === 'completed' ? 'active' : ''}`} onClick={() => setActiveTab('completed')}>
+             <h3>Completed</h3>
+             <p className="status-count">{stats.completed}</p>
+           </div>
         </div>
 
-        {/* Bookings List Section */}
-        <div className="bookings-list-section">
-          <div className="section-header">
-            <h2>{activeTab.toUpperCase()} LIST</h2>
+        {/* Bookings Table */}
+        <div className="bookings-table-container">
+          <div className="table-header-title">
+             <h2>{activeTab.replace('_', ' ').toUpperCase()}</h2>
           </div>
 
-          {/* ⭐ NEW: Table Header Row (Hidden on Mobile) */}
-          <div className="booking-list-header">
-             <div>Date & Time</div>
-             <div>No. of Pets</div>
-             <div>Service to Avail</div>
-             <div>Total Amt</div>
-             <div>Action</div>
-          </div>
-
-          <div className="bookings-grid">
-            {displayedBookings.length === 0 ? (
-              <div className="no-bookings">No bookings found in this category.</div>
-            ) : (
-              displayedBookings.map((booking) => (
-                <div key={booking.id} className="booking-card">
-                  
-                  <div className="booking-col date-col">
-                    <span className="label-mobile">Date & Time</span>
-                    <p className="main-text">{formatDateTime(booking.booking_date, booking.time_slot)}</p>
-                  </div>
-
-                  <div className="booking-col pets-col">
-                    <span className="label-mobile">No. of Pets</span>
-                    <p>{booking.booking_pets?.length || 0} Pets</p>
-                  </div>
-
-                  <div className="booking-col service-col">
-                    <span className="label-mobile">Service to Avail</span>
-                    <div className="service-list">
-                      <p>{getServiceSummary(booking.booking_pets)}</p>
-                    </div>
-                  </div>
-
-                  <div className="booking-col price-col">
-                    <span className="label-mobile">Total Amt</span>
-                    <p>Php {booking.total_estimated_price || "0.00"}</p>
-                  </div>
-
-                  <div className="booking-col action-col">
-                    <button 
-                      className="view-details-btn"
-                      onClick={() => navigate(`/service/booking-details/${booking.id}`)}
-                    >
-                      View Details
-                    </button>
-                  </div>
-
-                </div>
-              ))
-            )}
-          </div>
+          <table className="sp-table">
+            <thead>
+              <tr>
+                <th>Date & Time</th>
+                <th>No. of Pets</th>
+                <th>Service to Avail</th>
+                <th>Service Total Amt</th>
+                <th>Status</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {getFilteredBookings().length === 0 ? (
+                <tr><td colSpan="6" className="empty-state">No bookings found in this category.</td></tr>
+              ) : (
+                getFilteredBookings().map(booking => (
+                  <tr key={booking.id}>
+                    <td><div className="fw-bold">{formatDateTime(booking.booking_date, booking.time_slot)}</div></td>
+                    <td>{booking.booking_pets?.length || 0} Pets</td>
+                    <td className="service-cell">
+                       {booking.booking_pets?.map(p => 
+                         p.booking_services?.map(s => s.service_name).join(', ')
+                       ).join(', ')}
+                    </td>
+                    <td>{formatCurrency(booking.total_estimated_price)}</td>
+                    <td>
+                      <span className={`badge badge-${booking.status ? booking.status.replace(' ', '_') : 'unknown'}`}>
+                        {booking.status}
+                      </span>
+                    </td>
+                    <td>
+                      <button className="view-details-btn" onClick={() => setSelectedBooking(booking)}>
+                        View Details
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
+
+      {/* --- WIDER DETAILS MODAL --- */}
+      {selectedBooking && (
+        <div className="modal-overlay">
+          <div className="modal-content wide-modal">
+            <div className="modal-header">
+              <h3>Booking Details</h3>
+              <button onClick={closeModal}><FaTimes /></button>
+            </div>
+            
+            <div className="modal-body-scroll">
+              
+              {/* Top Summary */}
+              <div className="modal-summary-section">
+                <div className="info-row">
+                   <span>Status:</span>
+                   <strong className="uppercase-status">{selectedBooking.status}</strong>
+                </div>
+                <div className="info-row">
+                   <span>Date & Time:</span>
+                   <strong>{formatDateTime(selectedBooking.booking_date, selectedBooking.time_slot)}</strong>
+                </div>
+                <div className="info-row">
+                   <span>Total Amount:</span>
+                   <strong className="text-highlight">{formatCurrency(selectedBooking.total_estimated_price)}</strong>
+                </div>
+              </div>
+
+              {/* Payment Proof (If in verification) */}
+              {selectedBooking.payment_proof_url && (
+                <div className="full-image-block">
+                  <h4>Payment Proof</h4>
+                  <img src={selectedBooking.payment_proof_url} alt="Payment Proof" className="facebook-style-img" />
+                </div>
+              )}
+
+              {/* Pets & Images */}
+              <div className="modal-pets-list">
+                <h4>Pet Information & Documents</h4>
+                {selectedBooking.booking_pets?.map((pet, i) => (
+                  <div key={pet.id} className="pet-detail-block">
+                    <div className="pet-header">
+                      <h5>{i+1}. {pet.pet_name} ({pet.pet_type})</h5>
+                    </div>
+                    
+                    <div className="pet-grid">
+                      <p><strong>Breed:</strong> {pet.breed}</p>
+                      <p><strong>Gender:</strong> {pet.gender}</p>
+                      <p><strong>Weight:</strong> {pet.weight_kg} kg</p>
+                      <p><strong>Size:</strong> {pet.calculated_size}</p>
+                      <p><strong>Behavior:</strong> {pet.behavior || 'N/A'}</p>
+                      <p><strong>Services:</strong> {pet.booking_services?.map(s => s.service_name).join(', ')}</p>
+                    </div>
+
+                    {/* LARGE IMAGES */}
+                    <div className="pet-images-container">
+                      {pet.vaccine_card_url && (
+                        <div className="image-wrapper">
+                          <p className="img-label">Vaccine Card</p>
+                          <img src={pet.vaccine_card_url} alt="Vaccine Card" className="facebook-style-img" />
+                        </div>
+                      )}
+                      {pet.illness_proof_url && (
+                        <div className="image-wrapper">
+                          <p className="img-label">Proof of Illness</p>
+                          <img src={pet.illness_proof_url} alt="Illness Proof" className="facebook-style-img" />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="modal-footer">
+              {/* ACTION: New Request (pending) */}
+              {selectedBooking.status === 'pending' && (
+                <div className="action-row">
+                   <div className="decline-area">
+                      <select value={declineReason} onChange={(e) => setDeclineReason(e.target.value)} className="action-select">
+                        <option value="">Select Reason for Declining...</option>
+                        <option value="Schedule Conflict">Schedule Conflict</option>
+                        <option value="Staff Unavailable">Staff Unavailable</option>
+                        <option value="Service Not Available">Service Not Available</option>
+                      </select>
+                      <button className="btn-decline" disabled={!declineReason} onClick={() => handleAction('decline')}>
+                        Decline
+                      </button>
+                   </div>
+                   <button className="btn-approve" onClick={() => handleAction('approve')}>
+                     Approve
+                   </button>
+                </div>
+              )}
+
+              {/* ACTION: Payment Verification (for review) */}
+              {selectedBooking.status === 'for review' && (
+                <div className="action-row">
+                   <div className="decline-area">
+                      <select value={voidReason} onChange={(e) => setVoidReason(e.target.value)} className="action-select">
+                        <option value="">Select Reason for Voiding...</option>
+                        <option value="Invalid Receipt">Invalid Receipt</option>
+                        <option value="Amount Mismatch">Amount Mismatch</option>
+                        <option value="Unclear Image">Unclear Image</option>
+                      </select>
+                      <button className="btn-decline" disabled={!voidReason} onClick={() => handleAction('void_payment')}>
+                        Void
+                      </button>
+                   </div>
+                   <button className="btn-approve" onClick={() => handleAction('accept_payment')}>
+                     Accept Payment
+                   </button>
+                </div>
+              )}
+
+              {/* READ ONLY CLOSE BUTTON */}
+              {['approved', 'paid', 'completed', 'decline', 'void', 'cancelled'].includes(selectedBooking.status) && (
+                 <button className="btn-close-footer" onClick={closeModal}>Close Details</button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+      
       <Footer />
-    </>
+    </div>
   );
 }
