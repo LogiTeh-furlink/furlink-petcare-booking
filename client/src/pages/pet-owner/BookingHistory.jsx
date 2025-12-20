@@ -9,7 +9,9 @@ import {
   FaPaw, 
   FaClock, 
   FaExclamationTriangle,
-  FaFileInvoiceDollar 
+  FaFileInvoiceDollar,
+  FaCheckCircle,
+  FaStar 
 } from "react-icons/fa"; 
 import "./BookingHistory.css";
 
@@ -18,27 +20,35 @@ export default function BookingHistory() {
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   
-  // --- Tabs Configuration ---
+  // --- Tabs Configuration (Reordered) ---
   const [activeTab, setActiveTab] = useState("awaiting_approval"); 
   const tabs = [
     { id: 'awaiting_approval', label: 'Awaiting Approval' },
     { id: 'for_payment', label: 'For Payment' },
-    { id: 'voided', label: 'Void Payment' },
     { id: 'upcoming', label: 'Upcoming' },
     { id: 'today', label: 'Today' },
     { id: 'to_rate', label: 'To Rate' },
+    { id: 'rated', label: 'Rated' },
     { id: 'cancelled', label: 'Cancelled' },
-    { id: 'denied', label: 'Denied' }
+    { id: 'denied', label: 'Denied' },
+    { id: 'voided', label: 'Void Payment' }
   ];
 
   // --- Modal States ---
   const [selectedBooking, setSelectedBooking] = useState(null); 
   const [showRescheduleModal, setShowRescheduleModal] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   
   // --- Form/Action States ---
   const [reschedForm, setReschedForm] = useState({ date: "", time: "" });
+  const [feedbackForm, setFeedbackForm] = useState({ overallRating: 0, staffRating: 0, comment: "" });
   const [actionLoading, setActionLoading] = useState(false);
+  
+  // Success Message State
+  const [successTitle, setSuccessTitle] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
 
   useEffect(() => {
     fetchHistory();
@@ -53,7 +63,7 @@ export default function BookingHistory() {
         .from("bookings")
         .select(`
           *,
-          service_providers (business_name),
+          service_providers (id, business_name),
           booking_pets (
             pet_name,
             pet_type,
@@ -67,6 +77,11 @@ export default function BookingHistory() {
             vaccine_card_url,
             illness_proof_url,
             booking_services (service_name, price)
+          ),
+          reviews (
+            rating_overall,
+            rating_staff,
+            comment
           )
         `)
         .eq("user_id", user.id)
@@ -90,6 +105,23 @@ export default function BookingHistory() {
     return `${formattedDate} @ ${timeStr || "?"}`;
   };
 
+  const convertTo24Hour = (timeStr) => {
+    const [time, modifier] = timeStr.split(' ');
+    let [hours, minutes] = time.split(':');
+    if (hours === '12') { hours = '00'; }
+    if (modifier === 'PM') { hours = parseInt(hours, 10) + 12; }
+    return `${hours}:${minutes}`;
+  };
+
+  const isFourHoursPast = (booking) => {
+    if (!booking.booking_date || !booking.time_slot) return false;
+    const bookingDateTime = new Date(`${booking.booking_date}T${convertTo24Hour(booking.time_slot)}`);
+    const now = new Date();
+    const diffMs = now - bookingDateTime;
+    const diffHours = diffMs / (1000 * 60 * 60);
+    return diffHours >= 4;
+  };
+
   const getServiceSummary = (pets) => {
     if (!pets || pets.length === 0) return "No services";
     const services = pets.flatMap(p => p.booking_services?.map(s => s.service_name) || []);
@@ -97,6 +129,18 @@ export default function BookingHistory() {
   };
 
   const formatCurrency = (val) => `₱${parseFloat(val || 0).toLocaleString('en-PH', {minimumFractionDigits: 2})}`;
+
+  const renderStaticStars = (count) => {
+    return (
+      <div className="static-stars">
+        {[1, 2, 3, 4, 5].map(star => (
+          <FaStar key={star} className={star <= count ? "star-filled" : "star-empty"} />
+        ))}
+      </div>
+    );
+  };
+
+  
 
   // --- Filtering Logic ---
   const getFilteredBookings = () => {
@@ -113,9 +157,6 @@ export default function BookingHistory() {
             case 'for_payment': 
                 return status === 'approved' || status === 'for review'; 
             
-            case 'voided': 
-                return status === 'void' || status === 'voided'; 
-            
             case 'upcoming': 
                 return (status === 'paid' || status === 'confirmed') && date > today;
             
@@ -123,13 +164,21 @@ export default function BookingHistory() {
                 return (status === 'paid' || status === 'confirmed') && date === today;
             
             case 'to_rate': 
-                return status === 'completed';
+                if (status === 'rated') return false;
+                return status === 'completed' || status === 'to_rate' || 
+                       ((status === 'paid' || status === 'confirmed') && isFourHoursPast(b));
             
+            case 'rated':
+                return status === 'rated';
+
             case 'cancelled': 
                 return status === 'cancelled';
             
             case 'denied': 
                 return status === 'declined'; 
+
+            case 'voided': 
+                return status === 'void' || status === 'voided';
             
             default: return false;
         }
@@ -141,7 +190,9 @@ export default function BookingHistory() {
     setSelectedBooking(null);
     setShowRescheduleModal(false);
     setShowCancelModal(false);
+    setShowFeedbackModal(false);
     setReschedForm({ date: "", time: "" });
+    setFeedbackForm({ overallRating: 0, staffRating: 0, comment: "" });
   };
 
   // 1. Reschedule
@@ -161,8 +212,10 @@ export default function BookingHistory() {
       if(error) throw error;
       
       setBookings(prev => prev.map(b => b.id === selectedBooking.id ? {...b, booking_date: reschedForm.date, time_slot: reschedForm.time} : b));
-      alert("Reschedule successful.");
       handleCloseAll();
+      setSuccessTitle("Reschedule Successful!");
+      setSuccessMessage("Your appointment has been successfully rescheduled.");
+      setShowSuccessModal(true);
     } catch (err) {
       alert("Error: " + err.message);
     } finally {
@@ -180,17 +233,72 @@ export default function BookingHistory() {
       if(error) throw error;
 
       setBookings(prev => prev.map(b => b.id === selectedBooking.id ? {...b, status: 'cancelled'} : b));
-      alert("Appointment cancelled.");
       handleCloseAll();
+      setSuccessTitle("Cancellation Successful");
+      setSuccessMessage("Your appointment has been successfully cancelled.");
+      setShowSuccessModal(true);
     } catch(err) {
-      alert("Error: " + err.message);
+      setSuccessTitle("Error");
+      setSuccessMessage("Failed to cancel appointment.");
+      setShowSuccessModal(true);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // 3. Rate / Feedback
+  const submitFeedback = async () => {
+    if (feedbackForm.overallRating === 0 || feedbackForm.staffRating === 0) {
+      setSuccessTitle("Missing Rating");
+      setSuccessMessage("Please select star ratings before submitting.");
+      setShowSuccessModal(true);
+      return;
+    }
+    setActionLoading(true);
+    try {
+      const { error: reviewError } = await supabase.from('reviews').insert({
+        booking_id: selectedBooking.id,
+        provider_id: selectedBooking.service_providers.id,
+        user_id: selectedBooking.user_id,
+        rating_overall: feedbackForm.overallRating,
+        rating_staff: feedbackForm.staffRating,
+        comment: feedbackForm.comment
+      });
+      if (reviewError) throw reviewError;
+
+      const { error: updateError } = await supabase.from('bookings').update({ status: 'rated' }).eq('id', selectedBooking.id);
+      if(updateError) throw updateError;
+
+      setBookings(prev => prev.map(b => {
+        if (b.id === selectedBooking.id) {
+          return { 
+            ...b, 
+            status: 'rated',
+            reviews: [{ 
+              rating_overall: feedbackForm.overallRating,
+              rating_staff: feedbackForm.staffRating,
+              comment: feedbackForm.comment
+            }]
+          };
+        }
+        return b;
+      }));
+
+      handleCloseAll();
+      setSuccessTitle("Thank You!");
+      setSuccessMessage("Your feedback has been submitted.");
+      setShowSuccessModal(true);
+    } catch (err) {
+      setSuccessTitle("Error");
+      setSuccessMessage("Failed to submit feedback.");
+      setShowSuccessModal(true);
     } finally {
       setActionLoading(false);
     }
   };
 
   const handlePayNow = () => navigate(`/payment/${selectedBooking.id}`);
-  const handleRate = () => navigate(`/rate-provider/${selectedBooking.id}`);
+  const handleRate = () => setShowFeedbackModal(true);
 
   if (loading) return <div className="history-loading">Loading History...</div>;
   const filteredList = getFilteredBookings();
@@ -265,8 +373,8 @@ export default function BookingHistory() {
 
       </div>
 
-      {/* --- 1. DETAILS MODAL --- */}
-      {selectedBooking && !showRescheduleModal && !showCancelModal && (
+      {/* --- 1. DETAILS MODAL (EXPANDED) --- */}
+      {selectedBooking && !showRescheduleModal && !showCancelModal && !showSuccessModal && !showFeedbackModal && (
         <div className="modal-overlay" onClick={handleCloseAll}>
           <div className="modal-content large-modal" onClick={e => e.stopPropagation()}>
              <div className="modal-header">
@@ -305,6 +413,29 @@ export default function BookingHistory() {
                     <div>
                       <strong>Reason for {selectedBooking.status.includes('void') ? 'Voiding' : 'Decline'}:</strong>
                       <p>{selectedBooking.rejection_reason}</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* REVIEW DISPLAY (Only if Rated) */}
+                {selectedBooking.status === 'rated' && selectedBooking.reviews && selectedBooking.reviews.length > 0 && (
+                  <div className="review-display-box">
+                    <h4 className="section-title">Your Review</h4>
+                    <div className="review-content">
+                      <div className="stars-display-row">
+                        <div className="star-group">
+                          <span>Overall:</span>
+                          {renderStaticStars(selectedBooking.reviews[0].rating_overall)}
+                        </div>
+                        <div className="star-group">
+                          <span>Staff:</span>
+                          {renderStaticStars(selectedBooking.reviews[0].rating_staff)}
+                        </div>
+                      </div>
+                      <div className="review-comment-box">
+                        <span className="comment-label">Feedback:</span>
+                        <p>"{selectedBooking.reviews[0].comment}"</p>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -370,12 +501,13 @@ export default function BookingHistory() {
                 {(activeTab === 'upcoming' || activeTab === 'today') && (
                   <button className="cancel-btn" onClick={initiateCancel}>Cancel</button>
                 )}
+                
                 {activeTab === 'to_rate' && (
-                   <button className="rate-btn" onClick={handleRate}>Rate</button>
+                   <button className="rate-btn" onClick={() => setShowFeedbackModal(true)}>Rate Service</button>
                 )}
                 
-                {/* Close Button for: Cancelled, Denied, and VOIDED (Now Read-only) */}
-                {(activeTab === 'cancelled' || activeTab === 'denied' || activeTab === 'voided') && (
+                {/* READ ONLY STATES: Cancelled, Denied, Voided, Rated */}
+                {(activeTab === 'cancelled' || activeTab === 'denied' || activeTab === 'voided' || activeTab === 'rated') && (
                    <button className="secondary-btn" onClick={handleCloseAll}>Close</button>
                 )}
              </div>
@@ -432,6 +564,86 @@ export default function BookingHistory() {
                    {actionLoading ? "Processing..." : "Yes, Cancel"}
                  </button>
               </div>
+           </div>
+        </div>
+      )}
+
+      {/* --- 4. FEEDBACK MODAL --- */}
+      {showFeedbackModal && (
+        <div className="modal-overlay">
+           <div className="modal-content small-modal">
+              <div className="modal-header">
+                 <h3>Rate Experience</h3>
+                 <button className="close-btn" onClick={handleCloseAll}><FaTimes/></button>
+              </div>
+              <div className="modal-body">
+                 <p className="modal-instruction">How was your service with {selectedBooking?.service_providers?.business_name}?</p>
+                 
+                 <div className="rating-group">
+                    <label>Overall Experience</label>
+                    <div className="stars-container">
+                      {[1,2,3,4,5].map(star => (
+                        <FaStar 
+                          key={`overall-${star}`}
+                          className={`star-icon ${feedbackForm.overallRating >= star ? 'filled' : ''}`}
+                          onClick={() => setFeedbackForm({...feedbackForm, overallRating: star})}
+                        />
+                      ))}
+                    </div>
+                 </div>
+
+                 <div className="rating-group">
+                    <label>Staff Rating</label>
+                    <div className="stars-container">
+                      {[1,2,3,4,5].map(star => (
+                        <FaStar 
+                          key={`staff-${star}`}
+                          className={`star-icon ${feedbackForm.staffRating >= star ? 'filled' : ''}`}
+                          onClick={() => setFeedbackForm({...feedbackForm, staffRating: star})}
+                        />
+                      ))}
+                    </div>
+                 </div>
+
+                 <div className="form-group">
+                    <label>Feedback</label>
+                    <textarea 
+                      className="feedback-textarea" rows="4" maxLength={500}
+                      value={feedbackForm.comment}
+                      onChange={(e) => setFeedbackForm({...feedbackForm, comment: e.target.value})}
+                    />
+                 </div>
+              </div>
+              <div className="modal-footer">
+                 <button className="secondary-btn" onClick={handleCloseAll}>Cancel</button>
+                 <button className="confirm-btn-yes" onClick={submitFeedback} disabled={actionLoading}>
+                   {actionLoading ? "Submitting..." : "Submit Review"}
+                 </button>
+              </div>
+           </div>
+        </div>
+      )}
+
+      {/* --- 5. SUCCESS MODAL --- */}
+      {showSuccessModal && (
+        <div className="modal-overlay">
+           <div className="modal-content small-modal" style={{textAlign: 'center', padding: '2rem'}}>
+              <div style={{color: 'var(--brand-green)', fontSize: '4rem', marginBottom: '1rem'}}>
+                 <FaCheckCircle />
+              </div>
+              <h3 style={{fontSize: '1.5rem', margin: '0 0 0.5rem 0', color: 'var(--brand-blue)'}}>
+                {successTitle}
+              </h3>
+              <p style={{color: 'var(--text-muted)', marginBottom: '1.5rem'}}>
+                {successMessage}
+              </p>
+              <button 
+                className="confirm-btn-yes" 
+                onClick={() => setShowSuccessModal(false)}
+                style={{width: '100%', justifyContent: 'center'}}
+              >
+                 OK
+              </button>
            </div>
         </div>
       )}
