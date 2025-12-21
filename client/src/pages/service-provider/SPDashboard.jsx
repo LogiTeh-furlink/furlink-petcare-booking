@@ -6,12 +6,32 @@ import Footer from "../../components/Footer/Footer";
 import { FaCalendarAlt, FaTimes, FaChevronLeft, FaChevronRight } from "react-icons/fa";
 import "./SPDashboard.css";
 
-// --- Helper: Calendar ---
+// --- Time Helpers ---
+const convertTo24Hour = (timeStr) => {
+  // Handles "1:00 PM" -> "13:00" or "13:00:00" -> "13:00"
+  if (!timeStr) return "00:00";
+  if (timeStr.includes('M')) { // AM/PM format
+    const [time, modifier] = timeStr.split(' ');
+    let [hours, minutes] = time.split(':');
+    if (hours === '12') { hours = '00'; }
+    if (modifier === 'PM') { hours = parseInt(hours, 10) + 12; }
+    return `${hours}:${minutes}`;
+  }
+  return timeStr; // Already 24h
+};
+
+const isFourHoursPast = (dateStr, timeStr) => {
+  if (!dateStr || !timeStr) return false;
+  const bookingDateTime = new Date(`${dateStr}T${convertTo24Hour(timeStr)}`);
+  const now = new Date();
+  const diffMs = now - bookingDateTime;
+  const diffHours = diffMs / (1000 * 60 * 60);
+  return diffHours >= 4;
+};
+
+// --- Helper: Enhanced Calendar ---
 const BookingCalendar = ({ bookings, onClose }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
-
-  // Count only "paid" (Upcoming) bookings
-  const activeBookings = bookings.filter(b => b.status === 'paid');
 
   const getDaysInMonth = (year, month) => new Date(year, month + 1, 0).getDate();
   const getFirstDayOfMonth = (year, month) => new Date(year, month, 1).getDay();
@@ -21,19 +41,60 @@ const BookingCalendar = ({ bookings, onClose }) => {
   const daysInMonth = getDaysInMonth(year, month);
   const firstDay = getFirstDayOfMonth(year, month);
 
+  // Helper to categorize bookings for a specific date
+  const getDayStats = (dateStr) => {
+    const dayBookings = bookings.filter(b => b.booking_date === dateStr);
+    const todayStr = new Date().toISOString().split('T')[0];
+    const isToday = dateStr === todayStr;
+
+    let completed = 0;
+    let upcoming = 0;
+    let todayCount = 0;
+
+    dayBookings.forEach(b => {
+      // Logic: Completed if explicitly status OR paid + 4 hours past
+      const isTimeCompleted = b.status === 'paid' && isFourHoursPast(b.booking_date, b.time_slot);
+      
+      if (['completed', 'to_rate', 'rated'].includes(b.status) || isTimeCompleted) {
+        completed++;
+      } else if (b.status === 'paid') {
+        if (isToday) todayCount++;
+        else upcoming++;
+      }
+    });
+
+    return { completed, upcoming, todayCount };
+  };
+
   const renderDays = () => {
     const days = [];
     for (let i = 0; i < firstDay; i++) {
       days.push(<div key={`empty-${i}`} className="calendar-day empty"></div>);
     }
+    
     for (let d = 1; d <= daysInMonth; d++) {
       const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-      const count = activeBookings.filter(b => b.booking_date === dateStr).length;
+      const stats = getDayStats(dateStr);
       
+      let badgeClass = "";
+      let label = "";
+
+      // Hierarchy: Today > Upcoming > Completed
+      if (stats.todayCount > 0) {
+        badgeClass = "today";
+        label = `${stats.todayCount} Today`;
+      } else if (stats.upcoming > 0) {
+        badgeClass = "upcoming";
+        label = `${stats.upcoming} Upcoming`;
+      } else if (stats.completed > 0) {
+        badgeClass = "completed";
+        label = `${stats.completed} Done`;
+      }
+
       days.push(
-        <div key={d} className={`calendar-day ${count > 0 ? 'has-bookings' : ''}`}>
+        <div key={d} className={`calendar-day ${badgeClass}`}>
           <span className="day-number">{d}</span>
-          {count > 0 && <span className="day-badge">{count} Paid</span>}
+          {label && <span className={`day-badge badge-${badgeClass}`}>{label}</span>}
         </div>
       );
     }
@@ -48,14 +109,23 @@ const BookingCalendar = ({ bookings, onClose }) => {
     <div className="calendar-modal-overlay">
       <div className="calendar-modal">
         <div className="calendar-header">
-          <h3>Paid Bookings Calendar</h3>
+          <h3>Booking Schedule</h3>
           <button onClick={onClose}><FaTimes /></button>
         </div>
+        
         <div className="calendar-nav">
           <button onClick={() => changeMonth(-1)}><FaChevronLeft /></button>
           <span>{currentDate.toLocaleString('default', { month: 'long', year: 'numeric' })}</span>
           <button onClick={() => changeMonth(1)}><FaChevronRight /></button>
         </div>
+
+        {/* Legend */}
+        <div className="cal-legend">
+           <span className="legend-item"><span className="dot green"></span> Today</span>
+           <span className="legend-item"><span className="dot blue"></span> Upcoming</span>
+           <span className="legend-item"><span className="dot gray"></span> Completed</span>
+        </div>
+
         <div className="calendar-grid-header">
           <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
         </div>
@@ -91,7 +161,6 @@ export default function SPDashboard() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return navigate("/login");
 
-      // 1. Get Provider ID
       const { data: providerData, error: providerError } = await supabase
         .from("service_providers")
         .select("id")
@@ -100,8 +169,6 @@ export default function SPDashboard() {
 
       if (providerError) throw providerError;
 
-      // 2. Get Bookings
-      // Note: We use nested selects for related data
       const { data: bookingsData, error: bookingsError } = await supabase
         .from("bookings")
         .select(`
@@ -124,40 +191,50 @@ export default function SPDashboard() {
     }
   };
 
-  // --- Logic: Filtering based on the 4 Cards ---
+  // --- Logic: Filtering & Stats ---
+  
+  const isBookingComplete = (b) => {
+    // Explicitly completed/rated OR Paid/Confirmed + 4 hours past
+    if (['completed', 'to_rate', 'rated'].includes(b.status)) return true;
+    if (['paid', 'confirmed'].includes(b.status) && isFourHoursPast(b.booking_date, b.time_slot)) return true;
+    return false;
+  };
+
   const getFilteredBookings = () => {
     switch(activeTab) {
       case 'new_request':
-        // Show 'pending'
         return bookings.filter(b => b.status === 'pending');
       
       case 'for_verification':
-        // Show 'for review' (User uploaded payment) and maybe 'approved' (Waiting for payment)
-        // Adjusting strictly to "For Payment Verification" usually implies 'for review'
         return bookings.filter(b => b.status === 'for review');
 
       case 'upcoming':
-        // Show 'paid' (Ready for service)
-        return bookings.filter(b => b.status === 'paid');
+        // Show 'paid' ONLY if NOT complete (time hasn't passed)
+        return bookings.filter(b => b.status === 'paid' && !isBookingComplete(b));
 
       case 'completed':
-        // Show 'completed'
-        return bookings.filter(b => b.status === 'completed');
+        // Show explicit completed OR time-based completed
+        return bookings.filter(b => isBookingComplete(b));
 
       default:
         return [];
     }
   };
 
-  // --- Logic: Stats Counts ---
   const stats = {
+    // Revenue includes all completed bookings (explicit + time-based)
     revenue: bookings
-      .filter(b => b.status === 'completed')
+      .filter(b => isBookingComplete(b))
       .reduce((sum, b) => sum + (parseFloat(b.total_estimated_price) || 0), 0),
+    
     new_request: bookings.filter(b => b.status === 'pending').length,
     for_verification: bookings.filter(b => b.status === 'for review').length,
-    upcoming: bookings.filter(b => b.status === 'paid').length,
-    completed: bookings.filter(b => b.status === 'completed').length,
+    
+    // Upcoming only counts active, future paid bookings
+    upcoming: bookings.filter(b => b.status === 'paid' && !isBookingComplete(b)).length,
+    
+    // Completed counts explicit + time-based
+    completed: bookings.filter(b => isBookingComplete(b)).length,
   };
 
   const formatCurrency = (val) => `₱${parseFloat(val || 0).toLocaleString('en-PH', { minimumFractionDigits: 2 })}`;
@@ -175,26 +252,21 @@ export default function SPDashboard() {
     let newStatus = '';
     let updateData = {};
 
-    // STATUS FLOW MAPPING
     switch(actionType) {
       case 'approve':
-        // pending -> approved (Provider accepts, waits for user payment)
         newStatus = 'approved'; 
         break;
       
       case 'decline':
-        // pending -> decline
         newStatus = 'decline';
         updateData = { rejection_reason: declineReason };
         break;
       
       case 'accept_payment':
-        // for review -> paid (Provider confirms receipt)
         newStatus = 'paid';
         break;
       
       case 'void_payment':
-        // for review -> void (Provider rejects receipt)
         newStatus = 'void';
         updateData = { rejection_reason: voidReason };
         break;
@@ -210,7 +282,6 @@ export default function SPDashboard() {
 
       if (error) throw error;
 
-      // Update Local State Optimistically
       setBookings(prev => prev.map(b => 
         b.id === selectedBooking.id ? { ...b, status: newStatus, ...updateData } : b
       ));
@@ -254,7 +325,7 @@ export default function SPDashboard() {
           </button>
         </div>
 
-        {/* Status Tabs (Interactive Cards) */}
+        {/* Status Tabs */}
         <div className="status-cards-grid">
            <div className={`status-card ${activeTab === 'new_request' ? 'active' : ''}`} onClick={() => setActiveTab('new_request')}>
              <h3>New Requests</h3>
@@ -334,7 +405,7 @@ export default function SPDashboard() {
             
             <div className="modal-body-scroll">
               
-              {/* Top Summary */}
+              {/* Summary */}
               <div className="modal-summary-section">
                 <div className="info-row">
                    <span>Status:</span>
@@ -350,7 +421,7 @@ export default function SPDashboard() {
                 </div>
               </div>
 
-              {/* Payment Proof (If in verification) */}
+              {/* Payment Proof */}
               {selectedBooking.payment_proof_url && (
                 <div className="full-image-block">
                   <h4>Payment Proof</h4>
@@ -376,7 +447,6 @@ export default function SPDashboard() {
                       <p><strong>Services:</strong> {pet.booking_services?.map(s => s.service_name).join(', ')}</p>
                     </div>
 
-                    {/* LARGE IMAGES */}
                     <div className="pet-images-container">
                       {pet.vaccine_card_url && (
                         <div className="image-wrapper">
@@ -438,7 +508,7 @@ export default function SPDashboard() {
               )}
 
               {/* READ ONLY CLOSE BUTTON */}
-              {['approved', 'paid', 'completed', 'decline', 'void', 'cancelled'].includes(selectedBooking.status) && (
+              {(isBookingComplete(selectedBooking) || ['approved', 'paid', 'decline', 'void', 'cancelled'].includes(selectedBooking.status)) && (
                  <button className="btn-close-footer" onClick={closeModal}>Close Details</button>
               )}
             </div>
