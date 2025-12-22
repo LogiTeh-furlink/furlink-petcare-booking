@@ -25,7 +25,6 @@ const BEHAVIOR_OPTIONS = [
 const ReviewBookingModal = ({ isOpen, onClose, onConfirm, pets, date, time, total, isSubmitting }) => {
     if (!isOpen) return null;
 
-    // Calculate the 30% inside the modal too
     const installationPayment = total * 0.30;
 
     return (
@@ -36,7 +35,6 @@ const ReviewBookingModal = ({ isOpen, onClose, onConfirm, pets, date, time, tota
                     <p>Please double-check all information and attachments.</p>
                 </div>
 
-                {/* UPDATED META BAR WITH BREAKDOWN */}
                 <div className="review-meta-bar" style={{display: 'flex', flexDirection: 'row', flexWrap: 'wrap', gap: '15px', alignItems: 'center'}}>
                     <div className="meta-item"><Calendar size={14}/> {date}</div>
                     <div className="meta-item"><Clock size={14}/> {time}</div>
@@ -45,7 +43,7 @@ const ReviewBookingModal = ({ isOpen, onClose, onConfirm, pets, date, time, tota
                         <div className="meta-item sub-total" style={{opacity: 0.7, fontSize: '0.9rem'}}>
                             Total: ₱{total.toFixed(2)}
                         </div>
-                        <div className="meta-item payment-due" style={{color: '#2563eb', fontWeight: '700', background: '#eff6ff', padding: '4px 10px', borderRadius: '6px', border: '1px solid #bfdbfe'}}>
+                        <div className="meta-item payment-due" style={{color: '#2563eb', fontWeight: '600', background: '#eff6ff', padding: '4px 10px', borderRadius: '6px', border: '1px solid #bfdbfe'}}>
                             <CreditCard size={14} style={{marginRight: '6px'}}/> 
                             Installation Payment: ₱{installationPayment.toFixed(2)}
                         </div>
@@ -175,6 +173,7 @@ const PetDetails = () => {
   const [globalError, setGlobalError] = useState(null);
   const [globalInfo, setGlobalInfo] = useState(null); 
 
+  // Generates a FRESH object to avoid reference issues
   const getEmptyPet = () => ({
     services: [{ _tempId: Date.now() + Math.random(), id: "", service_name: "", service_type: "", price: "0.00" }], 
     total_price_display: "0.00",
@@ -534,7 +533,6 @@ const PetDetails = () => {
 
   const calculateGrandTotal = () => petsData.reduce((acc, pet) => acc + parseFloat(pet.total_price_display || 0), 0);
   
-  // CALCULATE INSTALLATION PAYMENT
   const calculateInstallationPayment = () => {
       return calculateGrandTotal() * 0.30;
   };
@@ -604,7 +602,6 @@ const PetDetails = () => {
                 time_slot: displayTime, 
                 status: 'pending', 
                 total_estimated_price: calculateGrandTotal()
-                // installation_payment is calculated automatically by the database trigger/generated column
             })
             .select()
             .single();
@@ -672,6 +669,12 @@ const PetDetails = () => {
 
   return (
     <div className="pet-details-page">
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+        .pet-details-page, .pet-details-page button, .pet-details-page input, .pet-details-page select, .pet-details-page textarea {
+          font-family: 'Poppins', sans-serif !important;
+        }
+      `}</style>
       <Header />
       <main className="pet-details-container">
         
@@ -713,7 +716,6 @@ const PetDetails = () => {
             <div className="header-right-actions">
                 <div className="booking-summary-badge">{displayDate} @ {displayTime}</div>
                 
-                {/* ---------------- UPDATED PRICE DISPLAY ---------------- */}
                 <div className="header-price-box" style={{display: 'flex', flexDirection: 'column', alignItems: 'flex-end', marginRight: '15px'}}>
                     <div style={{fontSize: '0.85rem', color: '#64748b', marginBottom: '2px'}}>
                         Grand Total: <span style={{textDecoration: 'none', fontWeight: '600'}}>₱{calculateGrandTotal().toFixed(2)}</span>
@@ -723,7 +725,6 @@ const PetDetails = () => {
                         ₱{calculateInstallationPayment().toFixed(2)}
                     </div>
                 </div>
-                {/* ------------------------------------------------------- */}
 
                 <button onClick={handleProceedClick} className="top-proceed-btn" disabled={isSubmitting}>
                     Proceed to Summary <ArrowRight size={16} />
@@ -854,6 +855,7 @@ const PetDetails = () => {
                         </div>
 
                         <div className="consent-form-group"><label className="consent-checkbox-label"><input type="checkbox" checked={pet.emergency_consent} onChange={(e) => handleConsentChange(index, e)} /><span>I agree that in a critical emergency, the Service Provider has my permission to place my pet in their care, and transport them to the nearest emergency facility.</span></label></div>
+                        
                         <div className="form-group" style={{marginTop:'1rem'}}>
                             <label className="form-label"><Activity size={14} className="label-icon" /> Behavior <span className="required-asterisk">*</span></label>
                             
@@ -874,7 +876,8 @@ const PetDetails = () => {
                                 })}
                             </div>
                         </div>
-                        <div className="form-group">
+
+                        <div className="form-group" style={{marginTop: '1rem'}}>
                             <label className="form-label"><Scissors size={14} className="label-icon" /> Grooming Specs (Optional)</label>
                             <textarea name="grooming_specifications" className="form-input textarea" value={pet.grooming_specifications} onChange={(e) => handleInputChange(index, e)} rows={2} maxLength={280} />
                         </div>
