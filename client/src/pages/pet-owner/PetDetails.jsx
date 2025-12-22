@@ -5,7 +5,7 @@ import {
   PawPrint, Calendar, Weight, 
   Dna, Activity, Tag, Cat, AlertCircle,
   UploadCloud, X, FileText, Scissors, Trash2, Plus, ArrowRight,
-  Clock, FileCheck, ShieldCheck, ArrowLeft, Info, Minus
+  Clock, FileCheck, ShieldCheck, ArrowLeft, Info, Minus, CreditCard
 } from "lucide-react";
 import Header from "../../components/Header/LoggedInNavbar";
 import Footer from "../../components/Footer/Footer";
@@ -25,6 +25,9 @@ const BEHAVIOR_OPTIONS = [
 const ReviewBookingModal = ({ isOpen, onClose, onConfirm, pets, date, time, total, isSubmitting }) => {
     if (!isOpen) return null;
 
+    // Calculate the 30% inside the modal too
+    const installationPayment = total * 0.30;
+
     return (
         <div className="modal-overlay">
             <div className="modal-content review-booking-modal">
@@ -33,10 +36,20 @@ const ReviewBookingModal = ({ isOpen, onClose, onConfirm, pets, date, time, tota
                     <p>Please double-check all information and attachments.</p>
                 </div>
 
-                <div className="review-meta-bar">
+                {/* UPDATED META BAR WITH BREAKDOWN */}
+                <div className="review-meta-bar" style={{display: 'flex', flexDirection: 'row', flexWrap: 'wrap', gap: '15px', alignItems: 'center'}}>
                     <div className="meta-item"><Calendar size={14}/> {date}</div>
                     <div className="meta-item"><Clock size={14}/> {time}</div>
-                    <div className="meta-item total"><Tag size={14}/> Total: ₱{total.toFixed(2)}</div>
+                    
+                    <div className="meta-price-breakdown" style={{marginLeft: 'auto', display: 'flex', gap: '15px', alignItems: 'center'}}>
+                        <div className="meta-item sub-total" style={{opacity: 0.7, fontSize: '0.9rem'}}>
+                            Total: ₱{total.toFixed(2)}
+                        </div>
+                        <div className="meta-item payment-due" style={{color: '#2563eb', fontWeight: '700', background: '#eff6ff', padding: '4px 10px', borderRadius: '6px', border: '1px solid #bfdbfe'}}>
+                            <CreditCard size={14} style={{marginRight: '6px'}}/> 
+                            Installation Payment: ₱{installationPayment.toFixed(2)}
+                        </div>
+                    </div>
                 </div>
 
                 <div className="review-scroll-area">
@@ -132,7 +145,7 @@ const ReviewBookingModal = ({ isOpen, onClose, onConfirm, pets, date, time, tota
                         Back to Edit
                     </button>
                     <button className="btn-modal-confirm" onClick={onConfirm} disabled={isSubmitting}>
-                        {isSubmitting ? "Processing..." : "Confirm & Pay"}
+                        {isSubmitting ? "Processing..." : "Confirm & Pay ₱" + installationPayment.toFixed(2)}
                     </button>
                 </div>
             </div>
@@ -162,7 +175,6 @@ const PetDetails = () => {
   const [globalError, setGlobalError] = useState(null);
   const [globalInfo, setGlobalInfo] = useState(null); 
 
-  // Function to ensure UNIQUE references every time a pet is added
   const getEmptyPet = () => ({
     services: [{ _tempId: Date.now() + Math.random(), id: "", service_name: "", service_type: "", price: "0.00" }], 
     total_price_display: "0.00",
@@ -371,24 +383,13 @@ const PetDetails = () => {
   const handleWeightChange = (index, e) => updatePetData(index, { weight_kg: e.target.value });
   const handleConsentChange = (index, e) => setPetsData(prev => { const upd = [...prev]; upd[index].emergency_consent = e.target.checked; return upd; });
 
-  // NEW HANDLER FOR BEHAVIOR CHECKBOXES
   const handleBehaviorChange = (petIndex, option, checked) => {
       setPetsData(prev => {
           const allPets = [...prev];
           const pet = { ...allPets[petIndex] };
-          
-          // Split existing string into array, filter out empty strings
-          let currentList = pet.behavior && pet.behavior.length > 0 
-                            ? pet.behavior.split(', ') 
-                            : [];
-          
-          if (checked) {
-              if (!currentList.includes(option)) currentList.push(option);
-          } else {
-              currentList = currentList.filter(item => item !== option);
-          }
-          
-          // Join back to string
+          let currentList = pet.behavior && pet.behavior.length > 0 ? pet.behavior.split(', ') : [];
+          if (checked) { if (!currentList.includes(option)) currentList.push(option); } 
+          else { currentList = currentList.filter(item => item !== option); }
           pet.behavior = currentList.join(', ');
           allPets[petIndex] = pet;
           return allPets;
@@ -533,6 +534,11 @@ const PetDetails = () => {
 
   const calculateGrandTotal = () => petsData.reduce((acc, pet) => acc + parseFloat(pet.total_price_display || 0), 0);
   
+  // CALCULATE INSTALLATION PAYMENT
+  const calculateInstallationPayment = () => {
+      return calculateGrandTotal() * 0.30;
+  };
+
   const uploadFileToSupabase = async (file, path) => {
       if (!file || !file.name) {
           throw new Error("Missing file data. Please re-upload your documents.");
@@ -555,7 +561,7 @@ const PetDetails = () => {
   const isPetFormComplete = (pet) => {
     const hasService = pet.services.some(s => s.id && s.id !== "");
     const isFileValid = pet.vaccine_file && pet.vaccine_file.name;
-    const hasBehavior = pet.behavior && pet.behavior.length > 0; // Check if at least one behavior checked
+    const hasBehavior = pet.behavior && pet.behavior.length > 0; 
     return (hasService && pet.pet_name.trim() && pet.breed.trim() && pet.birth_date && pet.weight_kg && parseFloat(pet.weight_kg) > 0 && hasBehavior && isFileValid && !pet.error);
   };
 
@@ -598,6 +604,7 @@ const PetDetails = () => {
                 time_slot: displayTime, 
                 status: 'pending', 
                 total_estimated_price: calculateGrandTotal()
+                // installation_payment is calculated automatically by the database trigger/generated column
             })
             .select()
             .single();
@@ -705,10 +712,19 @@ const PetDetails = () => {
             
             <div className="header-right-actions">
                 <div className="booking-summary-badge">{displayDate} @ {displayTime}</div>
-                <div className="top-price-display">
-                    <span className="label">Grand Total:</span>
-                    <span className="value">₱{calculateGrandTotal().toFixed(2)}</span>
+                
+                {/* ---------------- UPDATED PRICE DISPLAY ---------------- */}
+                <div className="header-price-box" style={{display: 'flex', flexDirection: 'column', alignItems: 'flex-end', marginRight: '15px'}}>
+                    <div style={{fontSize: '0.85rem', color: '#64748b', marginBottom: '2px'}}>
+                        Grand Total: <span style={{textDecoration: 'none', fontWeight: '600'}}>₱{calculateGrandTotal().toFixed(2)}</span>
+                    </div>
+                    <div style={{color: '#2563eb', fontWeight: '700', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '6px'}}>
+                        <span style={{fontSize: '0.8rem', opacity: 0.9, fontWeight: '500'}}>Installation Payment (30%):</span>
+                        ₱{calculateInstallationPayment().toFixed(2)}
+                    </div>
                 </div>
+                {/* ------------------------------------------------------- */}
+
                 <button onClick={handleProceedClick} className="top-proceed-btn" disabled={isSubmitting}>
                     Proceed to Summary <ArrowRight size={16} />
                 </button>
@@ -838,14 +854,11 @@ const PetDetails = () => {
                         </div>
 
                         <div className="consent-form-group"><label className="consent-checkbox-label"><input type="checkbox" checked={pet.emergency_consent} onChange={(e) => handleConsentChange(index, e)} /><span>I agree that in a critical emergency, the Service Provider has my permission to place my pet in their care, and transport them to the nearest emergency facility.</span></label></div>
-                        
-                        {/* -------------------- UPDATED BEHAVIOR CHECKBOX SECTION -------------------- */}
                         <div className="form-group" style={{marginTop:'1rem'}}>
                             <label className="form-label"><Activity size={14} className="label-icon" /> Behavior <span className="required-asterisk">*</span></label>
                             
                             <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '8px', marginTop: '8px'}}>
                                 {BEHAVIOR_OPTIONS.map((option) => {
-                                    // Helper to check if string contains the option
                                     const isChecked = pet.behavior ? pet.behavior.split(', ').includes(option) : false;
                                     return (
                                         <label key={option} style={{display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.9rem', cursor: 'pointer'}}>
@@ -861,9 +874,7 @@ const PetDetails = () => {
                                 })}
                             </div>
                         </div>
-                        {/* --------------------------------------------------------------------------- */}
-
-                        <div className="form-group" style={{marginTop: '1rem'}}>
+                        <div className="form-group">
                             <label className="form-label"><Scissors size={14} className="label-icon" /> Grooming Specs (Optional)</label>
                             <textarea name="grooming_specifications" className="form-input textarea" value={pet.grooming_specifications} onChange={(e) => handleInputChange(index, e)} rows={2} maxLength={280} />
                         </div>
