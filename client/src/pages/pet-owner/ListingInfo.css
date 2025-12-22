@@ -5,13 +5,6 @@
 
 /* =========================================
    COLOR PALETTE (BLUE TEXT, NEUTRAL BACKGROUNDS)
-   =========================================
-   Primary Headings/Strong: #153e75 (Deep Navy Blue)
-   Primary Body Text: #2a5298 (Medium Deep Blue)
-   Secondary/Labels: #4a6fa5 (Slightly Lighter Blue)
-   Muted/Disabled Text: #8fa3d0 (Light Blue-Gray)
-   Accents/Borders: Blue tones used for emphasis.
-   Backgrounds: Neutral off-whites/grays.
    ========================================= */
 
 /* =========================================
@@ -21,7 +14,7 @@
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  background-color: #f9fafb; /* CHANGED: Neutral light gray background */
+  background-color: #f9fafb; /* Neutral light gray background */
   font-family: 'Poppins', sans-serif;
   color: #2a5298; /* Primary body text blue */
 }
@@ -115,7 +108,7 @@
 
 /* Image Placeholders */
 .main-image-placeholder {
-  background-color: #f3f4f6; /* CHANGED: Neutral gray placeholder */
+  background-color: #f3f4f6; /* Neutral gray placeholder */
   border-radius: 12px;
   display: flex; align-items: center; justify-content: center;
   min-height: 400px;
@@ -131,7 +124,7 @@
 .main-image-placeholder:hover img { transform: scale(1.05); }
 
 .thumbnail-placeholder {
-  background-color: #f3f4f6; /* CHANGED: Neutral gray placeholder */
+  background-color: #f3f4f6; /* Neutral gray placeholder */
   border-radius: 8px;
   display: flex; align-items: center; justify-content: center;
   min-height: 195px; 
@@ -150,7 +143,7 @@
   grid-column: 1 / -1;
   text-align: center;
   padding: 4rem 2rem;
-  background-color: #f3f4f6; /* CHANGED: Neutral gray */
+  background-color: #f3f4f6; /* Neutral gray */
   border-radius: 12px;
   color: #4a6fa5; /* Secondary blue text */
 }
@@ -324,7 +317,7 @@
   color: #2a5298; /* Primary body blue */
 }
 
-.pricing-table thead tr { background-color: #f9fafb; /* CHANGED: Neutral gray header */ }
+.pricing-table thead tr { background-color: #f9fafb; /* Neutral gray header */ }
 .pricing-table th { padding: 12px; text-align: left; font-weight: 600; font-size: 0.875rem; color: #153e75; /* Deep Navy */ }
 .pricing-table tbody tr { border-top: 1px solid #dbeafe; }
 .pricing-table td { padding: 12px; font-size: 0.875rem; }
@@ -389,7 +382,7 @@
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
 }
 
-.booking-select:disabled { cursor: not-allowed; background-color: #f9fafb; color: #8fa3d0; /* CHANGED: Neutral gray bg for disabled */ }
+.booking-select:disabled { cursor: not-allowed; background-color: #f9fafb; color: #8fa3d0; /* Neutral gray bg for disabled */ }
 
 .booking-select-wrapper { position: relative; }
 .booking-select-icon {
@@ -447,9 +440,173 @@
 
 .react-datepicker__day--disabled {
   color: #d1d5db; /* Neutral Light Gray text */
-  background-color: #f9fafb; /* CHANGED: Neutral gray bg */
+  background-color: #f9fafb; /* Neutral gray bg */
   pointer-events: none;
 }
+
+/* =========================================
+   REVIEWS TAB STYLES
+   ========================================= */
+.reviews-container {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.no-reviews-container {
+  text-align: center;
+  padding: 3rem;
+  background-color: #f9fafb;
+  border-radius: 12px;
+  color: #4a6fa5;
+  font-style: italic;
+}
+
+/* Summary Card */
+.review-summary-card {
+  display: flex;
+  background-color: #153e75; /* Deep Navy BG */
+  color: white;
+  border-radius: 12px;
+  padding: 1.5rem;
+  gap: 2rem;
+  box-shadow: 0 4px 12px rgba(21, 62, 117, 0.2);
+}
+
+.summary-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-right: 1px solid rgba(255, 255, 255, 0.2);
+  padding-right: 2rem;
+}
+
+.summary-score {
+  font-size: 3rem;
+  font-weight: 700;
+  line-height: 1;
+  color: #ffffff;
+}
+
+.summary-stars { margin: 8px 0; }
+.summary-count { font-size: 0.9rem; color: #cce0ff; }
+
+.summary-details {
+  flex: 2;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 12px;
+}
+
+.detail-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  font-size: 0.9rem;
+  color: #e0e7ff;
+}
+
+.detail-row span:first-child { width: 60px; font-weight: 500; }
+
+.detail-bar-container {
+  flex: 1;
+  height: 8px;
+  background-color: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.detail-bar-fill {
+  height: 100%;
+  background-color: #fdbf00; /* Gold */
+  border-radius: 4px;
+}
+
+.detail-score { font-weight: 700; width: 30px; text-align: right; }
+
+/* Reviews List */
+.reviews-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.review-card {
+  background-color: white;
+  border: 1px solid #cce0ff;
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  transition: transform 0.2s;
+}
+
+.review-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(21, 62, 117, 0.08);
+  border-color: #2563eb;
+}
+
+.review-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 1rem;
+}
+
+.review-user-avatar {
+  width: 40px; height: 40px;
+  border-radius: 50%;
+  background-color: #e0e7ff;
+  display: flex; align-items: center; justify-content: center;
+  color: #153e75;
+}
+
+.review-meta {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.review-user-name {
+  font-weight: 600;
+  color: #153e75;
+  font-size: 0.95rem;
+}
+
+.review-date {
+  font-size: 0.8rem;
+  color: #4a6fa5;
+}
+
+.review-body {
+  margin-bottom: 1rem;
+  color: #2a5298;
+  line-height: 1.6;
+}
+
+.review-text-empty { font-style: italic; color: #8fa3d0; }
+
+.review-footer {
+  display: flex;
+  gap: 1.5rem;
+  border-top: 1px solid #f0f7ff;
+  padding-top: 12px;
+  font-size: 0.85rem;
+  color: #4a6fa5;
+}
+
+.mini-rating b { color: #153e75; font-weight: 600; margin-left: 4px; }
+
+/* Star Rating Helper */
+.star-rating-row {
+  display: flex;
+  gap: 2px;
+}
+.star-filled { color: #fdbf00; /* Gold */ }
+.star-empty { color: #dbeafe; /* Very light blue */ }
 
 /* =========================================
    IMAGE MODAL (CAROUSEL)
@@ -495,6 +652,9 @@
 }
 
 @media (max-width: 768px) {
+  .review-summary-card { flex-direction: column; align-items: center; }
+  .summary-main { border-right: none; border-bottom: 1px solid rgba(255,255,255,0.2); padding-right: 0; padding-bottom: 1.5rem; width: 100%; }
+  .summary-details { width: 100%; }
   .listing-images.images-3 { grid-template-columns: 1fr; }
   .images-3 .main-image-placeholder { grid-row: span 1; }
   .listing-tabs { gap: 1rem; overflow-x: auto; }

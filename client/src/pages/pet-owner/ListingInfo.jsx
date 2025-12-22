@@ -6,7 +6,7 @@ import {
   MapPin, X, ChevronDown, 
   ChevronLeft, ChevronRight, Clock, 
   Facebook, Instagram, Globe, ExternalLink,
-  Calendar, Users 
+  Calendar, Users, Star, User
 } from "lucide-react";
 import DatePicker from "react-datepicker"; 
 import "react-datepicker/dist/react-datepicker.css"; 
@@ -22,7 +22,7 @@ const ImageModal = ({ isOpen, onClose, images, currentIndex, onNext, onPrev }) =
 
   return (
     <div className="image-modal-overlay" onClick={onClose}>
-      <button className="image-modal-close" onClick={onClose}><X size={24} color="#111827" /></button>
+      <button className="image-modal-close" onClick={onClose}><X size={24} color="#153e75" /></button>
       {images.length > 1 && (
         <button className="image-nav-btn prev" onClick={(e) => { e.stopPropagation(); onPrev(); }}>
           <ChevronLeft size={32} />
@@ -38,6 +38,22 @@ const ImageModal = ({ isOpen, onClose, images, currentIndex, onNext, onPrev }) =
   );
 };
 
+// --- Star Rating Helper ---
+const StarRating = ({ rating, size = 16 }) => {
+  return (
+    <div className="star-rating-row">
+      {[1, 2, 3, 4, 5].map((star) => (
+        <Star 
+          key={star} 
+          size={size} 
+          className={star <= Math.round(rating) ? "star-filled" : "star-empty"} 
+          fill={star <= Math.round(rating) ? "#fdbf00" : "none"}
+        />
+      ))}
+    </div>
+  );
+};
+
 const ListingInfo = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -48,6 +64,8 @@ const ListingInfo = () => {
   const [services, setServices] = useState([]);
   const [hours, setHours] = useState([]);
   const [images, setImages] = useState([]);
+  const [reviews, setReviews] = useState([]);
+  const [reviewStats, setReviewStats] = useState({ count: 0, overall: 0, service: 0, staff: 0 });
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("overview");
   const [selectedImageIndex, setSelectedImageIndex] = useState(null);
@@ -73,7 +91,7 @@ const ListingInfo = () => {
     init();
   }, [id]);
 
-  // 2. LOAD DRAFT FROM SESSION (Reflects "Back" button data)
+  // 2. LOAD DRAFT FROM SESSION
   useEffect(() => {
     const loadDraft = async () => {
         const { data: { user } } = await supabase.auth.getUser();
@@ -85,7 +103,6 @@ const ListingInfo = () => {
             if (savedDraft) {
                 try {
                     const parsed = JSON.parse(savedDraft);
-                    
                     if (parsed.date) {
                         const draftDate = new Date(parsed.date);
                         if (!isNaN(draftDate.getTime())) {
@@ -94,10 +111,7 @@ const ListingInfo = () => {
                     }
                     if (parsed.time) setBookingTime(parsed.time);
                     if (parsed.pets) setNumberOfPets(parseInt(parsed.pets, 10));
-
-                } catch (e) {
-                    console.error("Failed to parse booking draft", e);
-                }
+                } catch (e) { console.error("Failed to parse booking draft", e); }
             } else if (location.state) {
                 if (location.state.bookingDate) setBookingDate(new Date(location.state.bookingDate));
                 if (location.state.bookingTime) setBookingTime(location.state.bookingTime);
@@ -134,6 +148,8 @@ const ListingInfo = () => {
   const fetchAllData = async () => {
     try {
       setLoading(true);
+      
+      // Fetch Basic Provider Info
       const { data: providerData } = await supabase.from("service_providers").select("*").eq("id", id).eq("status", "approved").single();
       setProvider(providerData || null);
 
@@ -146,12 +162,48 @@ const ListingInfo = () => {
       const { data: imagesData } = await supabase.from("service_provider_images").select("*").eq("provider_id", id);
       setImages(imagesData || []);
 
+      // Fetch Reviews
+      const { data: reviewsData } = await supabase
+        .from("reviews")
+        .select("*")
+        .eq("provider_id", id)
+        .order("created_at", { ascending: false });
+
+      if (reviewsData && reviewsData.length > 0) {
+        setReviews(reviewsData);
+        
+        // Calculate Averages
+        const total = reviewsData.length;
+        const totalService = reviewsData.reduce((acc, r) => acc + r.rating_overall, 0);
+        const totalStaff = reviewsData.reduce((acc, r) => acc + r.rating_staff, 0);
+        
+        const avgService = totalService / total;
+        const avgStaff = totalStaff / total;
+        // Overall is average of the two categories
+        const avgOverall = (avgService + avgStaff) / 2;
+
+        setReviewStats({
+            count: total,
+            overall: avgOverall,
+            service: avgService,
+            staff: avgStaff
+        });
+      } else {
+        setReviews([]);
+        setReviewStats({ count: 0, overall: 0, service: 0, staff: 0 });
+      }
+
     } catch (error) { console.error("Error fetching data:", error); } finally { setLoading(false); }
   };
 
   const formatTime = (time) => {
     if (!time) return "";
     return new Date(`2000-01-01T${time}`).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+  };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return "";
+    return new Date(dateString).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
   };
 
   const getSocialIcon = (url) => {
@@ -187,7 +239,6 @@ const ListingInfo = () => {
     if (!user) { setBookingError("You must be logged in to book."); return; }
     if (!bookingDate) { setDateError("Please select a date."); return; }
     if (!bookingTime) { setBookingError("Please select a time slot."); return; }
-    
     if (numberOfPets < 1) { setBookingError("Please select at least 1 pet."); return; } 
 
     const dateStr = bookingDate.toLocaleDateString('en-CA'); 
@@ -340,15 +391,94 @@ const ListingInfo = () => {
                      })}
                    </div>
                  </div>
-                 <div className="info-section" style={{marginTop:'3rem', borderTop:'1px solid #e5e7eb', paddingTop:'2rem'}}>
+                 <div className="info-section" style={{marginTop:'3rem', borderTop:'1px solid #dbeafe', paddingTop:'2rem'}}>
                    <h3 className="subsection-title">Service Prices</h3>
                    <ServicesList />
                  </div>
               </div>
             )}
+
             {activeTab === "prices" && <div className="tab-content"><h2 className="section-title">Service Prices</h2><ServicesList /></div>}
+            
             {activeTab === "location" && <div className="tab-content"><h2 className="section-title">Location</h2><div className="location-info"><MapPin size={20} /><p>{provider.house_street}, {provider.barangay}, {provider.city}</p></div></div>}
-            {activeTab === "reviews" && <div className="tab-content"><h2 className="section-title">Reviews</h2><p style={{ color: "#6b7280" }}>No reviews yet.</p></div>}
+            
+            {activeTab === "reviews" && (
+              <div className="tab-content">
+                <h2 className="section-title">Reviews</h2>
+                
+                {reviewStats.count > 0 ? (
+                  <div className="reviews-container">
+                    {/* Summary Card */}
+                    <div className="review-summary-card">
+                      <div className="summary-main">
+                        <span className="summary-score">{reviewStats.overall.toFixed(1)}</span>
+                        <div className="summary-stars">
+                          <StarRating rating={reviewStats.overall} size={20} />
+                        </div>
+                        <span className="summary-count">{reviewStats.count} Reviews</span>
+                      </div>
+                      <div className="summary-details">
+                        <div className="detail-row">
+                          <span>Service</span>
+                          <div className="detail-bar-container">
+                            <div className="detail-bar-fill" style={{width: `${(reviewStats.service / 5) * 100}%`}}></div>
+                          </div>
+                          <span className="detail-score">{reviewStats.service.toFixed(1)}</span>
+                        </div>
+                        <div className="detail-row">
+                          <span>Staff</span>
+                          <div className="detail-bar-container">
+                            <div className="detail-bar-fill" style={{width: `${(reviewStats.staff / 5) * 100}%`}}></div>
+                          </div>
+                          <span className="detail-score">{reviewStats.staff.toFixed(1)}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Reviews List */}
+                    <div className="reviews-list">
+                      {reviews.map((review) => (
+                        <div key={review.id} className="review-card">
+                          <div className="review-header">
+                            <div className="review-user-avatar">
+                              <User size={20} color="#153e75" />
+                            </div>
+                            <div className="review-meta">
+                              <span className="review-user-name">Pet Owner</span>
+                              <span className="review-date">{formatDate(review.created_at)}</span>
+                            </div>
+                            <div className="review-stars-display">
+                                <StarRating rating={(review.rating_overall + review.rating_staff) / 2} size={14} />
+                            </div>
+                          </div>
+                          
+                          <div className="review-body">
+                             {review.comment ? (
+                               <p className="review-text">{review.comment}</p>
+                             ) : (
+                               <p className="review-text-empty">No comment provided.</p>
+                             )}
+                          </div>
+                          
+                          <div className="review-footer">
+                            <div className="mini-rating">
+                              <span>Service: </span> <b>{review.rating_overall}/5</b>
+                            </div>
+                            <div className="mini-rating">
+                              <span>Staff: </span> <b>{review.rating_staff}/5</b>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="no-reviews-container">
+                    <p>No reviews yet for this provider.</p>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
