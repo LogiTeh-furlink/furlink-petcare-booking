@@ -6,13 +6,95 @@ import {
   MapPin, X, ChevronDown, 
   ChevronLeft, ChevronRight, Clock, 
   Facebook, Instagram, Globe, ExternalLink,
-  Calendar, Users, Star, User
+  Calendar as CalendarIcon, Users, Star, User
 } from "lucide-react";
-import DatePicker from "react-datepicker"; 
-import "react-datepicker/dist/react-datepicker.css"; 
 import Header from "../../components/Header/LoggedInNavbar";
 import Footer from "../../components/Footer/Footer";
 import "./ListingInfo.css";
+
+// --- CUSTOM CALENDAR COMPONENT ---
+const BookingCalendar = ({ selectedDate, onDateSelect, providerHours }) => {
+  const [currentDate, setCurrentDate] = useState(new Date());
+
+  const year = currentDate.getFullYear();
+  const month = currentDate.getMonth();
+
+  const getDaysInMonth = (y, m) => new Date(y, m + 1, 0).getDate();
+  const getFirstDayOfMonth = (y, m) => new Date(y, m, 1).getDay();
+
+  const daysInMonth = getDaysInMonth(year, month);
+  const firstDay = getFirstDayOfMonth(year, month);
+
+  const handlePrevMonth = () => setCurrentDate(new Date(year, month - 1, 1));
+  const handleNextMonth = () => setCurrentDate(new Date(year, month + 1, 1));
+
+  // Check if a specific date is selectable
+  const isDateSelectable = (day) => {
+    const dateToCheck = new Date(year, month, day);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // 1. Disable past dates
+    if (dateToCheck < today) return false;
+
+    // 2. Disable if provider is closed on this day of week
+    if (!providerHours || providerHours.length === 0) return false;
+    const dayName = dateToCheck.toLocaleDateString('en-US', { weekday: 'long' });
+    return providerHours.some(h => h.day_of_week === dayName);
+  };
+
+  const renderDays = () => {
+    const days = [];
+    
+    // Empty slots for previous month
+    for (let i = 0; i < firstDay; i++) {
+      days.push(<div key={`empty-${i}`} className="cal-day empty"></div>);
+    }
+
+    // Days of current month
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dateToCheck = new Date(year, month, d);
+      const isSelectable = isDateSelectable(d);
+      
+      // Check if this specific day is the currently selected one
+      const isSelected = selectedDate && 
+        selectedDate.getDate() === d &&
+        selectedDate.getMonth() === month &&
+        selectedDate.getFullYear() === year;
+
+      days.push(
+        <div 
+          key={d} 
+          className={`cal-day ${isSelected ? 'selected' : ''} ${!isSelectable ? 'disabled' : ''}`}
+          onClick={() => isSelectable && onDateSelect(dateToCheck)}
+        >
+          <span className="day-num">{d}</span>
+        </div>
+      );
+    }
+    return days;
+  };
+
+  return (
+    <div className="custom-calendar-wrapper">
+      <div className="cal-nav">
+        <button type="button" onClick={handlePrevMonth}><ChevronLeft size={18}/></button>
+        <span className="cal-month-title">
+          {currentDate.toLocaleString('default', { month: 'long', year: 'numeric' })}
+        </span>
+        <button type="button" onClick={handleNextMonth}><ChevronRight size={18}/></button>
+      </div>
+
+      <div className="cal-grid-header">
+        <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
+      </div>
+      
+      <div className="cal-grid">
+        {renderDays()}
+      </div>
+    </div>
+  );
+};
 
 // --- Image Modal (Carousel) ---
 const ImageModal = ({ isOpen, onClose, images, currentIndex, onNext, onPrev }) => {
@@ -222,11 +304,6 @@ const ListingInfo = () => {
     return 'images-3'; 
   };
 
-  const isDateEnabled = (date) => {
-    const dayName = date.toLocaleDateString('en-US', { weekday: 'long' });
-    return hours.some(h => h.day_of_week === dayName);
-  };
-
   const handleDateChange = (date) => {
     setBookingDate(date);
     setDateError(null);
@@ -343,15 +420,15 @@ const ListingInfo = () => {
           <div className="listing-content">
             {activeTab === "overview" && (
               <div className="tab-content">
-                 <div className="listing-header-row">
-                   <h1 className="listing-title">{provider.business_name}</h1>
-                   {provider.social_media_url && (
-                     <a href={provider.social_media_url} target="_blank" rel="noopener noreferrer" className="social-link-inline">
-                       {getSocialIcon(provider.social_media_url)}
-                     </a>
-                   )}
-                 </div>
-                 <div className="location-info-block">
+                  <div className="listing-header-row">
+                    <h1 className="listing-title">{provider.business_name}</h1>
+                    {provider.social_media_url && (
+                      <a href={provider.social_media_url} target="_blank" rel="noopener noreferrer" className="social-link-inline">
+                        {getSocialIcon(provider.social_media_url)}
+                      </a>
+                    )}
+                  </div>
+                  <div className="location-info-block">
                     <div className="listing-full-location" style={{marginBottom:'1rem'}}>
                       <MapPin size={24} className="text-primary"/>
                       <a href={provider.google_map_url || "#"} target="_blank" rel="noopener noreferrer" className={`location-link ${!provider.google_map_url ? 'disabled' : ''}`} style={{fontSize:'1.1rem'}}>
@@ -359,42 +436,42 @@ const ListingInfo = () => {
                         {provider.google_map_url && <ExternalLink size={16} style={{marginLeft:'6px'}}/>}
                       </a>
                     </div>
-                 </div>
-                 <div className="info-section">
-                   <p className="shop-description">{provider.description || <span className="italic-gray">No description provided.</span>}</p>
-                 </div>
-                 <div className="info-section">
-                   <h3 className="subsection-title">Operating Hours</h3>
-                   <div className="hours-horizontal-container">
-                     {daysOrder.map((day) => {
-                       const dayHours = hours.filter(h => h.day_of_week === day);
-                       const isOpen = dayHours.length > 0;
-                       return (
-                         <div key={day} className={`hour-card ${isOpen ? 'open' : 'closed'}`}>
-                           <div className="hour-header">
-                             <Clock size={14} />
-                             <span>{day}</span>
-                           </div>
-                           <div className="hour-body">
-                             {isOpen ? (
-                               dayHours.map((h, i) => (
-                                 <div key={i} className="time-badge">
-                                   {formatTime(h.start_time)} - {formatTime(h.end_time)}
-                                 </div>
-                               ))
-                             ) : (
-                               <span className="closed-text">Closed</span>
-                             )}
-                           </div>
-                         </div>
-                       );
-                     })}
-                   </div>
-                 </div>
-                 <div className="info-section" style={{marginTop:'3rem', borderTop:'1px solid #dbeafe', paddingTop:'2rem'}}>
-                   <h3 className="subsection-title">Service Prices</h3>
-                   <ServicesList />
-                 </div>
+                  </div>
+                  <div className="info-section">
+                    <p className="shop-description">{provider.description || <span className="italic-gray">No description provided.</span>}</p>
+                  </div>
+                  <div className="info-section">
+                    <h3 className="subsection-title">Operating Hours</h3>
+                    <div className="hours-horizontal-container">
+                      {daysOrder.map((day) => {
+                        const dayHours = hours.filter(h => h.day_of_week === day);
+                        const isOpen = dayHours.length > 0;
+                        return (
+                          <div key={day} className={`hour-card ${isOpen ? 'open' : 'closed'}`}>
+                            <div className="hour-header">
+                              <Clock size={14} />
+                              <span>{day}</span>
+                            </div>
+                            <div className="hour-body">
+                              {isOpen ? (
+                                dayHours.map((h, i) => (
+                                  <div key={i} className="time-badge">
+                                    {formatTime(h.start_time)} - {formatTime(h.end_time)}
+                                  </div>
+                                ))
+                              ) : (
+                                <span className="closed-text">Closed</span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <div className="info-section" style={{marginTop:'3rem', borderTop:'1px solid #dbeafe', paddingTop:'2rem'}}>
+                    <h3 className="subsection-title">Service Prices</h3>
+                    <ServicesList />
+                  </div>
               </div>
             )}
 
@@ -490,17 +567,15 @@ const ListingInfo = () => {
 
           <div className="booking-field">
             <label className="booking-label">
-              <Calendar size={14} style={{marginRight:'6px', marginBottom:'-2px'}}/>
+              <CalendarIcon size={14} style={{marginRight:'6px', marginBottom:'-2px'}}/>
               Select Date
             </label>
-            <DatePicker
-              selected={bookingDate}
-              onChange={handleDateChange}
-              filterDate={isDateEnabled}
-              minDate={new Date(new Date().setDate(new Date().getDate() + 1))}
-              placeholderText="Select a date"
-              className={`booking-date-input ${dateError ? 'input-error' : ''}`}
-              dateFormat="MMMM d, yyyy"
+            
+            {/* --- REPLACED DATEPICKER WITH CUSTOM CALENDAR --- */}
+            <BookingCalendar 
+              selectedDate={bookingDate} 
+              onDateSelect={handleDateChange} 
+              providerHours={hours}
             />
             {dateError && <span className="field-error-text">{dateError}</span>}
           </div>
@@ -538,7 +613,8 @@ const ListingInfo = () => {
               min="0"
               value={numberOfPets} 
               onChange={(e) => setNumberOfPets(e.target.value)} 
-              className="booking-date-input"
+              className="booking-date-input" 
+              style={{width: '100%', boxSizing: 'border-box'}}
             />
           </div>
 
