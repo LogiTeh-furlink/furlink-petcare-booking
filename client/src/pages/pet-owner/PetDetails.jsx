@@ -5,7 +5,7 @@ import {
   PawPrint, Calendar, Weight, 
   Dna, Activity, Tag, Cat, AlertCircle,
   UploadCloud, X, FileText, Scissors, Trash2, Plus, ArrowRight,
-  Clock, FileCheck, ShieldCheck, ArrowLeft, Info
+  Clock, FileCheck, ShieldCheck, ArrowLeft, Info, Minus
 } from "lucide-react";
 import Header from "../../components/Header/LoggedInNavbar";
 import Footer from "../../components/Footer/Footer";
@@ -124,7 +124,7 @@ const ReviewBookingModal = ({ isOpen, onClose, onConfirm, pets, date, time, tota
                         Back to Edit
                     </button>
                     <button className="btn-modal-confirm" onClick={onConfirm} disabled={isSubmitting}>
-                        {isSubmitting ? "Processing..." : "Submit Booking Request"}
+                        {isSubmitting ? "Processing..." : "Confirm & Pay"}
                     </button>
                 </div>
             </div>
@@ -154,13 +154,14 @@ const PetDetails = () => {
   const [globalError, setGlobalError] = useState(null);
   const [globalInfo, setGlobalInfo] = useState(null); 
 
-  const emptyPetTemplate = {
-    services: [{ _tempId: Date.now(), id: "", service_name: "", service_type: "", price: "0.00" }], 
+  // FIX: Converted to a function to ensure UNIQUE references every time
+  const getEmptyPet = () => ({
+    services: [{ _tempId: Date.now() + Math.random(), id: "", service_name: "", service_type: "", price: "0.00" }], 
     total_price_display: "0.00",
     pet_type: "Dog", pet_name: "", birth_date: "", weight_kg: "", calculated_size: "",
     breed: "", gender: "Male", behavior: "", grooming_specifications: "",
     error: null, vaccine_file: null, vaccine_preview: null, illness_file: null, illness_preview: null, emergency_consent: false
-  };
+  });
 
   const triggerError = (msg) => {
     setGlobalError(msg);
@@ -193,40 +194,34 @@ const PetDetails = () => {
         try { parsedSession = JSON.parse(savedSession); } catch (e) { console.error(e); }
       }
 
-      // Helper to strip ghost images from session data
       const cleanSessionPets = (pets) => {
           if (!Array.isArray(pets)) return [];
           return pets.map(p => ({
               ...p,
               vaccine_file: null,
-              vaccine_preview: null, // Clear preview string
+              vaccine_preview: null, 
               illness_file: null,
-              illness_preview: null  // Clear preview string
+              illness_preview: null
           }));
       };
 
       if (state && state.numberOfPets !== undefined) {
-          // SCENARIO 1: Coming from Listing Info (Passed State)
           const targetCount = parseInt(state.numberOfPets, 10);
-          
-          // CRITICAL FIX: Clean the session data BEFORE using it
           const rawSessionPets = parsedSession?.petsData || [];
           const safeSessionPets = cleanSessionPets(rawSessionPets);
 
-          const newPetsArray = Array.from({ length: targetCount }, (_, i) => safeSessionPets[i] ? safeSessionPets[i] : { ...emptyPetTemplate });
+          // Use getEmptyPet() to ensure fresh objects
+          const newPetsArray = Array.from({ length: targetCount }, (_, i) => safeSessionPets[i] ? safeSessionPets[i] : getEmptyPet());
           
           setPetsData(newPetsArray);
-          // Only show info if we actually restored data
           if (rawSessionPets.length > 0) triggerInfo("Welcome back! Please re-upload your medical images.");
 
       } else if (parsedSession && Array.isArray(parsedSession.petsData)) {
-          // SCENARIO 2: Reloading Page (No State)
           const sanitizedPets = cleanSessionPets(parsedSession.petsData);
           setPetsData(sanitizedPets);
           triggerInfo("Welcome back! Please re-upload your medical images.");
       } else {
-          // SCENARIO 3: Fresh Start
-          setPetsData([{ ...emptyPetTemplate }]);
+          setPetsData([getEmptyPet()]);
       }
       setIsInitializing(false);
     };
@@ -373,7 +368,15 @@ const PetDetails = () => {
       setPetsData(prev => {
           const newPetsData = [...prev];
           const targetPet = { ...newPetsData[petIndex] };
-          const newService = { _tempId: Date.now() + Math.random(), id: "", service_name: "", service_type: "", price: "0.00" };
+          
+          const newService = { 
+              _tempId: Date.now() + Math.random(), 
+              id: "", 
+              service_name: "", 
+              service_type: "", 
+              price: "0.00" 
+          };
+          
           targetPet.services = [...targetPet.services, newService];
           newPetsData[petIndex] = targetPet;
           return newPetsData;
@@ -461,7 +464,11 @@ const PetDetails = () => {
       });
   };
 
-  const handleAddPet = () => setPetsData(prev => [...prev, { ...emptyPetTemplate, services: [{_tempId: Date.now(), id: "", service_name: "", service_type: "", price: "0.00"}] }]);
+  const handleAddPet = () => {
+      // Use getEmptyPet() function call to ensure new reference
+      setPetsData(prev => [...prev, getEmptyPet()]);
+  };
+
   const handleRemovePet = (index) => {
     if (petsData.length === 1) { 
         triggerError("You must have at least one pet."); 
@@ -517,7 +524,6 @@ const PetDetails = () => {
 
   const isPetFormComplete = (pet) => {
     const hasService = pet.services.some(s => s.id && s.id !== "");
-    // Check if FILE OBJECT exists (not just preview string)
     const isFileValid = pet.vaccine_file && pet.vaccine_file.name;
     return (hasService && pet.pet_name.trim() && pet.breed.trim() && pet.birth_date && pet.weight_kg && parseFloat(pet.weight_kg) > 0 && pet.behavior.trim() && isFileValid && !pet.error);
   };
@@ -669,7 +675,7 @@ const PetDetails = () => {
             <div className="header-right-actions">
                 <div className="booking-summary-badge">{displayDate} @ {displayTime}</div>
                 <div className="top-price-display">
-                    <span className="label">Total:</span>
+                    <span className="label">Grand Total:</span>
                     <span className="value">₱{calculateGrandTotal().toFixed(2)}</span>
                 </div>
                 <button onClick={handleProceedClick} className="top-proceed-btn" disabled={isSubmitting}>
