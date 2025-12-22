@@ -1052,7 +1052,7 @@ const PetDetails = () => {
                         </div>
 
                         <div className="form-group" style={{marginTop: '1rem'}}>
-                            <label className="form-label"><Scissors size={14} className="label-icon" /> Grooming Specs (Optional)</label>
+                            <label className="form-label"><Scissors size={14} className="label-icon" /> Grooming Specifications (Optional)</label>
                             <textarea name="grooming_specifications" className="form-input textarea" value={pet.grooming_specifications} onChange={(e) => handleInputChange(index, e)} rows={2} maxLength={280} />
                         </div>
                     </div>
