@@ -11,6 +11,14 @@ import Header from "../../components/Header/LoggedInNavbar";
 import Footer from "../../components/Footer/Footer";
 import "./PetDetails.css";
 
+const BEHAVIOR_OPTIONS = [
+    "Friendly / Social",
+    "Aggressive / Reactive",
+    "Anxious / Nervous",
+    "High Energy",
+    "House Trained"
+];
+
 // =========================================
 // HELPER COMPONENT: DETAILED REVIEW MODAL
 // =========================================
@@ -70,8 +78,8 @@ const ReviewBookingModal = ({ isOpen, onClose, onConfirm, pets, date, time, tota
                                     </div>
                                     
                                     <div className="review-group full-width">
-                                        <label>Behavior Note</label>
-                                        <div className="value text-block">{pet.behavior}</div>
+                                        <label>Behavior</label>
+                                        <div className="value text-block">{pet.behavior || "None selected"}</div>
                                     </div>
                                     {pet.grooming_specifications && (
                                         <div className="review-group full-width">
@@ -154,7 +162,7 @@ const PetDetails = () => {
   const [globalError, setGlobalError] = useState(null);
   const [globalInfo, setGlobalInfo] = useState(null); 
 
-  // FIX: Converted to a function to ensure UNIQUE references every time
+  // Function to ensure UNIQUE references every time a pet is added
   const getEmptyPet = () => ({
     services: [{ _tempId: Date.now() + Math.random(), id: "", service_name: "", service_type: "", price: "0.00" }], 
     total_price_display: "0.00",
@@ -210,7 +218,6 @@ const PetDetails = () => {
           const rawSessionPets = parsedSession?.petsData || [];
           const safeSessionPets = cleanSessionPets(rawSessionPets);
 
-          // Use getEmptyPet() to ensure fresh objects
           const newPetsArray = Array.from({ length: targetCount }, (_, i) => safeSessionPets[i] ? safeSessionPets[i] : getEmptyPet());
           
           setPetsData(newPetsArray);
@@ -364,6 +371,30 @@ const PetDetails = () => {
   const handleWeightChange = (index, e) => updatePetData(index, { weight_kg: e.target.value });
   const handleConsentChange = (index, e) => setPetsData(prev => { const upd = [...prev]; upd[index].emergency_consent = e.target.checked; return upd; });
 
+  // NEW HANDLER FOR BEHAVIOR CHECKBOXES
+  const handleBehaviorChange = (petIndex, option, checked) => {
+      setPetsData(prev => {
+          const allPets = [...prev];
+          const pet = { ...allPets[petIndex] };
+          
+          // Split existing string into array, filter out empty strings
+          let currentList = pet.behavior && pet.behavior.length > 0 
+                            ? pet.behavior.split(', ') 
+                            : [];
+          
+          if (checked) {
+              if (!currentList.includes(option)) currentList.push(option);
+          } else {
+              currentList = currentList.filter(item => item !== option);
+          }
+          
+          // Join back to string
+          pet.behavior = currentList.join(', ');
+          allPets[petIndex] = pet;
+          return allPets;
+      });
+  };
+
   const handleAddServiceRow = (petIndex) => {
       setPetsData(prev => {
           const newPetsData = [...prev];
@@ -465,7 +496,6 @@ const PetDetails = () => {
   };
 
   const handleAddPet = () => {
-      // Use getEmptyPet() function call to ensure new reference
       setPetsData(prev => [...prev, getEmptyPet()]);
   };
 
@@ -525,7 +555,8 @@ const PetDetails = () => {
   const isPetFormComplete = (pet) => {
     const hasService = pet.services.some(s => s.id && s.id !== "");
     const isFileValid = pet.vaccine_file && pet.vaccine_file.name;
-    return (hasService && pet.pet_name.trim() && pet.breed.trim() && pet.birth_date && pet.weight_kg && parseFloat(pet.weight_kg) > 0 && pet.behavior.trim() && isFileValid && !pet.error);
+    const hasBehavior = pet.behavior && pet.behavior.length > 0; // Check if at least one behavior checked
+    return (hasService && pet.pet_name.trim() && pet.breed.trim() && pet.birth_date && pet.weight_kg && parseFloat(pet.weight_kg) > 0 && hasBehavior && isFileValid && !pet.error);
   };
 
   const handleProceedClick = (e) => {
@@ -544,7 +575,7 @@ const PetDetails = () => {
         if (missingFile) {
             triggerError(`Missing vaccine record for ${missingFile.pet_name || 'Pet ' + (petsData.indexOf(missingFile) + 1)}.`);
         } else {
-            triggerError("Please complete all required fields (*) and select at least one valid service per pet.");
+            triggerError("Please complete all required fields (*), select behaviors, and valid services per pet.");
         }
         return;
     }
@@ -807,11 +838,32 @@ const PetDetails = () => {
                         </div>
 
                         <div className="consent-form-group"><label className="consent-checkbox-label"><input type="checkbox" checked={pet.emergency_consent} onChange={(e) => handleConsentChange(index, e)} /><span>I agree that in a critical emergency, the Service Provider has my permission to place my pet in their care, and transport them to the nearest emergency facility.</span></label></div>
+                        
+                        {/* -------------------- UPDATED BEHAVIOR CHECKBOX SECTION -------------------- */}
                         <div className="form-group" style={{marginTop:'1rem'}}>
                             <label className="form-label"><Activity size={14} className="label-icon" /> Behavior <span className="required-asterisk">*</span></label>
-                            <textarea name="behavior" className="form-input textarea" value={pet.behavior} onChange={(e) => handleInputChange(index, e)} rows={2} maxLength={280} required />
+                            
+                            <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '8px', marginTop: '8px'}}>
+                                {BEHAVIOR_OPTIONS.map((option) => {
+                                    // Helper to check if string contains the option
+                                    const isChecked = pet.behavior ? pet.behavior.split(', ').includes(option) : false;
+                                    return (
+                                        <label key={option} style={{display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.9rem', cursor: 'pointer'}}>
+                                            <input 
+                                                type="checkbox" 
+                                                checked={isChecked}
+                                                onChange={(e) => handleBehaviorChange(index, option, e.target.checked)}
+                                                style={{width: '16px', height: '16px', cursor: 'pointer'}}
+                                            />
+                                            {option}
+                                        </label>
+                                    );
+                                })}
+                            </div>
                         </div>
-                        <div className="form-group">
+                        {/* --------------------------------------------------------------------------- */}
+
+                        <div className="form-group" style={{marginTop: '1rem'}}>
                             <label className="form-label"><Scissors size={14} className="label-icon" /> Grooming Specs (Optional)</label>
                             <textarea name="grooming_specifications" className="form-input textarea" value={pet.grooming_specifications} onChange={(e) => handleInputChange(index, e)} rows={2} maxLength={280} />
                         </div>
