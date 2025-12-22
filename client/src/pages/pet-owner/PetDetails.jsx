@@ -1,11 +1,12 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "../../config/supabase";
 import { 
   PawPrint, Calendar, Weight, 
   Dna, Activity, Tag, Cat, AlertCircle,
   UploadCloud, X, FileText, Scissors, Trash2, Plus, ArrowRight,
-  Clock, FileCheck, ShieldCheck, ArrowLeft, Info, Minus, CreditCard
+  Clock, FileCheck, ShieldCheck, ArrowLeft, Info, Minus, CreditCard,
+  ChevronLeft, ChevronRight
 } from "lucide-react";
 import Header from "../../components/Header/LoggedInNavbar";
 import Footer from "../../components/Footer/Footer";
@@ -18,6 +19,163 @@ const BEHAVIOR_OPTIONS = [
     "High Energy",
     "House Trained"
 ];
+
+// =========================================
+// HELPER: CUSTOM DATE PICKER (POPUP) - FIXED
+// =========================================
+const CustomDatePicker = ({ value, onChange, placeholder = "Select Date" }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  // Initialize view based on current value or today
+  const [viewDate, setViewDate] = useState(value ? new Date(value) : new Date());
+
+  const year = viewDate.getFullYear();
+  const month = viewDate.getMonth();
+
+  // Year Dropdown Range (30 years back)
+  const currentYear = new Date().getFullYear();
+  const years = Array.from({ length: 30 }, (_, i) => currentYear - i);
+  const months = [
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December"
+  ];
+
+  const getDaysInMonth = (y, m) => new Date(y, m + 1, 0).getDate();
+  const getFirstDayOfMonth = (y, m) => new Date(y, m, 1).getDay();
+
+  const daysInMonth = getDaysInMonth(year, month);
+  const firstDay = getFirstDayOfMonth(year, month);
+
+  // Dropdown Handlers
+  const handleYearChange = (e) => {
+    const newYear = parseInt(e.target.value, 10);
+    setViewDate(new Date(newYear, month, 1));
+  };
+
+  const handleMonthChange = (e) => {
+    const newMonth = parseInt(e.target.value, 10);
+    setViewDate(new Date(year, newMonth, 1));
+  };
+
+  const handlePrevMonth = (e) => {
+    e.stopPropagation();
+    setViewDate(new Date(year, month - 1, 1));
+  };
+
+  const handleNextMonth = (e) => {
+    e.stopPropagation();
+    setViewDate(new Date(year, month + 1, 1));
+  };
+
+  // FIX: Manually construct string to avoid Timezone offsets shifting the day
+  const handleDateSelect = (day) => {
+    const mStr = String(month + 1).padStart(2, '0');
+    const dStr = String(day).padStart(2, '0');
+    const dateString = `${year}-${mStr}-${dStr}`;
+    
+    onChange(dateString);
+    setIsOpen(false);
+  };
+
+  const isDateDisabled = (day) => {
+    const dateToCheck = new Date(year, month, day);
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    return dateToCheck > today;
+  };
+
+  const renderDays = () => {
+    const days = [];
+    // Empty slots for days before the 1st
+    for (let i = 0; i < firstDay; i++) {
+      days.push(<div key={`empty-${i}`} className="cal-day empty"></div>);
+    }
+    
+    // Actual days
+    for (let d = 1; d <= daysInMonth; d++) {
+      // FIX: Construct the comparison string exactly how we save it
+      const mStr = String(month + 1).padStart(2, '0');
+      const dStr = String(d).padStart(2, '0');
+      const dateStr = `${year}-${mStr}-${dStr}`;
+      
+      const isSelected = value === dateStr;
+      const disabled = isDateDisabled(d);
+
+      days.push(
+        <div 
+          key={d} 
+          className={`cal-day ${isSelected ? 'selected' : ''} ${disabled ? 'disabled' : ''}`}
+          onClick={(e) => {
+             e.stopPropagation();
+             if(!disabled) handleDateSelect(d);
+          }}
+        >
+          {d}
+        </div>
+      );
+    }
+    return days;
+  };
+
+  // Display text logic
+  const displayText = value ? new Date(value).toLocaleDateString('en-US', {
+      year: 'numeric', month: 'long', day: 'numeric'
+  }) : placeholder;
+
+  return (
+    <div className="date-picker-wrapper">
+      <div 
+        className={`date-picker-input-display ${!value ? 'placeholder' : ''}`} 
+        onClick={() => setIsOpen(!isOpen)}
+      >
+         <span>{displayText}</span>
+         <Calendar size={16} />
+      </div>
+
+      {isOpen && (
+        <>
+          <div className="calendar-backdrop" onClick={() => setIsOpen(false)} />
+          <div className="calendar-dropdown">
+            <div className="cal-nav">
+                <button type="button" onClick={handlePrevMonth}><ChevronLeft size={18}/></button>
+                
+                {/* YEAR/MONTH DROPDOWNS */}
+                <div className="cal-month-year-selector">
+                    <select 
+                        value={month} 
+                        onChange={handleMonthChange}
+                        className="cal-header-select"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        {months.map((m, idx) => (
+                            <option key={idx} value={idx}>{m}</option>
+                        ))}
+                    </select>
+                    <select 
+                        value={year} 
+                        onChange={handleYearChange}
+                        className="cal-header-select"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        {years.map((y) => (
+                            <option key={y} value={y}>{y}</option>
+                        ))}
+                    </select>
+                </div>
+
+                <button type="button" onClick={handleNextMonth}><ChevronRight size={18}/></button>
+            </div>
+            <div className="cal-grid-header">
+                <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
+            </div>
+            <div className="cal-grid">
+                {renderDays()}
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
 
 // =========================================
 // HELPER COMPONENT: DETAILED REVIEW MODAL
@@ -142,7 +300,6 @@ const ReviewBookingModal = ({ isOpen, onClose, onConfirm, pets, date, time, tota
                     <button className="btn-modal-back" onClick={onClose} disabled={isSubmitting}>
                         Back to Edit
                     </button>
-                    {/* UPDATED BUTTON TEXT */}
                     <button className="btn-modal-confirm" onClick={onConfirm} disabled={isSubmitting}>
                         {isSubmitting ? "Processing..." : "Confirm & Submit Request"}
                     </button>
@@ -379,6 +536,9 @@ const PetDetails = () => {
   };
 
   const handleInputChange = (index, e) => updatePetData(index, { [e.target.name]: e.target.value });
+  // Specific handler for Date Picker to mimic event object
+  const handleDateChange = (index, dateValue) => updatePetData(index, { birth_date: dateValue });
+  
   const handleWeightChange = (index, e) => updatePetData(index, { weight_kg: e.target.value });
   const handleConsentChange = (index, e) => setPetsData(prev => { const upd = [...prev]; upd[index].emergency_consent = e.target.checked; return upd; });
 
@@ -836,7 +996,18 @@ const PetDetails = () => {
                             </div>
                             <div className="form-group"><label className="form-label">Gender <span className="required-asterisk">*</span></label><div className="select-wrapper"><select name="gender" className="form-input" value={pet.gender} onChange={(e) => handleInputChange(index, e)}><option value="Male">Male</option><option value="Female">Female</option></select></div></div>
                         </div>
-                        <div className="form-group"><label className="form-label"><Calendar size={14} className="label-icon" /> Birth Date <span className="required-asterisk">*</span></label><input type="date" name="birth_date" className="form-input" value={pet.birth_date} onChange={(e) => handleInputChange(index, e)} required /></div>
+                        
+                        <div className="form-group">
+                            <label className="form-label">
+                                <Calendar size={14} className="label-icon" /> Birth Date <span className="required-asterisk">*</span>
+                            </label>
+                            <CustomDatePicker 
+                                value={pet.birth_date} 
+                                onChange={(date) => handleDateChange(index, date)} 
+                                placeholder="YYYY-MM-DD"
+                            />
+                        </div>
+
                         <div className="form-row">
                             <div className="form-group"><label className="form-label"><Weight size={14} className="label-icon" /> Weight (kg) <span className="required-asterisk">*</span></label><input type="number" name="weight_kg" className={`form-input ${pet.error ? 'input-error' : ''}`} placeholder="0.0" step="0.1" value={pet.weight_kg} onChange={(e) => handleWeightChange(index, e)} required /></div>
                             <div className="form-group"><label className="form-label">Size (Matched)</label><input type="text" className="form-input read-only" value={pet.calculated_size} readOnly placeholder="Auto-calc" style={{textTransform: 'capitalize'}} /></div>
@@ -844,9 +1015,12 @@ const PetDetails = () => {
                         {pet.error && <div className="error-banner"><AlertCircle size={16} /><span>{pet.error}</span></div>}
 
                         <div className="form-section-label" style={{marginTop: '1rem'}}>Medical Records</div>
-                        <div className="form-row">
+                        {/* ADDED 'medical-row' CLASS BELOW 
+                           This allows the CSS to target this specific row and stack it 
+                           when 3+ pets are visible.
+                        */}
+                        <div className="form-row medical-row">
                             <div className="form-group"><label className="form-label">Vaccine Record <span className="required-asterisk">*</span></label><span className="upload-helper-text">Max 1MB. Image only.</span>
-                                {/* Add conditional class to create red border if missing and attempted submit */}
                                 {pet.vaccine_preview ? <div className="image-preview-container"><img src={pet.vaccine_preview} alt="Vaccine" className="image-preview"/><button type="button" className="remove-file-btn" onClick={()=>removeFile(index, 'vaccine')}><X size={16}/></button></div> : <label className={`upload-box ${!pet.vaccine_file && attemptedSubmit ? 'upload-error-border' : ''}`}><input type="file" accept="image/*" onChange={(e)=>handleFileUpload(index,'vaccine',e)} hidden required /><div className="upload-content" style={{display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%'}}><UploadCloud size={24} className="upload-icon"/><span>Upload</span></div></label>}
                             </div>
                             <div className="form-group"><label className="form-label">Illness Record (Optional)</label><span className="upload-helper-text">Optional. Max 1MB.</span>
