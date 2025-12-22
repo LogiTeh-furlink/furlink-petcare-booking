@@ -1,5 +1,19 @@
 /* src/pages/pet-owner/ListingInfo.css */
 
+/* Import Poppins Font */
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+
+/* =========================================
+   COLOR PALETTE (BLUE TEXT, NEUTRAL BACKGROUNDS)
+   =========================================
+   Primary Headings/Strong: #153e75 (Deep Navy Blue)
+   Primary Body Text: #2a5298 (Medium Deep Blue)
+   Secondary/Labels: #4a6fa5 (Slightly Lighter Blue)
+   Muted/Disabled Text: #8fa3d0 (Light Blue-Gray)
+   Accents/Borders: Blue tones used for emphasis.
+   Backgrounds: Neutral off-whites/grays.
+   ========================================= */
+
 /* =========================================
    PAGE CONTAINER & LAYOUT
    ========================================= */
@@ -7,7 +21,9 @@
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  background-color: #f9fafb;
+  background-color: #f9fafb; /* CHANGED: Neutral light gray background */
+  font-family: 'Poppins', sans-serif;
+  color: #2a5298; /* Primary body text blue */
 }
 
 .listing-container {
@@ -24,7 +40,14 @@
 
 .listing-main-content {
   flex: 1;
-  min-width: 0; /* Prevents overflow inside flex items */
+  min-width: 0;
+}
+
+.loading-text, .no-services-text {
+  padding: 4rem;
+  text-align: center;
+  color: #4a6fa5; /* Secondary blue */
+  font-weight: 500;
 }
 
 /* =========================================
@@ -33,7 +56,7 @@
 .listing-tabs {
   display: flex;
   gap: 2rem;
-  border-bottom: 2px solid #e5e7eb;
+  border-bottom: 2px solid #dbeafe; /* Keep blue accent border */
   margin-bottom: 2rem;
 }
 
@@ -43,16 +66,17 @@
   padding: 1rem 0;
   font-size: 1rem;
   font-weight: 500;
-  color: #6b7280;
+  color: #4a6fa5; /* Secondary blue */
   cursor: pointer;
   border-bottom: 3px solid transparent;
   transition: all 0.3s;
+  font-family: 'Poppins', sans-serif;
 }
 
-.tab-button:hover { color: #111827; }
+.tab-button:hover { color: #153e75; /* Deep Navy on hover */ }
 
 .tab-button.active {
-  color: #2563eb;
+  color: #2563eb; /* Bright active blue */
   border-bottom-color: #2563eb;
 }
 
@@ -82,7 +106,7 @@
 }
 
 .images-3 .thumbnail-grid {
-  display: contents; /* Allows direct grid placement */
+  display: contents; 
 }
 
 .images-3 .thumbnail-placeholder {
@@ -91,7 +115,7 @@
 
 /* Image Placeholders */
 .main-image-placeholder {
-  background-color: #f3f4f6;
+  background-color: #f3f4f6; /* CHANGED: Neutral gray placeholder */
   border-radius: 12px;
   display: flex; align-items: center; justify-content: center;
   min-height: 400px;
@@ -107,7 +131,7 @@
 .main-image-placeholder:hover img { transform: scale(1.05); }
 
 .thumbnail-placeholder {
-  background-color: #f3f4f6;
+  background-color: #f3f4f6; /* CHANGED: Neutral gray placeholder */
   border-radius: 8px;
   display: flex; align-items: center; justify-content: center;
   min-height: 195px; 
@@ -126,9 +150,9 @@
   grid-column: 1 / -1;
   text-align: center;
   padding: 4rem 2rem;
-  background-color: #f3f4f6;
+  background-color: #f3f4f6; /* CHANGED: Neutral gray */
   border-radius: 12px;
-  color: #6b7280;
+  color: #4a6fa5; /* Secondary blue text */
 }
 
 /* =========================================
@@ -138,7 +162,7 @@
   background-color: white;
   border-radius: 12px;
   padding: 2rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1); /* Neutral shadow */
 }
 
 .tab-content { animation: fadeIn 0.3s; }
@@ -154,7 +178,7 @@
 .listing-title {
   font-size: 2rem;
   font-weight: 700;
-  color: #0e2679;
+  color: #153e75; /* Deep Navy */
   margin: 0;
 }
 
@@ -166,6 +190,7 @@
   padding: 8px;
   border-radius: 50%;
   background-color: #ffffff;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1); /* Neutral shadow */
 }
 .social-link-inline:hover {
   background-color: #fdbf00;
@@ -174,7 +199,7 @@
 }
 .social-icon.fb { color: #1877f2; }
 .social-icon.insta { color: #222588; }
-.social-icon.globe { color: #ffffff; }
+.social-icon.globe { color: #153e75; }
 
 /* Full Location Link */
 .listing-full-location {
@@ -182,65 +207,64 @@
   align-items: flex-start;
   gap: 8px;
   margin-bottom: 1.5rem;
-  color: #6b7280;
+  color: #4a6fa5; /* Secondary blue */
   font-size: 0.95rem;
 }
 
 .location-link {
-  color: #0c3267;
+  color: #2563eb; /* Bright link blue */
   text-decoration: none;
   padding-bottom: 2px;
   transition: all 0.2s;
   line-height: 1.4;
   display: flex; align-items: center;
 }
-.location-link:hover { color: #2563eb; border-bottom-color: #2563eb; }
-.location-link.disabled { pointer-events: none; border-bottom: none; }
+.location-link:hover { color: #1e40af; border-bottom-color: #1e40af; }
+.location-link.disabled { pointer-events: none; border-bottom: none; color: #8fa3d0; }
 
 /* Section Titles */
 .subsection-title, .section-title {
   font-size: 1.5rem;
   font-weight: 600;
-  color: #0e2679;
+  color: #153e75; /* Deep Navy */
   margin-bottom: 1rem;
   margin-top: 0;
 }
 
 .shop-description {
-  color: #062c61;
+  color: #2a5298; /* Primary body blue */
   line-height: 1.8;
   font-size: 1rem;
   white-space: pre-wrap;
   margin-bottom: 1rem;
 }
 
-.italic-gray { font-style: italic; color: #9ca3af; }
+.italic-gray { font-style: italic; color: #8fa3d0; /* Muted blue */ }
 
 /* =========================================
    OPERATING HOURS (BLUE CARD STYLE)
    ========================================= */
 .info-section { margin-bottom: 2rem; }
 
-/* WRAPPING CONTAINER: Stacks items instead of scroll */
 .hours-horizontal-container {
   display: flex;
   flex-direction: row;
-  flex-wrap: wrap; /* KEY: WRAP TO NEXT LINE */
+  flex-wrap: wrap; 
   gap: 12px;
   width: 100%;
 }
 
 .hour-card {
-  flex: 1 1 130px; /* Grow: 1, Shrink: 1, Basis: 130px */
+  flex: 1 1 130px; 
   border: 1px solid #bfdbfe; 
   border-radius: 8px;
   overflow: hidden;
   background-color: white;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05); /* Neutral shadow */
 }
 
 .hour-header {
-  background-color: #dbeafe; 
+  background-color: #dbeafe; /* Keep blue accent header */
   color: #1e40af; 
   padding: 8px 12px;
   font-weight: 700;
@@ -256,8 +280,8 @@
 
 .time-badge {
   background-color: #ffffff;
-  border: 1px solid #e5e7eb;
-  color: #374151;
+  border: 1px solid #dbeafe;
+  color: #2a5298; /* Primary body blue */
   padding: 4px 8px;
   border-radius: 4px;
   font-size: 0.8rem;
@@ -266,7 +290,7 @@
   white-space: nowrap;
 }
 
-.closed-text { color: #9ca3af; font-style: italic; font-size: 0.9rem; }
+.closed-text { color: #8fa3d0; font-style: italic; font-size: 0.9rem; /* Muted blue */ }
 .clock-icon { font-size: 0.9rem; }
 
 /* =========================================
@@ -279,7 +303,7 @@
   margin-bottom: 0.75rem;
 }
 
-.service-name { font-size: 1.25rem; font-weight: 600; color: #111827; margin: 0; }
+.service-name { font-size: 1.25rem; font-weight: 600; color: #153e75; margin: 0; /* Deep Navy */ }
 
 .service-type-badge {
   padding: 0.25rem 0.75rem; border-radius: 9999px;
@@ -288,7 +312,7 @@
 .service-type-badge.package { background-color: #dbeafe; color: #1e40af; }
 .service-type-badge.individual { background-color: #e0e7ff; color: #4338ca; }
 
-.service-description { color: #6b7280; margin-bottom: 1rem; }
+.service-description { color: #4a6fa5; margin-bottom: 1rem; /* Secondary blue */ }
 
 /* Pricing Tables */
 .pricing-wrapper { margin-top: 0.75rem; }
@@ -296,12 +320,13 @@
 .pricing-table {
   width: 100%; border-collapse: collapse;
   background-color: white; border-radius: 8px; overflow: hidden;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1); /* Neutral shadow */
+  color: #2a5298; /* Primary body blue */
 }
 
-.pricing-table thead tr { background-color: #f3f4f6; }
-.pricing-table th { padding: 12px; text-align: left; font-weight: 600; font-size: 0.875rem; }
-.pricing-table tbody tr { border-top: 1px solid #e5e7eb; }
+.pricing-table thead tr { background-color: #f9fafb; /* CHANGED: Neutral gray header */ }
+.pricing-table th { padding: 12px; text-align: left; font-weight: 600; font-size: 0.875rem; color: #153e75; /* Deep Navy */ }
+.pricing-table tbody tr { border-top: 1px solid #dbeafe; }
 .pricing-table td { padding: 12px; font-size: 0.875rem; }
 .pricing-table td:last-child { font-weight: 600; color: #059669; }
 
@@ -313,19 +338,20 @@
   background-color: white;
   border-radius: 12px;
   padding: 1.5rem;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); /* Neutral shadow */
   position: sticky;
   top: 100px;
   height: fit-content;
+  color: #2a5298; /* Primary body blue */
 }
 
 .booking-header {
   font-size: 1.25rem;
   font-weight: 700;
-  color: #111827;
+  color: #153e75; /* Deep Navy */
   margin-top: 0;
   margin-bottom: 1.5rem;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid #dbeafe;
   padding-bottom: 1rem;
 }
 
@@ -339,19 +365,22 @@
 .booking-field { margin-bottom: 1rem; }
 
 .booking-label {
-  display: block; font-size: 0.75rem; font-weight: 600; color: #6b7280;
+  display: block; font-size: 0.75rem; font-weight: 600; color: #4a6fa5; /* Secondary blue */
   margin-bottom: 0.5rem; text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 /* Common Input Styling */
 .booking-select, .booking-date-input {
   width: 100%; padding: 0.75rem;
-  border: 1px solid #e5e7eb; border-radius: 8px;
+  border: 1px solid #cce0ff; /* Distinctly blue border */
+  border-radius: 8px;
   font-size: 1rem; font-weight: 600;
   appearance: none; cursor: pointer; background-color: white;
   box-sizing: border-box;
-  font-family: inherit;
+  font-family: 'Poppins', sans-serif;
   transition: all 0.2s;
+  color: #153e75; /* Deep Navy input text */
 }
 
 .booking-date-input:focus, .booking-select:focus {
@@ -360,12 +389,12 @@
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
 }
 
-.booking-select:disabled { cursor: not-allowed; background-color: #f9fafb; }
+.booking-select:disabled { cursor: not-allowed; background-color: #f9fafb; color: #8fa3d0; /* CHANGED: Neutral gray bg for disabled */ }
 
 .booking-select-wrapper { position: relative; }
 .booking-select-icon {
   position: absolute; right: 0.75rem; top: 50%;
-  transform: translateY(-50%); pointer-events: none; color: #6b7280;
+  transform: translateY(-50%); pointer-events: none; color: #4a6fa5; /* Secondary blue */
 }
 
 .booking-button {
@@ -374,14 +403,15 @@
   border: none; border-radius: 8px;
   font-size: 1rem; font-weight: 600; cursor: pointer;
   transition: background-color 0.2s;
+  font-family: 'Poppins', sans-serif;
 }
-.booking-button:hover:not(:disabled) { background-color: #1e40af; }
-.booking-button:disabled { background-color: #9ca3af; cursor: not-allowed; }
+.booking-button:hover:not(:disabled) { background-color: #153e75; /* Deep Navy on hover */ }
+.booking-button:disabled { background-color: #8fa3d0; cursor: not-allowed; }
 
-/* ERROR STATES (Red Border & Text) */
+/* ERROR STATES */
 .field-error-text {
   display: block;
-  color: #ef4444; /* Red color */
+  color: #dc2626; 
   font-size: 0.8rem;
   margin-top: 4px;
   font-weight: 500;
@@ -389,55 +419,24 @@
 }
 
 .input-error {
-  border-color: #ef4444 !important;
+  border-color: #dc2626 !important;
   background-color: #fef2f2 !important;
 }
 
-/* Ensure date input looks good */
-.booking-date-input {
-  width: 100%;
-  padding: 0.75rem;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  font-size: 1rem;
-  font-weight: 600;
-  box-sizing: border-box;
-  font-family: inherit;
-  transition: all 0.2s;
-}
-
-.booking-date-input:focus {
-  outline: none;
-  border-color: #2563eb;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
-}
-
-.booking-header {
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: #111827;
-  margin-top: 0;
-  margin-bottom: 1.5rem;
-  border-bottom: 1px solid #e5e7eb;
-  padding-bottom: 1rem;
-}
-
-/* Make React Datepicker fill the container and look like standard input */
-.react-datepicker-wrapper {
-  width: 100%;
-}
+/* React Datepicker Overrides */
+.react-datepicker-wrapper { width: 100%; }
 
 .react-datepicker__input-container input {
   width: 100%;
   padding: 0.75rem;
-  border: 1px solid #e5e7eb;
+  border: 1px solid #cce0ff; /* Blue border */
   border-radius: 8px;
   font-size: 1rem;
   font-weight: 600;
   box-sizing: border-box;
-  font-family: inherit;
+  font-family: 'Poppins', sans-serif;
   transition: all 0.2s;
-  color: #374151;
+  color: #153e75; /* Deep Navy input text */
 }
 
 .react-datepicker__input-container input:focus {
@@ -446,10 +445,9 @@
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
 }
 
-/* Style disabled days in the calendar to look clearly unavailable */
 .react-datepicker__day--disabled {
-  color: #ccc;
-  background-color: #f3f4f6;
+  color: #d1d5db; /* Neutral Light Gray text */
+  background-color: #f9fafb; /* CHANGED: Neutral gray bg */
   pointer-events: none;
 }
 
@@ -458,7 +456,7 @@
    ========================================= */
 .image-modal-overlay {
   position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-  background-color: rgba(0, 0, 0, 0.9);
+  background-color: rgba(21, 62, 117, 0.95); /* Deep Navy overlay */
   display: flex; align-items: center; justify-content: center;
   z-index: 9999; padding: 2rem;
 }
@@ -469,6 +467,7 @@
   width: 40px; height: 40px;
   display: flex; align-items: center; justify-content: center;
   cursor: pointer; z-index: 10000;
+  color: #153e75; /* Deep Navy icon */
 }
 
 .image-modal-img {
@@ -492,7 +491,6 @@
 @media (max-width: 1024px) {
   .listing-container { flex-direction: column; }
   .booking-sidebar { width: 100%; position: static; margin-top: 2rem; }
-  /* Ensure wrapped hours still look good on tablet */
   .hours-horizontal-container { justify-content: flex-start; }
 }
 

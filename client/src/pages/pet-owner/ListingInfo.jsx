@@ -22,7 +22,7 @@ const ImageModal = ({ isOpen, onClose, images, currentIndex, onNext, onPrev }) =
 
   return (
     <div className="image-modal-overlay" onClick={onClose}>
-      <button className="image-modal-close" onClick={onClose}><X size={24} /></button>
+      <button className="image-modal-close" onClick={onClose}><X size={24} color="#111827" /></button>
       {images.length > 1 && (
         <button className="image-nav-btn prev" onClick={(e) => { e.stopPropagation(); onPrev(); }}>
           <ChevronLeft size={32} />
@@ -76,7 +76,6 @@ const ListingInfo = () => {
   // 2. LOAD DRAFT FROM SESSION (Reflects "Back" button data)
   useEffect(() => {
     const loadDraft = async () => {
-        // Need user to verify ownership of draft
         const { data: { user } } = await supabase.auth.getUser();
         
         if (user && id) {
@@ -87,27 +86,19 @@ const ListingInfo = () => {
                 try {
                     const parsed = JSON.parse(savedDraft);
                     
-                    // Restore Date
                     if (parsed.date) {
-                        // Handle potential string vs Date object issues
                         const draftDate = new Date(parsed.date);
-                        // Check if date is valid
                         if (!isNaN(draftDate.getTime())) {
                             setBookingDate(draftDate);
                         }
                     }
-
-                    // Restore Time
                     if (parsed.time) setBookingTime(parsed.time);
-
-                    // Restore Number of Pets
                     if (parsed.pets) setNumberOfPets(parseInt(parsed.pets, 10));
 
                 } catch (e) {
                     console.error("Failed to parse booking draft", e);
                 }
             } else if (location.state) {
-                // Fallback to location state if no session draft (legacy support)
                 if (location.state.bookingDate) setBookingDate(new Date(location.state.bookingDate));
                 if (location.state.bookingTime) setBookingTime(location.state.bookingTime);
                 if (location.state.numberOfPets) setNumberOfPets(parseInt(location.state.numberOfPets, 10));
@@ -117,8 +108,7 @@ const ListingInfo = () => {
     loadDraft();
   }, [id, location.state]);
 
-  // 3. AUTO-GENERATE TIME SLOTS whenever Date or Hours change
-  // This handles both manual selection AND loading from draft
+  // 3. AUTO-GENERATE TIME SLOTS
   useEffect(() => {
     setAvailableTimeSlots([]);
     if (!bookingDate || hours.length === 0) return;
@@ -188,7 +178,6 @@ const ListingInfo = () => {
   const handleDateChange = (date) => {
     setBookingDate(date);
     setDateError(null);
-    // If user changes date, clear time unless it's a reload
     setBookingTime(""); 
   };
 
@@ -199,12 +188,10 @@ const ListingInfo = () => {
     if (!bookingDate) { setDateError("Please select a date."); return; }
     if (!bookingTime) { setBookingError("Please select a time slot."); return; }
     
-    // Validate positive integer
     if (numberOfPets < 1) { setBookingError("Please select at least 1 pet."); return; } 
 
     const dateStr = bookingDate.toLocaleDateString('en-CA'); 
 
-    // We pass state forward. Note: Session storage logic is handled in PetDetails.jsx
     navigate('/pet-details', {
       state: {
         providerId: id,
@@ -216,7 +203,6 @@ const ListingInfo = () => {
     });
   };
 
-  // Services List Helper
   const ServicesList = () => (
     <>
       {services.length > 0 ? services.map(service => (
@@ -244,12 +230,29 @@ const ListingInfo = () => {
             </div>
           )}
         </div>
-      )) : <p>No services listed.</p>}
+      )) : <p className="no-services-text">No services listed.</p>}
     </>
   );
 
-  if (loading) return <div className="listing-info-page"><Header /><main className="listing-container"><p style={{padding:"4rem", textAlign:"center"}}>Loading...</p></main><Footer /></div>;
-  if (!provider) return <div className="listing-info-page"><Header /><main className="listing-container"><p style={{padding:"4rem", textAlign:"center"}}>Provider not found.</p></main><Footer /></div>;
+  if (loading) return (
+    <div className="listing-info-page">
+      <Header />
+      <main className="listing-container">
+        <p className="loading-text">Loading...</p>
+      </main>
+      <Footer />
+    </div>
+  );
+
+  if (!provider) return (
+    <div className="listing-info-page">
+      <Header />
+      <main className="listing-container">
+        <p className="loading-text">Provider not found.</p>
+      </main>
+      <Footer />
+    </div>
+  );
 
   return (
     <div className="listing-info-page">
