@@ -142,8 +142,9 @@ const ReviewBookingModal = ({ isOpen, onClose, onConfirm, pets, date, time, tota
                     <button className="btn-modal-back" onClick={onClose} disabled={isSubmitting}>
                         Back to Edit
                     </button>
+                    {/* UPDATED BUTTON TEXT */}
                     <button className="btn-modal-confirm" onClick={onConfirm} disabled={isSubmitting}>
-                        {isSubmitting ? "Processing..." : "Confirm & Pay ₱" + installationPayment.toFixed(2)}
+                        {isSubmitting ? "Processing..." : "Confirm & Submit Request"}
                     </button>
                 </div>
             </div>
@@ -173,7 +174,6 @@ const PetDetails = () => {
   const [globalError, setGlobalError] = useState(null);
   const [globalInfo, setGlobalInfo] = useState(null); 
 
-  // Generates a FRESH object to avoid reference issues
   const getEmptyPet = () => ({
     services: [{ _tempId: Date.now() + Math.random(), id: "", service_name: "", service_type: "", price: "0.00" }], 
     total_price_display: "0.00",
