@@ -3,28 +3,30 @@
    ========================================= */
 .profile-page-wrapper {
   background-color: #f3f4f6;
-  min-height: 80vh;
-  padding: 40px 20px;
+  /* Ensure it fills the entire height between Navbar and Footer */
+  min-height: calc(100vh - 120px); 
   display: flex;
-  justify-content: center;
+  flex-direction: column;
 }
 
 .profile-container {
   background: white;
   width: 100%;
-  max-width: 700px;
-  border-radius: 12px;
+  /* REMOVED max-width to allow it to cover the whole page */
+  flex: 1; /* Allows container to grow to fill wrapper height */
   box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-  padding: 40px;
-  height: fit-content;
+  padding: 60px; /* Increased padding for a spacious full-page feel */
+  box-sizing: border-box;
 }
 
 /* =========================================
    2. Header Section
    ========================================= */
 .profile-header {
-  text-align: center;
-  margin-bottom: 30px;
+  text-align: left; 
+  margin-bottom: 50px;
+  border-bottom: 2px solid #f3f4f6;
+  padding-bottom: 20px;
 }
 
 .header-icon {
@@ -37,7 +39,7 @@
   align-items: center;
   justify-content: center;
   font-size: 1.8rem;
-  margin: 0 auto 15px auto;
+  margin: 0 0 15px 0; 
 }
 
 .profile-header h1 {
@@ -330,33 +332,43 @@
 /* =========================================
    8. Responsive Design
    ========================================= */
-@media (max-width: 600px) {
-  .form-row {
+@media (max-width: 1024px) {
+  .profile-container {
+    padding: 40px;
+  }
+}
+
+@media (max-width: 850px) {
+  .profile-form-body {
     flex-direction: column;
-    gap: 0;
+    gap: 20px;
   }
   
-  .profile-container {
-    background: white;
+  .profile-column {
     width: 100%;
-    max-width: 900px; /* Increased from 700px */
-    border-radius: 12px;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-    padding: 40px;
-    height: fit-content;
+  }
+
+  .profile-container {
+    padding: 30px 20px;
+  }
+
+  .profile-header {
+    text-align: center;
+  }
+  
+  .header-icon {
+    margin: 0 auto 15px auto;
   }
 }
 
 .profile-form-body {
   display: flex;
-  gap: 40px;
+  gap: 60px; /* Increased gap for wider layout */
   align-items: flex-start;
 }
 
 .profile-column {
   flex: 1;
-  display: flex;
-  flex-direction: column;
 }
 
 .security-section {
