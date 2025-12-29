@@ -367,8 +367,8 @@
   display: flex;
   gap: 60px;
   align-items: flex-start;
-  max-width: 1200px; /* Keeps the form from getting TOO wide on huge monitors */
-  margin: 0 auto;    /* Centers the form body on the page */
+  max-width: 1200px; 
+  margin: 0 auto;    
   width: 100%;
 }
 
@@ -386,7 +386,7 @@
 .form-section {
   margin-bottom: 25px;
   padding-bottom: 10px;
-  border-bottom: none; /* Removed bottom border as we are side-by-side */
+  border-bottom: none; 
 }
 
 /* Action buttons alignment */
@@ -398,7 +398,6 @@
   border-top: 1px solid #f3f4f6;
 }
 
-/* Responsive: Stack columns on smaller screens */
 @media (max-width: 850px) {
   .profile-form-body {
     flex-direction: column;
