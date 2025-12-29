@@ -3,7 +3,6 @@
    ========================================= */
 .profile-page-wrapper {
   background-color: #f3f4f6;
-  /* Ensure it fills the entire height between Navbar and Footer */
   min-height: calc(100vh - 120px); 
   display: flex;
   flex-direction: column;
@@ -12,10 +11,9 @@
 .profile-container {
   background: white;
   width: 100%;
-  /* REMOVED max-width to allow it to cover the whole page */
-  flex: 1; /* Allows container to grow to fill wrapper height */
+  flex: 1; 
   box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-  padding: 60px; /* Increased padding for a spacious full-page feel */
+  padding: 60px; 
   box-sizing: border-box;
 }
 
@@ -23,33 +21,37 @@
    2. Header Section
    ========================================= */
 .profile-header {
-  text-align: left; 
+  text-align: center; /* Centered text */
   margin-bottom: 50px;
   border-bottom: 2px solid #f3f4f6;
-  padding-bottom: 20px;
+  padding-bottom: 30px;
+  display: flex;
+  flex-direction: column;
+  align-items: center; /* Centered icon and content */
 }
 
 .header-icon {
   background-color: #e0f2fe;
   color: #0284c7;
-  width: 60px;
-  height: 60px;
+  width: 70px; /* Slightly larger icon */
+  height: 70px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.8rem;
-  margin: 0 0 15px 0; 
+  font-size: 2rem;
+  margin-bottom: 15px;
 }
 
 .profile-header h1 {
-  font-size: 1.8rem;
+  font-size: 2.2rem;
   color: #1f2937;
-  margin-bottom: 5px;
+  margin-bottom: 8px;
 }
 
 .profile-header p {
   color: #6b7280;
+  font-size: 1.1rem;
 }
 
 /* =========================================
@@ -363,8 +365,11 @@
 
 .profile-form-body {
   display: flex;
-  gap: 60px; /* Increased gap for wider layout */
+  gap: 60px;
   align-items: flex-start;
+  max-width: 1200px; /* Keeps the form from getting TOO wide on huge monitors */
+  margin: 0 auto;    /* Centers the form body on the page */
+  width: 100%;
 }
 
 .profile-column {
@@ -397,16 +402,11 @@
 @media (max-width: 850px) {
   .profile-form-body {
     flex-direction: column;
-    gap: 0;
+    gap: 20px;
   }
   
-  .profile-column {
-    width: 100%;
-  }
-
   .profile-container {
-    max-width: 600px;
-    padding: 20px;
+    padding: 30px 20px;
   }
 }
 
