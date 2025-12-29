@@ -337,6 +337,70 @@
   }
   
   .profile-container {
+    background: white;
+    width: 100%;
+    max-width: 900px; /* Increased from 700px */
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+    padding: 40px;
+    height: fit-content;
+  }
+}
+
+.profile-form-body {
+  display: flex;
+  gap: 40px;
+  align-items: flex-start;
+}
+
+.profile-column {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.security-section {
+  background-color: #f9fafb;
+  padding: 20px;
+  border-radius: 8px;
+  border: 1px solid #f3f4f6;
+}
+
+.form-section {
+  margin-bottom: 25px;
+  padding-bottom: 10px;
+  border-bottom: none; /* Removed bottom border as we are side-by-side */
+}
+
+/* Action buttons alignment */
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 30px;
+  padding-top: 20px;
+  border-top: 1px solid #f3f4f6;
+}
+
+/* Responsive: Stack columns on smaller screens */
+@media (max-width: 850px) {
+  .profile-form-body {
+    flex-direction: column;
+    gap: 0;
+  }
+  
+  .profile-column {
+    width: 100%;
+  }
+
+  .profile-container {
+    max-width: 600px;
     padding: 20px;
+  }
+}
+
+@media (max-width: 600px) {
+  .form-row {
+    flex-direction: column;
+    gap: 0;
   }
 }
