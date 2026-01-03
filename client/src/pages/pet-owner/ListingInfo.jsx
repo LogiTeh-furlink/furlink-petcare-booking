@@ -34,8 +34,8 @@ const BookingCalendar = ({ selectedDate, onDateSelect, providerHours }) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    // 1. Disable past dates
-    if (dateToCheck < today) return false;
+    // 1. Disable past dates AND today (Changed < to <= to prevent same-day booking)
+    if (dateToCheck <= today) return false;
 
     // 2. Disable if provider is closed on this day of week
     if (!providerHours || providerHours.length === 0) return false;
