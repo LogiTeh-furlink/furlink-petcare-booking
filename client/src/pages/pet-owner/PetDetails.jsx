@@ -1020,7 +1020,7 @@ const PetDetails = () => {
                            when 3+ pets are visible.
                         */}
                         <div className="form-row medical-row">
-                            <div className="form-group"><label className="form-label">ford <span className="required-asterisk">*</span></label><span className="upload-helper-text">Max 1MB. Image only.</span>
+                            <div className="form-group"><label className="form-label">Vaccine Record <span className="required-asterisk">*</span></label><span className="upload-helper-text">Max 1MB. Image only.</span>
                                 {pet.vaccine_preview ? <div className="image-preview-container"><img src={pet.vaccine_preview} alt="Vaccine" className="image-preview"/><button type="button" className="remove-file-btn" onClick={()=>removeFile(index, 'vaccine')}><X size={16}/></button></div> : <label className={`upload-box ${!pet.vaccine_file && attemptedSubmit ? 'upload-error-border' : ''}`}><input type="file" accept="image/*" onChange={(e)=>handleFileUpload(index,'vaccine',e)} hidden required /><div className="upload-content" style={{display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%'}}><UploadCloud size={24} className="upload-icon"/><span>Upload</span></div></label>}
                             </div>
                             <div className="form-group"><label className="form-label">Illness Record</label><span className="upload-helper-text">Optional. Max 1MB.</span>
