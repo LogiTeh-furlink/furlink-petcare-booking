@@ -591,3 +591,4 @@ p{
 .calendar-day { padding: 10px; border: 1px solid #eee; position: relative; min-height: 40px; }
 .calendar-day.has-bookings { background-color: #dbeafe; font-weight: bold; border-color: var(--primary-blue); }
 .day-badge { display: block; font-size: 0.6rem; color: var(--primary-blue); }
+

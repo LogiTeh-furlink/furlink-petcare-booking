@@ -201,41 +201,56 @@ export default function SPDashboard() {
   };
 
   const getFilteredBookings = () => {
-    switch(activeTab) {
-      case 'new_request':
-        return bookings.filter(b => b.status === 'pending');
-      
-      case 'for_verification':
-        return bookings.filter(b => b.status === 'for review');
+  const now = new Date();
 
-      case 'upcoming':
-        // Show 'paid' ONLY if NOT complete (time hasn't passed)
-        return bookings.filter(b => b.status === 'paid' && !isBookingComplete(b));
-
-      case 'completed':
-        // Show explicit completed OR time-based completed
-        return bookings.filter(b => isBookingComplete(b));
-
-      default:
-        return [];
-    }
-  };
-
-  const stats = {
-    // Revenue includes all completed bookings (explicit + time-based)
-    revenue: bookings
-      .filter(b => isBookingComplete(b))
-      .reduce((sum, b) => sum + (parseFloat(b.total_estimated_price) || 0), 0),
+  switch(activeTab) {
+    case 'new_request':
+      return bookings.filter(b => {
+        const hoursSinceCreated = (now - new Date(b.created_at)) / (1000 * 60 * 60);
+        // Show ONLY if status is pending AND under 24 hours
+        return b.status === 'pending' && hoursSinceCreated < 24;
+      });
     
-    new_request: bookings.filter(b => b.status === 'pending').length,
-    for_verification: bookings.filter(b => b.status === 'for review').length,
-    
-    // Upcoming only counts active, future paid bookings
-    upcoming: bookings.filter(b => b.status === 'paid' && !isBookingComplete(b)).length,
-    
-    // Completed counts explicit + time-based
-    completed: bookings.filter(b => isBookingComplete(b)).length,
-  };
+    case 'for_verification':
+      return bookings.filter(b => {
+        const hoursSinceUpdate = (now - new Date(b.created_at)) / (1000 * 60 * 60);
+        // Show ONLY if status is for review AND under 24 hours
+        return b.status === 'for review' && hoursSinceUpdate < 24;
+      });
+
+    case 'upcoming':
+      return bookings.filter(b => b.status === 'paid' && !isBookingComplete(b));
+
+    case 'completed':
+      return bookings.filter(b => isBookingComplete(b));
+
+    default:
+      return [];
+  }
+};
+
+  const now = new Date();
+
+const stats = {
+  revenue: bookings
+    .filter(b => isBookingComplete(b))
+    .reduce((sum, b) => sum + (parseFloat(b.total_estimated_price) || 0), 0),
+  
+  // Counts only pending bookings sent in the last 24 hours
+  new_request: bookings.filter(b => {
+    const hoursSinceCreated = (now - new Date(b.created_at)) / (1000 * 60 * 60);
+    return b.status === 'pending' && hoursSinceCreated < 24;
+  }).length,
+
+  // Counts only payment verifications sent in the last 24 hours
+  for_verification: bookings.filter(b => {
+    const hoursSinceUpdate = (now - new Date(b.created_at)) / (1000 * 60 * 60);
+    return b.status === 'for review' && hoursSinceUpdate < 24;
+  }).length,
+  
+  upcoming: bookings.filter(b => b.status === 'paid' && !isBookingComplete(b)).length,
+  completed: bookings.filter(b => isBookingComplete(b)).length,
+};
 
   const formatCurrency = (val) => `₱${parseFloat(val || 0).toLocaleString('en-PH', { minimumFractionDigits: 2 })}`;
   
@@ -296,10 +311,13 @@ export default function SPDashboard() {
     }
   };
 
+  const [previewImage, setPreviewImage] = useState(null); // State for expanded view
+
   const closeModal = () => {
     setSelectedBooking(null);
     setDeclineReason("");
     setVoidReason("");
+    setPreviewImage(null); 
   };
 
   if (loading) return <div className="sp-loading">Loading Dashboard...</div>;
@@ -399,38 +417,58 @@ export default function SPDashboard() {
 
       {/* --- WIDER DETAILS MODAL --- */}
       {selectedBooking && (
-        <div className="modal-overlay">
-          <div className="modal-content wide-modal">
-            <div className="modal-header">
-              <h3>Booking Details</h3>
-              <button onClick={closeModal}><FaTimes /></button>
-            </div>
+      <div className="modal-overlay">
+        <div className="modal-content wide-modal">
+          <div className="modal-header">
+            <h3>Booking Details</h3>
+            <button onClick={closeModal}><FaTimes /></button>
+          </div>
+          
+          <div className="modal-body-scroll">
             
-            <div className="modal-body-scroll">
-              
-              {/* Summary */}
-              <div className="modal-summary-section">
-                <div className="info-row">
-                   <span>Status:</span>
-                   <strong className="uppercase-status">{selectedBooking.status}</strong>
-                </div>
-                <div className="info-row">
-                   <span>Date & Time:</span>
-                   <strong>{formatDateTime(selectedBooking.booking_date, selectedBooking.time_slot)}</strong>
-                </div>
-                <div className="info-row">
-                   <span>Total Amount:</span>
-                   <strong className="text-highlight">{formatCurrency(selectedBooking.total_estimated_price)}</strong>
-                </div>
+            {/* Summary Section */}
+            <div className="modal-summary-section">
+              <div className="info-row">
+                <span>Status:</span>
+                <strong className="uppercase-status">{selectedBooking.status}</strong>
               </div>
 
-              {/* Payment Proof */}
-              {selectedBooking.payment_proof_url && (
-                <div className="full-image-block">
-                  <h4>Payment Proof</h4>
-                  <img src={selectedBooking.payment_proof_url} alt="Payment Proof" className="facebook-style-img" />
+              {/* ADDED: Reference Number for Payment Verification */}
+              {(selectedBooking.status === 'for review' || selectedBooking.status === 'paid') && (
+                <div className="info-row">
+                  <span>Reference No:</span>
+                  <strong style={{ color: 'var(--brand-blue)' }}>
+                    {selectedBooking?.rejection_reason || "Not Provided"}
+                  </strong>
                 </div>
               )}
+
+              <div className="info-row">
+                <span>Date & Time:</span>
+                <strong>{formatDateTime(selectedBooking.booking_date, selectedBooking.time_slot)}</strong>
+              </div>
+              <div className="info-row">
+                <span>Total Amount:</span>
+                <strong className="text-highlight">{formatCurrency(selectedBooking.total_estimated_price)}</strong>
+              </div>
+            </div>
+
+            {/* Payment Proof Section - Updated with Click to Zoom */}
+            {selectedBooking.payment_proof_url && (
+              <div className="full-image-block">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                    <h4>Payment Proof</h4>
+                    {/* Optional: Second location for the Ref No right above the image */}
+                    <small style={{ color: 'var(--brand-blue)', fontWeight: 'bold'}}>
+                        Ref: {selectedBooking?.rejection_reason}
+                    </small>
+                </div>
+                {/* Clickable wrapper for expansion */}
+                <div className="image-wrapper clickable-img" onClick={() => setPreviewImage(selectedBooking.payment_proof_url)}>
+                    <img src={selectedBooking.payment_proof_url} alt="Payment Proof" className="facebook-style-img" /> 
+                </div>
+              </div>
+            )}
 
               {/* Pets & Images */}
               <div className="modal-pets-list">
@@ -521,7 +559,6 @@ export default function SPDashboard() {
           </div>
         </div>
       )}
-      
       <Footer />
     </div>
   );
