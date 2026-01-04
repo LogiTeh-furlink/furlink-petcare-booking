@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+
 :root {
   /* --- Brand Colors --- */
   --brand-blue: #1e3a8a;       /* Deep Blue (Primary) */
@@ -14,13 +16,16 @@
   --border-light: #e2e8f0;
 }
 
+/* Force Poppins Everywhere */
+* {
+  font-family: 'Poppins', sans-serif !important;
+}
 /* --- Layout --- */
 .page-wrapper {
   background-color: var(--bg-page);
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  font-family: 'Inter', system-ui, sans-serif;
   color: var(--text-main);
 }
 
@@ -64,11 +69,13 @@
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
+  font-family: 'Poppins', sans-serif;
 }
 
 .history-btn:hover {
   background-color: var(--brand-blue);
   color: white;
+  font-family: 'Poppins', sans-serif;
 }
 
 /* --- Top Status Icons Card --- */
@@ -79,6 +86,7 @@
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
   margin-bottom: 2rem;
   border: 1px solid var(--border-light);
+  font-family: 'Poppins', sans-serif;
 }
 
 .icons-row {
@@ -138,7 +146,7 @@
   position: absolute;
   top: -5px;
   right: -5px;
-  background-color: var(--brand-red);
+  background-color: var(--brand-yellow);
   color: white;
   font-size: 0.75rem;
   width: 24px;
@@ -149,56 +157,63 @@
   align-items: center;
   border: 2px solid var(--bg-card);
   font-weight: bold;
+  font-family: 'Poppins', sans-serif;
 }
 
-/* --- List Section --- */
+/* --- List Section Layout --- */
 .app-list-section {
   background: var(--bg-card);
   border-radius: 16px;
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
   overflow: hidden;
   border: 1px solid var(--border-light);
-}
-
-.section-header {
-  background-color: var(--brand-blue);
-  padding: 1rem 1.5rem;
-}
-
-.section-header h2 {
-  margin: 0;
-  color: white;
-  font-size: 1.1rem;
-  letter-spacing: 0.05em;
-  font-weight: 700;
+  /* Force base color to blue */
+  color: var(--brand-blue);
 }
 
 .bookings-grid {
   padding: 0 1.5rem 1.5rem 1.5rem;
 }
 
-/* Table Header (Desktop) */
-.list-table-header {
-  display: grid;
-  grid-template-columns: 1.5fr 1.5fr 2fr 1fr 1fr;
-  padding: 1rem 0;
-  border-bottom: 2px solid var(--border-light);
-  font-weight: 700;
-  color: var(--text-muted);
-  font-size: 0.85rem;
-  text-transform: uppercase;
-  margin-bottom: 0.5rem;
-}
-
-/* Rows */
+/* --- Balanced Column Spacing --- */
+.list-table-header, 
 .app-row {
   display: grid;
-  grid-template-columns: 1.5fr 1.5fr 2fr 1fr 1fr;
+  grid-template-columns: 2.5fr 1fr 2fr 1.2fr 1.2fr;
+  gap: 1rem;
+  align-items: center;
+  /* Ensures all direct text children are blue */
+  color: var(--brand-blue);
+}
+
+.list-table-header {
+  padding: 1.25rem 0;
+  border-bottom: 2px solid var(--border-light);
+  font-weight: 700;
+  color: var(--brand-blue);
+  font-size: 0.85rem;
+  text-transform: uppercase;
+}
+
+/* Header specific children */
+.list-table-header div {
+  color: var(--brand-blue);
+}
+
+.app-row {
   padding: 1.25rem 0;
   border-bottom: 1px solid var(--border-light);
-  align-items: center;
   font-size: 0.95rem;
-  transition: background 0.1s;
+  /* Ensures row text is blue */
+  color: var(--brand-blue);
+  transition: background 0.2s ease;
+}
+
+/* Ensures all inner elements (strong tags for dates, pet counts, etc.) are blue */
+.app-row strong,
+.app-row span,
+.app-row div {
+  color: var(--brand-blue);
 }
 
 .app-row:hover {
@@ -209,41 +224,135 @@
   border-bottom: none;
 }
 
-.col-date strong { color: var(--brand-blue); display: block; }
-.col-provider strong { color: var(--text-main); font-weight: 600; }
-.col-price { font-weight: 700; color: var(--text-main); }
-.col-service { font-size: 0.9rem; color: var(--text-muted); }
-
-.view-app-btn {
-  padding: 0.5rem 1rem;
-  border: 1px solid var(--border-light);
-  background-color: white;
-  color: var(--text-main);
-  border-radius: 6px;
-  font-size: 0.85rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.view-app-btn:hover {
-  border-color: var(--brand-blue);
-  color: var(--brand-blue);
-  background-color: #eff6ff;
-}
-
-.mobile-label { display: none; } /* Hidden on desktop */
-
+/* --- Enhanced No Appointments State --- */
 .no-app-state {
-  text-align: center;
-  padding: 4rem;
-  color: var(--text-muted);
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 1rem;
+  justify-content: center;
+  padding: 5rem 2rem; /* Generous padding for a clean look */
+  text-align: center;
+  background-color: #ffffff;
+  border-radius: 12px;
+  /* Spans across all columns of your balanced grid */
+  grid-column: 1 / -1; 
+  margin-top: 1rem;
 }
-.empty-icon { font-size: 3rem; color: var(--border-light); }
+
+/* Branded Icon Styling */
+.empty-icon {
+  font-size: 3.5rem;
+  color: #e2e8f0; /* Subtle light gray icon to focus on the text */
+  margin-bottom: 1.25rem;
+  opacity: 0.8;
+}
+
+.no-app-state h3 {
+  font-family: 'Poppins', sans-serif !important;
+  color: var(--brand-blue); /* Professional Branded Blue */
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+/* Optional: Subtext for better UX */
+.no-app-state::after {
+  content: "Try checking a different tab or date range.";
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  margin-top: 0.5rem;
+  font-weight: 400;
+}
+
+/* --- Column Content Styling --- */
+.col-date strong {
+  color: var(--brand-blue);
+  font-weight: 400;
+  display: block;
+}
+
+.col-pets, .col-service, .col-price {
+  color: var(--text-main);
+}
+
+/* --- View Details Button --- */
+.view-app-btn {
+  padding: 0.6rem 1rem;
+  border: 1.5px solid var(--brand-blue);
+  background-color: transparent;
+  color: var(--brand-blue);
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.view-app-btn:hover {
+  background-color: var(--brand-blue);
+  color: #ffffff;
+}
+
+/* --- Mobile View Support --- */
+@media (max-width: 992px) {
+  .list-table-header, .app-row {
+    grid-template-columns: 2fr 1fr 1.5fr 1fr 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .list-table-header {
+    display: none;
+  }
+
+  .app-row {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+    padding: 1.5rem;
+    border: 1px solid var(--border-light);
+    border-radius: 12px;
+    margin-bottom: 1rem;
+  }
+
+  .mobile-label {
+    display: inline-block;
+    width: 100px;
+    font-weight: 700;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+  }
+
+  .view-app-btn {
+    width: 100%;
+    margin-top: 0.5rem;
+    background-color: var(--brand-blue);
+    color: white;
+  }
+}
+
+/* Ensure long service names don't break the layout */
+.col-service {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis; /* Adds ... if the text is too long for the column */
+}
+
+/* Ensure price and button are centered or aligned appropriately */
+.col-price {
+    font-weight: 700;
+    color: var(--text-main);
+    text-align: left;
+}
+
+.col-action {
+    display: flex;
+    justify-content: flex-end; /* Pushes the button to the right end */
+}
 
 /* --- Modals --- */
 .modal-overlay {
@@ -284,7 +393,6 @@
 }
 
 .warning-header {
-  background-color: #fef2f2;
   color: var(--brand-red);
 }
 .warning-header h3 { color: var(--brand-red); }
@@ -377,6 +485,19 @@
 }
 .secondary-btn:hover { background-color: #f1f5f9; }
 
+.confirm-btn-no {
+  background-color:var(--brand-blue);
+  color: var(--text-main);
+  border: 1px solid var(--border-light);
+  padding: 0.75rem 1.25rem;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  color: #fff;
+}
+.confirm-btn-no:hover { background-color: var(--brand-yellow); }
+
+
 /* Forms */
 .input-field {
   width: 100%;
@@ -431,102 +552,181 @@
   .resched-btn, .cancel-btn, .pay-btn { width: 100%; }
 }
 
-/* --- MODAL UPDATES --- */
+/* --- APPOINTMENT DETAILS MODAL REFINEMENT --- */
 
+/* 1. Modal Container & Scroll Area */
 .modal-content.large-modal {
-  width: 90%;
-  max-width: 900px; /* Wider modal for details */
-  max-height: 90vh;
-  display: flex;
-  flex-direction: column;
+  width: 95%;
+  max-width: 850px; 
+  border-radius: 20px;
+  box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.4);
 }
 
 .modal-body-scroll {
-  padding: 1.5rem;
+  padding: 1.5rem 2rem;
+  background-color: #f8fafc; 
   overflow-y: auto;
-  flex: 1;
 }
 
-/* Info Grid */
+/* --- APPOINTMENT DETAILS MODAL REFINEMENT --- */
+
+/* --- APPOINTMENT DETAILS MODAL REFINEMENT --- */
+
+/* 1. Primary Info Banner Container */
 .info-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 1rem;
-  margin-bottom: 1.5rem;
-  background-color: #f8fafc;
-  padding: 1rem;
-  border-radius: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+  background-color: #ffffff;
+  padding: 1.5rem;
+  border-radius: 16px;
+  border: 1px solid var(--border-light);
 }
 
+/* Container for each Label/Value pair */
 .info-item {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 0.25rem; /* Tight spacing between label and small text */
+  align-items: flex-start !important; 
+  text-align: left !important;
 }
 
+/* 2. Labels: Large, Bold, Blue, and Uppercase */
 .info-item label {
-  font-size: 0.85rem;
-  color: var(--text-muted);
+  font-size: 1.1rem !important; /* Larger than the data text below it */
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--brand-blue) !important;
   display: flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.5rem;
 }
 
+/* 3. Values: Smaller Blue Text */
+/* This covers Provider name, Schedule, and Total Amount text */
 .info-item span {
-  font-weight: 600;
+  font-weight: 400 !important; /* Lighter weight for a professional look */
+  font-size: 0.85rem !important; 
+  color: var(--brand-blue) !important;
+  text-transform: capitalize !important; 
+  align-self: flex-start; /* Ensures it stays to the left under the label */
+}
+
+/* Explicitly target Total Amount price text */
+.price-tag {
+  color: var(--brand-blue) !important;
+  font-size: 0.95rem !important; /* Match other values' small size */
+  font-weight: 400 !important;
+}
+
+/* 4. Status: Normal Text, No Background, No Caps */
+.status-badge {
+  padding: 0 !important; /* Remove background pill padding */
+  background: none !important; /* Remove the yellow pill background */
+  color: var(--brand-blue) !important; /* Force branded blue text */
+  font-size: 0.95rem !important; /* Smaller size matching other values */
+  font-weight: 700 !important;
+  letter-spacing: normal;
+  text-transform: capitalize !important; /* Only first letter capital */
+}
+
+
+/* 3. Section Title Styling */
+.modal-body-scroll h4 {
+  color: var(--brand-blue);
+  font-weight: 800;
   font-size: 1rem;
-  color: var(--text-main);
-}
-
-/* Pet Card Styling */
-.section-title {
-  color: var(--brand-blue);
-  margin-bottom: 1rem;
-  font-size: 1.1rem;
-  border-bottom: 2px solid var(--border-light);
-  padding-bottom: 0.5rem;
-}
-
-.pet-full-card {
-  border: 1px solid var(--border-light);
-  border-radius: 8px;
-  padding: 1.5rem;
+  text-transform: uppercase;
   margin-bottom: 1.5rem;
-  background-color: white;
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
-.pet-name-header {
-  margin: 0 0 1rem 0;
+.modal-body-scroll h4::after {
+  content: "";
+  flex: 1;
+  height: 2px;
+  background: var(--border-light);
+}
+
+/* 2. Pet Card Refinement */
+.pet-full-card {
+  color: var(--brand-blue) !important; /* Ensure no black font in the card */
+  text-align: left !important;
+}
+
+.pet-full-card .pet-name-header {
   color: var(--brand-blue);
-  font-size: 1.1rem;
-  font-weight: 700;
+  font-weight: 800;
+  text-align: left !important;
+  margin-bottom: 1rem;
 }
 
+/* Grid for Breed, Gender, Weight, etc. */
 .pet-specs-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 0.75rem;
-  margin-bottom: 1rem;
-  font-size: 0.95rem;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
 }
 
-.label {
-  color: var(--text-muted);
-  font-weight: 500;
-  margin-right: 0.5rem;
+.pet-specs-grid div {
+  color: var(--brand-blue) !important; /* Force data text to blue */
+  text-align: left !important;
 }
 
-.pet-specs-full {
-  margin-bottom: 0.75rem;
-  font-size: 0.95rem;
+/* Labels: Blue, Normal Case (No Caps), Aligned Left */
+.pet-specs-grid .label, 
+.pet-specs-full .label,
+.img-label {
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: var(--brand-blue) !important;
+  text-transform: none !important; /* Disables Caps Lock */
+  display: inline-block;
+  margin-bottom: 2px;
+  text-align: left !important;
 }
 
-/* Images (Facebook Style) */
-.pet-images-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1.5rem;
-  margin-top: 1rem;
+/* Split Row: Grooming Specs (Left) | Services (Right) */
+.pet-info-row-split {
+  display: flex;
+  justify-content: space-between;
+  gap: 2rem;
+  margin-bottom: 1.5rem;
+}
+
+.pet-info-row-split .pet-specs-full {
+  flex: 1;
+  text-align: left !important;
+  color: var(--brand-blue) !important;
+}
+
+/* Images and Labels */
+.proof-image {
+  border: 2px solid var(--brand-blue); /* Optional blue border for neatness */
+}
+
+.clickable-img .img-label {
+  color: var(--brand-blue) !important;
+  text-transform: none !important;
+}
+
+/* Ensure any remaining spans are blue */
+.pet-full-card span {
+  color: var(--brand-blue) !important;
+}
+
+/* Medical Attachment Labels */
+.img-label {
+  font-size: 0.85rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: var(--brand-blue) !important; /* Vaccine Card/Illness Labels to Blue */
 }
 
 .image-wrapper {
@@ -889,3 +1089,251 @@
 
 /* Styling for past history items */
 .cal-day.has-history .dot { background-color: #64748b; }
+
+/* --- APPOINTMENT DETAILS MODAL REFINEMENT --- */
+
+/* 1. Modal Container & Scroll Area */
+.modal-content.large-modal {
+  width: 95%;
+  max-width: 850px; /* Standardized width */
+  border-radius: 20px;
+  box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.4);
+}
+
+.modal-body-scroll {
+  padding: 1.5rem 2rem;
+  background-color: #f8fafc; /* Subtle grey background for body */
+  overflow-y: auto;
+}
+
+/* 2. Top Info Banner (Horizontal Highlights) */
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+  background-color: #ffffff;
+  padding: 1.5rem;
+  border-radius: 16px;
+  border: 1px solid var(--border-light);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+}
+
+.info-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.info-item label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+.info-item span {
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--brand-blue);
+}
+
+.price-tag {
+  color: var(--brand-blue);
+  font-size: 1.25rem !important;
+  font-weight: 800 !important;
+}
+
+/* 3. Section Title Styling */
+.modal-body-scroll h4 {
+  color: var(--brand-blue);
+  font-weight: 800;
+  font-size: 1rem;
+  text-transform: uppercase;
+  margin-bottom: 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.modal-body-scroll h4::after {
+  content: "";
+  flex: 1;
+  height: 2px;
+  background: var(--border-light);
+}
+
+/* 4. Professional Pet Card */
+.pet-full-card {
+  background-color: #ffffff;
+  border: 1px solid var(--border-light);
+  border-radius: 16px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.03);
+}
+
+.pet-name-header {
+  margin: 0 0 1.25rem 0;
+  color: var(--brand-blue);
+  font-size: 1.1rem;
+  font-weight: 800;
+  border-bottom: 1px solid #f1f5f9;
+  padding-bottom: 0.75rem;
+}
+
+.pet-specs-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.pet-specs-grid div {
+  background: #f8fafc;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+}
+
+.pet-specs-grid .label {
+  font-weight: 700;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  display: block;
+  margin-bottom: 2px;
+}
+
+.pet-specs-full {
+  margin-bottom: 0.75rem;
+  padding: 10px;
+  background: #fffbeb; /* Light yellow tint for specifications */
+  border-radius: 8px;
+  border-left: 4px solid var(--brand-yellow);
+  font-size: 0.9rem;
+}
+
+/* 5. Proof Image Attachments (Facebook/Professional Layout) */
+.pet-images-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.image-wrapper {
+  background-color: #f1f5f9;
+  padding: 10px;
+  border-radius: 12px;
+  text-align: center;
+  transition: transform 0.2s;
+  border: 1px solid var(--border-light);
+}
+
+.image-wrapper:hover {
+  transform: translateY(-2px);
+  border-color: var(--brand-blue);
+}
+
+.img-label {
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.proof-image {
+  width: 100%;
+  height: 180px; /* Fixed height for neatness */
+  object-fit: cover;
+  border-radius: 8px;
+  cursor: pointer;
+  background-color: #000;
+}
+
+/* 6. Professional Modal Footer */
+.modal-footer {
+  padding: 1.25rem 2rem;
+  background-color: #ffffff;
+  border-top: 1px solid var(--border-light);
+}
+
+.status-badge {
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+}
+
+.status-badge.pending { background: #fef9c3; color: #854d0e; }
+.status-badge.approved, .status-badge.confirmed { background: #dcfce7; color: #166534; }
+.status-badge.paid { background: #dbeafe; color: #1e40af; }
+
+/* 7. Action Button Overrides */
+.cancel-btn {
+  background-color: #fef2f2;
+  color: var(--brand-red);
+  border: 1px solid #fee2e2;
+  transition: all 0.2s;
+}
+
+.cancel-btn:hover {
+  background-color: var(--brand-red);
+  color: white;
+}
+
+@media (max-width: 768px) {
+  .pet-specs-grid { grid-template-columns: 1fr 1fr; }
+  .pet-images-row { grid-template-columns: 1fr; }
+  .modal-body-scroll { padding: 1rem; }
+}
+
+/* Image Preview Lightbox */
+.image-preview-overlay {
+    background-color: rgba(0, 0, 0, 0.9) !important;
+    z-index: 1100 !important; /* Higher than normal modals */
+}
+
+.image-preview-content {
+    position: relative;
+    max-width: 90%;
+    max-height: 90%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.large-proof-image {
+    max-width: 100%;
+    max-height: 85vh;
+    object-fit: contain;
+    border-radius: 8px;
+    box-shadow: 0 0 20px rgba(0,0,0,0.5);
+}
+
+.close-preview-btn {
+    position: absolute;
+    top: -40px;
+    right: 0;
+    background: white;
+    border: none;
+    border-radius: 50%;
+    width: 35px;
+    height: 35px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    color: #333;
+    transition: transform 0.2s;
+}
+
+.close-preview-btn:hover {
+    transform: scale(1.1);
+    background: var(--brand-yellow);
+}
