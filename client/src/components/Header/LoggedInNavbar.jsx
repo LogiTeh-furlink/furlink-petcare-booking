@@ -9,7 +9,7 @@ import {
   FaListUl, 
   FaExclamationCircle,
   FaCalendarAlt,
-  FaUser // Added FaUser for the Profile icon
+  FaUser 
 } from "react-icons/fa";
 import { supabase } from "../../config/supabase";
 import "./LoggedInNavbar.css";
@@ -37,14 +37,31 @@ const LoggedInNavbar = ({ hideBecomeProvider = false }) => {
   const menuRef = useRef();
 
   /* ==========================
-      FETCH DATA
+      PATH-BASED VISIBILITY LOGIC
      ========================== */
+  const currentPath = location.pathname;
+
+  // Hide "Manage Listing" if on SP related pages
+  const hideManageListing = [
+    "/service/edit-listing",
+    "/service/edit-profile",
+    "/service/manage-listing"
+  ].includes(currentPath);
+
+  // Hide "Profile" if on UserProfile page
+  const hideProfile = currentPath === "/profile";
+
+  // Hide "Appointments" if on History or Appointments pages
+  const hideAppointments = [
+    "/booking-history",
+    "/appointments"
+  ].includes(currentPath);
+
   useEffect(() => {
     const fetchData = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return navigate("/login");
 
-      // 1. Fetch Profile
       const { data: profileData } = await supabase
         .from("profiles")
         .select("first_name")
@@ -52,7 +69,6 @@ const LoggedInNavbar = ({ hideBecomeProvider = false }) => {
         .single();
       setProfile(profileData);
 
-      // 2. Fetch Notifications
       const { data: notifData } = await supabase
         .from("notifications")
         .select("*")
@@ -61,7 +77,6 @@ const LoggedInNavbar = ({ hideBecomeProvider = false }) => {
         .limit(10);
       setNotifications(notifData || []);
 
-      // 3. Fetch Provider Data
       const { data: provider } = await supabase
         .from("service_providers")
         .select("id, status, business_name, rejection_reasons")
@@ -82,9 +97,6 @@ const LoggedInNavbar = ({ hideBecomeProvider = false }) => {
     fetchData();
   }, [navigate]);
 
-  /* ==========================
-      LOGIC HANDLERS
-     ========================== */
   const isServiceProviderPage = location.pathname.startsWith("/service/");
 
   const handleProviderClick = () => {
@@ -148,12 +160,10 @@ const LoggedInNavbar = ({ hideBecomeProvider = false }) => {
     <>
       <header className="loggedin-header">
         <div className="navbar-container">
-          {/* Left Logo */}
           <div className="header-left" onClick={() => navigate("/dashboard")}>
             <img src={logo} alt="Furlink logo" className="header-logo" />
           </div>
 
-          {/* Right Section */}
           <div className="nav-right">
             {!hideBecomeProvider && !isServiceProviderPage && (
               <button 
@@ -166,7 +176,6 @@ const LoggedInNavbar = ({ hideBecomeProvider = false }) => {
               </button>
             )}
 
-            {/* Notifications */}
             <div ref={notifRef} className="notif-wrapper">
               <button className="icon-btn" onClick={() => setShowNotif(!showNotif)}>
                 <FaBell className="icon" />
@@ -194,7 +203,6 @@ const LoggedInNavbar = ({ hideBecomeProvider = false }) => {
               )}
             </div>
 
-            {/* Profile Menu */}
             <div ref={menuRef} className="profile-wrapper">
               <button className="icon-btn" onClick={() => setShowMenu(!showMenu)}>
                 <FaUserCircle className="icon" />
@@ -204,35 +212,44 @@ const LoggedInNavbar = ({ hideBecomeProvider = false }) => {
                 <div className="dropdown profile-dropdown">
                   <p className="user-name">Hi, {profile?.first_name || "User"}</p>
                   
-                  {/* --- NEW: Profile Button --- */}
-                  <button 
-                    className="menu-item-btn" 
-                    onClick={() => {
-                      navigate("/profile");
-                      setShowMenu(false);
-                    }}
-                  >
-                    <FaUser className="menu-icon" /> Profile
-                  </button>
-
-                  {providerData?.status === 'approved' && (
+                  {/* PROFILE OPTION */}
+                  {!hideProfile && (
                     <button 
                       className="menu-item-btn" 
-                      onClick={() => navigate("/service/manage-listing")}
+                      onClick={() => {
+                        navigate("/profile");
+                        setShowMenu(false);
+                      }}
+                    >
+                      <FaUser className="menu-icon" /> Profile
+                    </button>
+                  )}
+
+                  {/* MANAGE LISTING OPTION */}
+                  {!hideManageListing && providerData?.status === 'approved' && (
+                    <button 
+                      className="menu-item-btn" 
+                      onClick={() => {
+                        navigate("/service/manage-listing");
+                        setShowMenu(false);
+                      }}
                     >
                       <FaStore className="menu-icon" /> Manage Listing
                     </button>
                   )}
 
-                  <button 
-                    className="menu-item-btn" 
-                    onClick={() => {
-                      navigate("/appointments");
-                      setShowMenu(false);
-                    }}
-                  >
-                    <FaCalendarAlt className="menu-icon" /> Appointments
-                  </button>
+                  {/* APPOINTMENTS OPTION */}
+                  {!hideAppointments && (
+                    <button 
+                      className="menu-item-btn" 
+                      onClick={() => {
+                        navigate("/appointments");
+                        setShowMenu(false);
+                      }}
+                    >
+                      <FaCalendarAlt className="menu-icon" /> Appointments
+                    </button>
+                  )}
 
                   <button className="logout-btn" onClick={handleLogout}>
                     <FaSignOutAlt className="menu-icon" /> Logout
@@ -240,7 +257,6 @@ const LoggedInNavbar = ({ hideBecomeProvider = false }) => {
                 </div>
               )}
             </div>
-
           </div>
         </div>
       </header>
@@ -265,7 +281,7 @@ const LoggedInNavbar = ({ hideBecomeProvider = false }) => {
             <div className="modal-icon-wrapper reject"><FaTimes /></div>
             <h3>Application Rejected</h3>
             <p>Your application was not approved at this time.</p>
-            {providerData?.rejection_reasons && providerData.rejection_reasons.length > 0 ? (
+            {providerData?.rejection_reasons && providerData.rejection_reasons.length > 0 && (
               <div className="rejection-details-box">
                 <p className="reject-reason-title"><FaExclamationCircle /> <strong>Reason(s):</strong></p>
                 <ul className="reject-reason-list">
@@ -274,8 +290,6 @@ const LoggedInNavbar = ({ hideBecomeProvider = false }) => {
                   ))}
                 </ul>
               </div>
-            ) : (
-                <p>Please contact support for more details.</p>
             )}
             <button className="modal-ok-btn reject-bg" onClick={() => setShowRejectModal(false)}>Close</button>
           </div>
