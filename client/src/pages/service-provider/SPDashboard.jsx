@@ -240,9 +240,13 @@ export default function SPDashboard() {
   const formatCurrency = (val) => `₱${parseFloat(val || 0).toLocaleString('en-PH', { minimumFractionDigits: 2 })}`;
   
   const formatDateTime = (dateStr, timeStr) => {
-    if (!dateStr) return "N/A";
-    const date = new Date(dateStr).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-    return `${date} @ ${timeStr}`;
+    if (!dateStr || !timeStr) return "TBD";
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return "Invalid Date"; 
+    const formattedDate = date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+    const tempTime = new Date(`2000-01-01T${timeStr}`);
+    const formattedTime = isNaN(tempTime.getTime()) ? timeStr : tempTime.toLocaleTimeString("en-US", { hour: 'numeric', minute: '2-digit', hour12: true });
+    return `${formattedDate} at ${formattedTime}`;
   };
 
   // --- Handlers ---
@@ -313,7 +317,7 @@ export default function SPDashboard() {
           <div className="revenue-card">
             <div className="revenue-info">
               <h1>Total Revenue</h1>
-              <p>For the month of {new Date().toLocaleString('default', { month: 'long' })}</p>
+              <p>For the month of {new Date().toLocaleString('default', { month: 'long', year: 'numeric' })}</p>
             </div>
             <div className="revenue-value">
               <span>{formatCurrency(stats.revenue)}</span>
@@ -357,9 +361,8 @@ export default function SPDashboard() {
                 <th>Date & Time</th>
                 <th>No. of Pets</th>
                 <th>Service to Avail</th>
-                <th>Service Total Amt</th>
+                <th>Total Amt</th>
                 <th>Status</th>
-                <th>Action</th>
               </tr>
             </thead>
             <tbody>
@@ -446,7 +449,10 @@ export default function SPDashboard() {
                       <p><strong>Behavior:</strong> {pet.behavior || 'N/A'}</p>
                       <p><strong>Services:</strong> {pet.booking_services?.map(s => s.service_name).join(', ')}</p>
                     </div>
-
+                    <div className="pet-info-row-split">
+                         <div className="pet-specs-full"><span className="label">Grooming Specs:</span> {pet.grooming_specifications || 'None'}</div>
+                         <div className="pet-specs-full"><span className="label">Services:</span> {pet.booking_services?.map(s => s.service_name).join(', ')}</div>
+                    </div>
                     <div className="pet-images-container">
                       {pet.vaccine_card_url && (
                         <div className="image-wrapper">

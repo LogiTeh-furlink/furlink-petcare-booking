@@ -8,6 +8,15 @@
   --border: #e2e8f0;
 }
 
+/* Force Poppins Everywhere */
+* {
+  font-family: 'Poppins', sans-serif !important;
+}
+
+p{
+  color: var(--primary-blue);
+}
+
 .page-wrapper {
   background-color: var(--bg-gray);
   min-height: 100vh;
@@ -80,6 +89,7 @@
   grid-template-columns: repeat(4, 1fr);
   gap: 1.5rem;
   margin-bottom: 2rem;
+  color: var(--primary-blue)
 }
 
 .status-card {
@@ -91,6 +101,7 @@
   border: 2px solid transparent;
   box-shadow: 0 2px 4px rgba(0,0,0,0.05);
   transition: all 0.2s;
+  color: var(--primary-blue)
 }
 
 .status-card:hover { transform: translateY(-3px); }
@@ -103,7 +114,7 @@
 .status-card h3 {
   margin: 0;
   font-size: 0.9rem;
-  color: var(--text-light);
+  color: var(--primary-blue);
   font-weight: 600;
 }
 
@@ -111,42 +122,148 @@
   margin: 0.5rem 0 0 0;
   font-size: 2.5rem;
   font-weight: 800;
-  color: var(--text-dark);
+  color: var(--primary-blue)
 }
 
-/* --- Table --- */
+/* --- Bookings Table Container (Replicating app-list-section) --- */
 .bookings-table-container {
-  background: var(--white);
-  border-radius: 12px;
-  box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+  background: var(--bg-card);
+  border-radius: 16px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
   overflow: hidden;
+  border: 1px solid var(--border-light);
+  color: var(--brand-blue);
+  margin-top: 2rem;
 }
 
 .table-header-title {
-  padding: 1.5rem;
-  background-color: #f1f5f9;
-  border-bottom: 1px solid var(--border);
+  padding: 1.5rem 1.5rem 0.5rem 1.5rem;
+  background-color: var(--bg-card);
 }
 
-.table-header-title h2 { margin: 0; font-size: 1.25rem; color: var(--primary-blue); }
+.table-header-title h2 {
+  margin: 0;
+  font-size: 1.25rem;
+  color: var(--brand-blue);
+  font-weight: 800;
+}
 
-.sp-table { width: 100%; border-collapse: collapse; }
+/* --- Transforming Table to Grid --- */
+.sp-table {
+  width: 100%;
+  border-collapse: collapse;
+  display: block; 
+  padding: 0 1.5rem 1.5rem 1.5rem;
+}
+
+.sp-table thead, 
+.sp-table tbody {
+  display: block;
+  width: 100%;
+}
+
+/* --- Balanced Column Spacing (6 Columns) --- */
+.sp-table tr {
+  display: grid;
+  /* Increased Date and Service space slightly to maintain balance with larger gaps */
+  grid-template-columns: 2.5fr 1fr 2.2fr 1.2fr 1fr 1.2fr; 
+  gap: 2rem; /* Increased gap from 1rem to 2rem for better breathing room */
+  align-items: center;
+  color: var(--brand-blue);
+}
+
+/* --- Header Styling --- */
+.sp-table thead tr {
+  padding: 1.25rem 0;
+  border-bottom: 2px solid var(--border-light);
+}
 
 .sp-table th {
   text-align: left;
-  padding: 1rem 1.5rem;
-  background-color: #f8fafc;
-  color: var(--text-light);
+  font-weight: 700;
+  color: var(--brand-blue);
   font-size: 0.85rem;
   text-transform: uppercase;
-  border-bottom: 1px solid var(--border);
 }
 
+/* --- Row Styling --- */
+.sp-table tbody tr {
+  padding: 1.25rem 0;
+  border-bottom: 1px solid var(--border-light);
+  font-size: 0.95rem;
+  transition: background 0.2s ease;
+}
+
+.sp-table tbody tr:hover {
+  background-color: #f8fafc;
+}
+
+.sp-table tbody tr:last-child {
+  border-bottom: none;
+}
+
+/* --- Inner Element Coloring --- */
 .sp-table td {
-  padding: 1.5rem;
-  border-bottom: 1px solid var(--border);
-  color: var(--text-dark);
-  vertical-align: top;
+  color: var(--brand-blue);
+}
+
+.sp-table td .fw-bold {
+  font-weight: 600;
+  color: var(--brand-blue);
+}
+
+/* --- Status Badge Styling (Minimalist) --- */
+.badge {
+  font-weight: 700;
+  font-size: 0.8rem;
+  text-transform: capitalize;
+  color: var(--brand-blue);
+}
+
+/* --- View Details Button (Basis replication) --- */
+.view-details-btn {
+  padding: 0.6rem 1rem;
+  border: 1.5px solid var(--brand-blue);
+  background-color: transparent;
+  color: var(--brand-blue);
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  width: 100%;
+}
+
+.view-details-btn:hover {
+  background-color: var(--brand-blue);
+  color: #ffffff;
+}
+
+/* --- Enhanced No Bookings State --- */
+.empty-state {
+  display: flex !important;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 5rem 2rem;
+  text-align: center;
+  background-color: #ffffff;
+  border-radius: 12px;
+  grid-column: 1 / -1; 
+  margin-top: 1rem;
+  font-family: 'Poppins', sans-serif !important;
+  color: var(--brand-blue);
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.empty-state::after {
+  content: "Try checking a different tab or date range.";
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  margin-top: 0.5rem;
+  font-weight: 400;
 }
 
 .badge {
@@ -155,7 +272,13 @@
   font-size: 0.75rem;
   font-weight: 700;
   text-transform: uppercase;
+  color: var(--brand-blue);
+  background: #eff6ff; /* Default light blue tint background */
+  text-align: center;
+  display: inline-block;
+  white-space: nowrap;
 }
+
 /* Mapping user statuses to colors */
 .badge-pending { background-color: #dbeafe; color: #1e40af; }
 .badge-approved { background-color: #dcfce7; color: #15803d; }
@@ -167,100 +290,256 @@
 .badge-cancelled { background-color: #f3f4f6; color: #4b5563; }
 
 .view-details-btn {
-  background-color: #e2e8f0;
-  color: var(--text-dark);
-  border: none;
-  padding: 0.5rem 1rem;
-  border-radius: 6px;
-  cursor: pointer;
+  padding: 0.6rem 1rem;
+  border: 1.5px solid var(--brand-blue);
+  background-color: transparent;
+  color: var(--brand-blue);
+  border-radius: 8px;
+  font-size: 0.85rem;
   font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  width: 100%;
 }
-.view-details-btn:hover { background-color: #cbd5e1; }
 
-/* --- WIDER MODAL --- */
+.view-details-btn:hover {
+  background-color: var(--brand-blue);
+  color: #ffffff;
+}
+
+/* --- SP DASHBOARD MODAL REFINEMENT --- */
+
+/* 1. Modal Container & Scroll Area */
 .modal-overlay {
-  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0,0,0,0.8);
-  display: flex; justify-content: center; align-items: center;
+  position: fixed;
+  top: 0; left: 0; width: 100%; height: 100%;
+  background-color: rgba(15, 23, 42, 0.75); /* Dark blue overlay matching image basis */
+  backdrop-filter: blur(2px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
   z-index: 1000;
-  padding: 2rem;
 }
 
 .modal-content.wide-modal {
-  background: var(--white);
-  width: 100%;
-  max-width: 900px; /* Wider Modal */
+  background: white;
+  width: 95%;
+  max-width: 900px; /* Wider professional modal */
   max-height: 90vh;
-  border-radius: 12px;
-  display: flex; flex-direction: column;
+  border-radius: 20px;
+  box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.4);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .modal-header {
-  padding: 1.5rem;
-  border-bottom: 1px solid var(--border);
-  display: flex; justify-content: space-between; align-items: center;
+  padding: 1.5rem 2rem;
+  border-bottom: 1px solid var(--border-light);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: var(--bg-page);
 }
-.modal-header h3 { margin: 0; color: var(--primary-blue); }
-.modal-header button { background: none; border: none; font-size: 1.25rem; cursor: pointer; }
 
-.modal-body-scroll { padding: 2rem; overflow-y: auto; flex: 1; }
+.modal-header h3 {
+  margin: 0;
+  font-size: 1.25rem;
+  color: var(--brand-blue);
+  font-weight: 800;
+}
 
+.modal-body-scroll {
+  padding: 1.5rem 2rem;
+  background-color: #f8fafc;
+  overflow-y: auto;
+  flex: 1;
+}
+
+/* 2. Top Info Banner (Replacing old modal-summary-section) */
 .modal-summary-section {
-  background: #f8fafc;
-  padding: 1.5rem;
-  border-radius: 8px;
-  margin-bottom: 2rem;
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: 1rem;
-}
-
-.uppercase-status { text-transform: uppercase; color: var(--primary-blue); }
-.text-highlight { color: var(--primary-blue); font-size: 1.2rem; }
-
-/* --- FACEBOOK STYLE IMAGES --- */
-.full-image-block { margin-bottom: 2rem; }
-.pet-images-container {
-  margin-top: 1rem;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, 1fr); /* 3-column banner matching image_12f83d */
   gap: 1.5rem;
+  margin-bottom: 2rem;
+  background-color: #ffffff;
+  padding: 1.5rem;
+  border-radius: 16px;
+  border: 1px solid var(--border-light);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.02);
 }
 
-.image-wrapper { background: #f1f5f9; padding: 0.5rem; border-radius: 8px; }
-.img-label { font-size: 0.85rem; color: var(--text-light); margin-bottom: 0.5rem; font-weight: bold; }
-
-.facebook-style-img {
-  width: 100%;
-  height: auto;
-  max-height: 400px;
-  object-fit: contain; /* Shows full image without cropping */
-  border-radius: 4px;
-  background-color: #000; /* Black bg for images like FB viewer */
-  display: block;
+.info-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  align-items: flex-start !important;
+  text-align: left !important;
 }
 
-/* Pet Details */
+.info-row span {
+  font-size: 1.1rem !important;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--brand-blue) !important;
+}
+
+.info-row strong {
+  font-weight: 400 !important; /* Lighter weight for values matching image basis */
+  font-size: 0.85rem !important;
+  color: var(--brand-blue) !important;
+  text-transform: capitalize !important; /* Proper case instead of all caps */
+}
+
+/* Highlighted Price specific style */
+.text-highlight {
+  font-size: 0.95rem !important;
+  font-weight: 400 !important;
+}
+
+/* 3. Section Titles */
+.modal-body-scroll h4 {
+  color: var(--brand-blue);
+  font-weight: 800;
+  font-size: 1rem;
+  text-transform: uppercase;
+  margin-bottom: 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.modal-body-scroll h4::after {
+  content: "";
+  flex: 1;
+  height: 2px;
+  background: var(--border-light);
+}
+
+/* 4. Professional Pet Blocks */
 .pet-detail-block {
-  border: 1px solid var(--border);
-  border-radius: 8px;
+  background-color: #ffffff;
+  border: 1px solid var(--border-light);
+  border-radius: 16px;
   padding: 1.5rem;
   margin-bottom: 1.5rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.03);
+  color: var(--brand-blue) !important;
 }
 
 .pet-header h5 {
-  margin: 0 0 1rem 0;
-  color: #1e40af;
+  margin: 0 0 1.25rem 0;
+  color: var(--brand-blue);
   font-size: 1.1rem;
   font-weight: 800;
+  border-bottom: 1px solid #f1f5f9;
+  padding-bottom: 0.75rem;
 }
 
 .pet-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, 1fr); /* Balanced 3-column specs */
   gap: 1rem;
-  margin-bottom: 1rem;
-  font-size: 0.95rem;
+  margin-bottom: 1.25rem;
+}
+
+.pet-grid p {
+  background: #f8fafc;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  margin: 0;
+  color: var(--brand-blue) !important;
+}
+
+.pet-grid strong {
+  font-weight: 700;
+  font-size: 0.75rem;
+  color: var(--brand-blue) !important;
+  text-transform: none !important; /* No caps lock as requested */
+  display: block;
+  margin-bottom: 2px;
+}
+
+/* 5. Proof Image Attachments (Facebook/Professional Layout) */
+.full-image-block, 
+.pet-images-container {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  margin-top: 1rem;
+}
+
+.image-wrapper {
+  background-color: #f1f5f9;
+  padding: 10px;
+  border-radius: 12px;
+  text-align: center;
+  border: 1px solid var(--border-light);
+}
+
+.img-label {
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: var(--brand-blue) !important;
+  margin-bottom: 8px;
+  display: block;
+}
+
+.facebook-style-img {
+  width: 100%;
+  height: 220px; /* Standardized height */
+  object-fit: contain;
+  border-radius: 8px;
+  background-color: #000; /* Dark background for visibility contrast */
+  display: block;
+}
+
+/* 6. Footer & Buttons */
+.modal-footer {
+  padding: 1.25rem 2rem;
+  background-color: #ffffff;
+  border-top: 1px solid var(--border-light);
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+}
+
+.btn-close-footer {
+  background-color: white;
+  border: 1px solid var(--border-light);
+  color: var(--text-main);
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  width: auto;
+}
+
+.btn-close-footer:hover {
+  background-color: #f1f5f9;
+}
+
+/* Adjust ActionSelect and SP Buttons to match Basis */
+.action-select {
+  padding: 0.75rem;
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  font-family: 'Poppins', sans-serif;
+  color: var(--brand-blue);
+}
+
+.btn-approve {
+  background-color: var(--brand-blue) !important;
+  border-radius: 8px !important;
+}
+
+.btn-decline {
+  background-color: var(--brand-red) !important;
+  border-radius: 8px !important;
 }
 
 /* Modal Footer & Actions */

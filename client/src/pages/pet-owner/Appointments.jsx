@@ -457,6 +457,10 @@ export default function Appointments() {
                    <div className="info-item"><label><FaInfoCircle/> Provider</label><span>{selectedBooking.service_providers?.business_name}</span></div>
                    <div className="info-item"><label><FaClock/> Schedule</label><span>{formatDateTime(selectedBooking.booking_date, selectedBooking.time_slot)}</span></div>
                    <div className="info-item"><label><FaFileInvoiceDollar/> Total Amount</label><span className="price-tag">{formatCurrency(selectedBooking.total_estimated_price)}</span></div>
+                   <div className="info-item">
+                        <label><FaCreditCard/> Downpayment</label>
+                        <span className="price-tag">{formatCurrency(selectedBooking.installation_payment)}</span>
+                    </div>
                    <div className="info-item"><label>Status</label><span className="status-badge">{selectedBooking.status}</span></div>
                 </div>
                 <hr className="divider"/>
