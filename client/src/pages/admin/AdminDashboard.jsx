@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { supabase } from "../../config/supabase";
 import LoggedInAdmin from "../../components/Header/LoggedInAdmin";
-import { FaStore, FaCheckCircle, FaTimesCircle, FaClock, FaUsers } from "react-icons/fa";
+import { FaStore, FaCheckCircle, FaTimesCircle, FaClock, FaUsers, FaArrowRight } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 import "./AdminDashboard.css";
 
@@ -32,12 +32,10 @@ export default function AdminDashboard() {
     fetchProviders(currentFilter);
   }, []);
 
-  // Effect to re-fetch providers when filter changes
   useEffect(() => {
     fetchProviders(currentFilter);
   }, [currentFilter]);
 
-  // Real-time updates
   useEffect(() => {
     const channel = supabase
       .channel("admin_dashboard_changes")
@@ -62,20 +60,21 @@ export default function AdminDashboard() {
 
   const fetchDashboardCounts = async () => {
     try {
-      // 1. Counts by Status
-      const { count: pending } = await supabase.from("service_providers").select("*", { count: "exact", head: true }).eq("status", "pending");
+      // 1. Counts by Status - For Pending, we only count those with services
+      // Inner join in Supabase: select(..., { inner: true })
+      const { count: pending } = await supabase
+        .from("service_providers")
+        .select("id, services!inner(id)", { count: "exact", head: true })
+        .eq("status", "pending");
+
       const { count: approved } = await supabase.from("service_providers").select("*", { count: "exact", head: true }).eq("status", "approved");
       const { count: rejected } = await supabase.from("service_providers").select("*", { count: "exact", head: true }).eq("status", "rejected");
 
-      // 2. Total Users (Exclude Admins if 'role' column exists, assuming simple count for now based on your prompt)
-      // "from profiles table count the number of users excluding the admin"
       const { count: users } = await supabase
         .from("profiles")
         .select("*", { count: "exact", head: true })
-        .neq("role", "admin"); // Assuming 'role' distinguishes them
+        .neq("role", "admin");
 
-      // 3. Avg Approval Time (Static logic based on prompt requirements, can be expanded later)
-      // Re-using your logic roughly:
       const { data: approvals } = await supabase
         .from("service_providers")
         .select("created_at, approved_at")
@@ -106,20 +105,21 @@ export default function AdminDashboard() {
   const fetchProviders = async (statusFilter) => {
     setLoading(true);
     try {
-      // Map 'active' filter to 'approved' status in DB
       const dbStatus = statusFilter === 'active' ? 'approved' : statusFilter;
 
-      let query = supabase
-        .from("service_providers")
-        .select("id, business_name, city, province, status, created_at, updated_at")
-        .eq("status", dbStatus);
+      let query = supabase.from("service_providers");
 
-      // Order logic: Pending = oldest first? Approved/Rejected = newest first?
-      // "make the list by order based on the user submitted their application"
+      // Requirement: If pending, user must have submitted ServiceListing (exists in 'services' table)
       if (dbStatus === 'pending') {
-        query = query.order("created_at", { ascending: true }); // Oldest pending first
+        query = query
+          .select("id, business_name, city, province, status, created_at, updated_at, services!inner(id)")
+          .eq("status", "pending")
+          .order("created_at", { ascending: true });
       } else {
-        query = query.order("updated_at", { ascending: false }); // Recently approved/rejected first
+        query = query
+          .select("id, business_name, city, province, status, created_at, updated_at")
+          .eq("status", dbStatus)
+          .order("updated_at", { ascending: false });
       }
 
       const { data, error } = await query;
@@ -140,7 +140,7 @@ export default function AdminDashboard() {
 
   const getListTitle = () => {
     switch (currentFilter) {
-      case "pending": return "Pending Approvals";
+      case "pending": return "Pending Approvals (Complete Applications)";
       case "active": return "Active Listings";
       case "rejected": return "Rejected Listings";
       default: return "Service Providers";
@@ -158,91 +158,60 @@ export default function AdminDashboard() {
     <>
       <LoggedInAdmin />
       <div className="admin-dashboard-wrapper">
-        
-        {/* CENTERED GREETING */}
         <div className="admin-header-center">
           <h1>Hi, {adminName}!</h1>
           <p>Here is your daily overview.</p>
         </div>
 
-        {/* DASHBOARD STATS ROW */}
         <div className="stats-grid">
-          
-          {/* 1. Pending (Clickable) */}
-          <div 
-            className={`stat-card ${currentFilter === 'pending' ? 'active-filter' : ''}`}
-            onClick={() => handleCardClick('pending')}
-          >
-            <div className="stat-icon-wrapper pending">
-              <FaStore size={24} />
-            </div>
+          <div className={`stat-card ${currentFilter === 'pending' ? 'active-filter' : ''}`} onClick={() => handleCardClick('pending')}>
+            <div className="stat-icon-wrapper pending"><FaStore size={24} /></div>
             <div className="stat-content">
               <h3>{pendingCount}</h3>
               <span>Pending Approvals</span>
             </div>
           </div>
 
-          {/* 2. Active (Clickable) */}
-          <div 
-            className={`stat-card ${currentFilter === 'active' ? 'active-filter' : ''}`}
-            onClick={() => handleCardClick('active')}
-          >
-            <div className="stat-icon-wrapper active">
-              <FaCheckCircle size={24} />
-            </div>
+          <div className={`stat-card ${currentFilter === 'active' ? 'active-filter' : ''}`} onClick={() => handleCardClick('active')}>
+            <div className="stat-icon-wrapper active"><FaCheckCircle size={24} /></div>
             <div className="stat-content">
               <h3>{activeCount}</h3>
               <span>Active Listings</span>
             </div>
           </div>
 
-          {/* 3. Rejected (Clickable) */}
-          <div 
-            className={`stat-card ${currentFilter === 'rejected' ? 'active-filter' : ''}`}
-            onClick={() => handleCardClick('rejected')}
-          >
-            <div className="stat-icon-wrapper rejected">
-              <FaTimesCircle size={24} />
-            </div>
+          <div className={`stat-card ${currentFilter === 'rejected' ? 'active-filter' : ''}`} onClick={() => handleCardClick('rejected')}>
+            <div className="stat-icon-wrapper rejected"><FaTimesCircle size={24} /></div>
             <div className="stat-content">
               <h3>{rejectedCount}</h3>
               <span>Rejected Listings</span>
             </div>
           </div>
 
-          {/* 4. Avg Time (Non-clickable) */}
           <div className="stat-card non-clickable">
-            <div className="stat-icon-wrapper info">
-              <FaClock size={24} />
-            </div>
+            <div className="stat-icon-wrapper info"><FaClock size={24} /></div>
             <div className="stat-content">
               <h3>{avgApprovalTime}</h3>
               <span>Avg. Approval Time</span>
             </div>
           </div>
 
-          {/* 5. Total Users (Non-clickable) */}
           <div className="stat-card non-clickable">
-            <div className="stat-icon-wrapper users">
-              <FaUsers size={24} />
-            </div>
+            <div className="stat-icon-wrapper users"><FaUsers size={24} /></div>
             <div className="stat-content">
               <h3>{totalUsers}</h3>
               <span>Total Users</span>
             </div>
           </div>
-
         </div>
 
-        {/* DYNAMIC LIST SECTION */}
         <div className="dashboard-list-container">
           <h2 className="list-title">{getListTitle()}</h2>
-          
           <div className="providers-table-wrapper">
             {loading ? (
               <div className="loading-state">Loading data...</div>
             ) : providers.length === 0 ? (
-              <div className="empty-state">No records found for this category.</div>
+              <div className="empty-state">No complete applications found for this category.</div>
             ) : (
               <table className="providers-table">
                 <thead>
@@ -268,9 +237,11 @@ export default function AdminDashboard() {
                       <td>
                         <button 
                           className="btn-view-details"
-                          onClick={() => navigate(`/admin/provider/${provider.id}`)}
+                          onClick={() => navigate(`/admin/provider/${provider.id}`, { 
+                            state: { status: provider.status } 
+                          })}
                         >
-                          View Details
+                          View Details <FaArrowRight size={12} style={{marginLeft: 5}} />
                         </button>
                       </td>
                     </tr>
@@ -280,7 +251,6 @@ export default function AdminDashboard() {
             )}
           </div>
         </div>
-
       </div>
     </>
   );
