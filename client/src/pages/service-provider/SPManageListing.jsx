@@ -4,46 +4,23 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "../../config/supabase";
 import LoggedInNavbar from "../../components/Header/LoggedInNavbar";
 import Footer from "../../components/Footer/Footer";
-import { Edit3, FileText, ExternalLink, X, Clock, User, CheckCircle } from "lucide-react";
+import { 
+  Edit3, FileText, X, Clock, User, CheckCircle, 
+  Download, Search, Globe, MapPin // Changed Facebook to Globe
+} from "lucide-react";
 import "./SPManageListing.css";
 
 // --- FILE PREVIEW MODAL ---
-const FilePreviewModal = ({ isOpen, onClose, fileUrl, fileType }) => {
+const FilePreviewModal = ({ isOpen, onClose, fileUrl }) => {
   if (!isOpen || !fileUrl) return null;
-
-  const isImage = fileType === 'image' || fileUrl.match(/\.(jpeg|jpg|gif|png|webp)$/i) != null;
-  const isPdf = fileType === 'pdf' || fileUrl.match(/\.pdf$/i) != null;
-  const isDoc = !isImage && !isPdf; 
 
   return (
     <div className="file-modal-overlay" onClick={onClose}>
       <div className="file-modal-content" onClick={(e) => e.stopPropagation()}>
-        <button className="file-modal-close" onClick={onClose}><X size={24} /></button>
-        
         <div className="file-viewer-body">
-          {isImage && <img src={fileUrl} alt="Preview" className="modal-img-preview" />}
-          
-          {isPdf && (
-            <iframe src={fileUrl} title="PDF Preview" width="100%" height="100%" style={{ border: 'none' }}>
-              <p>This browser does not support PDFs. <a href={fileUrl}>Download the PDF</a>.</p>
-            </iframe>
-          )}
-
-          {isDoc && (
-             <div style={{ textAlign: 'center', padding: '40px' }}>
-                <FileText size={64} color="#9ca3af" />
-                <p style={{ marginTop: '15px', color: '#4b5563' }}>Preview not available for this file type.</p>
-                <a href={fileUrl} target="_blank" rel="noopener noreferrer" className="btn-download-link" style={{ display: 'inline-block', marginTop: '10px', color: '#2563eb' }}>
-                    Download File
-                </a>
-             </div>
-          )}
+          <img src={fileUrl} alt="Preview" className="modal-img-preview" />
         </div>
-        
         <div className="file-modal-footer">
-            <a href={fileUrl} target="_blank" rel="noopener noreferrer" className="btn-download-link">
-                Open Original / Download
-            </a>
         </div>
       </div>
     </div>
@@ -52,26 +29,20 @@ const FilePreviewModal = ({ isOpen, onClose, fileUrl, fileType }) => {
 
 export default function SPManageListing() {
   const navigate = useNavigate();
-  
-  // Data States
   const [provider, setProvider] = useState(null);
   const [services, setServices] = useState([]);
   const [hours, setHours] = useState([]);
   const [files, setFiles] = useState({ images: [], payments: [], permits: [] });
   const [staff, setStaff] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [previewFile, setPreviewFile] = useState(null);
 
-  // Preview Modal State
-  const [previewFile, setPreviewFile] = useState(null); // { url, type }
-
-  // --- FETCH DATA ---
   useEffect(() => {
     const fetchData = async () => {
       try {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return navigate("/login");
 
-        // 1. Get Provider Info
         const { data: providerData } = await supabase
           .from("service_providers")
           .select("*")
@@ -82,25 +53,21 @@ export default function SPManageListing() {
           setProvider(providerData);
           const providerId = providerData.id;
 
-          // 2. Fetch Services
           const { data: serviceData } = await supabase
             .from("services")
             .select(`*, service_options (*)`)
             .eq("provider_id", providerId);
           setServices(serviceData || []);
 
-          // 3. Fetch Hours
           const { data: hoursData } = await supabase.from("service_provider_hours").select("*").eq("provider_id", providerId);
           setHours(hoursData || []);
 
-          // 4. Fetch Files
           const { data: imgData } = await supabase.from("service_provider_images").select("*").eq("provider_id", providerId);
           const { data: payData } = await supabase.from("service_provider_payments").select("*").eq("provider_id", providerId);
           const { data: permData } = await supabase.from("service_provider_permits").select("*").eq("provider_id", providerId);
           
           setFiles({ images: imgData || [], payments: payData || [], permits: permData || [] });
 
-          // 5. Fetch Staff
           const { data: staffData } = await supabase.from("service_provider_staff").select("*").eq("provider_id", providerId);
           setStaff(staffData || []);
         }
@@ -113,8 +80,18 @@ export default function SPManageListing() {
     fetchData();
   }, [navigate]);
 
-  const handlePreview = (url, type = 'doc') => {
-    setPreviewFile({ url, type });
+  const handleFileAction = (url, type = 'doc', fileName = 'document') => {
+    if (type === 'doc') {
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', fileName);
+      link.setAttribute('target', '_blank');
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } else {
+      setPreviewFile({ url });
+    }
   };
 
   const formatTime = (time) => {
@@ -133,237 +110,166 @@ export default function SPManageListing() {
     <>
       <LoggedInNavbar />
       <div className="sp-manage-container">
-        
-        {/* Header */}
         <div className="manage-header">
           <h1>{provider.business_name}</h1>
           <p>Review your current business information below.</p>
         </div>
 
-        {/* ===================================================
-            SECTION 1: BUSINESS INFORMATION
-            =================================================== */}
         <section className="manage-card business-info-section">
           <div className="card-header">
             <h2>Business Information</h2>
-            <button 
-                className="btn-edit-header" 
-                onClick={() => navigate("/service/edit-profile")}
-                title="Edit Information"
-            >
+            <button className="btn-edit-header" onClick={() => navigate("/service/edit-profile")}>
                 <Edit3 size={18} /> Edit Information
             </button>
           </div>
 
           <div className="info-grid">
-            {/* Basic Info */}
             <div className="info-group">
                 <label>Contact Details</label>
+                <p><strong>Business Name:</strong> {provider.business_name}</p>
                 <p><strong>Email:</strong> {provider.business_email}</p>
                 <p><strong>Mobile:</strong> {provider.business_mobile}</p>
-                <p><strong>Service Type:</strong> {provider.type_of_service}</p>
-                
-                {provider.social_media_url && (
-                    <p><strong>Social:</strong> <a href={provider.social_media_url} target="_blank" rel="noreferrer" className="link-text">{provider.social_media_url}</a></p>
-                )}
-
-                {/* --- GOOGLE MAP DISPLAY (UPDATED to match Social Media style) --- */}
-                {provider.google_map_url && (
-                    <p><strong>Google Map:</strong> <a href={provider.google_map_url} target="_blank" rel="noreferrer" className="link-text">{provider.google_map_url}</a></p>
-                )}
-
-                <p><strong>Description:</strong> {provider.description}</p>
+                <p><strong>Service:</strong> {provider.type_of_service}</p>
+                <div className="icon-links-row">
+                  {provider.social_media_url && (
+                    <a href={provider.social_media_url} target="_blank" rel="noreferrer" className="branded-icon-link" title="Website/Socials">
+                      <Globe size={20} /> <span>Social Media</span>
+                    </a>
+                  )}
+                  {provider.google_map_url && (
+                    <a href={provider.google_map_url} target="_blank" rel="noreferrer" className="branded-icon-link" title="Google Maps">
+                      <MapPin size={20} /> <span>Location</span>
+                    </a>
+                  )}
+                </div>
             </div>
 
-            {/* Address */}
             <div className="info-group">
                 <label>Business Address</label>
-                <p>{provider.house_street}</p>
-                <p>{provider.barangay}, {provider.city}</p>
-                <p>{provider.province}, {provider.postal_code}</p>
-                <p>{provider.country}</p>
+                <p><strong>Street:</strong> {provider.house_street}</p>
+                <p><strong>Barangay/City:</strong> {provider.barangay}, {provider.city}</p>
+                <p><strong>Province:</strong> {provider.province}</p>
+                <p><strong>Postal Code:</strong> {provider.postal_code}</p>
             </div>
 
-            {/* Operating Hours */}
             <div className="info-group wide-group">
                 <label>Operating Hours</label>
-                {hours.length > 0 ? (
-                    <div className="hours-grid-display">
-                        {daysOrder.map(day => {
-                            const dayHours = hours.filter(h => h.day_of_week === day);
-                            const isOpen = dayHours.length > 0;
-                            return (
-                                <div key={day} className={`day-card ${isOpen ? 'open' : 'closed'}`}>
-                                    <div className="day-card-header">
-                                        <Clock size={14} />
-                                        <span>{day}</span>
-                                    </div>
-                                    <div className="day-card-body">
-                                        {isOpen ? (
-                                            dayHours.map((h, i) => (
-                                                <div key={i} className="time-pill">
-                                                    {formatTime(h.start_time)} - {formatTime(h.end_time)}
-                                                </div>
-                                            ))
-                                        ) : <span className="closed-text">Closed</span>}
-                                    </div>
+                <div className="hours-grid-display">
+                    {daysOrder.map(day => {
+                        const dayHours = hours.filter(h => h.day_of_week === day);
+                        const isOpen = dayHours.length > 0;
+                        return (
+                            <div key={day} className={`day-card ${isOpen ? 'open' : 'closed'}`}>
+                                <div className="day-card-header"><Clock size={14} /> <span>{day}</span></div>
+                                <div className="day-card-body">
+                                    {isOpen ? dayHours.map((h, i) => (
+                                        <div key={i} className="time-pill">{formatTime(h.start_time)} - {formatTime(h.end_time)}</div>
+                                    )) : <span className="closed-text">Closed</span>}
                                 </div>
-                            );
-                        })}
-                    </div>
-                ) : <p className="text-muted">No hours set.</p>}
-            </div>
-
-            {/* Staff */}
-            <div className="info-group wide-group">
-                <label>Employees</label>
-                {staff.length > 0 ? (
-                    <div className="staff-grid-display">
-                        {staff.map(s => (
-                            <div key={s.id} className="staff-card">
-                                <div className="staff-avatar">
-                                    <User size={20} />
-                                </div>
-                                <div className="staff-details">
-                                    <strong>{s.full_name}</strong>
-                                    <span>{s.job_title}</span>
-                                </div>
-                                <CheckCircle size={16} className="verified-badge" title="Registered" />
                             </div>
-                        ))}
-                    </div>
-                ) : <p className="text-muted">No staff listed.</p>}
+                        );
+                    })}
+                </div>
             </div>
           </div>
 
-          {/* Files & Images Gallery */}
           <div className="files-section">
-            <label className="section-label">Documents & Uploads</label>
-            
+            <label className="sub-label"><strong>Business Documents</strong></label>
             <div className="files-grid">
-                {/* Permits */}
                 {files.permits.map(f => (
-                    <div key={f.id} className="file-chip permit" onClick={() => handlePreview(f.file_url, 'doc')}>
-                        <FileText size={16} /> Business Permit
+                    <div key={f.id} className="file-chip permit" onClick={() => handleFileAction(f.file_url, 'doc', 'Permit')}>
+                        <Download size={16} /> Business Permit
                     </div>
                 ))}
-                {/* Waivers */}
                 {provider.waiver_url && (
-                    <div className="file-chip waiver" onClick={() => handlePreview(provider.waiver_url, 'doc')}>
-                        <FileText size={16} /> Waiver Form
+                    <div className="file-chip waiver" onClick={() => handleFileAction(provider.waiver_url, 'doc', 'Waiver')}>
+                        <Download size={16} /> Waiver Form
                     </div>
                 )}
             </div>
 
-            {/* Payment QR Gallery */}
-            {files.payments.length > 0 && (
-                <div className="image-gallery" style={{ marginTop: '20px' }}>
-                    <label className="sub-label">Payment QR Codes</label>
-                    <div className="gallery-row">
-                        {files.payments.map(img => (
-                            <div key={img.id} className="gallery-item" onClick={() => handlePreview(img.file_url, 'image')}>
-                                <img src={img.file_url} alt="Payment QR" />
-                                <div className="gallery-overlay"><ExternalLink size={16}/></div>
-                            </div>
-                        ))}
-                    </div>
+            <div className="image-gallery-section">
+                <label className="sub-label"><strong>Payment QRs</strong></label>
+                <div className="gallery-row">
+                    {files.payments.map(img => (
+                        <div key={img.id} className="gallery-item" onClick={() => handleFileAction(img.file_url, 'image')}>
+                            <img src={img.file_url} alt="QR" />
+                            <div className="gallery-overlay"><Search size={16}/></div>
+                        </div>
+                    ))}
                 </div>
-            )}
+            </div>
 
-            {/* Facility Images Gallery */}
-            {files.images.length > 0 && (
-                <div className="image-gallery">
-                    <label className="sub-label">Facility Images</label>
-                    <div className="gallery-row">
-                        {files.images.map(img => (
-                            <div key={img.id} className="gallery-item" onClick={() => handlePreview(img.image_url, 'image')}>
-                                <img src={img.image_url} alt="Facility" />
-                                <div className="gallery-overlay"><ExternalLink size={16}/></div>
-                            </div>
-                        ))}
-                    </div>
+            <div className="image-gallery-section">
+                <label className="sub-label"><strong>Facility Gallery</strong></label>
+                <div className="gallery-row">
+                    {files.images.map(img => (
+                        <div key={img.id} className="gallery-item" onClick={() => handleFileAction(img.image_url, 'image')}>
+                            <img src={img.image_url} alt="Facility" />
+                            <div className="gallery-overlay"><Search size={16}/></div>
+                        </div>
+                    ))}
                 </div>
-            )}
+            </div>
           </div>
         </section>
 
-        {/* ===================================================
-            SECTION 2: SERVICE LISTINGS
-            =================================================== */}
         <section className="manage-card service-list-section">
           <div className="card-header">
             <h2>Service Listings</h2>
-            <button 
-                className="btn-edit-header" 
-                onClick={() => navigate("/service/edit-listing")}
-                title="Edit Listings"
-            >
+            <button className="btn-edit-header" onClick={() => navigate("/service/edit-listing")}>
                 <Edit3 size={18} /> Edit Listings
             </button>
           </div>
-
           <div className="services-list-view">
-            {services.length === 0 ? (
-                <div className="empty-state">No services found. Click edit to add some!</div>
-            ) : (
-                services.map(service => (
+            {services.map(service => (
                 <div key={service.id} className="service-view-item">
                     <div className="service-view-header">
-                        <h3>{service.name}</h3>
-                        <span className={`service-type-tag ${service.type}`}>
-                            {service.type === 'package' ? 'Package' : 'Individual'}
-                        </span>
+                      <h3>{service.name}</h3>
+                      <span className={`service-type-tag ${service.type}`}>
+                        {service.type === 'package' ? 'Package' : 'Individual'}
+                      </span>
                     </div>
-                    
-                    <p className="service-desc">
-                        <strong>Description:</strong> {service.description || "N/A"}
-                    </p>
+                    <p className="service-desc">{service.description}</p>
                     {service.notes && (
-                        <p className="service-note">
-                            <strong>Note:</strong> {service.notes}
-                        </p>
+                        <p className="service-note"><strong>Notes:</strong> {service.notes}</p>
                     )}
                     
-                    <div className="pricing-wrapper">
-                        <table className="mini-pricing-table">
-                        <thead>
-                            <tr>
+                    <div className="pricing-wrapper full-width">
+                        <table className="mini-pricing-table full-space">
+                            <thead>
+                              <tr>
                                 <th>Pet Type</th>
                                 <th>Size</th>
-                                <th>Weight (kg) </th>
+                                <th>Weight Range</th>
                                 <th>Price</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {service.service_options?.map(opt => (
-                            <tr key={opt.id}>
-                                <td style={{textTransform: 'capitalize'}}>
-                                    {opt.pet_type === 'dog-cat' ? 'Dog & Cat' : opt.pet_type}
-                                </td>
-                                <td>{opt.size.replace('_', ' ')}</td>
-                                <td>{opt.weight_range || 'N/A'} kg</td>
-                                <td className="price-col">₱{opt.price}</td>
-                            </tr>
-                            ))}
-                        </tbody>
+                              </tr>
+                            </thead>
+                            <tbody>
+                                {service.service_options?.map(opt => (
+                                    <tr key={opt.id}>
+                                        <td className="pet-type-col">
+                                          {opt.pet_type === 'dog-cat' ? 'Dog and Cat' : 
+                                           opt.pet_type === 'dog' ? 'Dog' : 
+                                           opt.pet_type === 'cat' ? 'Cat' : opt.pet_type}
+                                        </td>
+                                        <td className="size-col">
+                                          {opt.size.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
+                                        </td>
+                                        <td>{opt.weight_range || 'N/A'} kg</td>
+                                        <td className="price-col">₱{parseFloat(opt.price).toFixed(2)}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
                         </table>
                     </div>
                 </div>
-                ))
-            )}
+            ))}
           </div>
         </section>
-
       </div>
       
-      {/* File Preview Modal */}
-      <FilePreviewModal 
-        isOpen={!!previewFile} 
-        onClose={() => setPreviewFile(null)} 
-        fileUrl={previewFile?.url}
-        fileType={previewFile?.type}
-      />
-
+      <FilePreviewModal isOpen={!!previewFile} onClose={() => setPreviewFile(null)} fileUrl={previewFile?.url} />
       <Footer />
     </>
   );
