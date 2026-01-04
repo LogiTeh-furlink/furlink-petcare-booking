@@ -1,10 +1,13 @@
 /* =========================================
    1. GLOBAL LAYOUT & TYPOGRAPHY
    ========================================= */
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap');
+
 .service-listing-page {
   min-height: 100vh;
   padding: 40px 20px 80px; /* Extra bottom padding for footer space */
-  background-color: #f3f4f6; /* Light gray background for contrast */
+  background-color: #fff; /* Updated to White */
+  font-family: 'Poppins', sans-serif; /* Updated to Poppins */
 }
 
 .service-listing-page .container {
@@ -15,7 +18,7 @@
 .page-title {
   font-size: 2rem;
   font-weight: 800;
-  color: #111827;
+  color: #0E2679; /* Updated to Blue */
   margin-bottom: 8px;
   text-align: center;
 }
@@ -41,13 +44,13 @@
   border: 1px solid #e5e7eb;
   border-radius: 16px;
   padding: 30px;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 
-              0 2px 4px -1px rgba(0, 0, 0, 0.03);
+  box-shadow: 0 4px 6px -1px rgba(14, 38, 121, 0.05), 
+              0 2px 4px -1px rgba(14, 38, 121, 0.03);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .service-form-card:hover {
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 10px 15px -3px rgba(14, 38, 121, 0.1);
 }
 
 /* Header & Badges */
@@ -72,15 +75,15 @@
 }
 
 .service-type-badge.package {
-  background-color: #eff6ff;
-  color: #2563eb;
-  border: 1px solid #dbeafe;
+  background-color: #0E2679; /* Updated to Blue */
+  color: #fff; /* Updated to White */
+  border: 1px solid #0E2679;
 }
 
 .service-type-badge.individual {
-  background-color: #fdf2f8;
-  color: #db2777;
-  border: 1px solid #fce7f3;
+  background-color: #0E2679; /* Updated to Yellow */
+  color: #0E2679; /* Updated to Blue */
+  border: 1px solid #0E2679;
 }
 
 .icon-btn-remove {
@@ -115,7 +118,7 @@
 .form-field label, .pricing-section > label {
   font-size: 0.9rem;
   font-weight: 600;
-  color: #374151;
+  color: #0E2679; /* Updated to Blue */
 }
 
 .form-field input,
@@ -125,14 +128,16 @@
   border-radius: 8px;
   font-size: 0.95rem;
   background-color: #fff;
+  font-family: 'Poppins', sans-serif;
   transition: border-color 0.2s, box-shadow 0.2s;
+  color: #0E2679;
 }
 
 .form-field input:focus,
 .form-field textarea:focus {
   outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+  border-color: #fbbf24; /* Updated to Yellow */
+  box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.15);
 }
 
 .form-field textarea {
@@ -153,6 +158,7 @@
   border-radius: 8px;
   overflow: hidden; /* Contains the children */
   background: #fff;
+  color: #0E2679;
 }
 
 /* Grid Layout for Table */
@@ -165,13 +171,13 @@
 }
 
 .pricing-header {
-  background-color: #f9fafb;
+  /*background-color: #0E2679;  Updated to Blue */
   padding: 10px 12px;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid #c3c5cd;
   font-size: 0.75rem;
   font-weight: 700;
   text-transform: uppercase;
-  color: #6b7280;
+  color: #0E2679; /* Updated to White */
   letter-spacing: 0.05em;
 }
 
@@ -191,12 +197,13 @@
   border: 1px solid #e5e7eb;
   border-radius: 6px;
   font-size: 0.9rem;
-  color: #1f2937;
+  color: #0E2679;
+  font-family: 'Poppins', sans-serif;
 }
 
 .pricing-cell input:focus,
 .pricing-cell select:focus {
-  border-color: #3b82f6;
+  border-color: #fbbf24; /* Updated to Yellow */
   outline: none;
 }
 
@@ -228,16 +235,17 @@
   color: white;
 }
 
-/* Add Variant Button (The Blue Style) */
+/* Add Variant Button */
 .btn-add-pricing {
   margin-top: 10px;
   padding: 10px;
-  background-color: #eff6ff; 
-  color: #1d4ed8;
-  border: 1px dashed #3b82f6;
+  background-color: #fff; 
+  color: #0E2679; /* Updated to Blue */
+  border: 1px dashed #0E2679; /* Updated to Blue */
   border-radius: 8px;
   font-weight: 600;
   font-size: 0.9rem;
+  font-family: 'Poppins', sans-serif;
   cursor: pointer;
   width: 100%;
   display: flex;
@@ -247,7 +255,8 @@
 }
 
 .btn-add-pricing:hover {
-  background-color: #dbeafe;
+  background-color: #fffbeb;
+  border-color: #fbbf24; /* Updated to Yellow */
   border-style: solid;
 }
 
@@ -256,7 +265,7 @@
    ========================================= */
 .summary-intro {
   text-align: center;
-  color: #4b5563;
+  color: #0E2679 !important; /* Blue */
   margin-bottom: 30px;
 }
 
@@ -279,13 +288,13 @@
   background-color: #f8fafc;
   padding: 15px 25px;
   border-bottom: 1px solid #e5e7eb;
-  border-top: 4px solid #3b82f6; /* Accent color on top */
+  border-top: 4px solid #fbbf24; 
 }
 
 .summary-header h3 {
   margin: 0;
   font-size: 1.1rem;
-  color: #1e40af;
+  color: #0E2679 !important; /* Blue */
   font-weight: 700;
 }
 
@@ -296,14 +305,14 @@
 .summary-row {
   margin-bottom: 12px;
   font-size: 0.95rem;
-  color: #374151;
+  color: #0E2679 !important; /* Forces Blue */
   display: flex;
   gap: 10px;
 }
 
 .summary-row strong {
   min-width: 100px;
-  color: #111827;
+  color: #0E2679 !important; /* Forces Bold labels to Blue */
 }
 
 /* Review Table */
@@ -318,14 +327,14 @@
   width: 100%;
   border-collapse: collapse;
   font-size: 0.9rem;
+  color: #0E2679 !important; /* Updated to Blue */
 }
 
 .summary-table th {
-  background-color: #f3f4f6;
   text-align: left;
   padding: 10px 15px;
   font-weight: 600;
-  color: #4b5563;
+  color: #0E2679 !important; /* Updated to Blue */
   font-size: 0.8rem;
   text-transform: uppercase;
 }
@@ -333,7 +342,7 @@
 .summary-table td {
   padding: 10px 15px;
   border-top: 1px solid #f3f4f6;
-  color: #1f2937;
+  color: #0E2679 !important; /* Updated to Blue */
 }
 
 .summary-table tr:last-child td {
@@ -342,7 +351,7 @@
 
 .summary-table td:last-child {
   font-weight: 700;
-  color: #059669; /* Price Green */
+  color: #0E2679 !important; /* Blue */
 }
 
 /* =========================================
@@ -359,15 +368,16 @@
 
 /* Primary "Save/Next" Button */
 .btn-save-services, .btn-final-save {
-  background-color: #2563eb;
+  background-color: #0E2679; /* Updated to Blue */
   color: white;
   border: none;
   padding: 12px 28px;
   border-radius: 8px;
   font-weight: 600;
   font-size: 1rem;
+  font-family: 'Poppins', sans-serif;
   cursor: pointer;
-  box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2);
+  box-shadow: 0 4px 6px -1px rgba(14, 38, 121, 0.2);
   transition: background 0.2s;
   display: flex;
   align-items: center;
@@ -375,7 +385,8 @@
 }
 
 .btn-save-services:hover, .btn-final-save:hover {
-  background-color: #1d4ed8;
+  background-color: #fbbf24; /* Updated to Yellow */
+  color: #0E2679; /* Text color change on hover */
 }
 
 /* Secondary "Add" Buttons */
@@ -386,12 +397,13 @@
 
 .btn-add-individual, .btn-add-package, .btn-back {
   background-color: white;
-  color: #374151;
-  border: 1px solid #d1d5db;
+  color: #0E2679; /* Updated to Blue */
+  border: 1px solid #0E2679; /* Updated to Blue */
   padding: 10px 20px;
   border-radius: 8px;
   font-weight: 600;
   font-size: 0.95rem;
+  font-family: 'Poppins', sans-serif;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -400,9 +412,9 @@
 }
 
 .btn-add-individual:hover, .btn-add-package:hover, .btn-back:hover {
-  background-color: #f9fafb;
-  border-color: #9ca3af;
-  color: #111827;
+  background-color: #fffbeb;
+  border-color: #fbbf24; /* Updated to Yellow */
+  color: #0E2679;
 }
 
 /* =========================================
@@ -438,7 +450,7 @@
 .modal-overlay {
   position: fixed;
   top: 0; left: 0; width: 100%; height: 100%;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(14, 38, 121, 0.5); /* Updated to Blue shade */
   backdrop-filter: blur(2px);
   z-index: 1000;
   display: flex;
@@ -455,6 +467,7 @@
   max-width: 480px;
   text-align: center;
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+  font-family: 'Poppins', sans-serif;
 }
 
 .modal-content.final-confirm-modal.success { border-top: 6px solid #10b981; }
@@ -463,7 +476,7 @@
 .modal-header-center h2 {
   font-size: 1.5rem;
   margin: 10px 0;
-  color: #111827;
+  color: #0E2679; /* Updated to Blue */
 }
 
 .modal-body-center {
@@ -474,8 +487,8 @@
 
 .modal-warning-text {
   background-color: #fffbeb;
-  color: #b45309;
-  border: 1px solid #fcd34d;
+  color: #0E2679; /* Updated to Blue */
+  border: 1px solid #fbbf24; /* Updated to Yellow */
   padding: 12px;
   border-radius: 8px;
   margin-top: 15px;
@@ -495,26 +508,35 @@
   background: white;
   border-radius: 8px;
   font-weight: 600;
+  font-family: 'Poppins', sans-serif;
   cursor: pointer;
 }
 
 .btn-modal-confirm {
   padding: 10px 24px;
-  background: #1e40af;
+  background: #0E2679 !important; /* Main Blue */
   color: white;
   border: none;
   border-radius: 8px;
   font-weight: 600;
+  font-family: 'Poppins', sans-serif;
   cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-modal-confirm:hover {
+  background: #fbbf24 !important; /* Secondary Yellow */
+  color: #0E2679 !important; /* Blue Text */
 }
 
 .btn-modal-dashboard {
   padding: 12px 24px;
-  background-color: #10b981;
-  color: white;
+  background-color: #fbbf24; /* Updated to Yellow */
+  color: #0E2679; /* Updated to Blue */
   border: none;
   border-radius: 8px;
   font-weight: 600;
+  font-family: 'Poppins', sans-serif;
   cursor: pointer;
 }
 
@@ -554,16 +576,6 @@
     gap: 15px;
     padding: 20px 10px;
     border-bottom: 2px dashed #e5e7eb;
-  }
-  
-  /* Add pseudo-labels so users know what the fields are on mobile */
-  .pricing-cell::before {
-    content: attr(data-label); /* Note: requires JS update to work perfectly, or hardcoded below */
-    display: block;
-    font-size: 0.75rem;
-    font-weight: 700;
-    color: #9ca3af;
-    margin-bottom: 4px;
   }
   
   /* Manual labels for CSS-only solution */

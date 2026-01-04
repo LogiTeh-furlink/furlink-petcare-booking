@@ -602,7 +602,7 @@ export default function ServiceListing() {
                 <div className="summary-body">
                   <div className="summary-row"><strong>Name:</strong> {service.name}</div>
                   <div className="summary-row"><strong>Description:</strong> {service.description || "N/A"}</div>
-                  <div className="summary-row"><strong>Description:</strong> {service.notes || "N/A"}</div>
+                  <div className="summary-row"><strong>Notes:</strong> {service.notes || "N/A"}</div>
                   <div className="summary-pricing">
                     <table className="summary-table">
                       <thead><tr><th>Type</th><th>Size</th><th>Weight (kg)</th><th>Price</th></tr></thead>
