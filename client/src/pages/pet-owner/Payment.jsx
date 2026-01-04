@@ -171,41 +171,53 @@ export default function Payment() {
       
       <div className="payment-container">
         
-        <div className="payment-header">
-          <button className="back-btn" onClick={() => navigate(-1)}>
-            <FaArrowLeft /> Cancel Payment
-          </button>
+        {/* --- UPDATED HEADER: Centered --- */}
+        <div className="payment-header centered-header">
+          <button className="back-btn absolute-left" onClick={() => navigate(-1)}>
+            <FaArrowLeft />
+          </button> 
           <h1>Complete Your Payment</h1>
         </div>
 
         <div className="payment-grid-layout">
-          
-          {/* --- TOP LEFT: DETAILS --- */}
-          <div className="info-card details-section">
-            <h3 className="card-title"><FaFileInvoiceDollar/> Booking Summary</h3>
-            <div className="summary-grid">
-               <div className="summary-item">
-                 <span className="label">Total Amount</span>
-                 <span className="amount-highlight">{formatCurrency(booking.total_estimated_price)}</span>
-               </div>
-               <div className="summary-item">
-                 <span className="label">Provider</span>
-                 <span>{booking.service_providers?.business_name}</span>
-               </div>
-               <div className="summary-item">
-                 <span className="label">Schedule</span>
-                 <span>{formatDateTime(booking.booking_date, booking.time_slot)}</span>
-               </div>
-            </div>
+        {/* --- TOP LEFT: DETAILS --- */}
+        <div className="info-card details-section">
+          <h3 className="card-title"><FaFileInvoiceDollar/> Booking Summary</h3>
+          <div className="summary-grid">
+              {/* NEW: Down Payment (Displayed First and Bigger) */}
+              <div className="summary-item downpayment-highlight-box">
+                <span className="label">Amount to Pay (Down Payment)</span>
+                <span className="downpayment-amount">
+                  {formatCurrency(booking.installation_payment)}
+                </span>
+                <small className="price-note">30% of total amount required to confirm booking</small>
+              </div>
+
+              <div className="summary-item">
+                <span className="label">Total Amount</span>
+                <span className="total-amount-sub">
+                  {formatCurrency(booking.total_estimated_price)}
+                </span>
+              </div>
+              
+              <div className="summary-item">
+                <span className="label">Provider</span>
+                <span>{booking.service_providers?.business_name}</span>
+              </div>
+              <div className="summary-item">
+                <span className="label">Schedule</span>
+                <span>{formatDateTime(booking.booking_date, booking.time_slot)}</span>
+              </div>
+          </div>
 
             <h4 className="sub-header"><FaPaw/> Pet Details</h4>
             <div className="pets-scroll">
               {booking.booking_pets?.map((pet, idx) => (
                 <div key={idx} className="mini-pet-card">
                   <strong>{idx + 1}. {pet.pet_name} ({pet.pet_type})</strong>
-                  <p className="mini-specs">{pet.breed} • {pet.weight_kg}kg • {pet.gender}</p>
+                  <p className="mini-specs">{pet.breed} | {pet.weight_kg}kg | {pet.gender}</p>
                   <p className="mini-services">
-                    Svcs: {pet.booking_services?.map(s => s.service_name).join(', ')}
+                    <b>Service/s</b>: {pet.booking_services?.map(s => s.service_name).join(', ')}
                   </p>
                 </div>
               ))}
@@ -322,7 +334,7 @@ export default function Payment() {
           <div className="modal-content success-modal">
             <div className="success-icon"><FaCheckCircle /></div>
             <h3>Payment Submitted!</h3>
-            <p>Your booking is now under review. Please wait for the provider to verify your payment.</p>
+            <p>Your payment is now under review. Please wait for the provider to verify your payment.</p>
             <button className="done-btn" onClick={handleFinish}>Return to History</button>
           </div>
         </div>
