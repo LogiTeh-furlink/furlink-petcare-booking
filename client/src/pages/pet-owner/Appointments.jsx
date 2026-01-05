@@ -411,7 +411,15 @@ export default function Appointments() {
                     {tab === 'rate' && <FaStar />}
                     {counts[tab] > 0 && <span className="badge-count">{counts[tab]}</span>}
                   </div>
-                  <span>{tab === 'awaiting' ? 'Awaiting Approval' : tab === 'payment' ? 'For Payment' : tab.charAt(0).toUpperCase() + tab.slice(1)}</span>
+                  <span>
+                    {tab === 'awaiting' 
+                      ? 'Awaiting Approval' 
+                      : tab === 'payment' 
+                      ? 'For Payment' 
+                      : tab === 'rate' 
+                      ? 'To Rate' // Manually set 'rate' to 'To Rate'
+                      : tab.charAt(0).toUpperCase() + tab.slice(1)}
+                  </span>
                 </div>
               ))}
             </div>
@@ -535,31 +543,99 @@ export default function Appointments() {
       )}
 
       {showFeedbackModal && (
-        <div className="modal-overlay">
-           <div className="modal-content small-modal">
-              <div className="modal-header"><h3>Rate Experience</h3><button className="close-btn" onClick={handleCloseAll}><FaTimes/></button></div>
-              <div className="modal-body">
-                 <div className="rating-group">
-                    <label>Overall Experience</label>
-                    <div className="stars-container">
-                      {[1,2,3,4,5].map(star => <FaStar key={`overall-${star}`} className={`star-icon ${feedbackForm.overallRating >= star ? 'filled' : ''}`} onClick={() => setFeedbackForm({...feedbackForm, overallRating: star})} />)}
-                    </div>
-                 </div>
-                 <div className="rating-group">
-                    <label>Staff Rating</label>
-                    <div className="stars-container">
-                      {[1,2,3,4,5].map(star => <FaStar key={`staff-${star}`} className={`star-icon ${feedbackForm.staffRating >= star ? 'filled' : ''}`} onClick={() => setFeedbackForm({...feedbackForm, staffRating: star})} />)}
-                    </div>
-                 </div>
-                 <textarea className="feedback-textarea" placeholder="Your feedback..." value={feedbackForm.comment} onChange={(e) => setFeedbackForm({...feedbackForm, comment: e.target.value})} />
+      <div className="modal-overlay">
+        <div className="modal-content small-modal">
+          <div className="modal-header">
+            <h3>Rate Experience</h3>
+            <button className="close-btn" onClick={handleCloseAll}><FaTimes/></button>
+          </div>
+
+          <div className="modal-body">
+            {/* Overall Experience Group */}
+            <div className="rating-group">
+              <label style={{ color: 'var(--brand-blue)', fontWeight: '700' }}>
+                Overall Experience <span className="req" style={{ color: 'var(--brand-red)' }}>*</span>
+              </label>
+              <div className="stars-container">
+                {[1, 2, 3, 4, 5].map(star => (
+                  <FaStar 
+                    key={`overall-${star}`} 
+                    className={`star-icon ${feedbackForm.overallRating >= star ? 'filled' : ''}`} 
+                    onClick={() => setFeedbackForm({...feedbackForm, overallRating: star})} 
+                    style={{ 
+                      cursor: 'pointer', 
+                      fontSize: '2rem', 
+                      color: feedbackForm.overallRating >= star ? 'var(--brand-yellow)' : '#e2e8f0',
+                      marginRight: '5px'
+                    }}
+                  />
+                ))}
               </div>
-              <div className="modal-footer">
-                 <button className="secondary-btn" onClick={handleCloseAll}>Cancel</button>
-                 <button className="confirm-btn-yes" onClick={handleSubmitFeedback} disabled={actionLoading}>Submit Review</button>
+            </div>
+
+            {/* Staff Rating Group */}
+            <div className="rating-group" style={{ marginTop: '1.5rem' }}>
+              <label style={{ color: 'var(--brand-blue)', fontWeight: '700' }}>
+                Staff Rating <span className="req" style={{ color: 'var(--brand-red)' }}>*</span>
+              </label>
+              <div className="stars-container">
+                {[1, 2, 3, 4, 5].map(star => (
+                  <FaStar 
+                    key={`staff-${star}`} 
+                    className={`star-icon ${feedbackForm.staffRating >= star ? 'filled' : ''}`} 
+                    onClick={() => setFeedbackForm({...feedbackForm, staffRating: star})} 
+                    style={{ 
+                      cursor: 'pointer', 
+                      fontSize: '2rem', 
+                      color: feedbackForm.staffRating >= star ? 'var(--brand-yellow)' : '#e2e8f0',
+                      marginRight: '5px'
+                    }}
+                  />
+                ))}
               </div>
-           </div>
+            </div>
+
+            {/* Feedback Textarea with Counter */}
+            <div className="textarea-group" style={{ marginTop: '1.5rem' }}>
+              <label style={{ color: 'var(--brand-blue)', fontWeight: '700', display: 'block', marginBottom: '8px' }}>
+                Comments
+              </label>
+              <textarea 
+                className="feedback-textarea" 
+                placeholder="Tell us about your experience..." 
+                value={feedbackForm.comment} 
+                maxLength={500}
+                onChange={(e) => setFeedbackForm({...feedbackForm, comment: e.target.value})} 
+                style={{ width: '100%', padding: '12px', borderRadius: '10px', border: '1.5px solid var(--border-light)', minHeight: '100px', fontFamily: 'inherit' }}
+              />
+              <div style={{ textAlign: 'right', fontSize: '0.75rem', color: feedbackForm.comment.length >= 500 ? 'var(--brand-red)' : 'var(--text-muted)', marginTop: '5px', fontWeight: '600' }}>
+                {feedbackForm.comment.length} / 500
+              </div>
+            </div>
+          </div>
+
+          <div className="modal-footer" style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '2rem' }}>
+            <button className="secondary-btn" onClick={handleCloseAll}>Cancel</button>
+            <button 
+              className="confirm-btn-yes" 
+              onClick={handleSubmitFeedback} 
+              disabled={actionLoading || feedbackForm.overallRating === 0 || feedbackForm.staffRating === 0}
+              style={{ 
+                backgroundColor: (feedbackForm.overallRating === 0 || feedbackForm.staffRating === 0) ? '#cbd5e1' : 'var(--brand-blue)',
+                color: 'white',
+                padding: '10px 20px',
+                borderRadius: '8px',
+                border: 'none',
+                fontWeight: '700',
+                cursor: (feedbackForm.overallRating === 0 || feedbackForm.staffRating === 0) ? 'not-allowed' : 'pointer'
+              }}
+            >
+              {actionLoading ? "Submitting..." : "Submit Review"}
+            </button>
+          </div>
         </div>
-      )}
+      </div>
+    )}
 
       {showCancelModal && (
         <div className="modal-overlay">
@@ -572,10 +648,46 @@ export default function Appointments() {
       )}
 
       {showSuccessModal && (
-        <div className="modal-overlay">
-           <div className="modal-content small-modal" style={{textAlign:'center', padding:'2rem'}}><FaCheckCircle style={{fontSize:'4rem', color:'var(--brand-green)', marginBottom:'1rem'}}/><h3>{successTitle}</h3><p>{successMessage}</p><button className="confirm-btn-yes" onClick={() => setShowSuccessModal(false)} style={{width:'100%'}}>OK</button></div>
+      <div className="modal-overlay">
+        <div 
+          className="modal-content small-modal" 
+          style={{
+            display: 'flex',           // Enable Flexbox
+            flexDirection: 'column',    // Stack items vertically
+            alignItems: 'center',       // Center items horizontally
+            justifyContent: 'center',   // Center items vertically
+            textAlign: 'center', 
+            padding: '3rem 2rem',       // Increased padding for better spacing
+            borderRadius: '16px'
+          }}
+        >
+          <FaCheckCircle 
+            style={{
+              fontSize: '4.5rem', 
+              color: 'var(--brand-green)', 
+              marginBottom: '1.5rem',
+              display: 'block'          // Ensure it behaves as a centered block
+            }}
+          />
+          
+          <h3 style={{ color: 'var(--brand-blue)', fontWeight: '800', marginBottom: '0.5rem' }}>
+            {successTitle}
+          </h3>
+          
+          <p style={{ color: 'var(--text-muted)', marginBottom: '2rem' }}>
+            {successMessage}
+          </p>
+          
+          <button 
+            className="confirm-btn-yes" 
+            onClick={() => setShowSuccessModal(false)} 
+            style={{ width: '100%', maxWidth: '250px' }} // Added maxWidth for a cleaner button look
+          >
+            OK
+          </button>
         </div>
-      )}
+      </div>
+    )}
       <Footer />
     </div>
   );
