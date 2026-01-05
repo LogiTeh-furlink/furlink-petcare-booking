@@ -6,8 +6,9 @@ import {
   MapPin, X, ChevronDown, 
   ChevronLeft, ChevronRight, Clock, 
   Facebook, Instagram, Globe, ExternalLink,
-  Calendar as CalendarIcon, Users, Star, User
+  Calendar as CalendarIcon, Users, User
 } from "lucide-react";
+import { FaStar, FaStarHalfAlt, FaRegStar } from "react-icons/fa";
 import Header from "../../components/Header/LoggedInNavbar";
 import Footer from "../../components/Footer/Footer";
 import "./ListingInfo.css";
@@ -121,19 +122,23 @@ const ImageModal = ({ isOpen, onClose, images, currentIndex, onNext, onPrev }) =
 };
 
 // --- Star Rating Helper ---
-const StarRating = ({ rating, size = 16 }) => {
-  return (
-    <div className="star-rating-row">
-      {[1, 2, 3, 4, 5].map((star) => (
-        <Star 
-          key={star} 
-          size={size} 
-          className={star <= Math.round(rating) ? "star-filled" : "star-empty"} 
-          fill={star <= Math.round(rating) ? "#fdbf00" : "none"}
-        />
-      ))}
-    </div>
-  );
+const StarRating = ({ rating, size = 14 }) => {
+  const stars = [];
+  
+  for (let i = 1; i <= 5; i++) {
+    if (i <= rating) {
+      // Full star for values like 1.0, 2.0, etc.
+      stars.push(<FaStar key={i} size={size} color="#facc15" />);
+    } else if (i - 0.5 <= rating) {
+      // Half star for decimals >= .5
+      stars.push(<FaStarHalfAlt key={i} size={size} color="#facc15" />);
+    } else {
+      // Empty star for the remainder
+      stars.push(<FaRegStar key={i} size={size} color="#cbd5e1" />);
+    }
+  }
+
+  return <div className="stars-wrapper">{stars}</div>;
 };
 
 const ListingInfo = () => {
@@ -525,7 +530,17 @@ const ListingInfo = () => {
                               <span className="review-date">{formatDate(review.created_at)}</span>
                             </div>
                             <div className="review-stars-display">
-                                <StarRating rating={(review.rating_overall + review.rating_staff) / 2} size={14} />
+                              {(() => {
+                                const avgRating = (review.rating_overall + review.rating_staff) / 2;
+                                return (
+                                  <>
+                                    <StarRating rating={avgRating} size={14} />
+                                    <span className="rating-decimal-text">
+                                      {avgRating.toFixed(1)}
+                                    </span>
+                                  </>
+                                );
+                              })()}
                             </div>
                           </div>
                           

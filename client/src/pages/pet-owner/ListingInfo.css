@@ -201,14 +201,14 @@
 }
 
 .location-link {
-  color: #2563eb; /* Bright link blue */
+  color: #222588; /* Bright link blue */
   text-decoration: none;
   padding-bottom: 2px;
   transition: all 0.2s;
   line-height: 1.4;
   display: flex; align-items: center;
 }
-.location-link:hover { color: #1e40af; border-bottom-color: #1e40af; }
+.location-link:hover { color: #fdbf00; border-bottom-color: #1e40af; }
 .location-link.disabled { pointer-events: none; border-bottom: none; color: #8fa3d0; }
 
 /* Section Titles */
@@ -317,7 +317,7 @@
 .pricing-table th { padding: 12px; text-align: left; font-weight: 600; font-size: 0.875rem; color: #153e75; /* Deep Navy */ }
 .pricing-table tbody tr { border-top: 1px solid #dbeafe; }
 .pricing-table td { padding: 12px; font-size: 0.875rem; }
-.pricing-table td:last-child { font-weight: 600; color: #059669; }
+.pricing-table td:last-child { font-weight: 600; color: #2a5298; }
 
 /* =========================================
    BOOKING SIDEBAR
@@ -678,12 +678,34 @@
 .star-filled { color: #fdbf00; /* Gold */ }
 .star-empty { color: #dbeafe; /* Very light blue */ }
 
+.stars-wrapper {
+  display: flex;
+  gap: 2px;
+  align-items: center;
+}
+
+.review-stars-display {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rating-decimal-text {
+  font-family: 'Poppins', sans-serif; /* Use Poppins for consistency */
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #1e3a8a; /* Your Brand Blue */
+  background-color: #eff6ff; /* Soft blue background pill */
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
 /* =========================================
    IMAGE MODAL (CAROUSEL)
    ========================================= */
 .image-modal-overlay {
   position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-  background-color: rgba(21, 62, 117, 0.95); /* Deep Navy overlay */
+  background-color: rgba(216, 222, 231, 0.95); /* Deep Navy overlay */
   display: flex; align-items: center; justify-content: center;
   z-index: 9999; padding: 2rem;
 }
@@ -704,7 +726,7 @@
 
 .image-nav-btn {
   position: absolute; top: 50%; transform: translateY(-50%);
-  background: rgba(255,255,255,0.2); color: white;
+  background: rgba(204, 204, 204, 0.2); color: rgb(30, 28, 121);
   border: none; border-radius: 50%; padding: 12px;
   cursor: pointer; z-index: 10001; transition: background 0.2s;
 }
