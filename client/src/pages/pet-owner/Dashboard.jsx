@@ -53,57 +53,60 @@ const Dashboard = () => {
     };
 
     const fetchProviders = async () => {
-      const { data, error } = await supabase
-        .from("service_providers")
-        // 3. IMPORTANT: Select 'user_id' so we know who owns this shop
-        .select("id, business_name, city, user_id") 
-        .eq("status", "approved")
-        .order("created_at", { ascending: false });
+  const { data, error } = await supabase
+    .from("service_providers")
+    .select(`
+      id, 
+      business_name, 
+      city, 
+      user_id,
+      provider_rating_analytics(total_combined_avg)
+    `) 
+    .eq("status", "approved")
+    .order("created_at", { ascending: false });
 
-      if (!error && data) {
-        const providersWithDetails = await Promise.all(
-          data.map(async (provider) => {
-            const { data: services } = await supabase
-              .from("services")
-              .select(`service_options (price)`)
-              .eq("provider_id", provider.id);
+  if (!error && data) {
+    const providersWithDetails = await Promise.all(
+      data.map(async (provider) => {
+        // --- Keep existing Price Logic ---
+        const { data: services } = await supabase
+          .from("services")
+          .select(`service_options (price)`)
+          .eq("provider_id", provider.id);
 
-            let minPrice = null;
-            let maxPrice = null;
+        let minPrice = null, maxPrice = null;
+        if (services?.length > 0) {
+          const prices = services.flatMap(s => s.service_options || []).map(opt => parseFloat(opt.price)).filter(p => !isNaN(p));
+          if (prices.length > 0) {
+            minPrice = Math.min(...prices);
+            maxPrice = Math.max(...prices);
+          }
+        }
 
-            if (services && services.length > 0) {
-              const prices = services
-                .flatMap((s) => s.service_options || [])
-                .map((opt) => parseFloat(opt.price))
-                .filter((p) => !isNaN(p));
+        // --- Keep existing Image Logic ---
+        const { data: images } = await supabase
+          .from("service_provider_images")
+          .select("image_url")
+          .eq("provider_id", provider.id)
+          .limit(1);
 
-              if (prices.length > 0) {
-                minPrice = Math.min(...prices);
-                maxPrice = Math.max(...prices);
-              }
-            }
+        // --- DYNAMIC RATING LOGIC ---
+        // This looks into the joined array for the specific provider's data
+        const stats = provider.provider_rating_analytics?.[0];
+        const avgRating = stats ? parseFloat(stats.total_combined_avg).toFixed(1) : "0.0";
 
-            const { data: images } = await supabase
-              .from("service_provider_images")
-              .select("image_url")
-              .eq("provider_id", provider.id)
-              .limit(1);
+        return {
+          ...provider,
+          priceRange: minPrice ? `₱${minPrice} - ₱${maxPrice}` : "Price not available",
+          imageUrl: images?.[0]?.image_url || null,
+          rating: avgRating // This is now unique to EACH shop
+        };
+      })
+    );
 
-            return {
-              ...provider,
-              priceRange:
-                minPrice && maxPrice
-                  ? `₱${minPrice} - ₱${maxPrice}`
-                  : "Price not available",
-              imageUrl:
-                images && images.length > 0 ? images[0].image_url : null,
-            };
-          })
-        );
-
-        setProviders(providersWithDetails);
-      }
-    };
+    setProviders(providersWithDetails);
+  }
+};
 
     const loadData = async () => {
       setLoading(true);
@@ -165,7 +168,7 @@ const Dashboard = () => {
                   <p className="provider-price">{provider.priceRange}</p>
 
                   <div className="provider-rating">
-                    <span className="rating-value">0.0</span>
+                    <span className="rating-value">{provider.rating}</span>
                   </div>
                 </div>
               </div>

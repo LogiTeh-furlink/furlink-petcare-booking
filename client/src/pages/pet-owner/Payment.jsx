@@ -154,7 +154,7 @@ export default function Payment() {
   };
 
   const handleFinish = () => {
-    navigate("/booking-history");
+    navigate("/appointments");
   };
 
   const formatCurrency = (val) => `₱${parseFloat(val || 0).toLocaleString('en-PH', {minimumFractionDigits: 2})}`;
@@ -335,7 +335,7 @@ export default function Payment() {
             <div className="success-icon"><FaCheckCircle /></div>
             <h3>Payment Submitted!</h3>
             <p>Your payment is now under review. Please wait for the provider to verify your payment.</p>
-            <button className="done-btn" onClick={handleFinish}>Return to History</button>
+            <button className="done-btn" onClick={handleFinish}>Return to Appointments</button>
           </div>
         </div>
       )}

@@ -1,14 +1,16 @@
 /* src/pages/auth/Dashboard.css */
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
 
 .dashboard-page {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  font-family: 'Poppins', sans-serif; /* Global Poppins application */
 }
 
 .dashboard-container {
   flex: 1;
-  background-color: #ffffff;
+  background-color: #f8fafc; /* Light slate background for better card contrast */
   padding: 2rem 1rem;
 }
 
@@ -16,7 +18,7 @@
 .dashboard-loading {
   text-align: center;
   padding: 4rem;
-  color: #6b7280;
+  color: #64748b; /* Slate-500 instead of pure gray */
 }
 
 .dashboard-content {
@@ -25,10 +27,11 @@
 }
 
 .dashboard-title {
-  color: #0E2679;
+  color: #0E2679; /* Brand Blue */
   font-size: 1.75rem;
-  font-weight: 600;
+  font-weight: 700;
   margin-bottom: 2rem;
+  letter-spacing: -0.5px;
 }
 
 .providers-grid {
@@ -39,41 +42,45 @@
 
 .provider-card {
   background: white;
-  border-radius: 12px;
+  border-radius: 16px; /* Slightly rounder for modern look */
   overflow: hidden;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  transition: transform 0.2s, box-shadow 0.2s;
-  cursor: pointer; /* Moved from inline style */
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s;
+  cursor: pointer;
+  border: 1px solid #f1f5f9;
 }
 
 .provider-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transform: translateY(-6px);
+  box-shadow: 0 12px 20px -5px rgba(14, 38, 121, 0.1);
+  border-color: #0E2679;
 }
 
 .provider-image-container {
   width: 100%;
   height: 200px;
   overflow: hidden;
+  position: relative;
 }
 
 .provider-image {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  border-radius: 8px;
 }
 
 .provider-image-placeholder {
   width: 100%;
   height: 100%;
-  background: linear-gradient(135deg, #e5e7eb 0%, #d1d5db 100%);
+  background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .provider-info {
-  padding: 1rem;
+  padding: 1.25rem;
 }
 
 .provider-header {
@@ -84,55 +91,53 @@
 }
 
 .provider-name {
-  font-size: 1.1rem;
-  font-weight: 600;
-  color: #1f2937;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #0E2679 !important; /* Dark Slate-800 instead of black */
   margin: 0;
   flex: 1;
-}
-
-.favorite-btn {
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 0.25rem;
-  color: #9ca3af;
-  transition: color 0.2s;
-}
-
-.favorite-btn:hover {
-  color: #ef4444;
+  line-height: 1.3;
 }
 
 .provider-location {
-  color: #6b7280;
-  font-size: 0.9rem;
+  color: #0E2679 !important; /* Slate-500 */
+  font-size: 0.85rem;
   margin: 0.25rem 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .provider-price {
-  color: #0E2679;
-  font-size: 0.9rem;
-  font-weight: 500;
-  margin: 0.25rem 0;
+  color: #0E2679; /* Brand Blue */
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin: 0.5rem 0;
 }
 
+/* Updated Provider Rating Styling */
 .provider-rating {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  margin-top: 0.5rem;
+  gap: 0.4rem;
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid #f1f5f9;
 }
 
 .rating-value {
-  color: #FDBF00;
-  font-weight: 600;
-  font-size: 0.95rem;
+  color: #fbbf24; /* Brand Blue */
+  font-weight: 700;
+  font-size: 0.9rem;
+  background-color: #fdffef; /* Very light blue pill background */
+  padding: 2px 8px;
+  border-radius: 6px;
 }
 
 /* Empty State Message */
 .dashboard-empty-message {
   text-align: center;
-  color: #6b7280;
-  margin-top: 2rem;
+  color: #94a3b8;
+  margin-top: 4rem;
+  font-weight: 500;
 }
