@@ -189,7 +189,7 @@ const ReviewBookingModal = ({ isOpen, onClose, onConfirm, pets, date, time, tota
         <div className="modal-overlay">
             <div className="modal-content review-booking-modal">
                 <div className="modal-header">
-                    <h2><FileCheck size={24} className="icon-brand"/> Review Booking Details</h2>
+                    <h2><FileCheck size={24} className="icon-brand"/>Booking Details</h2>
                     <p>Please double-check all information and attachments.</p>
                 </div>
 
@@ -869,19 +869,19 @@ const PetDetails = () => {
         <div className="page-header-row">
             <div className="header-left-actions">
                 <button onClick={handleBackAndSave} className="btn-back">
-                    <ArrowLeft size={16} /> Back
+                    <ArrowLeft size={16} />
                 </button>
             </div>
             
             <div className="header-right-actions">
-                <div className="booking-summary-badge">{displayDate} @ {displayTime}</div>
+                <div className="booking-summary-badge">{displayDate} at {displayTime}</div>
                 
                 <div className="header-price-box" style={{display: 'flex', flexDirection: 'column', alignItems: 'flex-end', marginRight: '15px'}}>
                     <div style={{fontSize: '0.85rem', color: '#64748b', marginBottom: '2px'}}>
-                        Grand Total: <span style={{textDecoration: 'none', fontWeight: '600'}}>₱{calculateGrandTotal().toFixed(2)}</span>
+                        Total Amount: <span style={{textDecoration: 'none', fontWeight: '600'}}>₱{calculateGrandTotal().toFixed(2)}</span>
                     </div>
-                    <div style={{color: '#2563eb', fontWeight: '700', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '6px'}}>
-                        <span style={{fontSize: '0.8rem', opacity: 0.9, fontWeight: '500'}}>Installation Payment (30%):</span>
+                    <div style={{color: '#0E2679', fontWeight: '700', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '6px'}}>
+                        <span style={{fontSize: '0.8rem', opacity: 0.9, fontWeight: '500'}}>30% Down Payment:</span>
                         ₱{calculateInstallationPayment().toFixed(2)}
                     </div>
                 </div>
@@ -891,6 +891,18 @@ const PetDetails = () => {
                 </button>
             </div>
         </div>
+
+        <span style={{
+            display: 'inline-block', // Required for vertical padding/margin to work
+            fontSize: '1.0rem', 
+            marginBottom: '10px', 
+            paddingBottom: '15px', // Added bottom padding
+            opacity: 0.9, 
+            fontWeight: '500',
+            color: '#0E2679' // Slate color to avoid black text
+        }}>
+            Down payments are non-refundable after payment, even in the event of cancellation.
+        </span>
 
         <form className={`all-pets-form ${getGridClass()}`}>
             {petsData.map((pet, index) => {
@@ -1010,7 +1022,7 @@ const PetDetails = () => {
 
                         <div className="form-row">
                             <div className="form-group"><label className="form-label"><Weight size={14} className="label-icon" /> Weight (kg) <span className="required-asterisk">*</span></label><input type="number" name="weight_kg" className={`form-input ${pet.error ? 'input-error' : ''}`} placeholder="0.0" step="0.1" value={pet.weight_kg} onChange={(e) => handleWeightChange(index, e)} required /></div>
-                            <div className="form-group"><label className="form-label">Size (Matched)</label><input type="text" className="form-input read-only" value={pet.calculated_size} readOnly placeholder="Auto-calc" style={{textTransform: 'capitalize'}} /></div>
+                            <div className="form-group"><label className="form-label">Size</label><input type="text" className="form-input read-only" value={pet.calculated_size} readOnly placeholder="Auto-calc" style={{textTransform: 'capitalize'}} /></div>
                         </div>
                         {pet.error && <div className="error-banner"><AlertCircle size={16} /><span>{pet.error}</span></div>}
 
@@ -1023,7 +1035,7 @@ const PetDetails = () => {
                             <div className="form-group"><label className="form-label">Vaccine Record <span className="required-asterisk">*</span></label><span className="upload-helper-text">Max 1MB. Image only.</span>
                                 {pet.vaccine_preview ? <div className="image-preview-container"><img src={pet.vaccine_preview} alt="Vaccine" className="image-preview"/><button type="button" className="remove-file-btn" onClick={()=>removeFile(index, 'vaccine')}><X size={16}/></button></div> : <label className={`upload-box ${!pet.vaccine_file && attemptedSubmit ? 'upload-error-border' : ''}`}><input type="file" accept="image/*" onChange={(e)=>handleFileUpload(index,'vaccine',e)} hidden required /><div className="upload-content" style={{display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%'}}><UploadCloud size={24} className="upload-icon"/><span>Upload</span></div></label>}
                             </div>
-                            <div className="form-group"><label className="form-label">Illness Record</label><span className="upload-helper-text">Optional. Max 1MB.</span>
+                            <div className="form-group"><label className="form-label">Illness Record</label><span className="upload-helper-text">Max 1MB.</span>
                                 {pet.illness_preview ? <div className="image-preview-container"><img src={pet.illness_preview} alt="Illness" className="image-preview"/><button type="button" className="remove-file-btn" onClick={()=>removeFile(index, 'illness')}><X size={16}/></button></div> : <label className="upload-box"><input type="file" accept="image/*" onChange={(e)=>handleFileUpload(index,'illness',e)} hidden /><div className="upload-content" style={{display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%'}}><FileText size={24} className="upload-icon"/><span>Upload</span></div></label>}
                             </div>
                         </div>
@@ -1052,7 +1064,7 @@ const PetDetails = () => {
                         </div>
 
                         <div className="form-group" style={{marginTop: '1rem'}}>
-                            <label className="form-label"><Scissors size={14} className="label-icon" /> Grooming Specifications (Optional)</label>
+                            <label className="form-label"><Scissors size={14} className="label-icon" /> Grooming Specifications</label>
                             <textarea name="grooming_specifications" className="form-input textarea" value={pet.grooming_specifications} onChange={(e) => handleInputChange(index, e)} rows={2} maxLength={280} />
                         </div>
                     </div>
