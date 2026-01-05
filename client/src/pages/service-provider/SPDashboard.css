@@ -579,16 +579,262 @@ p{
   border-radius: 6px; font-weight: bold; cursor: pointer; color: var(--text-dark);
 }
 
-/* Calendar Modal */
+/* Main Overlay */
 .calendar-modal-overlay {
-  position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 2000;
-  display: flex; justify-content: center; align-items: center;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(15, 23, 42, 0.7); /* Darker backdrop for focus */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  backdrop-filter: blur(5px);
 }
-.calendar-modal { background: white; padding: 2rem; border-radius: 12px; width: 400px; }
-.calendar-header { display: flex; justify-content: space-between; margin-bottom: 1rem; font-weight: bold; }
-.calendar-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
-.calendar-grid-header, .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; gap: 5px; }
-.calendar-day { padding: 10px; border: 1px solid #eee; position: relative; min-height: 40px; }
-.calendar-day.has-bookings { background-color: #dbeafe; font-weight: bold; border-color: var(--primary-blue); }
-.day-badge { display: block; font-size: 0.6rem; color: var(--primary-blue); }
 
+/* Modal Content Box */
+.large-split-modal {
+  background: white;
+  width: 95%;
+  max-width: 950px; /* Wide enough for the side-by-side view */
+  border-radius: 24px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  font-family: 'Poppins', sans-serif;
+}
+
+/* Split Body Container */
+.calendar-body-split {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr; /* Calendar gets slightly more space */
+  min-height: 550px;
+}
+.calendar-main-column {
+  padding: 2rem;
+  border-right: 1px solid #f1f5f9;
+}
+
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 10px;
+}
+
+/* Calendar Day Squares */
+.calendar-day {
+  aspect-ratio: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: 14px;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  color: #64748b; /* Slate-500 instead of black */
+  font-weight: 500;
+}
+
+.calendar-day:hover:not(.empty) {
+  background: #f8fafc;
+  transform: translateY(-2px);
+}
+
+/* Status Markings (Borders & Backgrounds) */
+.calendar-day.has-today { border: 2px solid #22c55e; background: #f0fdf4; color: #166534; }
+.calendar-day.has-upcoming { border: 1px solid #dbeafe; background: #eff6ff; color: var(--brand-blue); }
+.calendar-day.has-past { background: #f1f5f9; color: #94a3b8; }
+
+/* Selected Date Style */
+.calendar-day.selected {
+  background: var(--brand-blue) !important;
+  color: white !important;
+  box-shadow: 0 10px 15px -3px rgba(30, 64, 175, 0.3);
+  transform: scale(1.08);
+  z-index: 5;
+}
+
+/* Booking Count Badge on the Day */
+.day-total-count {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--brand-blue);
+  font-size: 0.65rem;
+  font-weight: 800;
+  padding: 2px 6px;
+  border-radius: 6px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.cal-details-section {
+  background: #f8fafc; /* Subtle background color to differentiate */
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  max-height: 600px;
+}
+
+.cal-list {
+  overflow-y: auto;
+  padding-right: 5px;
+}
+
+/* Scrollbar for the list */
+.cal-list::-webkit-scrollbar { width: 6px; }
+.cal-list::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+
+/* Booking Card (Individual Item) */
+.cal-list-item-detailed {
+  background: white;
+  border-radius: 16px;
+  padding: 1.25rem;
+  margin-bottom: 1rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+  border: 1px solid #f1f5f9;
+  text-align: left;
+}
+
+.item-main-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.cal-time-badge {
+  background: #eff6ff;
+  color: var(--brand-blue);
+  font-weight: 700;
+  font-size: 0.8rem;
+  padding: 4px 12px;
+  border-radius: 20px;
+}
+
+.cal-list-item-detailed strong {
+  color: #334155; /* Dark Slate instead of black */
+  font-size: 1rem;
+}
+
+.cal-list-item-detailed label {
+  display: block;
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  color: #94a3b8;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  margin-bottom: 2px;
+}
+
+/* Status Pill Colors */
+.status-pill {
+  font-size: 0.7rem;
+  font-weight: 800;
+  padding: 4px 10px;
+  border-radius: 8px;
+  text-transform: uppercase;
+}
+
+.status-pill.pending { background: #fffbeb; color: #b45309; }
+.status-pill.paid, .status-pill.confirmed { background: #dcfce7; color: #166534; }
+
+
+/* --- Header Title Group --- */
+.header-title-group {
+  display: flex;
+  align-items: center; /* Vertically centers the icon with the text */
+  gap: 12px;           /* Modern spacing between icon and H3 */
+  color: var(--brand-blue);
+}
+
+.header-title-group h3 {
+  margin: 0;           /* Removes default browser margins that cause misalignment */
+  font-family: 'Poppins', sans-serif;
+  font-weight: 800;
+  font-size: 1.25rem;
+  color: #1e3a8a;      /* Deep blue */
+}
+
+.header-title-group svg {
+  color: var(--brand-blue);
+  flex-shrink: 0;      /* Prevents the icon from squishing on small screens */
+}
+
+/* --- Calendar Grid Header (Days of the Week) --- */
+.calendar-grid-header {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr); /* Creates 7 equal columns */
+  text-align: center;
+  margin-bottom: 1rem;
+  padding: 0 5px;       /* Match this with your .calendar-grid padding */
+}
+
+.calendar-grid-header div {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #94a3b8;      /* Slate gray */
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding-bottom: 10px;
+}
+.calendar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem 2rem;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.header-title-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.header-title-group h3 {
+  margin: 0;
+  color: #1e3a8a; /* Deep Brand Blue */
+  font-weight: 800;
+  font-size: 1.25rem;
+}
+.calendar-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  padding: 0 10px; /* Gives arrows a little room from the edge */
+}
+
+/* Style the buttons to look like clean icons */
+.calendar-nav button {
+  background: white; /* Removes the grey background */
+  border: 1px solid #e2e8f0; /* Soft border like your appointment calendar */
+  border-radius: 50%; /* Makes it a perfect circle */
+  width: 32px;
+  height: 32px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  color: var(--brand-blue, #1e3a8a); /* Use your brand blue */
+  transition: all 0.2s ease;
+  padding: 0; /* Important: removes default button padding */
+}
+
+.calendar-nav button:hover {
+  background: #eff6ff; /* Light blue tint on hover */
+  border-color: var(--brand-blue);
+  transform: scale(1.1);
+}
+
+.cal-month-title {
+  font-family: 'Poppins', sans-serif;
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: #1e3a8a; /* Deep blue text */
+}

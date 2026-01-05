@@ -30,40 +30,55 @@ const isFourHoursPast = (dateStr, timeStr) => {
 };
 
 // --- Helper: Enhanced Calendar ---
-const BookingCalendar = ({ bookings, onClose }) => {
+const BookingCalendar = ({ bookings = [], onClose }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
+  // Ensure we have a default selected date to prevent mapping errors
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
 
-  const getDaysInMonth = (year, month) => new Date(year, month + 1, 0).getDate();
-  const getFirstDayOfMonth = (year, month) => new Date(year, month, 1).getDay();
+  // 1. Internal Time Helper to prevent "isFourHoursPast is not defined" error
+  const checkIsPast = (dateStr, timeStr) => {
+    if (!dateStr || !timeStr) return false;
+    try {
+      // Handles "1:00 PM" or "13:00" formats
+      const cleanTime = timeStr.includes('M') 
+        ? new Date(`2000-01-01 ${timeStr}`).toLocaleTimeString('en-GB', { hour12: false }).slice(0, 5)
+        : timeStr;
+      
+      const bookingDateTime = new Date(`${dateStr}T${cleanTime}`);
+      const now = new Date();
+      return (now - bookingDateTime) / (1000 * 60 * 60) >= 4;
+    } catch (e) { return false; }
+  };
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
-  const daysInMonth = getDaysInMonth(year, month);
-  const firstDay = getFirstDayOfMonth(year, month);
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const firstDay = new Date(year, month, 1).getDay();
 
-  // Helper to categorize bookings for a specific date
+  // 2. Filter bookings for the right-side list
+  const selectedDayBookings = Array.isArray(bookings) 
+    ? bookings.filter(b => b.booking_date === selectedDate) 
+    : [];
+
   const getDayStats = (dateStr) => {
     const dayBookings = bookings.filter(b => b.booking_date === dateStr);
     const todayStr = new Date().toISOString().split('T')[0];
-    const isToday = dateStr === todayStr;
-
+    
     let completed = 0;
     let upcoming = 0;
     let todayCount = 0;
 
     dayBookings.forEach(b => {
-      // Logic: Completed if explicitly status OR paid + 4 hours past
-      const isTimeCompleted = b.status === 'paid' && isFourHoursPast(b.booking_date, b.time_slot);
-      
-      if (['completed', 'to_rate', 'rated'].includes(b.status) || isTimeCompleted) {
+      const isPast = checkIsPast(b.booking_date, b.time_slot);
+      if (['completed', 'rated'].includes(b.status) || isPast) {
         completed++;
-      } else if (b.status === 'paid') {
-        if (isToday) todayCount++;
+      } else {
+        if (dateStr === todayStr) todayCount++;
         else upcoming++;
       }
     });
 
-    return { completed, upcoming, todayCount };
+    return { total: dayBookings.length, badge: todayCount > 0 ? "today" : upcoming > 0 ? "upcoming" : completed > 0 ? "past" : "" };
   };
 
   const renderDays = () => {
@@ -75,62 +90,83 @@ const BookingCalendar = ({ bookings, onClose }) => {
     for (let d = 1; d <= daysInMonth; d++) {
       const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
       const stats = getDayStats(dateStr);
-      
-      let badgeClass = "";
-      let label = "";
-
-      // Hierarchy: Today > Upcoming > Completed
-      if (stats.todayCount > 0) {
-        badgeClass = "today";
-        label = `${stats.todayCount} Today`;
-      } else if (stats.upcoming > 0) {
-        badgeClass = "upcoming";
-        label = `${stats.upcoming} Upcoming`;
-      } else if (stats.completed > 0) {
-        badgeClass = "completed";
-        label = `${stats.completed} Done`;
-      }
+      const isSelected = selectedDate === dateStr;
 
       days.push(
-        <div key={d} className={`calendar-day ${badgeClass}`}>
+        <div 
+          key={d} 
+          className={`calendar-day has-${stats.badge} ${isSelected ? 'selected' : ''}`}
+          onClick={() => setSelectedDate(dateStr)}
+        >
           <span className="day-number">{d}</span>
-          {label && <span className={`day-badge badge-${badgeClass}`}>{label}</span>}
+          {stats.total > 0 && <span className="day-total-count">{stats.total}</span>}
         </div>
       );
     }
     return days;
   };
 
-  const changeMonth = (offset) => {
-    setCurrentDate(new Date(year, month + offset, 1));
-  };
-
   return (
-    <div className="calendar-modal-overlay">
-      <div className="calendar-modal">
+    <div className="calendar-modal-overlay" onClick={onClose}>
+      <div className="calendar-modal-content large-split-modal" onClick={e => e.stopPropagation()}>
         <div className="calendar-header">
-          <h3>Booking Schedule</h3>
-          <button onClick={onClose}><FaTimes /></button>
-        </div>
-        
-        <div className="calendar-nav">
-          <button onClick={() => changeMonth(-1)}><FaChevronLeft /></button>
-          <span>{currentDate.toLocaleString('default', { month: 'long', year: 'numeric' })}</span>
-          <button onClick={() => changeMonth(1)}><FaChevronRight /></button>
+          <div className="header-title-group">
+            <FaCalendarAlt size={18} />
+            <h3>Booking Schedule</h3>
+          </div>
+          <button className="close-btn" onClick={onClose}><FaTimes /></button>
         </div>
 
-        {/* Legend */}
-        <div className="cal-legend">
-           <span className="legend-item"><span className="dot green"></span> Today</span>
-           <span className="legend-item"><span className="dot blue"></span> Upcoming</span>
-           <span className="legend-item"><span className="dot gray"></span> Completed</span>
-        </div>
+        <div className="calendar-body-split">
+          {/* LEFT SIDE: CALENDAR */}
+          <div className="calendar-main-column">
+            <div className="calendar-nav">
+              <button onClick={() => setCurrentDate(new Date(year, month - 1, 1))}><FaChevronLeft /></button>
+              <span className="cal-month-title">{currentDate.toLocaleString('default', { month: 'long', year: 'numeric' })}</span>
+              <button onClick={() => setCurrentDate(new Date(year, month + 1, 1))}><FaChevronRight /></button>
+            </div>
 
-        <div className="calendar-grid-header">
-          <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
-        </div>
-        <div className="calendar-grid">
-          {renderDays()}
+            <div className="calendar-grid-header">
+              <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
+            </div>
+            <div className="calendar-grid">{renderDays()}</div>
+
+          </div>
+
+          {/* RIGHT SIDE: DETAILS */}
+          <div className="cal-details-section">
+            <div className="details-header">
+              <FaCalendarAlt size={14} />
+              <h4>{new Date(selectedDate).toDateString()}</h4>
+            </div>
+
+            <div className="cal-list">
+              {selectedDayBookings.length === 0 ? (
+                <div className="empty-details">
+                   <p>No bookings for this date.</p>
+                </div>
+              ) : (
+                selectedDayBookings.map(b => (
+                  <div key={b.id} className="cal-list-item-detailed">
+                    <div className="item-main-row">
+                      <div className="cal-time-badge">{b.time_slot}</div>
+                      <div className={`status-pill ${b.status}`}>{b.status?.toUpperCase()}</div>
+                    </div>
+                    <div className="item-content-row">
+                      <div>
+                        <label>Customer</label>
+                        <strong>{b.users?.full_name || 'Pet Owner'}</strong>
+                      </div>
+                      <div className="pet-count-info">
+                        <label>Pets</label>
+                        <span className="count-badge">🐾 {b.booking_pets?.length || 0}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </div>
