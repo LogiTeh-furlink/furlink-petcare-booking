@@ -43,43 +43,34 @@ const CalendarModal = ({ bookings, onClose }) => {
   const handlePrevMonth = () => setCurrentDate(new Date(year, month - 1, 1));
   const handleNextMonth = () => setCurrentDate(new Date(year, month + 1, 1));
 
-  const renderDays = () => {
+    const renderDays = () => {
     const days = [];
     const todayStr = new Date().toISOString().split('T')[0];
-
-    for (let i = 0; i < firstDay; i++) {
-      days.push(<div key={`empty-${i}`} className="cal-day empty"></div>);
-    }
 
     for (let d = 1; d <= daysInMonth; d++) {
       const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
       const dayBookings = getBookingsForDate(d);
       const isToday = dateStr === todayStr;
-      const isSelected = selectedDate === dateStr;
       
       let statusClass = "";
       if (dayBookings.length > 0) {
-        const isPastDate = dateStr < todayStr;
-        if (isPastDate) {
-           statusClass = "has-history"; 
+        if (dateStr < todayStr) {
+          statusClass = "has-past"; // Gray
+        } else if (isToday) {
+          statusClass = "has-today"; // Green
         } else {
-           const hasPending = dayBookings.some(b => ['pending', 'payment_review', 'for review'].includes(b.status));
-           if (hasPending) {
-             statusClass = "has-pending"; 
-           } else {
-             statusClass = "has-upcoming"; 
-           }
+          const hasPending = dayBookings.some(b => b.status === 'pending');
+          statusClass = hasPending ? "has-pending" : "has-upcoming"; // Yellow vs Blue
         }
       }
 
       days.push(
         <div 
           key={d} 
-          className={`cal-day ${statusClass} ${isToday ? 'today' : ''} ${isSelected ? 'selected' : ''}`}
+          className={`cal-day ${statusClass} ${isToday ? 'today-border' : ''} ${selectedDate === dateStr ? 'selected' : ''}`}
           onClick={() => setSelectedDate(dateStr)}
         >
           <span className="day-num">{d}</span>
-          {dayBookings.length > 0 && <div className="dot"></div>}
         </div>
       );
     }
@@ -96,42 +87,57 @@ const CalendarModal = ({ bookings, onClose }) => {
           <button className="close-btn" onClick={onClose}><FaTimes/></button>
         </div>
         <div className="calendar-body">
-          <div className="cal-nav">
-            <button onClick={handlePrevMonth}><FaChevronLeft/></button>
-            <span className="cal-month-title">{currentDate.toLocaleString('default', { month: 'long', year: 'numeric' })}</span>
-            <button onClick={handleNextMonth}><FaChevronRight/></button>
+  {/* LEFT SIDE: The Interactive Calendar */}
+  <div className="calendar-main-column">
+    <div className="cal-nav">
+      <button onClick={handlePrevMonth}><FaChevronLeft/></button>
+      <span className="cal-month-title">{currentDate.toLocaleString('default', { month: 'long', year: 'numeric' })}</span>
+      <button onClick={handleNextMonth}><FaChevronRight/></button>
+    </div>
+    
+    <div className="cal-grid-header">
+      <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
+    </div>
+    <div className="cal-grid">
+      {renderDays()}
+    </div>
+  </div>
+
+  {/* RIGHT SIDE: The Focal Appointment Details */}
+  <div className="cal-details-section">
+  <div className="details-header">
+    <FaCalendarAlt size={16} />
+    <h4>{selectedDate ? new Date(selectedDate).toDateString() : "Daily Schedule"}</h4>
+  </div>
+  
+  <div className="cal-list">
+    {selectedDayBookings.map(b => (
+      <div key={b.id} className="cal-list-item-detailed">
+        <div className="item-main-row">
+          <div className="cal-time-badge">{b.time_slot}</div>
+          <div className={`status-pill ${b.status}`}>{b.status?.toUpperCase()}</div>
+        </div>
+        
+        <div className="item-content-row">
+          <div className="provider-info">
+            <label>Service Provider</label>
+            <strong>{b.service_providers?.business_name}</strong>
           </div>
-          <div className="cal-legend">
-            <span className="legend-item"><span className="dot blue"></span> Upcoming</span>
-            <span className="legend-item"><span className="dot yellow"></span> Pending</span>
-            <span className="legend-item"><span className="dot gray"></span> Past/Done</span>
-            <span className="legend-item"><span className="dot green"></span> Today</span>
-          </div>
-          <div className="cal-grid-header">
-            <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
-          </div>
-          <div className="cal-grid">
-            {renderDays()}
-          </div>
-          <div className="cal-details-section">
-            <h4>{selectedDate ? `Appointments on ${new Date(selectedDate).toDateString()}` : "Select a date to view details"}</h4>
-            {selectedDate && selectedDayBookings.length === 0 && <p className="text-muted">No appointments on this day.</p>}
-            <div className="cal-list">
-              {selectedDayBookings.map(b => (
-                <div key={b.id} className="cal-list-item">
-                  <div className="cal-time">{b.time_slot}</div>
-                  <div className="cal-info">
-                    <strong>{b.service_providers?.business_name}</strong>
-                    <span>{b.booking_pets?.map(p => p.pet_name).join(', ')}</span>
-                    <span className={`status-text ${b.status || 'unknown'}`}>
-                      {(b.status || 'unknown').toUpperCase()}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
+          <div className="pet-count-info">
+            <span className="count-badge">
+              <FaPaw size={12} /> {b.booking_pets?.length || 0}
+            </span>
           </div>
         </div>
+
+        <div className="pet-names-list">
+          {b.booking_pets?.map(p => p.pet_name).join(', ')}
+        </div>
+      </div>
+    ))}
+  </div>
+</div>
+</div>
       </div>
     </div>
   );
