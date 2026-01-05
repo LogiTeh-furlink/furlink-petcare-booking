@@ -496,7 +496,7 @@ const stats = {
                     <h4>Payment Proof</h4>
                     {/* Optional: Second location for the Ref No right above the image */}
                     <small style={{ color: 'var(--brand-blue)', fontWeight: 'bold'}}>
-                        Ref: {selectedBooking?.rejection_reason}
+                        Payment Reference Code: {selectedBooking?.rejection_reason}
                     </small>
                 </div>
                 {/* Clickable wrapper for expansion */}

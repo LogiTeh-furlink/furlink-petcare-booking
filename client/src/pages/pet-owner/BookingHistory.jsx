@@ -4,14 +4,9 @@ import { supabase } from "../../config/supabase";
 import LoggedInNavbar from "../../components/Header/LoggedInNavbar";
 import Footer from "../../components/Footer/Footer";
 import { 
-  FaTimes, 
-  FaInfoCircle, 
-  FaPaw, 
-  FaClock, 
-  FaExclamationTriangle,
-  FaFileInvoiceDollar,
-  FaCheckCircle,
-  FaStar 
+  FaTimes, FaPaw, FaInfoCircle, FaClock, FaExclamationTriangle,
+  FaFileInvoiceDollar, FaCheckCircle, FaStar, FaCalendarAlt,
+  FaCreditCard, FaSearchPlus
 } from "react-icons/fa"; 
 import "./BookingHistory.css";
 
@@ -20,18 +15,18 @@ export default function BookingHistory() {
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   
-  // --- Tabs Configuration (Reordered) ---
+  // --- Tabs Configuration ---
   const [activeTab, setActiveTab] = useState("awaiting_approval"); 
   const tabs = [
-    { id: 'awaiting_approval', label: 'Awaiting Approval' },
-    { id: 'for_payment', label: 'For Payment' },
-    { id: 'upcoming', label: 'Upcoming' },
-    { id: 'today', label: 'Today' },
-    { id: 'to_rate', label: 'To Rate' },
-    { id: 'rated', label: 'Rated' },
-    { id: 'cancelled', label: 'Cancelled' },
-    { id: 'denied', label: 'Denied' },
-    { id: 'voided', label: 'Void Payment' }
+    { id: 'awaiting_approval', label: 'Awaiting Approval', icon: <FaClock /> },
+    { id: 'for_payment', label: 'For Payment', icon: <FaCreditCard /> },
+    { id: 'upcoming', label: 'Upcoming', icon: <FaCalendarAlt /> },
+    { id: 'today', label: 'Today', icon: <FaCheckCircle /> },
+    { id: 'to_rate', label: 'To Rate', icon: <FaStar /> },
+    { id: 'rated', label: 'Rated', icon: <FaStar /> },
+    { id: 'cancelled', label: 'Cancelled', icon: <FaTimes /> },
+    { id: 'denied', label: 'Denied', icon: <FaExclamationTriangle /> },
+    { id: 'voided', label: 'Void Payment', icon: <FaFileInvoiceDollar /> }
   ];
 
   // --- Modal States ---
@@ -40,19 +35,31 @@ export default function BookingHistory() {
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [previewImage, setPreviewImage] = useState(null);
   
-  // --- Form/Action States ---
+  // --- Form & Action States ---
   const [reschedForm, setReschedForm] = useState({ date: "", time: "" });
+  const [availableSlots, setAvailableSlots] = useState([]);
+  const [providerHours, setProviderHours] = useState([]);
   const [feedbackForm, setFeedbackForm] = useState({ overallRating: 0, staffRating: 0, comment: "" });
   const [actionLoading, setActionLoading] = useState(false);
-  
-  // Success Message State
   const [successTitle, setSuccessTitle] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
 
+  useEffect(() => { fetchHistory(); }, []);
+
   useEffect(() => {
-    fetchHistory();
-  }, []);
+    if (selectedBooking && showRescheduleModal) {
+      const fetchHours = async () => {
+        const { data } = await supabase
+          .from("service_provider_hours")
+          .select("*")
+          .eq("provider_id", selectedBooking.service_providers.id);
+        if (data) setProviderHours(data);
+      };
+      fetchHours();
+    }
+  }, [selectedBooking, showRescheduleModal]);
 
   const fetchHistory = async () => {
     try {
@@ -65,24 +72,10 @@ export default function BookingHistory() {
           *,
           service_providers (id, business_name),
           booking_pets (
-            pet_name,
-            pet_type,
-            breed,
-            gender,
-            weight_kg,
-            calculated_size,
-            behavior,
-            emergency_consent,
-            grooming_specifications,
-            vaccine_card_url,
-            illness_proof_url,
+            *,
             booking_services (service_name, price)
           ),
-          reviews (
-            rating_overall,
-            rating_staff,
-            comment
-          )
+          reviews (*)
         `)
         .eq("user_id", user.id)
         .order('booking_date', { ascending: false });
@@ -97,166 +90,117 @@ export default function BookingHistory() {
   };
 
   // --- Helpers ---
+  const formatCurrency = (val) => `₱${parseFloat(val || 0).toLocaleString('en-PH', {minimumFractionDigits: 2})}`;
+  
   const formatDateTime = (dateStr, timeStr) => {
     if (!dateStr) return "TBD";
     const date = new Date(dateStr);
-    if (isNaN(date.getTime())) return "Invalid Date";
-    const formattedDate = date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-    return `${formattedDate} @ ${timeStr || "?"}`;
+    return `${date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} at ${timeStr}`;
   };
 
   const convertTo24Hour = (timeStr) => {
+    if (!timeStr) return "00:00";
     const [time, modifier] = timeStr.split(' ');
     let [hours, minutes] = time.split(':');
-    if (hours === '12') { hours = '00'; }
-    if (modifier === 'PM') { hours = parseInt(hours, 10) + 12; }
-    return `${hours}:${minutes}`;
+    if (hours === '12') hours = '00';
+    if (modifier === 'PM') hours = parseInt(hours, 10) + 12;
+    return `${hours.toString().padStart(2, '0')}:${minutes}`;
   };
 
   const isFourHoursPast = (booking) => {
     if (!booking.booking_date || !booking.time_slot) return false;
     const bookingDateTime = new Date(`${booking.booking_date}T${convertTo24Hour(booking.time_slot)}`);
-    const now = new Date();
-    const diffMs = now - bookingDateTime;
-    const diffHours = diffMs / (1000 * 60 * 60);
-    return diffHours >= 4;
+    return (new Date() - bookingDateTime) / (1000 * 60 * 60) >= 4;
   };
 
-  const getServiceSummary = (pets) => {
-    if (!pets || pets.length === 0) return "No services";
-    const services = pets.flatMap(p => p.booking_services?.map(s => s.service_name) || []);
-    return [...new Set(services)].join(", ");
+  const generateTimeSlots = (dateString) => {
+    if (!dateString || providerHours.length === 0) return [];
+    const dayName = new Date(dateString).toLocaleDateString('en-US', { weekday: 'long' });
+    const sched = providerHours.find(h => h.day_of_week === dayName);
+    if (!sched) return [];
+    const slots = [];
+    let current = new Date(`2000-01-01T${sched.start_time}`);
+    const end = new Date(`2000-01-01T${sched.end_time}`);
+    while (current < end) {
+      slots.push(current.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }));
+      current.setHours(current.getHours() + 1);
+    }
+    return slots;
   };
-
-  const formatCurrency = (val) => `₱${parseFloat(val || 0).toLocaleString('en-PH', {minimumFractionDigits: 2})}`;
-
-  const renderStaticStars = (count) => {
-    return (
-      <div className="static-stars">
-        {[1, 2, 3, 4, 5].map(star => (
-          <FaStar key={star} className={star <= count ? "star-filled" : "star-empty"} />
-        ))}
-      </div>
-    );
-  };
-
-  
 
   // --- Filtering Logic ---
   const getFilteredBookings = () => {
     const today = new Date().toISOString().split('T')[0]; 
-
     return bookings.filter(b => {
-        const status = (b.status || "").toLowerCase(); 
-        const date = b.booking_date || "";
+        const status = (b.status || "").toLowerCase();
+        const bDate = b.booking_date;
 
         switch(activeTab) {
-            case 'awaiting_approval': 
-                return status === 'pending';
-            
-            case 'for_payment': 
-                return status === 'approved' || status === 'for review'; 
-            
-            case 'upcoming': 
-                return (status === 'paid' || status === 'confirmed') && date > today;
-            
-            case 'today': 
-                return (status === 'paid' || status === 'confirmed') && date === today;
-            
+            case 'awaiting_approval': return status === 'pending';
+            case 'for_payment': return status === 'approved' || status === 'for review';
+            case 'upcoming': return (status === 'paid' || status === 'confirmed') && bDate > today;
+            case 'today': return (status === 'paid' || status === 'confirmed') && bDate === today;
             case 'to_rate': 
-                if (status === 'rated') return false;
-                return status === 'completed' || status === 'to_rate' || 
-                       ((status === 'paid' || status === 'confirmed') && isFourHoursPast(b));
-            
-            case 'rated':
-                return status === 'rated';
-
-            case 'cancelled': 
-                return status === 'cancelled';
-            
-            case 'denied': 
-                return status === 'declined'; 
-
-            case 'voided': 
-                return status === 'void' || status === 'voided';
-            
+                return status !== 'rated' && (status === 'completed' || ((status === 'paid' || status === 'confirmed') && (isFourHoursPast(b) || bDate === today)));
+            case 'rated': return status === 'rated';
+            case 'cancelled': return status === 'cancelled';
+            case 'denied': return status === 'declined';
+            case 'voided': return status === 'void' || status === 'voided';
             default: return false;
         }
     });
   };
 
-  // --- Modal Actions ---
+  // --- Action Handlers ---
   const handleCloseAll = () => {
     setSelectedBooking(null);
     setShowRescheduleModal(false);
     setShowCancelModal(false);
     setShowFeedbackModal(false);
+    setShowSuccessModal(false);
+    setPreviewImage(null);
     setReschedForm({ date: "", time: "" });
-    setFeedbackForm({ overallRating: 0, staffRating: 0, comment: "" });
   };
 
-  // 1. Reschedule
-  const openReschedule = () => {
-    setReschedForm({ date: selectedBooking.booking_date, time: selectedBooking.time_slot });
-    setShowRescheduleModal(true); 
+  const handleRescheduleDateChange = (e) => {
+    const newDate = e.target.value;
+    setReschedForm({ ...reschedForm, date: newDate, time: "" });
+    setAvailableSlots(generateTimeSlots(newDate));
   };
 
   const confirmReschedule = async (e) => {
     e.preventDefault();
     setActionLoading(true);
     try {
-      const { error } = await supabase.from('bookings')
-        .update({ booking_date: reschedForm.date, time_slot: reschedForm.time })
-        .eq('id', selectedBooking.id);
-      
-      if(error) throw error;
-      
+      await supabase.from('bookings').update({ 
+        booking_date: reschedForm.date, 
+        time_slot: reschedForm.time 
+      }).eq('id', selectedBooking.id);
       setBookings(prev => prev.map(b => b.id === selectedBooking.id ? {...b, booking_date: reschedForm.date, time_slot: reschedForm.time} : b));
       handleCloseAll();
-      setSuccessTitle("Reschedule Successful!");
-      setSuccessMessage("Your appointment has been successfully rescheduled.");
+      setSuccessTitle("Success!");
+      setSuccessMessage("Appointment rescheduled successfully.");
       setShowSuccessModal(true);
-    } catch (err) {
-      alert("Error: " + err.message);
-    } finally {
-      setActionLoading(false);
-    }
+    } catch(err) { console.error(err); } finally { setActionLoading(false); }
   };
-
-  // 2. Cancel
-  const initiateCancel = () => setShowCancelModal(true);
 
   const confirmCancel = async () => {
     setActionLoading(true);
     try {
-      const { error } = await supabase.from('bookings').update({ status: 'cancelled' }).eq('id', selectedBooking.id);
-      if(error) throw error;
-
+      await supabase.from('bookings').update({ status: 'cancelled' }).eq('id', selectedBooking.id);
       setBookings(prev => prev.map(b => b.id === selectedBooking.id ? {...b, status: 'cancelled'} : b));
       handleCloseAll();
-      setSuccessTitle("Cancellation Successful");
-      setSuccessMessage("Your appointment has been successfully cancelled.");
+      setSuccessTitle("Cancelled");
+      setSuccessMessage("Appointment cancelled successfully.");
       setShowSuccessModal(true);
-    } catch(err) {
-      setSuccessTitle("Error");
-      setSuccessMessage("Failed to cancel appointment.");
-      setShowSuccessModal(true);
-    } finally {
-      setActionLoading(false);
-    }
+    } catch(err) { console.error(err); } finally { setActionLoading(false); }
   };
 
-  // 3. Rate / Feedback
   const submitFeedback = async () => {
-    if (feedbackForm.overallRating === 0 || feedbackForm.staffRating === 0) {
-      setSuccessTitle("Missing Rating");
-      setSuccessMessage("Please select star ratings before submitting.");
-      setShowSuccessModal(true);
-      return;
-    }
+    if (!feedbackForm.overallRating || !feedbackForm.staffRating) return;
     setActionLoading(true);
     try {
-      const { error: reviewError } = await supabase.from('reviews').insert({
+      await supabase.from('reviews').insert({
         booking_id: selectedBooking.id,
         provider_id: selectedBooking.service_providers.id,
         user_id: selectedBooking.user_id,
@@ -264,388 +208,299 @@ export default function BookingHistory() {
         rating_staff: feedbackForm.staffRating,
         comment: feedbackForm.comment
       });
-      if (reviewError) throw reviewError;
-
-      const { error: updateError } = await supabase.from('bookings').update({ status: 'rated' }).eq('id', selectedBooking.id);
-      if(updateError) throw updateError;
-
-      setBookings(prev => prev.map(b => {
-        if (b.id === selectedBooking.id) {
-          return { 
-            ...b, 
-            status: 'rated',
-            reviews: [{ 
-              rating_overall: feedbackForm.overallRating,
-              rating_staff: feedbackForm.staffRating,
-              comment: feedbackForm.comment
-            }]
-          };
-        }
-        return b;
-      }));
-
+      await supabase.from('bookings').update({ status: 'rated' }).eq('id', selectedBooking.id);
+      setBookings(prev => prev.map(b => b.id === selectedBooking.id ? {...b, status: 'rated'} : b));
       handleCloseAll();
       setSuccessTitle("Thank You!");
-      setSuccessMessage("Your feedback has been submitted.");
+      setSuccessMessage("Feedback submitted successfully.");
       setShowSuccessModal(true);
-    } catch (err) {
-      setSuccessTitle("Error");
-      setSuccessMessage("Failed to submit feedback.");
-      setShowSuccessModal(true);
-    } finally {
-      setActionLoading(false);
-    }
+    } catch(err) { console.error(err); } finally { setActionLoading(false); }
   };
-
-  const handlePayNow = () => navigate(`/payment/${selectedBooking.id}`);
-  const handleRate = () => setShowFeedbackModal(true);
-
-  if (loading) return <div className="history-loading">Loading History...</div>;
-  const filteredList = getFilteredBookings();
 
   return (
     <div className="page-wrapper">
       <LoggedInNavbar />
       
       <div className="history-container">
-        
-        {/* TABS */}
-        <div className="history-tabs-header">
-          {tabs.map(tab => (
-            <button
-              key={tab.id}
-              className={`history-tab-btn ${activeTab === tab.id ? 'active' : ''}`}
-              onClick={() => setActiveTab(tab.id)}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
+        <header className="history-header">
+            <h1>Booking History</h1>
+            <p>Track and manage your past and current pet grooming sessions</p>
+        </header>
 
-        {/* CONTENT */}
-        <div className="history-content-area">
-          {filteredList.length === 0 ? (
-            <div className="history-empty-state">
-              <div className="empty-icon-circle">
-                <FaPaw className="sleeping-icon" /> 
+        <div className="history-status-card">
+          <div className="history-icons-row">
+            {tabs.map(tab => (
+              <div 
+                key={tab.id} 
+                className={`history-icon-item ${activeTab === tab.id ? 'active' : ''}`}
+                onClick={() => setActiveTab(tab.id)}
+              >
+                <div className="icon-circle">{tab.icon}</div>
+                <span>{tab.label}</span>
               </div>
-              <h3>No appointments found</h3>
-              <p>Book an appointment now!</p>
-            </div>
-          ) : (
-            <div className="history-list">
-               <div className="history-list-header">
-                 <div>Date & Time</div>
-                 <div>Provider</div>
-                 <div>Services</div>
-                 <div>Total</div>
-                 <div>Action</div>
-               </div>
-
-               {filteredList.map(booking => (
-                 <div key={booking.id} className="history-row">
-                    <div className="h-col date-col">
-                      <span className="mobile-label">Date:</span>
-                      <strong>{formatDateTime(booking.booking_date, booking.time_slot)}</strong>
-                    </div>
-                    <div className="h-col provider-col">
-                      <span className="mobile-label">Provider:</span>
-                      {booking.service_providers?.business_name || "Unknown"}
-                    </div>
-                    <div className="h-col service-col">
-                      <span className="mobile-label">Services:</span>
-                      {getServiceSummary(booking.booking_pets)}
-                    </div>
-                    <div className="h-col price-col">
-                      <span className="mobile-label">Total:</span>
-                      {formatCurrency(booking.total_estimated_price)}
-                    </div>
-                    <div className="h-col action-col">
-                       <button className="view-history-btn" onClick={() => setSelectedBooking(booking)}>
-                         View Details
-                       </button>
-                    </div>
-                 </div>
-               ))}
-            </div>
-          )}
+            ))}
+          </div>
         </div>
 
+        <div className="history-list-section">
+          <div className="bookings-grid">
+            <div className="list-table-header">
+              <div className="col-date">Date & Time</div>
+              <div className="col-provider">Provider</div>
+              <div className="col-service">Service Summary</div>
+              <div className="col-price">Total</div>
+              <div className="col-action">Action</div>
+            </div>
+
+            {getFilteredBookings().length === 0 ? (
+              <div className="no-app-state">
+                <FaPaw className="empty-icon" />
+                <h3>No appointments found in this category.</h3>
+              </div>
+            ) : (
+              getFilteredBookings().map(booking => (
+                <div key={booking.id} className="app-row">
+                  <div className="col-date"><strong>{formatDateTime(booking.booking_date, booking.time_slot)}</strong></div>
+                  <div className="col-provider">{booking.service_providers?.business_name}</div>
+                  <div className="col-service">
+                    {booking.booking_pets?.flatMap(p => p.booking_services?.map(s => s.service_name)).join(", ")}
+                  </div>
+                  <div className="col-price">{formatCurrency(booking.total_estimated_price)}</div>
+                  <div className="col-action">
+                    <button className="view-app-btn" onClick={() => setSelectedBooking(booking)}>View Details</button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
       </div>
 
-      {/* --- 1. DETAILS MODAL (EXPANDED) --- */}
-      {selectedBooking && !showRescheduleModal && !showCancelModal && !showSuccessModal && !showFeedbackModal && (
+      {/* --- DETAILS MODAL --- */}
+      {selectedBooking && !showRescheduleModal && !showCancelModal && !showFeedbackModal && (
         <div className="modal-overlay" onClick={handleCloseAll}>
           <div className="modal-content large-modal" onClick={e => e.stopPropagation()}>
-             <div className="modal-header">
-               <h3>Booking Details</h3>
-               <button className="close-btn" onClick={handleCloseAll}><FaTimes/></button>
-             </div>
-             
-             <div className="modal-body-scroll">
-                
-                {/* General Info */}
-                <div className="info-grid">
-                   <div className="info-item">
-                      <label><FaInfoCircle/> Provider</label>
-                      <span>{selectedBooking.service_providers?.business_name || "Unknown"}</span>
-                   </div>
-                   <div className="info-item">
-                      <label><FaClock/> Schedule</label>
-                      <span>{formatDateTime(selectedBooking.booking_date, selectedBooking.time_slot)}</span>
-                   </div>
-                   <div className="info-item">
-                      <label><FaFileInvoiceDollar/> Total Amount</label>
-                      <span className="price-tag">{formatCurrency(selectedBooking.total_estimated_price)}</span>
-                   </div>
-                   <div className="info-item">
-                      <label>Status</label>
-                      <span className={`status-badge ${selectedBooking.status || 'unknown'}`}>
-                        {(selectedBooking.status || 'UNKNOWN').toUpperCase()}
-                      </span>
-                   </div>
-                </div>
-
-                {/* VOID/REJECTION REASON ALERT */}
-                {(selectedBooking.status === 'declined' || selectedBooking.status === 'void' || selectedBooking.status === 'voided') && selectedBooking.rejection_reason && (
-                  <div className="void-reason-box">
-                    <FaExclamationTriangle className="alert-icon"/>
-                    <div>
-                      <strong>Reason for {selectedBooking.status.includes('void') ? 'Voiding' : 'Decline'}:</strong>
-                      <p>{selectedBooking.rejection_reason}</p>
+            <div className="modal-header">
+                <h3>Appointment Details</h3>
+                <button className="close-btn" onClick={handleCloseAll}><FaTimes/></button>
+            </div>
+            
+            <div className="modal-body-scroll">
+                {/* VOID ALERT */}
+                {activeTab === 'voided' && selectedBooking.rejection_reason && (
+                    <div className="void-reason-alert">
+                        <FaExclamationTriangle />
+                        <div>
+                            <strong>Payment Voided:</strong>
+                            <p>{selectedBooking.rejection_reason}</p>
+                        </div>
                     </div>
-                  </div>
                 )}
 
-                {/* REVIEW DISPLAY (Only if Rated) */}
-                {selectedBooking.status === 'rated' && selectedBooking.reviews && selectedBooking.reviews.length > 0 && (
-                  <div className="review-display-box">
-                    <h4 className="section-title">Your Review</h4>
-                    <div className="review-content">
-                      <div className="stars-display-row">
-                        <div className="star-group">
-                          <span>Overall:</span>
-                          {renderStaticStars(selectedBooking.reviews[0].rating_overall)}
-                        </div>
-                        <div className="star-group">
-                          <span>Staff:</span>
-                          {renderStaticStars(selectedBooking.reviews[0].rating_staff)}
-                        </div>
-                      </div>
-                      <div className="review-comment-box">
-                        <span className="comment-label">Feedback:</span>
-                        <p>"{selectedBooking.reviews[0].comment}"</p>
-                      </div>
+                <div className="info-grid">
+                    <div className="info-item"><label><FaInfoCircle/> Provider</label><span>{selectedBooking.service_providers?.business_name}</span></div>
+                    <div className="info-item"><label><FaClock/> Schedule</label><span>{formatDateTime(selectedBooking.booking_date, selectedBooking.time_slot)}</span></div>
+                    <div className="info-item"><label><FaFileInvoiceDollar/> Total Amount</label><span className="price-tag">{formatCurrency(selectedBooking.total_estimated_price)}</span></div>
+                    <div className="info-item">
+                        <label><FaCreditCard/> Downpayment</label>
+                        <span className="price-tag">{formatCurrency(selectedBooking.total_estimated_price * 0.30)}</span>
                     </div>
+                    <div className="info-item"><label>Status</label><span className={`status-badge ${selectedBooking.status}`}>{selectedBooking.status?.toUpperCase()}</span></div>
+                </div>
+
+                {/* --- PAYMENT PROOF SECTION --- */}
+                {['upcoming', 'today', 'to_rate', 'rated', 'cancelled', 'voided'].includes(activeTab) && selectedBooking.payment_proof_url && (
+                    <div className="full-image-block" style={{ marginTop: '20px', padding: '15px', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                            <h4 style={{ margin: 0, fontSize: '1rem', color: 'var(--brand-blue)' }}>Payment Proof</h4>
+                            <small style={{ color: 'var(--brand-blue)', fontWeight: 'bold'}}>
+                                Payment Reference Code: {selectedBooking?.rejection_reason || "N/A"}
+                            </small>
+                        </div>
+                        
+                        {/* Clickable wrapper for expansion */}
+                        <div className="image-wrapper clickable-img" 
+                            style={{ maxWidth: '400px', cursor: 'pointer' }} 
+                            onClick={() => setPreviewImage(selectedBooking.payment_proof_url)}>
+                            <p className="img-label" style={{ fontSize: '0.75rem', color: '#64748b', marginBottom: '5px', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                Proof of Payment <FaSearchPlus size={12} />
+                            </p>
+                            <img src={selectedBooking.payment_proof_url} 
+                                alt="Payment Proof" 
+                                className="facebook-style-img" 
+                                style={{ width: '100%', borderRadius: '8px', border: '1px solid #ddd' }} /> 
+                        </div>
+                    </div>
+                )}
+
+                {/* Rating Info if Rated */}
+                {selectedBooking.status === 'rated' && selectedBooking.reviews && selectedBooking.reviews.length > 0 && (
+                  <div className="review-display-box" style={{ marginTop: '20px', background: '#f8fafc', padding: '15px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                    <h4 style={{ color: 'var(--brand-blue)', marginBottom: '10px' }}>Your Feedback</h4>
+                    <div style={{ display: 'flex', gap: '20px', marginBottom: '10px' }}>
+                      <div><strong>Overall Rating:</strong> {selectedBooking.reviews[0].rating_overall} / 5</div>
+                      <div><strong>Staff Rating:</strong> {selectedBooking.reviews[0].rating_staff} / 5</div>
+                    </div>
+                    <p style={{ fontStyle: 'italic', color: '#64748b' }}>"{selectedBooking.reviews[0].comment}"</p>
                   </div>
                 )}
 
                 <hr className="divider"/>
-                
-                <h4>Pets & Services</h4>
+                <h4>Pets & Grooming Details</h4>
                 <div className="pets-list">
                   {selectedBooking.booking_pets?.map((pet, idx) => (
-                    <div key={pet.id} className="pet-full-card">
+                    <div key={pet.id || idx} className="pet-full-card">
                        <h5 className="pet-name-header">Pet {idx+1}: {pet.pet_name} ({pet.pet_type})</h5>
-                       
                        <div className="pet-specs-grid">
-                          <div><span className="label">Breed:</span> {pet.breed || 'N/A'}</div>
-                          <div><span className="label">Gender:</span> {pet.gender || 'N/A'}</div>
-                          <div><span className="label">Weight:</span> {pet.weight_kg} kg</div>
-                          <div><span className="label">Size:</span> {pet.calculated_size || 'N/A'}</div>
-                          <div><span className="label">Behavior:</span> {pet.behavior || 'N/A'}</div>
-                          <div><span className="label">Consent:</span> {pet.emergency_consent ? 'Yes' : 'No'}</div>
+                         <div><span className="label">Breed</span> {pet.breed || 'N/A'}</div>
+                         <div><span className="label">Gender</span> {pet.gender || 'N/A'}</div>
+                         <div><span className="label">Weight</span> {pet.weight_kg} kg</div>
+                         <div><span className="label">Size</span> {pet.calculated_size || 'N/A'}</div>
+                         <div><span className="label">Behavior</span> {pet.behavior || 'N/A'}</div>
+                         <div><span className="label">Consent</span> {pet.emergency_consent ? 'Yes' : 'No'}</div>
                        </div>
-                       
-                       <div className="pet-specs-full">
-                          <span className="label">Grooming Specs:</span> {pet.grooming_specifications || 'None'}
+                       <div className="pet-info-row-split">
+                         <div className="pet-specs-full"><span className="label">Grooming Specs:</span> {pet.grooming_specifications || 'None'}</div>
+                         <div className="pet-specs-full"><span className="label">Services:</span> {pet.booking_services?.map(s => s.service_name).join(', ')}</div>
                        </div>
-                       <div className="pet-specs-full">
-                          <span className="label">Services:</span> {pet.booking_services?.map(s => s.service_name).join(', ')}
-                       </div>
-
-                       {/* Documents */}
                        <div className="pet-images-row">
-                          {pet.vaccine_card_url && (
-                            <div className="image-wrapper">
-                               <p className="img-label">Vaccine Card</p>
-                               <img src={pet.vaccine_card_url} alt="Vaccine Card" className="proof-image"/>
-                            </div>
-                          )}
-                          {pet.illness_proof_url && (
-                            <div className="image-wrapper">
-                               <p className="img-label">Proof of Illness</p>
-                               <img src={pet.illness_proof_url} alt="Illness Proof" className="proof-image"/>
-                            </div>
-                          )}
+                         {pet.vaccine_card_url && <div className="image-wrapper clickable-img" onClick={() => setPreviewImage(pet.vaccine_card_url)}><p className="img-label">Vaccine Card <FaSearchPlus size={12} /></p><img src={pet.vaccine_card_url} className="proof-image" alt="Vaccine"/></div>}
+                         {pet.illness_proof_url && <div className="image-wrapper clickable-img" onClick={() => setPreviewImage(pet.illness_proof_url)}><p className="img-label">Proof of Illness <FaSearchPlus size={12} /></p><img src={pet.illness_proof_url} className="proof-image" alt="Illness"/></div>}
                        </div>
                     </div>
                   ))}
                 </div>
-             </div>
+            </div>
 
-             <div className="modal-footer">
+            <div className="modal-footer">
                 {activeTab === 'awaiting_approval' && (
-                  <>
-                    <button className="resched-btn" onClick={openReschedule}>Reschedule</button>
-                    <button className="cancel-btn" onClick={initiateCancel}>Cancel</button>
-                  </>
+                    <>
+                        <button className="resched-btn" onClick={() => setShowRescheduleModal(true)}>Reschedule</button>
+                        <button className="cancel-btn" onClick={() => setShowCancelModal(true)}>Cancel Appointment</button>
+                    </>
                 )}
                 {activeTab === 'for_payment' && (
-                  <>
-                    <button className="pay-btn" onClick={handlePayNow}>Pay Now</button>
-                    <button className="cancel-btn" onClick={initiateCancel}>Cancel</button>
-                  </>
+                    <>
+                        <button className="pay-btn" onClick={() => navigate(`/payment/${selectedBooking.id}`)}>Pay Now</button>
+                        <button className="cancel-btn" onClick={() => setShowCancelModal(true)}>Cancel Appointment</button>
+                    </>
                 )}
-                
-                {(activeTab === 'upcoming' || activeTab === 'today') && (
-                  <button className="cancel-btn" onClick={initiateCancel}>Cancel</button>
+                {activeTab === 'upcoming' && (
+                    <button className="cancel-btn" onClick={() => setShowCancelModal(true)}>Cancel Appointment</button>
                 )}
-                
+                {activeTab === 'today' && (
+                    <>
+                        <button className="rate-btn" onClick={() => setShowFeedbackModal(true)}>Rate Service</button>
+                        <button className="cancel-btn" onClick={() => setShowCancelModal(true)}>Cancel Appointment</button>
+                    </>
+                )}
                 {activeTab === 'to_rate' && (
-                   <button className="rate-btn" onClick={() => setShowFeedbackModal(true)}>Rate Service</button>
+                    <>
+                        <button className="rate-btn" onClick={() => setShowFeedbackModal(true)}>Rate Service</button>
+                        <button className="cancel-btn" onClick={() => setShowCancelModal(true)}>Cancel Appointment</button>
+                    </>
                 )}
-                
-                {/* READ ONLY STATES: Cancelled, Denied, Voided, Rated */}
-                {(activeTab === 'cancelled' || activeTab === 'denied' || activeTab === 'voided' || activeTab === 'rated') && (
-                   <button className="secondary-btn" onClick={handleCloseAll}>Close</button>
+                {['rated', 'cancelled', 'denied', 'voided'].includes(activeTab) && (
+                    <button className="secondary-btn" onClick={handleCloseAll}>Close</button>
                 )}
-             </div>
+            </div>
           </div>
         </div>
       )}
 
-      {/* --- 2. RESCHEDULE MODAL --- */}
+      {/* --- RESCHEDULE MODAL --- */}
       {showRescheduleModal && (
         <div className="modal-overlay">
-           <div className="modal-content small-modal">
-              <div className="modal-header">
-                 <h3>Reschedule</h3>
-                 <button className="close-btn" onClick={() => setShowRescheduleModal(false)}><FaTimes/></button>
+          <div className="modal-content small-modal">
+            <div className="modal-header"><h3>Reschedule</h3><button className="close-btn" onClick={() => setShowRescheduleModal(false)}><FaTimes/></button></div>
+            <form onSubmit={confirmReschedule}>
+              <div className="modal-body">
+                <p>Select a new date and time.</p>
+                <label className="input-label">New Date</label>
+                <input type="date" className="input-field" required min={new Date().toISOString().split("T")[0]} value={reschedForm.date} onChange={handleRescheduleDateChange} />
+                <label className="input-label">New Time</label>
+                <select className="input-field" required value={reschedForm.time} disabled={!reschedForm.date || availableSlots.length === 0} onChange={(e) => setReschedForm({ ...reschedForm, time: e.target.value })}>
+                  <option value="">{!reschedForm.date ? "Select a date" : availableSlots.length === 0 ? "Closed" : "Select Time"}</option>
+                  {availableSlots.map((slot, idx) => <option key={idx} value={slot}>{slot}</option>)}
+                </select>
               </div>
-              <form onSubmit={confirmReschedule}>
-                <div className="modal-body">
-                   <p>Please select a new date and time.</p>
-                   <label>New Date</label>
-                   <input type="date" className="input-field" required 
-                     value={reschedForm.date} onChange={e => setReschedForm({...reschedForm, date: e.target.value})} />
-                   <label>New Time</label>
-                   <input type="time" className="input-field" required 
-                     value={reschedForm.time} onChange={e => setReschedForm({...reschedForm, time: e.target.value})} />
-                </div>
-                <div className="modal-footer">
-                   <button type="button" className="secondary-btn" onClick={() => setShowRescheduleModal(false)}>Back</button>
-                   <button type="submit" className="confirm-btn-yes" disabled={actionLoading}>{actionLoading ? "Saving..." : "Confirm"}</button>
-                </div>
-              </form>
-           </div>
+              <div className="modal-footer">
+                <button type="button" className="secondary-btn" onClick={() => setShowRescheduleModal(false)}>Back</button>
+                <button type="submit" className="confirm-btn-yes" disabled={actionLoading || !reschedForm.time}>{actionLoading ? "Saving..." : "Confirm"}</button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 
-      {/* --- 3. CANCEL MODAL --- */}
+      {/* --- CANCEL MODAL --- */}
       {showCancelModal && (
         <div className="modal-overlay">
            <div className="modal-content small-modal">
-              <div className="modal-header warning-header">
-                 <h3><FaExclamationTriangle/> Confirm Cancellation</h3>
-              </div>
-              <div className="modal-body">
-                 {(activeTab === 'upcoming' || activeTab === 'today') ? (
-                    <p className="warning-text">
-                      <strong>Warning:</strong> Your down payment is non-refundable. Are you sure you want to proceed?
-                    </p>
-                 ) : (
-                    <p>Are you sure you want to cancel? This cannot be undone.</p>
-                 )}
-              </div>
+              <div className="modal-header warning-header"><h3>Confirm Cancellation</h3></div>
+              <div className="modal-body"><p>Are you sure? Downpayments are non-refundable.</p></div>
               <div className="modal-footer">
-                 <button className="secondary-btn" onClick={() => setShowCancelModal(false)}>No, Keep it</button>
-                 <button className="confirm-btn-no" onClick={confirmCancel} disabled={actionLoading}>
-                   {actionLoading ? "Processing..." : "Yes, Cancel"}
-                 </button>
+                <button className="secondary-btn" onClick={() => setShowCancelModal(false)}>No</button>
+                <button className="confirm-btn-no" onClick={confirmCancel} disabled={actionLoading}>Yes, Cancel</button>
               </div>
            </div>
         </div>
       )}
 
-      {/* --- 4. FEEDBACK MODAL --- */}
+      {/* --- FEEDBACK MODAL --- */}
       {showFeedbackModal && (
         <div className="modal-overlay">
            <div className="modal-content small-modal">
-              <div className="modal-header">
-                 <h3>Rate Experience</h3>
-                 <button className="close-btn" onClick={handleCloseAll}><FaTimes/></button>
-              </div>
+              <div className="modal-header"><h3>Rate Service</h3></div>
               <div className="modal-body">
-                 <p className="modal-instruction">How was your service with {selectedBooking?.service_providers?.business_name}?</p>
-                 
-                 <div className="rating-group">
-                    <label>Overall Experience</label>
+                  <div className="rating-group">
+                    <label>Overall Rating</label>
                     <div className="stars-container">
-                      {[1,2,3,4,5].map(star => (
-                        <FaStar 
-                          key={`overall-${star}`}
-                          className={`star-icon ${feedbackForm.overallRating >= star ? 'filled' : ''}`}
-                          onClick={() => setFeedbackForm({...feedbackForm, overallRating: star})}
-                        />
-                      ))}
+                        {[1,2,3,4,5].map(s => <FaStar key={s} className={`star-icon ${feedbackForm.overallRating >= s ? 'filled' : ''}`} onClick={() => setFeedbackForm({...feedbackForm, overallRating: s})}/>)}
                     </div>
-                 </div>
-
-                 <div className="rating-group">
+                  </div>
+                  <div className="rating-group" style={{marginTop: '15px'}}>
                     <label>Staff Rating</label>
                     <div className="stars-container">
-                      {[1,2,3,4,5].map(star => (
-                        <FaStar 
-                          key={`staff-${star}`}
-                          className={`star-icon ${feedbackForm.staffRating >= star ? 'filled' : ''}`}
-                          onClick={() => setFeedbackForm({...feedbackForm, staffRating: star})}
-                        />
-                      ))}
+                        {[1,2,3,4,5].map(s => <FaStar key={s} className={`star-icon ${feedbackForm.staffRating >= s ? 'filled' : ''}`} onClick={() => setFeedbackForm({...feedbackForm, staffRating: s})}/>)}
                     </div>
-                 </div>
-
-                 <div className="form-group">
-                    <label>Feedback</label>
-                    <textarea 
-                      className="feedback-textarea" rows="4" maxLength={500}
-                      value={feedbackForm.comment}
-                      onChange={(e) => setFeedbackForm({...feedbackForm, comment: e.target.value})}
-                    />
-                 </div>
+                  </div>
+                  <textarea className="feedback-textarea" placeholder="Share your experience..." value={feedbackForm.comment} onChange={e => setFeedbackForm({...feedbackForm, comment: e.target.value})} style={{marginTop: '15px', width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #e2e8f0'}}></textarea>
               </div>
               <div className="modal-footer">
-                 <button className="secondary-btn" onClick={handleCloseAll}>Cancel</button>
-                 <button className="confirm-btn-yes" onClick={submitFeedback} disabled={actionLoading}>
-                   {actionLoading ? "Submitting..." : "Submit Review"}
-                 </button>
+                <button className="secondary-btn" onClick={handleCloseAll}>Cancel</button>
+                <button className="confirm-btn-yes" onClick={submitFeedback} disabled={actionLoading || !feedbackForm.overallRating}>Submit Review</button>
               </div>
            </div>
         </div>
       )}
 
-      {/* --- 5. SUCCESS MODAL --- */}
+      {/* --- SUCCESS MODAL --- */}
       {showSuccessModal && (
         <div className="modal-overlay">
-           <div className="modal-content small-modal" style={{textAlign: 'center', padding: '2rem'}}>
-              <div style={{color: 'var(--brand-green)', fontSize: '4rem', marginBottom: '1rem'}}>
-                 <FaCheckCircle />
-              </div>
-              <h3 style={{fontSize: '1.5rem', margin: '0 0 0.5rem 0', color: 'var(--brand-blue)'}}>
-                {successTitle}
-              </h3>
-              <p style={{color: 'var(--text-muted)', marginBottom: '1.5rem'}}>
-                {successMessage}
-              </p>
-              <button 
-                className="confirm-btn-yes" 
-                onClick={() => setShowSuccessModal(false)}
-                style={{width: '100%', justifyContent: 'center'}}
-              >
-                 OK
-              </button>
+           <div className="modal-content small-modal success-center" style={{ textAlign: 'center', padding: '3rem' }}>
+              <FaCheckCircle className="success-icon" style={{ fontSize: '4rem', color: 'var(--brand-green)', marginBottom: '1rem' }} />
+              <h3>{successTitle}</h3>
+              <p>{successMessage}</p>
+              <button className="confirm-btn-yes" onClick={handleCloseAll} style={{ marginTop: '20px' }}>OK</button>
            </div>
         </div>
+      )}
+
+      {/* --- IMAGE PREVIEW OVERLAY --- */}
+      {previewImage && (
+          <div className="modal-overlay" style={{ zIndex: 3000 }} onClick={() => setPreviewImage(null)}>
+              <div className="image-preview-modal" onClick={e => e.stopPropagation()} style={{ position: 'relative' }}>
+                  <button className="close-preview-btn" 
+                          style={{ position: 'fixed', top: '20px', right: '20px', background: 'white', border: 'none', borderRadius: '50%', padding: '10px', cursor: 'pointer', boxShadow: '0 2px 10px rgba(0,0,0,0.2)' }} 
+                          onClick={() => setPreviewImage(null)}>
+                      <FaTimes />
+                  </button>
+                  <img src={previewImage} 
+                      alt="Document Preview" 
+                      style={{ maxWidth: '90vw', maxHeight: '90vh', borderRadius: '8px', display: 'block', margin: '0 auto' }} />
+              </div>
+          </div>
       )}
 
       <Footer />
