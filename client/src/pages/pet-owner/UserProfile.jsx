@@ -14,7 +14,10 @@ import {
   FaExclamationCircle,
   FaCheckCircle,
   FaExclamationTriangle,
-  FaInfoCircle 
+  FaInfoCircle,
+  FaUserShield,
+  FaPaw,
+  FaStore
 } from "react-icons/fa";
 import "./UserProfile.css";
 
@@ -37,6 +40,13 @@ export default function UserProfile() {
     mobile_number: ""
   });
 
+  // NEW STATE: For role and provider status
+  const [userRoleInfo, setUserRoleInfo] = useState({
+    baseRole: "pet_owner",
+    isProvider: false,
+    providerStatus: null
+  });
+
   const [initialData, setInitialData] = useState({});
   const [passwords, setPasswords] = useState({
     new_password: "",
@@ -54,23 +64,31 @@ export default function UserProfile() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return navigate("/login");
 
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("first_name, last_name, mobile_number")
-        .eq("id", user.id)
-        .single();
+      // Fetch Profile and Service Provider status in parallel
+      const [profileRes, providerRes] = await Promise.all([
+        supabase.from("profiles").select("*").eq("id", user.id).single(),
+        supabase.from("service_providers").select("status").eq("user_id", user.id).maybeSingle()
+      ]);
 
-      if (error) throw error;
+      if (profileRes.error) throw profileRes.error;
 
       const profileData = {
         email: user.email, 
-        first_name: data.first_name || "",
-        last_name: data.last_name || "",
-        mobile_number: data.mobile_number || "" 
+        first_name: profileRes.data.first_name || "",
+        last_name: profileRes.data.last_name || "",
+        mobile_number: profileRes.data.mobile_number || "" 
       };
 
       setFormData(profileData);
       setInitialData(profileData);
+
+      // Determine Role Logic
+      setUserRoleInfo({
+        baseRole: profileRes.data.role,
+        isProvider: !!providerRes.data,
+        providerStatus: providerRes.data ? providerRes.data.status : null
+      });
+
     } catch (err) {
       console.error("Error fetching profile:", err);
     } finally {
@@ -88,22 +106,11 @@ export default function UserProfile() {
     if (errors.password || errors.confirm_password) setErrors(prev => ({ ...prev, password: "", confirm_password: "" }));
   };
 
-  const hasChanges = () => {
-    const detailsChanged = 
-      formData.first_name !== initialData.first_name ||
-      formData.last_name !== initialData.last_name ||
-      formData.mobile_number !== initialData.mobile_number;
-    const passwordChanged = passwords.new_password.trim() !== "";
-    return detailsChanged || passwordChanged;
-  };
-
   const validateForm = () => {
     const newErrors = {};
     let isValid = true;
-
     if (!formData.first_name.trim()) { newErrors.first_name = "First name is required."; isValid = false; }
     if (!formData.last_name.trim()) { newErrors.last_name = "Last name is required."; isValid = false; }
-
     const mobileRegex = /^(09|\+639)\d{9}$/;
     if (!formData.mobile_number.trim()) {
       newErrors.mobile_number = "Mobile number is required.";
@@ -112,19 +119,19 @@ export default function UserProfile() {
       newErrors.mobile_number = "Invalid format.";
       isValid = false;
     }
-
     if (passwords.new_password) {
       if (passwords.new_password.length < 6) { newErrors.password = "Min 6 characters."; isValid = false; }
       if (passwords.new_password !== passwords.confirm_password) { newErrors.confirm_password = "Passwords do not match."; isValid = false; }
     }
-
     setErrors(newErrors);
     return isValid;
   };
 
   const handleSaveClick = (e) => {
     e.preventDefault();
-    if (!hasChanges()) { setShowNoChangesModal(true); return; }
+    const detailsChanged = formData.first_name !== initialData.first_name || formData.last_name !== initialData.last_name || formData.mobile_number !== initialData.mobile_number;
+    const passwordChanged = passwords.new_password.trim() !== "";
+    if (!(detailsChanged || passwordChanged)) { setShowNoChangesModal(true); return; }
     if (validateForm()) setShowConfirmModal(true);
   };
 
@@ -142,14 +149,11 @@ export default function UserProfile() {
           updated_at: new Date(),
         })
         .eq("id", user.id);
-
       if (profileError) throw profileError;
-
       if (passwords.new_password) {
         const { error: authError } = await supabase.auth.updateUser({ password: passwords.new_password });
         if (authError) throw authError;
       }
-
       setInitialData({ ...formData });
       setPasswords({ new_password: "", confirm_password: "" });
       setShowSuccessModal(true);
@@ -160,6 +164,41 @@ export default function UserProfile() {
     }
   };
 
+  // Helper to render the role badge
+  const renderRoleBadge = () => {
+    const isApprovedProvider = userRoleInfo.isProvider && userRoleInfo.providerStatus === 'approved';
+    const isPendingProvider = userRoleInfo.isProvider && userRoleInfo.providerStatus === 'pending';
+    const isRejectedProvider = userRoleInfo.isProvider && userRoleInfo.providerStatus === 'declined';
+
+    return (
+      <div className="role-display-container">
+        <div className="role-card">
+          <div className="role-item">
+            <div className="role-icon-circle active"><FaPaw /></div>
+            <div className="role-text">
+              <h4>Pet Owner</h4>
+              <p>Standard Access</p>
+            </div>
+            <FaCheckCircle className="status-icon-check" title="Active" />
+          </div>
+
+          {userRoleInfo.isProvider && (
+            <div className={`role-item ${isApprovedProvider ? 'active' : 'inactive'}`}>
+              <div className={`role-icon-circle ${userRoleInfo.providerStatus}`}><FaStore /></div>
+              <div className="role-text">
+                <h4>Service Provider</h4>
+                <p>Status: <span className={`status-text ${userRoleInfo.providerStatus}`}>{userRoleInfo.providerStatus}</span></p>
+              </div>
+              {isApprovedProvider && <FaCheckCircle className="status-icon-check" />}
+              {isPendingProvider && <FaClock className="status-icon-pending" />}
+              {isRejectedProvider && <FaExclamationCircle className="status-icon-declined" />}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   if (loading) return <div className="profile-loading">Loading Profile...</div>;
 
   return (
@@ -167,7 +206,6 @@ export default function UserProfile() {
       <LoggedInNavbar />
       <div className="profile-page-wrapper">
         <div className="profile-container">
-          
           <div className="profile-header">
             <div className="header-icon"><FaUserEdit /></div>
             <h1>My Profile</h1>
@@ -181,7 +219,6 @@ export default function UserProfile() {
           )}
 
           <form className="profile-form" onSubmit={handleSaveClick}>
-            
             <div className="profile-form-body">
               {/* LEFT COLUMN: Account & Personal */}
               <div className="profile-column">
@@ -216,7 +253,7 @@ export default function UserProfile() {
                 </div>
               </div>
 
-              {/* RIGHT COLUMN: Password */}
+              {/* RIGHT COLUMN: Password & Role */}
               <div className="profile-column">
                 <div className="form-section security-section">
                   <h3>Security</h3>
@@ -244,6 +281,13 @@ export default function UserProfile() {
                     {errors.confirm_password && <span className="field-error-msg">{errors.confirm_password}</span>}
                   </div>
                 </div>
+
+                {/* ROLE SECTION PRINTED HERE */}
+                <div className="form-section role-section">
+                  <h3>Account Roles</h3>
+                  <p className="section-subtitle">Your current verified roles in furlink.</p>
+                  {renderRoleBadge()}
+                </div>
               </div>
             </div>
 
@@ -256,7 +300,7 @@ export default function UserProfile() {
         </div>
       </div>
 
-      {/* MODALS (Simplified logic for brevity) */}
+      {/* ... Modals ... */}
       {showConfirmModal && (
         <div className="modal-overlay">
           <div className="modal-content confirm-save-modal">
@@ -269,8 +313,6 @@ export default function UserProfile() {
           </div>
         </div>
       )}
-      {/* ... Success and NoChanges modals remain the same as your original ... */}
-
       <Footer />
     </>
   );

@@ -168,6 +168,80 @@
 }
 
 /* =========================================
+  Role Section
+   ========================================= */
+.role-section {
+  margin-top: 20px;
+}
+
+.role-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: #f8fafc;
+  padding: 15px;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+}
+
+.role-item {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 10px;
+  background: white;
+  border-radius: 8px;
+  border: 1px solid #edf2f7;
+  position: relative;
+}
+
+.role-item.active {
+  border-color: #bee3f8;
+  background: #ebf8ff;
+}
+
+.role-icon-circle {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #edf2f7;
+  color: #718096;
+}
+
+.role-icon-circle.active { background: #3182ce; color: white; }
+.role-icon-circle.pending { background: #ecc94b; color: white; }
+.role-icon-circle.approved { background: #48bb78; color: white; }
+.role-icon-circle.declined { background: #f56565; color: white; }
+
+.role-text h4 {
+  margin: 0;
+  font-size: 0.95rem;
+  color: #2d3748;
+}
+
+.role-text p {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #718096;
+}
+
+.status-text {
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.status-text.pending { color: #b7791f; }
+.status-text.approved { color: #2f855a; }
+.status-text.declined { color: #c53030; }
+
+.status-icon-check { color: #48bb78; margin-left: auto; }
+.status-icon-pending { color: #ecc94b; margin-left: auto; }
+.status-icon-declined { color: #f56565; margin-left: auto; }
+
+/* =========================================
    5. Error States & Banners
    ========================================= */
 /* Top Banner for General Errors */
