@@ -9,13 +9,14 @@ import {
   FaListUl, 
   FaExclamationCircle,
   FaCalendarAlt,
-  FaUser 
+  FaUser,
+  FaExchangeAlt
 } from "react-icons/fa";
 import { supabase } from "../../config/supabase";
 import "./LoggedInNavbar.css";
 import logo from "../../assets/logo.png";
 
-const LoggedInNavbar = ({ hideBecomeProvider = false }) => {
+const LoggedInNavbar = () => {
   const navigate = useNavigate();
   const location = useLocation();
   
@@ -28,34 +29,34 @@ const LoggedInNavbar = ({ hideBecomeProvider = false }) => {
   // Data State
   const [notifications, setNotifications] = useState([]);
   const [profile, setProfile] = useState(null);
-  
-  // Provider Logic State
   const [providerData, setProviderData] = useState(null); 
   const [hasServices, setHasServices] = useState(false); 
 
   const notifRef = useRef();
   const menuRef = useRef();
 
+  const currentPath = location.pathname;
+  const isServiceProviderPage = currentPath.startsWith("/service/");
+
   /* ==========================
       PATH-BASED VISIBILITY LOGIC
      ========================== */
-  const currentPath = location.pathname;
-
-  // Hide "Manage Listing" if on SP related pages
-  const hideManageListing = [
-    "/service/edit-listing",
-    "/service/edit-profile",
-    "/service/manage-listing"
+  
+  // 1. Hide "Become Provider" on application/setup pages
+  const hideBecomeProviderAction = [
+    "/apply-provider", 
+    "/service-setup", 
+    "/service-listing"
   ].includes(currentPath);
 
-  // Hide "Profile" if on UserProfile page
-  const hideProfile = currentPath === "/profile";
+  // 2. Hide "Profile" option if currently on the profile page
+  const hideProfileOption = currentPath === "/profile";
 
-  // Hide "Appointments" if on History or Appointments pages
-  const hideAppointments = [
-    "/booking-history",
-    "/appointments"
-  ].includes(currentPath);
+  // 3. Hide "Appointments" option if on related pages (including dynamic payment route)
+  const hideAppointmentsOption = [
+    "/appointments", 
+    "/booking-history"
+  ].includes(currentPath) || currentPath.startsWith("/payment/");
 
   useEffect(() => {
     const fetchData = async () => {
@@ -64,7 +65,7 @@ const LoggedInNavbar = ({ hideBecomeProvider = false }) => {
 
       const { data: profileData } = await supabase
         .from("profiles")
-        .select("first_name")
+        .select("first_name, role")
         .eq("id", user.id)
         .single();
       setProfile(profileData);
@@ -97,20 +98,20 @@ const LoggedInNavbar = ({ hideBecomeProvider = false }) => {
     fetchData();
   }, [navigate]);
 
-  const isServiceProviderPage = location.pathname.startsWith("/service/");
+  const userRole = profile?.role; 
+  const providerStatus = providerData?.status;
+  const isStrictProvider = userRole === 'service_provider';
+  const isApproved = providerStatus === 'approved';
 
   const handleProviderClick = () => {
-    if (!providerData) {
-      navigate("/apply-provider");
+    if (!providerData) return navigate("/apply-provider");
+    if (isApproved) {
+      navigate(isServiceProviderPage ? "/dashboard" : "/service/dashboard");
       return;
     }
-    const { status } = providerData;
-
-    if (status === "approved") {
-      navigate("/service/dashboard");
-    } else if (status === "rejected") {
+    if (providerStatus === "rejected") {
       setShowRejectModal(true);
-    } else if (status === "pending") {
+    } else if (providerStatus === "pending") {
       if (hasServices) {
         setShowPendingModal(true);
       } else {
@@ -119,25 +120,15 @@ const LoggedInNavbar = ({ hideBecomeProvider = false }) => {
     }
   };
 
-  const handleNotifClick = async (notif) => {
-    if (!notif.read) {
-      await supabase.from("notifications").update({ read: true }).eq("id", notif.id);
-      setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, read: true } : n));
-    }
-    const title = notif.title?.toLowerCase() || "";
-    if (title.includes("approved")) {
-      navigate("/service/dashboard");
-      setShowNotif(false);
-    } else if (title.includes("rejected")) {
-      setShowRejectModal(true);
-      setShowNotif(false);
-    }
-  };
-
   const handleLogout = async () => {
     await supabase.auth.signOut();
     localStorage.removeItem("token");
     navigate("/");
+  };
+
+  const formatReason = (str) => {
+    if (!str) return "";
+    return str.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
   };
 
   useEffect(() => {
@@ -149,13 +140,6 @@ const LoggedInNavbar = ({ hideBecomeProvider = false }) => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const unreadCount = notifications.filter((n) => !n.read).length;
-
-  const formatReason = (str) => {
-    if (!str) return "";
-    return str.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
-  };
-
   return (
     <>
       <header className="loggedin-header">
@@ -165,13 +149,17 @@ const LoggedInNavbar = ({ hideBecomeProvider = false }) => {
           </div>
 
           <div className="nav-right">
-            {!hideBecomeProvider && !isServiceProviderPage && (
+            {/* Requirement: 
+                - Hide if strictly a service provider 
+                - Hide if on setup/listing/apply pages
+            */}
+            {!isStrictProvider && !hideBecomeProviderAction && (
               <button 
-                className={`provider-btn ${providerData?.status === 'approved' ? 'business-mode' : ''}`}
+                className={`provider-btn ${isApproved ? 'business-mode' : ''}`}
                 onClick={handleProviderClick}
               >
-                {providerData?.status === 'approved' 
-                  ? `Switch to ${providerData.business_name}` 
+                {isApproved 
+                  ? (isServiceProviderPage ? "Switch to Pet Owner" : `Switch to ${providerData.business_name}`) 
                   : "Become a Service Provider"}
               </button>
             )}
@@ -179,28 +167,8 @@ const LoggedInNavbar = ({ hideBecomeProvider = false }) => {
             <div ref={notifRef} className="notif-wrapper">
               <button className="icon-btn" onClick={() => setShowNotif(!showNotif)}>
                 <FaBell className="icon" />
-                {unreadCount > 0 && <span className="notif-dot">{unreadCount}</span>}
+                {notifications.filter(n => !n.read).length > 0 && <span className="notif-dot" />}
               </button>
-
-              {showNotif && (
-                <div className="notif-dropdown">
-                  <div className="dropdown-header">Notifications</div>
-                  {notifications.length === 0 ? (
-                    <div className="notif-empty">No notifications</div>
-                  ) : (
-                    notifications.map((notif) => (
-                      <div
-                        key={notif.id}
-                        className={`notif-item ${notif.read ? "read" : "unread"}`}
-                        onClick={() => handleNotifClick(notif)}
-                      >
-                        <div className="notif-title">{notif.title}</div>
-                        <div className="notif-msg">{notif.message}</div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              )}
             </div>
 
             <div ref={menuRef} className="profile-wrapper">
@@ -212,41 +180,19 @@ const LoggedInNavbar = ({ hideBecomeProvider = false }) => {
                 <div className="dropdown profile-dropdown">
                   <p className="user-name">Hi, {profile?.first_name || "User"}</p>
                   
-                  {/* PROFILE OPTION */}
-                  {!hideProfile && (
-                    <button 
-                      className="menu-item-btn" 
-                      onClick={() => {
-                        navigate("/profile");
-                        setShowMenu(false);
-                      }}
-                    >
+                  {/* Hide Profile option if on /profile */}
+                  {!hideProfileOption && (
+                    <button className="menu-item-btn" onClick={() => { navigate("/profile"); setShowMenu(false); }}>
                       <FaUser className="menu-icon" /> Profile
                     </button>
                   )}
 
-                  {/* MANAGE LISTING OPTION */}
-                  {!hideManageListing && providerData?.status === 'approved' && (
-                    <button 
-                      className="menu-item-btn" 
-                      onClick={() => {
-                        navigate("/service/manage-listing");
-                        setShowMenu(false);
-                      }}
-                    >
-                      <FaStore className="menu-icon" /> Manage Listing
-                    </button>
-                  )}
-
-                  {/* APPOINTMENTS OPTION */}
-                  {!hideAppointments && (
-                    <button 
-                      className="menu-item-btn" 
-                      onClick={() => {
-                        navigate("/appointments");
-                        setShowMenu(false);
-                      }}
-                    >
+                  {/* Appointments: 
+                      - Hidden for 'service_provider' only
+                      - Hidden if on appointments/history/payment pages
+                  */}
+                  {!isStrictProvider && !hideAppointmentsOption && (
+                    <button className="menu-item-btn" onClick={() => { navigate("/appointments"); setShowMenu(false); }}>
                       <FaCalendarAlt className="menu-icon" /> Appointments
                     </button>
                   )}
@@ -261,14 +207,14 @@ const LoggedInNavbar = ({ hideBecomeProvider = false }) => {
         </div>
       </header>
 
-      {/* Modals remain unchanged */}
+      {/* MODALS */}
       {showPendingModal && (
         <div className="modal-overlay">
           <div className="modal-content pending-modal">
             <button className="close-modal-btn" onClick={() => setShowPendingModal(false)}><FaTimes /></button>
             <div className="modal-icon-wrapper pending"><FaListUl /></div>
             <h3>Application Under Review</h3>
-            <p>Your application has been submitted and is currently being reviewed by our team.</p>
+            <p>Your application for <strong>{providerData?.business_name}</strong> has been submitted and is currently being reviewed by our team.</p>
             <button className="modal-ok-btn" onClick={() => setShowPendingModal(false)}>Got it</button>
           </div>
         </div>
@@ -291,7 +237,10 @@ const LoggedInNavbar = ({ hideBecomeProvider = false }) => {
                 </ul>
               </div>
             )}
-            <button className="modal-ok-btn reject-bg" onClick={() => setShowRejectModal(false)}>Close</button>
+            <div className="modal-actions">
+                <button className="modal-ok-btn reject-bg" onClick={() => navigate("/apply-provider")}>Re-apply</button>
+                <button className="modal-cancel-btn" onClick={() => setShowRejectModal(false)}>Close</button>
+            </div>
           </div>
         </div>
       )}
