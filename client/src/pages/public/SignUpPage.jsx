@@ -79,19 +79,19 @@ const SignUpPage = () => {
     if (user) {
       // 2. Use UPSERT instead of INSERT to avoid "Duplicate Key" errors
       // This handles cases where a DB trigger might have already created the row
-      const { error: profileError } = await supabase
-        .from("profiles")
-        .upsert([
-          {
-            id: user.id,
-            first_name: formData.firstName,
-            last_name: formData.lastName,
-            display_name: `${formData.firstName} ${formData.lastName}`,
-            mobile_number: formData.mobile, 
-            date_of_birth: formData.dob,    
-            role: formData.roleChoice === 'service_provider' ? 'service_provider' : 'pet_owner' 
-          },
-        ], { onConflict: 'id' }); // Explicitly tell it to resolve conflicts on 'id'
+      // Inside handleFinalSubmit in SignUpPage.jsx
+      const { error: profileError } = await supabase.from("profiles").upsert([
+        {
+          id: user.id,
+          first_name: formData.firstName,
+          last_name: formData.lastName,
+          display_name: `${formData.firstName} ${formData.lastName}`,
+          mobile_number: formData.mobile,
+          date_of_birth: formData.dob,
+          // FIX: Save the actual choice, including 'both'
+          role: formData.roleChoice 
+        },
+      ], { onConflict: 'id' });
 
       if (profileError) throw profileError;
 
