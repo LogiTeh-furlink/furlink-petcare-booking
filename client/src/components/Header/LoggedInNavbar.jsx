@@ -42,21 +42,25 @@ const LoggedInNavbar = () => {
       PATH-BASED VISIBILITY LOGIC
      ========================== */
   
-  // 1. Hide "Become Provider" on application/setup pages
   const hideBecomeProviderAction = [
     "/apply-provider", 
     "/service-setup", 
     "/service-listing"
   ].includes(currentPath);
 
-  // 2. Hide "Profile" option if currently on the profile page
   const hideProfileOption = currentPath === "/profile";
 
-  // 3. Hide "Appointments" option if on related pages (including dynamic payment route)
   const hideAppointmentsOption = [
     "/appointments", 
     "/booking-history"
   ].includes(currentPath) || currentPath.startsWith("/payment/");
+
+  // New Logic: Hide "Manage Listing" if already on service management pages
+  const hideManageListingOption = [
+    "/service/manage-listing",
+    "/service/edit-listing",
+    "/service/edit-profile"
+  ].includes(currentPath);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -102,6 +106,9 @@ const LoggedInNavbar = () => {
   const providerStatus = providerData?.status;
   const isStrictProvider = userRole === 'service_provider';
   const isApproved = providerStatus === 'approved';
+  
+  // Logic for showing Manage Listing: Role must be 'service_provider' or 'both'
+  const canManageListing = (userRole === 'service_provider' || userRole === 'both') && isApproved;
 
   const handleProviderClick = () => {
     if (!providerData) return navigate("/apply-provider");
@@ -149,10 +156,6 @@ const LoggedInNavbar = () => {
           </div>
 
           <div className="nav-right">
-            {/* Requirement: 
-                - Hide if strictly a service provider 
-                - Hide if on setup/listing/apply pages
-            */}
             {!isStrictProvider && !hideBecomeProviderAction && (
               <button 
                 className={`provider-btn ${isApproved ? 'business-mode' : ''}`}
@@ -180,17 +183,19 @@ const LoggedInNavbar = () => {
                 <div className="dropdown profile-dropdown">
                   <p className="user-name">Hi, {profile?.first_name || "User"}</p>
                   
-                  {/* Hide Profile option if on /profile */}
                   {!hideProfileOption && (
                     <button className="menu-item-btn" onClick={() => { navigate("/profile"); setShowMenu(false); }}>
                       <FaUser className="menu-icon" /> Profile
                     </button>
                   )}
 
-                  {/* Appointments: 
-                      - Hidden for 'service_provider' only
-                      - Hidden if on appointments/history/payment pages
-                  */}
+                  {/* ADDED: Manage Listing Option */}
+                  {canManageListing && !hideManageListingOption && (
+                    <button className="menu-item-btn" onClick={() => { navigate("/service/manage-listing"); setShowMenu(false); }}>
+                      <FaStore className="menu-icon" /> Manage Listing
+                    </button>
+                  )}
+
                   {!isStrictProvider && !hideAppointmentsOption && (
                     <button className="menu-item-btn" onClick={() => { navigate("/appointments"); setShowMenu(false); }}>
                       <FaCalendarAlt className="menu-icon" /> Appointments
@@ -207,7 +212,7 @@ const LoggedInNavbar = () => {
         </div>
       </header>
 
-      {/* MODALS */}
+      {/* MODALS REMAIN UNCHANGED */}
       {showPendingModal && (
         <div className="modal-overlay">
           <div className="modal-content pending-modal">

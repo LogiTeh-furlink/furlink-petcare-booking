@@ -379,7 +379,7 @@ const stats = {
           </div>
           <button className="calendar-btn" onClick={() => setShowCalendar(true)}>
              <FaCalendarAlt size={24} />
-             <span>Access Calendar</span>
+             <span>Calendar</span>
           </button>
         </div>
 
