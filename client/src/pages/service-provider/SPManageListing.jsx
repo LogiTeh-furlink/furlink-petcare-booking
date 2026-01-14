@@ -94,6 +94,13 @@ export default function SPManageListing() {
     }
   };
 
+  const formatDuration = (totalMinutes) => {
+    if (!totalMinutes) return "60 mins";
+    const hrs = Math.floor(totalMinutes / 60);
+    const mins = totalMinutes % 60;
+    return `${hrs > 0 ? `${hrs} hr ` : ""}${mins > 0 ? `${mins} mins` : ""}`.trim();
+  };
+
   const formatTime = (time) => {
     if (!time) return "";
     return new Date(`2000-01-01T${time}`).toLocaleTimeString('en-US', { 
@@ -152,25 +159,40 @@ export default function SPManageListing() {
                 <p><strong>Postal Code:</strong> {provider.postal_code}</p>
             </div>
 
-            <div className="info-group wide-group">
-                <label>Operating Hours</label>
+            {/* Inside the Operating Hours section of SPManageListing.jsx */}
+              <div className="info-group wide-group">
+                <label className="section-label-bold">Operating Hours & Slot Management</label>
                 <div className="hours-grid-display">
-                    {daysOrder.map(day => {
-                        const dayHours = hours.filter(h => h.day_of_week === day);
-                        const isOpen = dayHours.length > 0;
-                        return (
-                            <div key={day} className={`day-card ${isOpen ? 'open' : 'closed'}`}>
-                                <div className="day-card-header"><Clock size={14} /> <span>{day}</span></div>
-                                <div className="day-card-body">
-                                    {isOpen ? dayHours.map((h, i) => (
-                                        <div key={i} className="time-pill">{formatTime(h.start_time)} - {formatTime(h.end_time)}</div>
-                                    )) : <span className="closed-text">Closed</span>}
+                  {daysOrder.map((day) => {
+                    const dayHours = hours.filter((h) => h.day_of_week === day);
+                    const isOpen = dayHours.length > 0;
+                    return (
+                      <div key={day} className={`day-card ${isOpen ? "open" : "closed"}`}>
+                        <div className="day-card-header">
+                          <Clock size={14} /> <span>{day}</span>
+                        </div>
+                        <div className="day-card-body">
+                          {isOpen ? (
+                            dayHours.map((h, i) => (
+                              <div key={i} className="time-pill-enhanced">
+                                <div className="time-range">
+                                  {formatTime(h.start_time)} - {formatTime(h.end_time)}
                                 </div>
-                            </div>
-                        );
-                    })}
+                                <div className="slot-details">
+                                  <span><strong>Duration:</strong> {formatDuration(h.slot_interval_minutes)}</span>
+                                  <span><strong>Capacity:</strong> {h.slot_capacity} pets/slot</span>
+                                </div>
+                              </div>
+                            ))
+                          ) : (
+                            <span className="closed-text">No Operating Hours Set</span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
-            </div>
+              </div>
           </div>
 
           <div className="files-section">

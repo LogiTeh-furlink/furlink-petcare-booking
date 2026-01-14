@@ -98,16 +98,89 @@
   transform: translateY(-2px);
 }
 
-/* Operating Hours */
+/* src/pages/service-provider/SPManageListing.css */
+
 .hours-grid-display {
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 15px;
+  display: grid;
+  /* Lowered minmax to 180px to ensure it fits 3-4 columns even on smaller laptops */
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); 
+  gap: 12px;
+  margin-top: 15px;
+  width: 100%; /* Force use of all available space */
 }
 
-.day-card { border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; }
-.day-card-header { background-color: #f1f5f9; padding: 10px; font-weight: 700; color: #475569; display: flex; justify-content: center; gap: 8px; }
-.day-card.open .day-card-header { background-color: #0E2679; color: #fff; }
-.day-card-body { padding: 12px; text-align: center; }
-.time-pill { background: #f8fafc; border: 1px solid #e2e8f0; padding: 6px; border-radius: 6px; font-size: 0.8rem; color: #0E2679; font-weight: 500; }
+/* Ensure the parent group doesn't restrict width */
+.info-group.wide-group {
+  grid-column: 1 / -1; /* Makes this group take the full width of the parent flex/grid */
+  width: 100%;
+}
+
+.day-card {
+  background: #fff;
+  border-radius: 12px;
+  border: 1px solid #eef2f6;
+  display: flex;
+  flex-direction: column;
+  height: 100%; 
+  min-width: 0; /* Prevents overflow issues */
+}
+
+.day-card-header {
+  padding: 10px;
+  background: #f1f5f9;
+  display: flex;
+  align-items: center;
+  justify-content: center; /* Center the day name */
+  gap: 6px;
+  font-weight: 700;
+  color: #475569;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+}
+
+.day-card.open .day-card-header {
+  background-color: #0E2679;
+  color: #ffffff;
+  /* Apply radius only to top-left and top-right corners */
+  border-top-left-radius: 10px;
+  border-top-right-radius: 10px;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.day-card-body {
+  padding: 10px;
+  flex-grow: 1;
+}
+
+.time-pill-enhanced {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 8px;
+  margin-bottom: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.time-range {
+  font-weight: 800;
+  color: #0e2679;
+  font-size: 0.8rem;
+  text-align: center;
+}
+
+.slot-details {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  font-size: 0.7rem;
+  color: #64748b;
+  margin-top: 4px;
+  border-top: 1px dashed #e2e8f0;
+  padding-top: 4px;
+}
 
 /* Files & Gallery Sections */
 .files-section { padding: 30px; border-top: 1px solid #f1f5f9; }
