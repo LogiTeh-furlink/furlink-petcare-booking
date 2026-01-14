@@ -30,6 +30,27 @@ const ALLOWED_SIZES = {
 };
 
 // --- MODAL COMPONENT ---
+const DeleteConfirmModal = ({ isOpen, onClose, onConfirm }) => {
+  if (!isOpen) return null;
+  return (
+    <div className="modal-overlay">
+      <div className="modal-content final-confirm-modal error">
+        <div className="modal-header-center">
+          <Trash2 size={56} className="modal-icon-error" />
+          <h2>Delete Service?</h2>
+        </div>
+        <div className="modal-body-center">
+          <p>Are you sure you want to remove this listing? This will also remove all its pricing variants.</p>
+        </div>
+        <div className="modal-footer-center">
+          <button className="btn-modal-cancel" onClick={onClose}>Cancel</button>
+          <button className="btn-modal-confirm" style={{ backgroundColor: 'var(--danger)' }} onClick={onConfirm}>Yes, Delete</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const FinalConfirmationModal = ({ isOpen, onClose, onConfirm, status, errorMessage, onNavigateManage }) => {
   if (!isOpen) return null;
 
@@ -123,6 +144,7 @@ export default function SPEditListing() {
   const [showFinalModal, setShowFinalModal] = useState(false);
   const [submissionStatus, setSubmissionStatus] = useState('idle');
   const [submissionError, setSubmissionError] = useState('');
+  const [deleteTargetIndex, setDeleteTargetIndex] = useState(null);
 
   // --- 1. FETCH EXISTING DATA ---
   useEffect(() => {
@@ -246,10 +268,14 @@ export default function SPEditListing() {
 
   const removeService = (index) => {
     const serviceToRemove = services[index];
-    // If it has a real UUID (not temp), track it for DB deletion
-    if (!serviceToRemove.id.toString().startsWith("temp_")) {
-        setDeletedServiceIds(prev => [...prev, serviceToRemove.id]);
+    
+    // Check if it's a real record from the database (Real UUID vs Temp ID)
+    if (serviceToRemove.id && !serviceToRemove.id.toString().startsWith("temp_")) {
+      // Track the ID so saveChangesToDB knows to DELETE it from Supabase
+      setDeletedServiceIds(prev => [...prev, serviceToRemove.id]);
     }
+    
+    // Remove it from the local screen immediately
     setServices(prev => prev.filter((_, i) => i !== index));
   };
 
@@ -396,26 +422,35 @@ export default function SPEditListing() {
   // --- DATABASE UPDATE LOGIC ---
   const saveChangesToDB = async () => {
     try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) throw new Error("No user");
+        // ADD THIS LINE: This defines the 'user' variable needed for your queries
+        const { data: { user }, error: authError } = await supabase.auth.getUser();
+        if (authError || !user) throw new Error("Authentication failed. Please login again.");
 
-        // 1. Get Provider ID
-        const { data: providerData } = await supabase.from("service_providers").select("id").eq("user_id", user.id).single();
+        // 1. Get Provider ID 
+        const { data: providerData, error: pError } = await supabase
+            .from("service_providers")
+            .select("id")
+            .eq("user_id", user.id)
+            .single();
+            
+        if (pError || !providerData) throw new Error("Service provider profile not found.");
         const providerId = providerData.id;
 
         // 2. DELETE Removed Records
         if (deletedOptionIds.length > 0) {
             await supabase.from("service_options").delete().in("id", deletedOptionIds);
         }
+
         if (deletedServiceIds.length > 0) {
-            await supabase.from("services").delete().in("id", deletedServiceIds);
+            // Database CASCADE will automatically delete child options
+            const { error: delError } = await supabase.from("services").delete().in("id", deletedServiceIds);
+            if (delError) throw delError;
         }
 
         // 3. UPSERT Services & Options
         for (const service of services) {
             let serviceId = service.id;
 
-            // Prepare Payload
             const servicePayload = {
                 provider_id: providerId,
                 type: service.type,
@@ -426,12 +461,10 @@ export default function SPEditListing() {
 
             // A. Service Handling
             if (serviceId.toString().startsWith("temp_")) {
-                // INSERT NEW SERVICE
                 const { data, error } = await supabase.from("services").insert([servicePayload]).select().single();
                 if (error) throw error;
-                serviceId = data.id; // Get real ID
+                serviceId = data.id; 
             } else {
-                // UPDATE EXISTING SERVICE
                 const { error } = await supabase.from("services").update(servicePayload).eq("id", serviceId);
                 if (error) throw error;
             }
@@ -439,7 +472,7 @@ export default function SPEditListing() {
             // B. Options Handling
             for (const pricing of service.pricing) {
                 const optionPayload = {
-                    service_id: serviceId, // Link to correct parent
+                    service_id: serviceId, 
                     pet_type: pricing.petType,
                     size: pricing.size,
                     weight_range: pricing.weight,
@@ -447,11 +480,9 @@ export default function SPEditListing() {
                 };
 
                 if (pricing.id.toString().startsWith("temp_")) {
-                    // INSERT NEW OPTION
                     const { error } = await supabase.from("service_options").insert([optionPayload]);
                     if (error) throw error;
                 } else {
-                    // UPDATE EXISTING OPTION
                     const { error } = await supabase.from("service_options").update(optionPayload).eq("id", pricing.id);
                     if (error) throw error;
                 }
@@ -460,7 +491,7 @@ export default function SPEditListing() {
 
         return { success: true };
     } catch (err) {
-        console.error(err);
+        // Returns the error message to be displayed in your existing FinalConfirmationModal
         return { success: false, message: err.message };
     }
   };
@@ -504,7 +535,14 @@ export default function SPEditListing() {
                         <span className={`type-badge ${service.type}`}>
                             {service.type === 'package' ? 'Package' : 'Individual'}
                         </span>
-                        <button type="button" className="btn-delete-service" onClick={() => removeService(si)}>
+                        <button 
+                            type="button" 
+                            className="btn-delete-service" 
+                            onClick={(e) => {
+                                e.preventDefault();
+                                setDeleteTargetIndex(si); // Set the index to be deleted
+                            }}
+                        >
                             <Trash2 size={18} />
                         </button>
                     </div>
@@ -578,6 +616,15 @@ export default function SPEditListing() {
                 </div>
             ))}
           </div>
+
+            <DeleteConfirmModal 
+              isOpen={deleteTargetIndex !== null} 
+              onClose={() => setDeleteTargetIndex(null)}
+              onConfirm={() => {
+                removeService(deleteTargetIndex);
+                setDeleteTargetIndex(null);
+              }}
+            />
 
           <div className="bottom-actions-bar">
              <div className="add-btns">
