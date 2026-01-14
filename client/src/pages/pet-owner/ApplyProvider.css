@@ -105,6 +105,86 @@ h1.page-title {
   box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.15);
 }
 
+/* Container for the specific slot */
+.operating-slot-enhanced {
+  background: #fcfcfc;
+  padding: 1.25rem;
+  border-radius: 12px;
+  margin-bottom: 1rem;
+  border: 1px solid #eee;
+}
+
+/* The magic class to put everything on one line */
+.time-config-row-single {
+  display: flex;
+  align-items: flex-end; /* Aligns labels and inputs to the bottom */
+  justify-content: flex-start;
+  gap: 1.5rem;
+  margin-top: 1rem;
+  flex-wrap: nowrap; /* Prevents wrapping to new line */
+}
+
+/* Groups label + input container */
+.input-unit {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.input-unit label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #0e2679;
+  text-transform: uppercase;
+}
+
+/* Shared styling for input groups */
+.time-inputs-compact, 
+.duration-inputs-compact, 
+.capacity-input-compact {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: white;
+  padding: 4px 8px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  height: 40px;
+}
+
+.time-config-row-single input {
+  border: none !important;
+  padding: 0 !important;
+  font-size: 0.9rem;
+  color: #333;
+  background: transparent;
+  outline: none;
+}
+
+.time-config-row-single span {
+  font-size: 0.8rem;
+  color: #64748b;
+  font-weight: 500;
+}
+
+/* Specific widths for inputs to keep them tight */
+.duration-inputs-compact input { width: 25px; text-align: center; }
+.capacity-input-compact input { width: 35px; text-align: center; }
+.time-inputs-compact input { width: 85px; }
+
+.remove-inline-btn {
+  background: none;
+  border: none;
+  color: #ef4444;
+  cursor: pointer;
+  padding-bottom: 10px; /* Aligns with center of inputs */
+  transition: transform 0.2s;
+}
+
+.remove-inline-btn:hover {
+  transform: scale(1.1);
+}
+
 .input-disabled {
   background-color: #f3f4f6 !important;
   color: #9ca3af;

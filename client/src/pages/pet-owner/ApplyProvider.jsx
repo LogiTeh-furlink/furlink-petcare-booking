@@ -210,7 +210,14 @@ export default function ApplyProvider() {
     socialMediaUrl: "",
     googleMapUrl: "", 
     typeOfService: "Pet Grooming",
-    operatingHours: [{ days: [], startTime: "09:00", endTime: "17:00" }],
+    operatingHours: [{ 
+        days: [], 
+        startTime: "09:00", 
+        endTime: "17:00",
+        slotDurationHours: 1,      // Added
+        slotDurationMinutes: 0,    // Added
+        capacityPerSlot: 1         // Added
+    }],
     houseStreet: "",
     barangay: "",
     city: "",
@@ -398,9 +405,27 @@ export default function ApplyProvider() {
   const addEmployee = () => setEmployees((prev) => [...prev, { fullName: "", position: "" }]);
   const removeEmployee = (index) => setEmployees((prev) => prev.filter((_, i) => i !== index));
 
-  const validateForm = () => {
+  const validateForm = async () => {
     const errors = {};
-    if (!businessInfo.businessName.trim()) errors.businessName = "Business Name is required";
+    
+    // 1. Existing validations...
+    if (!businessInfo.businessName.trim()) {
+        errors.businessName = "Business Name is required";
+    } else {
+        // 2. CHECK FOR DUPLICATE BUSINESS NAME
+        // Now 'await' is allowed because the function is 'async'
+        const { data: existingBusiness, error } = await supabase
+            .from("service_providers")
+            .select("id")
+            .eq("business_name", businessInfo.businessName.trim())
+            .neq("id", providerId || "00000000-0000-0000-0000-000000000000") 
+            .maybeSingle();
+
+        if (existingBusiness) {
+            errors.businessName = "This business name is already registered. Please choose another.";
+        }
+    }
+
     if (!businessInfo.description.trim()) errors.description = "Business Description is required";
     
     if (!businessInfo.businessEmail.trim()) errors.businessEmail = "Email is required";
@@ -444,13 +469,19 @@ export default function ApplyProvider() {
     return Object.keys(errors).length === 0;
   };
 
-  const handleFormSubmit = (e) => {
-    e.preventDefault();
-    if (!validateForm()) {
-      window.scrollTo({ top: 0, behavior: "smooth" });
-      return;
-    }
-    setShowConfirmModal(true);
+  // Add 'async' here -------v
+  const handleFormSubmit = async (e) => {
+      e.preventDefault();
+      
+      // Add 'await' here ---v because validateForm is now async
+      const isValid = await validateForm(); 
+      
+      if (!isValid) {
+          window.scrollTo({ top: 0, behavior: "smooth" });
+          return;
+      }
+      
+      setShowConfirmModal(true);
   };
 
   const getFilePathFromUrl = (url) => {
@@ -554,17 +585,24 @@ export default function ApplyProvider() {
             localStorage.setItem("providerId", currentProviderId);
         }
 
+        // Inside handleConfirmSubmit, update the hoursPayload logic:
         const hoursPayload = [];
         businessInfo.operatingHours.forEach(slot => {
+            // Calculate total duration in minutes
+            const totalMinutes = (slot.slotDurationHours * 60) + slot.slotDurationMinutes;
+
             slot.days.forEach(day => {
                 hoursPayload.push({
                     provider_id: currentProviderId,
                     day_of_week: day,
                     start_time: slot.startTime,
-                    end_time: slot.endTime
+                    end_time: slot.endTime,
+                    slot_interval_minutes: totalMinutes, // New Column
+                    slot_capacity: slot.capacityPerSlot    // New Column
                 });
             });
         });
+
         if(hoursPayload.length > 0) {
             const { error: hError } = await supabase.from("service_provider_hours").insert(hoursPayload);
             if (hError) throw hError;
@@ -665,31 +703,59 @@ export default function ApplyProvider() {
             </div>
 
             <div className="form-group operating-hours-container">
-              <label>Operating Hours*</label>
-              {businessInfo.operatingHours.map((slot, i) => (
-                <div key={i} className="operating-slot">
-                  <div className="day-buttons">
-                    {daysOfWeekFull.map((d, idx) => (
-                      <button key={d} type="button" 
-                        className={`day-btn ${slot.days.includes(d) ? "active" : ""} ${isDayDisabled(i, d) ? "disabled" : ""}`} 
-                        onClick={() => toggleDay(i, d)} disabled={isDayDisabled(i, d)}>
-                        {daysOfWeekShort[idx]}
-                      </button>
-                    ))}
-                  </div>
-                  <div className="time-inputs">
-                    <input type="time" value={slot.startTime} onChange={(e) => handleTimeChange(i, "startTime", e.target.value)} />
-                    <span>to</span>
-                    <input type="time" value={slot.endTime} onChange={(e) => handleTimeChange(i, "endTime", e.target.value)} />
-                    {businessInfo.operatingHours.length > 1 && (
-                      <button type="button" onClick={() => removeTimeSlot(i)} className="remove-btn"><Trash2 size={16} /></button>
-                    )}
-                  </div>
+            <label>Operating Hours & Slot Capacity*</label>
+            {businessInfo.operatingHours.map((slot, i) => (
+              <div key={i} className="operating-slot-enhanced">
+                {/* Day Selection Row */}
+                <div className="day-buttons">
+                  {daysOfWeekFull.map((d, idx) => (
+                    <button key={d} type="button" 
+                      className={`day-btn ${slot.days.includes(d) ? "active" : ""} ${isDayDisabled(i, d) ? "disabled" : ""}`} 
+                      onClick={() => toggleDay(i, d)} disabled={isDayDisabled(i, d)}>
+                      {daysOfWeekShort[idx]}
+                    </button>
+                  ))}
                 </div>
-              ))}
-              <button type="button" className="add-btn" onClick={addTimeSlot}><Plus size={16} /> Add Slot</button>
-              {validationErrors.operatingHours && <small className="error">{validationErrors.operatingHours}</small>}
-            </div>
+
+                {/* Single Line Configuration Row */}
+                <div className="time-config-row-single">
+                  <div className="input-unit">
+                    <label>Hours:</label>
+                    <div className="time-inputs-compact">
+                      <input type="time" value={slot.startTime} onChange={(e) => handleTimeChange(i, "startTime", e.target.value)} />
+                      <span>-</span>
+                      <input type="time" value={slot.endTime} onChange={(e) => handleTimeChange(i, "endTime", e.target.value)} />
+                    </div>
+                  </div>
+
+                  <div className="input-unit">
+                    <label>Slot Every:</label>
+                    <div className="duration-inputs-compact">
+                      <input type="number" min="0" value={slot.slotDurationHours} onChange={(e) => handleTimeChange(i, "slotDurationHours", parseInt(e.target.value) || 0)} />
+                      <span>hr</span>
+                      <input type="number" min="0" value={slot.slotDurationMinutes} onChange={(e) => handleTimeChange(i, "slotDurationMinutes", parseInt(e.target.value) || 0)} />
+                      <span>min</span>
+                    </div>
+                  </div>
+
+                  <div className="input-unit">
+                    <label>Capacity:</label>
+                    <div className="capacity-input-compact">
+                      <input type="number" min="1" value={slot.capacityPerSlot} onChange={(e) => handleTimeChange(i, "capacityPerSlot", parseInt(e.target.value) || 1)} />
+                      <span>pets</span>
+                    </div>
+                  </div>
+
+                  {businessInfo.operatingHours.length > 1 && (
+                    <button type="button" onClick={() => removeTimeSlot(i)} className="remove-inline-btn">
+                      <Trash2 size={16} />
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+            <button type="button" className="add-btn" onClick={addTimeSlot}><Plus size={16} /> Add Different Schedule</button>
+          </div>
           </section>
 
           <section className="form-section">
@@ -731,7 +797,13 @@ export default function ApplyProvider() {
           </section>
 
           <div className="form-actions">
-            <button type="submit" className="btn-primary">Review Application</button>
+            <button 
+              type="submit" 
+              className="btn-primary" 
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? "Processing..." : "Review Application"}
+            </button>
           </div>
         </form>
       </div>
