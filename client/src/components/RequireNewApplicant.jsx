@@ -1,13 +1,13 @@
+// src/components/RequireNewApplicant.jsx
 import React, { useEffect, useState } from "react";
 import { Navigate, Outlet } from "react-router-dom";
 import { supabase } from "../config/supabase";
 
 export default function RequireNewApplicant() {
   const [isLoading, setIsLoading] = useState(true);
-  const [hasApplication, setHasApplication] = useState(false);
+  const [redirectPath, setRedirectPath] = useState(null);
 
   useEffect(() => {
-    // Inside RequireNewApplicant.jsx
     const checkProviderStatus = async () => {
       const { data: { user } } = await supabase.auth.getUser();
 
@@ -18,11 +18,17 @@ export default function RequireNewApplicant() {
           .eq("user_id", user.id)
           .maybeSingle();
 
-        // CHANGE: Only redirect if they have an active or finished application
-        // If data is null OR status is 'rejected', we let them stay on /apply-provider
-        if (data && (data.status === 'pending' || data.status === 'approved')) {
-          setShouldRedirect(true);
+        // SCENARIO 1: They finished Step 1 but not Step 2
+        if (data?.status === 'incomplete') {
+          setRedirectPath("/service-setup");
+        } 
+        // SCENARIO 2: They finished everything
+        else if (data?.status === 'pending' || data?.status === 'approved') {
+          setRedirectPath("/dashboard");
         }
+        
+        // SCENARIO 3: No record OR status is 'rejected'
+        // redirectPath stays null -> User is ALLOWED to stay on /apply-provider
       }
       setIsLoading(false);
     };
@@ -30,13 +36,11 @@ export default function RequireNewApplicant() {
     checkProviderStatus();
   }, []);
 
-  if (isLoading) return null; // Or a loading spinner
+  if (isLoading) return null;
 
-  // If they already applied, force them to the next step
-  if (hasApplication) {
-    return <Navigate to="/service-setup" replace />;
+  if (redirectPath) {
+    return <Navigate to={redirectPath} replace />;
   }
 
-  // Otherwise, let them view the ApplyProvider page
   return <Outlet />;
 }

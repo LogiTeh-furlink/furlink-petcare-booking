@@ -201,6 +201,7 @@ export default function ApplyProvider() {
   const [isLoading, setIsLoading] = useState(true);
   const [providerId, setProviderId] = useState(null);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [isReapplying, setIsReapplying] = useState(false);
 
   const [businessInfo, setBusinessInfo] = useState({
     businessName: "",
@@ -260,7 +261,12 @@ export default function ApplyProvider() {
 
         if (providerData) {
             setProviderId(providerData.id);
+            
+            // ADD THIS LINE HERE:
+            setIsReapplying(providerData.status === 'rejected');
+
             localStorage.setItem("providerId", providerData.id); 
+            // ... rest of your existing logic
 
             setBusinessInfo(prev => ({
               ...prev,
@@ -574,7 +580,7 @@ export default function ApplyProvider() {
           social_media_url: businessInfo.socialMediaUrl,
           google_map_url: businessInfo.googleMapUrl,
           waiver_url: waiverUrl,
-          status: 'pending', // Re-apply logic: Reset to pending for review
+          status: 'incomplete', // Re-apply logic: Reset to pending for review
           rejection_reasons: null, // Clear old rejection reasons
           updated_at: new Date().toISOString(),
         };

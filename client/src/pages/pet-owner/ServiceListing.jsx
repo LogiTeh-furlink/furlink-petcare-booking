@@ -372,20 +372,35 @@ export default function ServiceListing() {
 
   const handleBackToEdit = () => { setStep(1); window.scrollTo({ top: 0, behavior: "smooth" }); };
 
-  // --- SAVE LOGIC ---
+  // --- UPDATED SAVE LOGIC in ServiceListing.jsx ---
   const saveServicesToDB = async () => {
-    // Return promise so we can await it
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("User not authenticated.");
 
       let providerId = localStorage.getItem("providerId");
       if (!providerId) {
-        const { data: providers } = await supabase.from("service_providers").select("id").eq("user_id", user.id).limit(1);
-        if (providers && providers.length > 0) providerId = providers[0].id;
+        const { data: providers } = await supabase.from("service_providers").select("id").eq("user_id", user.id).maybeSingle();
+        if (providers) providerId = providers.id;
       }
       if (!providerId) throw new Error("Provider ID missing.");
 
+      // 1. CLEAR OLD SERVICES (Crucial for Re-application)
+      // This prevents the new services from just stacking on top of the rejected ones
+      const { data: oldServices } = await supabase
+        .from("services")
+        .select("id")
+        .eq("provider_id", providerId);
+
+      if (oldServices && oldServices.length > 0) {
+        const oldServiceIds = oldServices.map(s => s.id);
+        // service_options will be deleted automatically if you have ON DELETE CASCADE, 
+        // otherwise, delete them manually first:
+        await supabase.from("service_options").delete().in("service_id", oldServiceIds);
+        await supabase.from("services").delete().eq("provider_id", providerId);
+      }
+
+      // 2. INSERT NEW SERVICES
       for (const service of services) {
         const { data: serviceData, error: serviceError } = await supabase
           .from("services")
@@ -411,6 +426,15 @@ export default function ServiceListing() {
         const { error: optionsError } = await supabase.from("service_options").insert(optionsData);
         if (optionsError) throw optionsError;
       }
+
+      // 3. FINAL STEP: PROMOTE TO PENDING
+      // Now that services are saved, the application is officially ready for the Admin.
+      const { error: statusError } = await supabase
+        .from("service_providers")
+        .update({ status: 'pending' }) 
+        .eq("id", providerId);
+
+      if (statusError) throw statusError;
 
       localStorage.removeItem("provider_services");
       return { success: true };

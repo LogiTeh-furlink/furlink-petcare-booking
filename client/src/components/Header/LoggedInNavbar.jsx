@@ -106,6 +106,7 @@ const LoggedInNavbar = () => {
   const providerStatus = providerData?.status;
   const isStrictProvider = userRole === 'service_provider';
   const isApproved = providerStatus === 'approved';
+  const isIncomplete = providerStatus === 'incomplete'; // ADD THIS LINE
   
   // Logic for showing Manage Listing: Role must be 'service_provider' or 'both'
   const canManageListing = (userRole === 'service_provider' || userRole === 'both') && isApproved;
@@ -124,6 +125,10 @@ const LoggedInNavbar = () => {
       } else {
         navigate("/service-setup");
       }
+    }
+    else if (isIncomplete) {
+      // Sends both first-timers and resubmitters back to the setup flow
+      navigate("/service-setup");
     }
   };
 
@@ -156,6 +161,7 @@ const LoggedInNavbar = () => {
           </div>
 
           <div className="nav-right">
+            {/* Locate the button inside the nav-right div */}
             {!isStrictProvider && !hideBecomeProviderAction && (
               <button 
                 className={`provider-btn ${isApproved ? 'business-mode' : ''}`}
@@ -163,7 +169,9 @@ const LoggedInNavbar = () => {
               >
                 {isApproved 
                   ? (isServiceProviderPage ? "Switch to Pet Owner" : `Switch to ${providerData.business_name}`) 
-                  : "Become a Service Provider"}
+                  : isIncomplete 
+                    ? "Continue Application"  // <--- If status is incomplete, show this
+                    : "Become a Service Provider"} 
               </button>
             )}
 
