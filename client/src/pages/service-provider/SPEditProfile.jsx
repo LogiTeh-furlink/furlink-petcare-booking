@@ -4,7 +4,7 @@ import React, { useEffect, useState, useRef } from "react";
 import { 
   X, Upload, FileText, CheckCircle, AlertCircle, 
   Trash2, Plus, ArrowLeft, AlertTriangle, MapPin, 
-  Users, FileCheck, Eye, Image as ImageIcon
+  Users, FileCheck, Eye, Image as ImageIcon, Clock 
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import LoggedInNavbar from "../../components/Header/LoggedInNavbar";
@@ -202,6 +202,16 @@ const ReviewChangesModal = ({ isOpen, onClose, onConfirm, data, files, employees
         }
     };
 
+    // Helper for Operating Hours formatting in Review
+    const formatReviewHours = (slot) => {
+        const days = slot.days.join(", ");
+        const duration = `${slot.slotDurationHours}h ${slot.slotDurationMinutes}m`;
+        return {
+            schedule: `${days} (${slot.startTime} - ${slot.endTime})`,
+            details: `Slot: ${duration} | Capacity: ${slot.capacityPerSlot} pets`
+        };
+    };
+    
     const finalFacilities = [
         ...existingFiles.facilities.filter(f => !filesToDelete.some(d => d.id === f.id)).map(f => ({ name: getFileName(f), status: 'Existing' })),
         ...files.facilities.map(f => ({ name: f.name, status: 'New' }))
@@ -246,6 +256,22 @@ const ReviewChangesModal = ({ isOpen, onClose, onConfirm, data, files, employees
                             <span className="review-label">Description:</span>
                             <span className="review-value long-text">{data.description}</span>
                         </div>
+                        {/* OPERATING HOURS SECTION (ADDED) */}
+                        <div className="review-group">
+                            <h4><Clock size={14}/> Operating Schedule</h4>
+                            <ul className="review-list">
+                                {data.operatingHours.map((slot, idx) => {
+                                    const info = formatReviewHours(slot);
+                                    return (
+                                        <li key={idx} style={{flexDirection: 'column', alignItems: 'flex-start', gap: '2px'}}>
+                                            <div style={{fontWeight: '600', color: 'var(--primary)'}}>{info.schedule}</div>
+                                            <div style={{fontSize: '0.7rem', color: 'var(--text-muted)'}}>{info.details}</div>
+                                        </li>
+                                    );
+                                })}
+                            </ul>
+                        </div>
+
                         <div className="review-row"><span className="review-label">Social Media:</span> <span className="review-value">{data.socialMediaUrl || "N/A"}</span></div>
                         <div className="review-row"><span className="review-label">Google Maps:</span> <span className="review-value">{data.googleMapUrl || "N/A"}</span></div>
                     </div>
@@ -365,13 +391,25 @@ export default function SPEditProfile() {
         const { data: provider } = await supabase.from("service_providers").select("*").eq("user_id", user.id).single();
         if (provider) {
             setProviderId(provider.id);
+            // Inside useEffect -> fetchData
             const { data: hours } = await supabase.from("service_provider_hours").select("*").eq("provider_id", provider.id);
             let groupedHours = [];
+
             if (hours && hours.length > 0) {
                 const grouped = {};
                 hours.forEach((h) => {
-                    const key = `${h.start_time}-${h.end_time}`;
-                    if (!grouped[key]) grouped[key] = { tempId: Math.random().toString(), days: [], startTime: h.start_time, endTime: h.end_time };
+                    const key = `${h.start_time}-${h.end_time}-${h.slot_interval_minutes}-${h.slot_capacity}`;
+                    if (!grouped[key]) {
+                        grouped[key] = { 
+                            tempId: Math.random().toString(), 
+                            days: [], 
+                            startTime: h.start_time, 
+                            endTime: h.end_time,
+                            slotDurationHours: Math.floor(h.slot_interval_minutes / 60),
+                            slotDurationMinutes: h.slot_interval_minutes % 60,
+                            capacityPerSlot: h.slot_capacity
+                        };
+                    }
                     grouped[key].days.push(h.day_of_week);
                 });
                 groupedHours = Object.values(grouped);
@@ -506,17 +544,28 @@ export default function SPEditProfile() {
   };
   const getFilePath = (url) => { try { const u = new URL(url); const m = u.pathname.match(/\/storage\/v1\/object\/public\/[^\/]+\/(.+)$/); return m ? decodeURIComponent(m[1]) : null; } catch { return null; } };
 
-  const saveChangesToDB = async () => {
+  // Replace the start of your saveChangesToDB function with this:
+const saveChangesToDB = async () => {
     try {
         const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error("No user found");
+
+        // --- DELETE SECTION ---
         for (const del of filesToDelete) {
             const path = getFilePath(del.url);
+            // Removes physical file from the storage bucket
             if (path) await supabase.storage.from("service_provider_uploads").remove([path]);
+            
+            // Removes record from the specific DB table
             if (del.type === 'image') await supabase.from("service_provider_images").delete().eq("id", del.id);
             if (del.type === 'payment') await supabase.from("service_provider_payments").delete().eq("id", del.id);
             if (del.type === 'permit') await supabase.from("service_provider_permits").delete().eq("id", del.id);
         }
+
+        // Remove staff records that were deleted in the UI
         if (deletedStaffIds.length) await supabase.from("service_provider_staff").delete().in("id", deletedStaffIds);
+
+        // Wipe all old hours to prepare for the new slot-based re-insertion
         await supabase.from("service_provider_hours").delete().eq("provider_id", providerId);
 
         const newWaiverUrl = newFiles.waiver ? await uploadFile(user.id, "waivers", newFiles.waiver) : null;
@@ -534,6 +583,7 @@ export default function SPEditProfile() {
         };
         if (newWaiverUrl) providerUpdates.waiver_url = newWaiverUrl;
         else if (filesToDelete.some(f => f.type === 'waiver')) providerUpdates.waiver_url = null;
+
         await supabase.from("service_providers").update(providerUpdates).eq("id", providerId);
 
         if (newPermitUrl) {
@@ -543,20 +593,43 @@ export default function SPEditProfile() {
         for (const url of newImgUrls) await supabase.from("service_provider_images").insert({ provider_id: providerId, image_url: url });
         for (const url of newPayUrls) await supabase.from("service_provider_payments").insert({ provider_id: providerId, method_type: "QR", file_url: url });
 
+        // --- HOURS UPDATE SECTION ---
         const hoursPayload = [];
-        businessInfo.operatingHours.forEach(s => s.days.forEach(d => hoursPayload.push({ provider_id: providerId, day_of_week: d, start_time: s.startTime, end_time: s.endTime })));
-        if (hoursPayload.length) await supabase.from("service_provider_hours").insert(hoursPayload);
+        businessInfo.operatingHours.forEach(slot => {
+            // Convert UI hours/mins back into total minutes for DB
+            const totalMinutes = (parseInt(slot.slotDurationHours || 0) * 60) + (parseInt(slot.slotDurationMinutes || 0));
+            
+            slot.days.forEach(day => {
+                hoursPayload.push({
+                    provider_id: providerId,
+                    day_of_week: day,
+                    start_time: slot.startTime,
+                    end_time: slot.endTime,
+                    slot_interval_minutes: totalMinutes,
+                    slot_capacity: slot.capacityPerSlot || 1
+                });
+            });
+        });
+
+        if (hoursPayload.length) {
+            const { error: hError } = await supabase.from("service_provider_hours").insert(hoursPayload);
+            if (hError) throw hError;
+        }
 
         for (const emp of employees) {
             if (emp.fullName.trim()) {
                 const p = { provider_id: providerId, full_name: emp.fullName, job_title: emp.position };
-                if (emp.id && !emp.id.toString().startsWith("new_")) await supabase.from("service_provider_staff").update(p).eq("id", emp.id);
+                if (emp.id && !emp.tempId.toString().startsWith("new_")) await supabase.from("service_provider_staff").update(p).eq("id", emp.id);
                 else await supabase.from("service_provider_staff").insert(p);
             }
         }
         return { success: true };
-    } catch (err) { console.error(err); return { success: false, message: err.message }; }
-  };
+
+    } catch (err) { 
+        // Logic remains the same, but console log is removed
+        return { success: false, message: err.message || "An unexpected error occurred." }; 
+    }
+};
 
   const handleFinalSubmit = async () => {
     setSubmissionStatus('submitting');
@@ -601,6 +674,58 @@ export default function SPEditProfile() {
                       <div className="form-group"><label>Country</label><input value="Philippines" disabled className="input-disabled"/></div>
                   </div>
               </div>
+
+              <div className="form-section">
+                <h3><Clock size={18}/> Operating Hours & Capacity</h3>
+                {businessInfo.operatingHours.map((slot, i) => (
+                    <div key={slot.tempId || i} className="operating-slot-edit-card">
+                        <div className="day-selector-row">
+                            {["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"].map(day => (
+                                <button 
+                                    key={day} 
+                                    type="button"
+                                    className={`day-pill ${slot.days.includes(day) ? 'active' : ''} ${isDayDisabled(i, day) ? 'disabled' : ''}`}
+                                    onClick={() => toggleDay(i, day)}
+                                >
+                                    {day.substring(0, 3)}
+                                </button>
+                            ))}
+                        </div>
+
+                        <div className="slot-config-grid">
+                            <div className="config-item">
+                                <label>Time Range</label>
+                                <div className="input-group-inline">
+                                    <input type="time" value={slot.startTime} onChange={(e) => handleTimeChange(i, "startTime", e.target.value)} />
+                                    <span>to</span>
+                                    <input type="time" value={slot.endTime} onChange={(e) => handleTimeChange(i, "endTime", e.target.value)} />
+                                </div>
+                            </div>
+
+                            <div className="config-item">
+                                <label>Slot Duration</label>
+                                <div className="input-group-inline">
+                                    <input type="number" placeholder="Hrs" value={slot.slotDurationHours} onChange={(e) => handleTimeChange(i, "slotDurationHours", parseInt(e.target.value))} />
+                                    <span>h</span>
+                                    <input type="number" placeholder="Mins" value={slot.slotDurationMinutes} onChange={(e) => handleTimeChange(i, "slotDurationMinutes", parseInt(e.target.value))} />
+                                    <span>m</span>
+                                </div>
+                            </div>
+
+                            <div className="config-item">
+                                <label>Pets per Slot</label>
+                                <input type="number" min="1" value={slot.capacityPerSlot} onChange={(e) => handleTimeChange(i, "capacityPerSlot", parseInt(e.target.value))} />
+                            </div>
+
+                            <button className="btn-remove-slot-circle" onClick={() => removeTimeSlot(i)}>
+                                <Trash2 size={16}/>
+                            </button>
+                        </div>
+                    </div>
+                ))}
+                <button type="button" className="btn-add-small" onClick={addTimeSlot}><Plus size={14}/> Add Schedule Slot</button>
+                {validationErrors.operatingHours && <small className="error-text">{validationErrors.operatingHours}</small>}
+            </div>
 
               <div className="form-section">
                   <h3><Users size={18}/> Staff</h3>

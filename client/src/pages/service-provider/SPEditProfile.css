@@ -114,36 +114,152 @@ input:focus, textarea:focus, select:focus {
   cursor: not-allowed;
 }
 
-/* Operating Hours */
-.time-slot-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 1rem;
-  padding: 1.25rem;
-  background: #f8fafc;
-  border-radius: 12px;
-  margin-bottom: 1.5rem;
-  border: 1px solid var(--border);
+/* =========================================
+   OPERATING HOURS (ApplyProvider Style)
+   ========================================= */
+
+.operating-slot-edit-card {
+    background-color: #f9fafb;
+    padding: 20px;
+    border-radius: 12px;
+    border: 1px solid #e5e7eb;
+    margin-bottom: 15px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+/* Day Selection Row */
+.day-selector-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 5px;
 }
 
 .day-pill {
-  width: 34px;
-  height: 34px;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background: white;
-  font-size: 0.75rem;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.2s;
-  color: var(--text-muted);
+    width: 38px;
+    height: 38px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    border: 1px solid #d1d5db;
+    background-color: white;
+    color: #6b7280;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
 }
 
 .day-pill.active {
-  background: var(--primary);
-  color: white;
-  border-color: var(--primary);
+    background-color: #0E2679;
+    color: white;
+    border-color: #0E2679;
+}
+
+/* Horizontal Layout Fix */
+.slot-config-grid {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end; 
+    gap: 12px;
+}
+
+.config-item {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.config-item label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* --- THE PILL STYLE CONTAINER (Matches all 3 inputs) --- */
+.input-group-inline {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: white;
+    padding: 0 10px;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 8px;
+    height: 42px;
+    transition: border-color 0.2s;
+}
+
+.input-group-inline:focus-within {
+    border-color: #0E2679;
+}
+
+/* --- 1. TIME RANGE (FIXED WIDTH) --- */
+.input-group-inline input[type="time"] {
+    border: none !important;
+    padding: 0 !important;
+    width: 105px; /* Increased to ensure HH:MM AM/PM or 24h shows fully */
+    text-align: center;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #0E2679;
+    background: transparent;
+    box-shadow: none !important;
+}
+
+/* --- 2. SLOT DURATION (NUMBER INPUTS) --- */
+.input-group-inline input[type="number"] {
+    border: none !important;
+    padding: 0 !important;
+    width: 35px; 
+    text-align: center;
+    font-weight: 600;
+    color: #0E2679;
+    background: transparent;
+    appearance: textfield; /* Hides arrows for cleaner look */
+}
+
+/* --- 3. PETS PER SLOT (STYLING AS PILL) --- */
+/* Target the specific container for capacity */
+.config-item .capacity-container {
+    width: 65px; /* Compact width as requested */
+    justify-content: center;
+}
+
+.capacity-input {
+    border: none !important;
+    padding: 0 !important;
+    width: 100%;
+    text-align: center;
+    font-weight: 700;
+    color: #0E2679;
+    background: transparent;
+    box-shadow: none !important;
+}
+
+/* --- REMOVE BUTTON --- */
+.btn-remove-slot-circle {
+    background: #fff;
+    border: 1px solid #fee2e2;
+    color: #ef4444;
+    width: 42px;
+    height: 42px;
+    border-radius: 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: auto; 
+    transition: all 0.2s;
+}
+
+.btn-remove-slot-circle:hover {
+    background-color: #ef4444;
+    color: white;
 }
 
 /* Employee Rows */
@@ -901,4 +1017,64 @@ input[type="file"] {
 
 .modal-content .modal-header button:hover {
     color: #ffffff;            /* White on hover */
+}
+
+.operating-slot-edit-card {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.slot-config-grid {
+    display: grid;
+    grid-template-columns: 2fr 2fr 1fr auto;
+    gap: 1.5rem;
+    align-items: flex-end;
+    margin-top: 1rem;
+}
+
+.input-group-inline {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: white;
+    padding: 4px 8px;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+}
+
+.input-group-inline input {
+    border: none;
+    padding: 4px;
+    width: 60px;
+    text-align: center;
+}
+
+.day-pill.disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+.review-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.review-list li {
+    padding: 0.5rem;
+    margin-bottom: 0.5rem;
+    background: #f8fafc;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    display: flex;
+    justify-content: baseline;
+    font-size: 0.8rem;
+}
+
+/* Ensure operating hour items stack text correctly */
+.review-list li div {
+    width: 100%;
 }
