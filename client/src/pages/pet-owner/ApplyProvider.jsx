@@ -522,116 +522,158 @@ export default function ApplyProvider() {
     return data.publicUrl;
   };
 
-  const handleConfirmSubmit = async () => {
-    setIsSubmitting(true);
-    try {
+    const handleConfirmSubmit = async () => {
+      setIsSubmitting(true);
+
+      // Clear any previous general errors before starting
+      setValidationErrors((prev) => {
+        const newErrors = { ...prev };
+        delete newErrors.general;
+        return newErrors;
+      });
+
+      try {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) throw new Error("No user found");
 
-        const waiverUrl = waiverFile ? await uploadFileToStorage(user.id, "waivers", waiverFile) : null;
-        const permitUrl = businessPermitFile ? await uploadFileToStorage(user.id, "permits", businessPermitFile) : null;
-        
+        // 1. Upload files to Supabase Storage
+        const waiverUrl = waiverFile 
+          ? await uploadFileToStorage(user.id, "waivers", waiverFile) 
+          : (existingWaiverUrl || null);
+
+        const permitUrl = businessPermitFile 
+          ? await uploadFileToStorage(user.id, "permits", businessPermitFile) 
+          : (existingPermitUrl || null);
+
         const newFacilityUrls = [];
         for (const f of facilityImages) {
-            const u = await uploadFileToStorage(user.id, "facilities", f);
-            if(u) newFacilityUrls.push(u);
+          const u = await uploadFileToStorage(user.id, "facilities", f);
+          if (u) newFacilityUrls.push(u);
         }
 
         const newPaymentUrls = [];
         for (const f of paymentChannelFiles) {
-            const u = await uploadFileToStorage(user.id, "payments", f);
-            if(u) newPaymentUrls.push(u);
+          const u = await uploadFileToStorage(user.id, "payments", f);
+          if (u) newPaymentUrls.push(u);
         }
 
-        let currentProviderId = providerId;
-
-        if (!currentProviderId) {
-             const { data: existing } = await supabase.from("service_providers").select("id").eq("user_id", user.id).maybeSingle();
-             if (existing) currentProviderId = existing.id;
-        }
-
+        // 2. Prepare the main provider payload
         const payload = {
-            user_id: user.id,
-            business_name: businessInfo.businessName,
-            description: businessInfo.description,
-            business_email: businessInfo.businessEmail,
-            business_mobile: businessInfo.businessMobile,
-            house_street: businessInfo.houseStreet,
-            barangay: businessInfo.barangay,
-            city: businessInfo.city,
-            province: businessInfo.province,
-            postal_code: businessInfo.postalCode,
-            country: businessInfo.country,
-            type_of_service: businessInfo.typeOfService,
-            social_media_url: businessInfo.socialMediaUrl,
-            google_map_url: businessInfo.googleMapUrl, 
-            waiver_url: waiverUrl || existingWaiverUrl || null,
-            updated_at: new Date().toISOString()
+          user_id: user.id,
+          business_name: businessInfo.businessName,
+          description: businessInfo.description,
+          business_email: businessInfo.businessEmail,
+          business_mobile: businessInfo.businessMobile,
+          house_street: businessInfo.houseStreet,
+          barangay: businessInfo.barangay,
+          city: businessInfo.city,
+          province: businessInfo.province,
+          postal_code: businessInfo.postalCode,
+          country: businessInfo.country,
+          type_of_service: businessInfo.typeOfService,
+          social_media_url: businessInfo.socialMediaUrl,
+          google_map_url: businessInfo.googleMapUrl,
+          waiver_url: waiverUrl,
+          status: 'pending', // Re-apply logic: Reset to pending for review
+          rejection_reasons: null, // Clear old rejection reasons
+          updated_at: new Date().toISOString(),
         };
 
-        if (currentProviderId) {
-            const { error: updateError } = await supabase.from("service_providers").update(payload).eq("id", currentProviderId);
-            if (updateError) throw updateError;
+        // 3. Upsert the service provider record
+        // NOTE: Requires a UNIQUE constraint on user_id in the database
+        const { data: upsertData, error: upsertError } = await supabase
+          .from("service_providers")
+          .upsert(payload, { onConflict: 'user_id' })
+          .select()
+          .single();
 
-            await supabase.from("service_provider_hours").delete().eq("provider_id", currentProviderId);
-            await supabase.from("service_provider_staff").delete().eq("provider_id", currentProviderId);
-        } else {
-            payload.status = "pending";
-            const { data, error: insertError } = await supabase.from("service_providers").insert([payload]).select().single();
-            if (insertError) throw insertError;
-            
-            currentProviderId = data.id;
-            setProviderId(currentProviderId);
-            localStorage.setItem("providerId", currentProviderId);
-        }
+        if (upsertError) throw upsertError;
 
-        // Inside handleConfirmSubmit, update the hoursPayload logic:
+        const currentProviderId = upsertData.id;
+        setProviderId(currentProviderId);
+        localStorage.setItem("providerId", currentProviderId);
+
+        // 4. Clean up old child records to prevent duplicates on resubmission
+        await Promise.all([
+          supabase.from("service_provider_hours").delete().eq("provider_id", currentProviderId),
+          supabase.from("service_provider_staff").delete().eq("provider_id", currentProviderId)
+        ]);
+
+        // 5. Prepare and Insert Operating Hours
         const hoursPayload = [];
         businessInfo.operatingHours.forEach(slot => {
-            // Calculate total duration in minutes
-            const totalMinutes = (slot.slotDurationHours * 60) + slot.slotDurationMinutes;
-
-            slot.days.forEach(day => {
-                hoursPayload.push({
-                    provider_id: currentProviderId,
-                    day_of_week: day,
-                    start_time: slot.startTime,
-                    end_time: slot.endTime,
-                    slot_interval_minutes: totalMinutes, // New Column
-                    slot_capacity: slot.capacityPerSlot    // New Column
-                });
+          const totalMinutes = (slot.slotDurationHours * 60) + slot.slotDurationMinutes;
+          slot.days.forEach(day => {
+            hoursPayload.push({
+              provider_id: currentProviderId,
+              day_of_week: day,
+              start_time: slot.startTime,
+              end_time: slot.endTime,
+              slot_interval_minutes: totalMinutes,
+              slot_capacity: slot.capacityPerSlot
             });
+          });
         });
 
-        if(hoursPayload.length > 0) {
-            const { error: hError } = await supabase.from("service_provider_hours").insert(hoursPayload);
-            if (hError) throw hError;
+        if (hoursPayload.length > 0) {
+          const { error: hError } = await supabase.from("service_provider_hours").insert(hoursPayload);
+          if (hError) throw hError;
         }
 
-        for (const url of newFacilityUrls) {
-            await supabase.from("service_provider_images").insert({ provider_id: currentProviderId, image_url: url });
-        }
-        for (const url of newPaymentUrls) {
-            await supabase.from("service_provider_payments").insert({ provider_id: currentProviderId, method_type: "QR", file_url: url });
-        }
-        if (permitUrl) {
-            await supabase.from("service_provider_permits").delete().eq("provider_id", currentProviderId);
-            await supabase.from("service_provider_permits").insert({ provider_id: currentProviderId, permit_type: "Business Permit", file_url: permitUrl });
-        }
-        for (const emp of employees) {
-            const { error: sError } = await supabase.from("service_provider_staff").insert({ provider_id: currentProviderId, full_name: emp.fullName, job_title: emp.position });
-            if (sError) throw sError;
+        // 6. Insert new Facility Images
+        if (newFacilityUrls.length > 0) {
+          const imgPayload = newFacilityUrls.map(url => ({ provider_id: currentProviderId, image_url: url }));
+          const { error: imgErr } = await supabase.from("service_provider_images").insert(imgPayload);
+          if (imgErr) throw imgErr;
         }
 
+        // 7. Insert new Payment QRs
+        if (newPaymentUrls.length > 0) {
+          const payPayload = newPaymentUrls.map(url => ({ provider_id: currentProviderId, method_type: "QR", file_url: url }));
+          const { error: payErr } = await supabase.from("service_provider_payments").insert(payPayload);
+          if (payErr) throw payErr;
+        }
+
+        // 8. Update/Insert Permits (if new file uploaded)
+        if (businessPermitFile) {
+          await supabase.from("service_provider_permits").delete().eq("provider_id", currentProviderId);
+          const { error: permitErr } = await supabase.from("service_provider_permits").insert({
+            provider_id: currentProviderId,
+            permit_type: "Business Permit",
+            file_url: permitUrl
+          });
+          if (permitErr) throw permitErr;
+        }
+
+        // 9. Insert Staff Information
+        const staffPayload = employees.map(emp => ({
+          provider_id: currentProviderId,
+          full_name: emp.fullName,
+          job_title: emp.position
+        }));
+
+        if (staffPayload.length > 0) {
+          const { error: sError } = await supabase.from("service_provider_staff").insert(staffPayload);
+          if (sError) throw sError;
+        }
+
+        // Success: Close modal and redirect
         setShowConfirmModal(false);
         navigate("/service-setup");
 
-    } catch (err) {
+      } catch (err) {
         console.error("SUBMISSION FAILED:", err);
-        alert("Submission failed: " + err.message);
-    } finally {
+        // Display error in UI instead of alert
+        setValidationErrors((prev) => ({
+          ...prev,
+          general: "Submission failed: " + (err.message || "An unexpected error occurred.")
+        }));
+        setShowConfirmModal(false);
+        // Scroll to top so user sees the error banner
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      } finally {
         setIsSubmitting(false);
-    }
+      }
   };
 
   if (isLoading) return <div className="loading-screen">Loading Application...</div>;
@@ -642,7 +684,13 @@ export default function ApplyProvider() {
       <div className="apply-provider-wrapper">
         <h1 className="page-title">Service Provider Application</h1>
 
-        {validationErrors.general && <div className="form-error">{validationErrors.general}</div>}
+        {/* Place this right above your <form> tag */}
+        {validationErrors.general && (
+          <div className="error-banner">
+            <AlertCircle size={18} />
+            <span>{validationErrors.general}</span>
+          </div>
+        )}
 
         <form className="apply-provider-form" onSubmit={handleFormSubmit}>
           

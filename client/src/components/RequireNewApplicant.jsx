@@ -7,20 +7,21 @@ export default function RequireNewApplicant() {
   const [hasApplication, setHasApplication] = useState(false);
 
   useEffect(() => {
+    // Inside RequireNewApplicant.jsx
     const checkProviderStatus = async () => {
       const { data: { user } } = await supabase.auth.getUser();
 
       if (user) {
-        // Check if a service_provider record already exists for this user
-        const { data, error } = await supabase
+        const { data } = await supabase
           .from("service_providers")
-          .select("id")
+          .select("status")
           .eq("user_id", user.id)
           .maybeSingle();
 
-        // If data exists, it means they have already submitted ApplyProvider
-        if (data) {
-          setHasApplication(true);
+        // CHANGE: Only redirect if they have an active or finished application
+        // If data is null OR status is 'rejected', we let them stay on /apply-provider
+        if (data && (data.status === 'pending' || data.status === 'approved')) {
+          setShouldRedirect(true);
         }
       }
       setIsLoading(false);
