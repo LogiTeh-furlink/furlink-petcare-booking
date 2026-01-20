@@ -866,29 +866,39 @@ const PetDetails = () => {
             </div>
         )}
 
-        <div className="page-header-row">
-            <div className="header-left-actions">
-                <button onClick={handleBackAndSave} className="btn-back">
-                    <ArrowLeft size={16} />
-                </button>
-            </div>
-            
-            <div className="header-right-actions">
-                <div className="booking-summary-badge">{displayDate} at {displayTime}</div>
+        <div className="pet-details-header-wrapper">
+            {/* TOP LEVEL: Back, Title, Proceed */}
+            <div className="header-top-row">
+                <div className="header-left">
+                    <button onClick={handleBackAndSave} className="btn-back">
+                        <ArrowLeft size={20} />
+                    </button>
+                </div>
                 
-                <div className="header-price-box" style={{display: 'flex', flexDirection: 'column', alignItems: 'flex-end', marginRight: '15px'}}>
-                    <div style={{fontSize: '0.85rem', color: '#64748b', marginBottom: '2px'}}>
-                        Total Amount: <span style={{textDecoration: 'none', fontWeight: '600'}}>₱{calculateGrandTotal().toFixed(2)}</span>
+                <h1 className="header-center-title">Pet Information</h1>
+                
+                <div className="header-right">
+                    <button onClick={handleProceedClick} className="top-proceed-btn" disabled={isSubmitting}>
+                        Proceed to Summary <ArrowRight size={16} />
+                    </button>
+                </div>
+            </div>
+
+            {/* BOTTOM LEVEL: Date/Time and Prices */}
+            <div className="header-bottom-row">
+                <div className="booking-summary-badge">
+                    <Clock size={14} style={{marginRight: '6px'}}/> {displayDate} at {displayTime}
+                </div>
+                
+                <div className="header-price-box">
+                    <div className="total-row">
+                        Total Amount: <span>₱{calculateGrandTotal().toFixed(2)}</span>
                     </div>
-                    <div style={{color: '#0E2679', fontWeight: '700', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '6px'}}>
-                        <span style={{fontSize: '0.8rem', opacity: 0.9, fontWeight: '500'}}>30% Down Payment:</span>
-                        ₱{calculateInstallationPayment().toFixed(2)}
+                    <div className="downpayment-row">
+                        <span className="label">30% Down Payment:</span>
+                        <span className="value">₱{calculateInstallationPayment().toFixed(2)}</span>
                     </div>
                 </div>
-
-                <button onClick={handleProceedClick} className="top-proceed-btn" disabled={isSubmitting}>
-                    Proceed to Summary <ArrowRight size={16} />
-                </button>
             </div>
         </div>
 

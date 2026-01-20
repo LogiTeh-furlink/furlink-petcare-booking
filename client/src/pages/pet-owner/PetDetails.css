@@ -4,12 +4,126 @@
 .pet-details-container {
     max-width: 1400px;
     margin: 0 auto;
-    padding: 2rem 3rem;
+    padding: 2rem 3rem; /* Increase the first value (2rem) if it's hitting the top */
 }
 
 /* ========================================
    PAGE HEADER ROW
    ======================================== */
+/* Container for the entire header area */
+.pet-details-header-wrapper {
+    margin-top: 1rem;
+    margin-bottom: 2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+/* TOP ROW: Uses 3-column grid to force true centering of the title */
+.header-top-row {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    width: 100%;
+}
+
+.header-center-title {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: #0E2679;
+    margin: 0;
+    text-align: center;
+}
+
+.header-right {
+    display: flex;
+    justify-content: flex-end;
+}
+
+/* BOTTOM ROW: Aligns badge to left and prices to right */
+.header-bottom-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.header-price-box {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+}
+
+.total-row {
+    font-size: 0.9rem;
+    color: #64748b;
+}
+
+.total-row span {
+    font-weight: 600;
+    color: #334155;
+}
+
+.downpayment-row {
+    color: #0E2679;
+    font-weight: 700;
+    font-size: 1.2rem;
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+}
+
+.downpayment-row .label {
+    font-size: 0.8rem;
+    opacity: 0.8;
+    font-weight: 500;
+}
+
+/* Adjusted Back Button for top row */
+.btn-back {
+    background: white;
+    border: 1px solid #e2e8f0;
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #0E2679;
+    transition: all 0.2s;
+}
+
+.btn-back:hover {
+    background: #f8fafc;
+    border-color: #0E2679;
+    transform: translateX(-3px);
+}
+
+/* Ensure mobile compatibility */
+@media (max-width: 768px) {
+    .header-top-row {
+        grid-template-columns: auto 1fr;
+        gap: 1rem;
+    }
+    .header-right {
+        grid-column: span 2;
+        margin-top: 1rem;
+    }
+    .header-center-title {
+        text-align: left;
+        font-size: 1.4rem;
+    }
+    .header-bottom-row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 1rem;
+    }
+    .header-price-box {
+        align-items: flex-start;
+    }
+}
+
 .page-header-row {
     display: flex;
     justify-content: space-between;
@@ -19,18 +133,27 @@
     width: 100%;
 }
 
-.header-left-actions {
+.page-header-row {
     display: flex;
+    justify-content: space-between;
     align-items: center;
-    flex-shrink: 0;
+    /* ADD OR INCREASE THESE LINES */
+    margin-top: 1.5rem;    /* This pushes the header down from the top navbar */
+    margin-bottom: 2.5rem; /* Space between header and the pet cards */
+    padding-top: 10px;     /* Subtle extra breathing room */
+    gap: 1rem;
+    width: 100%;
 }
 
+/* Optional: If you want the items inside to feel lower relative to the 'Pet {n}' title */
 .header-right-actions {
     display: flex;
     align-items: center;
-    gap: 1rem;
+    gap: 1.25rem;
     margin-left: auto;
     flex-shrink: 0;
+    /* If you want the right side to sit slightly lower than the back button */
+    padding-top: 5px; 
 }
 
 .btn-back {
@@ -54,15 +177,17 @@
 }
 
 .booking-summary-badge {
-    padding: 0.5rem 1rem;
+    padding: 0.6rem 1rem;
     background: #dbeafe;
     border: 1px solid #3b82f6;
     border-radius: 0.5rem;
     color: #1e40af;
     font-size: 0.875rem;
-    font-weight: 500;
+    font-weight: 600;
     white-space: nowrap;
-    align-items: flex-start;
+    display: flex;
+    align-items: center;
+    gap: 6px;
 }
 
 .header-price-box {
