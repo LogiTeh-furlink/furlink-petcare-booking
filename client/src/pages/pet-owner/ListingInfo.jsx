@@ -13,6 +13,42 @@ import Header from "../../components/Header/LoggedInNavbar";
 import Footer from "../../components/Footer/Footer";
 import "./ListingInfo.css";
 
+// --- Terms & Conditions Modal ---
+const TermsModal = ({ isOpen, onClose, onAgree }) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="modal-overlay">
+      <div className="modal-content terms-modal">
+        <div className="modal-header">
+          <h2>Terms & Conditions</h2>
+          <button className="close-btn" onClick={onClose}><X size={20} /></button>
+        </div>
+        <div className="modal-body terms-scroll">
+          <h3>1. Booking Policy</h3>
+          <p>By booking a grooming session, you agree to provide accurate information regarding your pet's breed, weight, and behavior.</p>
+          
+          <h3>2. Health and Safety</h3>
+          <p>You certify that your pet is up-to-date on all required vaccinations. You must inform the groomer of any medical conditions or physical limitations your pet may have.</p>
+          
+          <h3>3. Cancellation & Down Payment</h3>
+          <p>A 30% non-refundable down payment is required to secure your slot. Cancellations made within 24 hours of the appointment may forfeit the full down payment.</p>
+          
+          <h3>4. Aggressive Behavior</h3>
+          <p>If a pet shows signs of extreme aggression that may harm the staff or the pet itself, the session may be terminated immediately for safety reasons.</p>
+          
+          <h3>5. Liability</h3>
+          <p>While every precaution is taken, FurLink and its service providers are not responsible for pre-existing medical conditions that may be aggravated during the grooming process.</p>
+        </div>
+        <div className="modal-footer">
+          <button className="btn-modal-cancel" onClick={onClose}>Decline</button>
+          <button className="btn-modal-confirm" onClick={onAgree}>I Agree & Continue</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // --- CUSTOM CALENDAR COMPONENT ---
 const BookingCalendar = ({ selectedDate, onDateSelect, providerHours }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -315,25 +351,36 @@ const ListingInfo = () => {
     setBookingTime(""); 
   };
 
+  // Inside ListingInfo component
+  const [showTermsModal, setShowTermsModal] = useState(false); // 1. Add this state
+
+  // 2. Modify handleCompleteBooking
   const handleCompleteBooking = () => {
-    setBookingError(null);
+      setBookingError(null);
 
-    if (!user) { setBookingError("You must be logged in to book."); return; }
-    if (!bookingDate) { setDateError("Please select a date."); return; }
-    if (!bookingTime) { setBookingError("Please select a time slot."); return; }
-    if (numberOfPets < 1) { setBookingError("Please select at least 1 pet."); return; } 
+      if (!user) { setBookingError("You must be logged in to book."); return; }
+      if (!bookingDate) { setDateError("Please select a date."); return; }
+      if (!bookingTime) { setBookingError("Please select a time slot."); return; }
+      if (numberOfPets < 1) { setBookingError("Please select at least 1 pet."); return; } 
 
-    const dateStr = bookingDate.toLocaleDateString('en-CA'); 
+      // Instead of navigating, show the modal
+      setShowTermsModal(true);
+  };
 
-    navigate('/pet-details', {
-      state: {
-        providerId: id,
-        providerName: provider.business_name,
-        bookingDate: dateStr,
-        bookingTime,
-        numberOfPets: parseInt(numberOfPets, 10)
-      }
-    });
+  // 3. Add the actual redirect function
+  const handleAgreeAndNavigate = () => {
+      const dateStr = bookingDate.toLocaleDateString('en-CA'); 
+      setShowTermsModal(false);
+      
+      navigate('/pet-details', {
+        state: {
+          providerId: id,
+          providerName: provider.business_name,
+          bookingDate: dateStr,
+          bookingTime,
+          numberOfPets: parseInt(numberOfPets, 10)
+        }
+      });
   };
 
   const ServicesList = () => (
@@ -640,6 +687,14 @@ const ListingInfo = () => {
       </main>
     
       <ImageModal isOpen={selectedImageIndex !== null} onClose={() => setSelectedImageIndex(null)} images={images} currentIndex={selectedImageIndex} onNext={() => setSelectedImageIndex((prev) => (prev + 1) % images.length)} onPrev={() => setSelectedImageIndex((prev) => (prev - 1 + images.length) % images.length)}/>
+
+      {/* 4. Add the Terms Modal here */}
+      <TermsModal 
+        isOpen={showTermsModal} 
+        onClose={() => setShowTermsModal(false)} 
+        onAgree={handleAgreeAndNavigate} 
+      />
+
       <Footer />
     </div>
   );
