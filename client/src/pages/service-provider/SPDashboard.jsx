@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "../../config/supabase";
 import LoggedInNavbar from "../../components/Header/LoggedInNavbar";
 import Footer from "../../components/Footer/Footer";
-import { FaCalendarAlt, FaTimes, FaChevronLeft, FaChevronRight } from "react-icons/fa";
+import { FaCalendarAlt, FaTimes, FaChevronLeft, FaChevronRight, FaChartLine } from "react-icons/fa";
 import "./SPDashboard.css";
 
 // --- Time Helpers ---
@@ -177,6 +177,7 @@ export default function SPDashboard() {
   const navigate = useNavigate();
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [providerId, setProviderId] = useState(null);
   
   // Tabs: 'new_request', 'for_verification', 'upcoming', 'completed'
   const [activeTab, setActiveTab] = useState("new_request"); 
@@ -204,6 +205,7 @@ export default function SPDashboard() {
         .single();
 
       if (providerError) throw providerError;
+      setProviderId(providerData.id);
 
       const { data: bookingsData, error: bookingsError } = await supabase
         .from("bookings")
@@ -377,7 +379,15 @@ const stats = {
               <span>{formatCurrency(stats.revenue)}</span>
             </div>
           </div>
-          <button className="calendar-btn" onClick={() => setShowCalendar(true)}>
+          
+          {/* Dashboard Button (Updated Icon & Text) */}
+          <button className="top-action-btn" onClick={() => navigate(providerId ? `/service-provider/${providerId}` : '/profile')}>
+             <FaChartLine size={24} />
+             <span>Dashboard</span>
+          </button>
+
+          {/* Calendar Button */}
+          <button className="top-action-btn" onClick={() => setShowCalendar(true)}>
              <FaCalendarAlt size={24} />
              <span>Calendar</span>
           </button>
@@ -406,7 +416,7 @@ const stats = {
         {/* Bookings Table */}
         <div className="bookings-table-container">
           <div className="table-header-title">
-             <h2>{activeTab.replace('_', ' ').toUpperCase()}</h2>
+              <h2>{activeTab.replace('_', ' ').toUpperCase()}</h2>
           </div>
 
           <table className="sp-table">
@@ -469,7 +479,7 @@ const stats = {
                 <strong className="uppercase-status">{selectedBooking.status}</strong>
               </div>
 
-              {/* ADDED: Reference Number for Payment Verification */}
+              {/* Reference Number for Payment Verification */}
               {(selectedBooking.status === 'for review' || selectedBooking.status === 'paid') && (
                 <div className="info-row">
                   <span>Reference No:</span>
@@ -489,17 +499,15 @@ const stats = {
               </div>
             </div>
 
-            {/* Payment Proof Section - Updated with Click to Zoom */}
+            {/* Payment Proof Section - Click to Zoom */}
             {selectedBooking.payment_proof_url && (
               <div className="full-image-block">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                     <h4>Payment Proof</h4>
-                    {/* Optional: Second location for the Ref No right above the image */}
                     <small style={{ color: 'var(--brand-blue)', fontWeight: 'bold'}}>
                         Payment Reference Code: {selectedBooking?.rejection_reason}
                     </small>
                 </div>
-                {/* Clickable wrapper for expansion */}
                 <div className="image-wrapper clickable-img" onClick={() => setPreviewImage(selectedBooking.payment_proof_url)}>
                     <img src={selectedBooking.payment_proof_url} alt="Payment Proof" className="facebook-style-img" /> 
                 </div>
