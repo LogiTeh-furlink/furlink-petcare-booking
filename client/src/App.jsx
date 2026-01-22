@@ -17,10 +17,11 @@ import PetDetails from "./pages/pet-owner/PetDetails";
 import Appointments from "./pages/pet-owner/Appointments"; 
 import BookingHistory from "./pages/pet-owner/BookingHistory";
 import UserProfile from "./pages/pet-owner/UserProfile";
-import Payment from "./pages/pet-owner/Payment"; // ⭐ NEW IMPORT
+import Payment from "./pages/pet-owner/Payment"; 
 
 // Service Provider Pages
 import SPDashboard from "./pages/service-provider/SPDashboard";
+import SPBusinessDashboard from "./pages/service-provider/SPBusinessDashboard"; // ⭐ NEW IMPORT
 import SPManageListing from "./pages/service-provider/SPManageListing";
 import SPEditListing from "./pages/service-provider/SPEditListing";
 import SPEditProfile from "./pages/service-provider/SPEditProfile";
@@ -66,14 +67,14 @@ function App() {
           <Route path="/appointments" element={<Appointments />} />
           <Route path="/booking-history" element={<BookingHistory />} />
           <Route path="/profile" element={<UserProfile />} />
-          <Route path="/payment/:id" element={<Payment />} /> {/* ⭐ NEW ROUTE */}
+          <Route path="/payment/:id" element={<Payment />} />
           
           
           {/* --- 2. SERVICE PROVIDER SIDE --- */}
 
           {/* ZONE A: Application Start (Only if NO application exists) */}
           <Route element={<RequireNewApplicant />}>
-             <Route path="/apply-provider" element={<ApplyProvider />} />
+              <Route path="/apply-provider" element={<ApplyProvider />} />
           </Route>
 
           {/* ZONE B: Application Continued & Management (Requires application record) */}
@@ -86,6 +87,10 @@ function App() {
             {/* Operational Dashboard (Main Business Hub) */}
             <Route path="/service/dashboard" element={<SPDashboard />} />
             <Route path="/service/dashboard/:id" element={<SPDashboard />} />
+            
+            {/* ⭐ NEW ROUTE: Business Analytics Dashboard */}
+            <Route path="/service/business-dashboard" element={<SPBusinessDashboard />} />
+
             <Route path="/service/booking-details/:id" element={<SPBookingDetails />} />
 
           
