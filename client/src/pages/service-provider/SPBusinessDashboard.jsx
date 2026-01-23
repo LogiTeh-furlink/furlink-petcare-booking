@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from "../../config/supabase"; 
 import LoggedInNavbar from "../../components/Header/LoggedInNavbar";
 import Footer from "../../components/Footer/Footer";
-import { FaCaretUp, FaCaretDown } from 'react-icons/fa';
+import { FaCaretUp, FaCaretDown, FaMinus } from 'react-icons/fa';
 import './SPBusinessDashboard.css';
 
 export default function SPBusinessDashboard() {
@@ -12,12 +12,17 @@ export default function SPBusinessDashboard() {
   const [activeFilter, setActiveFilter] = useState('monthly');
   const [loading, setLoading] = useState(true);
 
-  // State for KPI Data
+  // State for KPI Data & Trends
   const [stats, setStats] = useState({
     grossRevenue: 0,
     totalBookings: 0,
     avgBookingPerCustomer: 0,
-    cancellations: 0
+    cancellations: 0,
+    // Trends
+    revenueTrendValue: 0, // % difference
+    revenueTrendDirection: 'neutral', // 'up', 'down', 'neutral'
+    bookingsTrendValue: 0, // Absolute count difference
+    bookingsTrendDirection: 'neutral' // 'up', 'down', 'neutral'
   });
 
   useEffect(() => {
@@ -39,20 +44,28 @@ export default function SPBusinessDashboard() {
 
       if (!provider) return;
 
+      // --- DATE LOGIC ---
       const now = new Date();
-      const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-      const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString();
+      
+      // Current Month Range
+      const currentStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      const currentEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
 
+      // Previous Month Range
+      const prevStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const prevEnd = new Date(now.getFullYear(), now.getMonth(), 0);
+
+      // Fetch ALL bookings from Previous Month Start to Current Month End
       const { data: bookings, error } = await supabase
         .from('bookings')
         .select('id, user_id, total_estimated_price, status, booking_date')
         .eq('provider_id', provider.id)
-        .gte('booking_date', firstDay)
-        .lte('booking_date', lastDay);
+        .gte('booking_date', prevStart.toISOString())
+        .lte('booking_date', currentEnd.toISOString());
 
       if (error) throw error;
 
-      calculateStats(bookings || []);
+      calculateStats(bookings || [], currentStart, prevStart, prevEnd);
 
     } catch (err) {
       console.error("Error loading dashboard:", err);
@@ -61,29 +74,66 @@ export default function SPBusinessDashboard() {
     }
   };
 
-  const calculateStats = (data) => {
-    // A. Gross Revenue
-    const revenue = data
-      .filter(b => ['paid', 'completed', 'rated', 'to_rate'].includes(b.status))
-      .reduce((sum, b) => sum + (Number(b.total_estimated_price) || 0), 0);
+  const calculateStats = (allBookings, currentStart, prevStart, prevEnd) => {
+    // 1. Split Data into Current vs Previous Month
+    const currentMonthData = allBookings.filter(b => new Date(b.booking_date) >= currentStart);
+    const prevMonthData = allBookings.filter(b => {
+      const d = new Date(b.booking_date);
+      return d >= prevStart && d <= prevEnd;
+    });
 
-    // B. Total Bookings
-    const validBookings = data.filter(b => !['cancelled', 'declined', 'void'].includes(b.status));
-    const totalBookingsCount = validBookings.length;
+    // --- HELPER: Calculate Metrics for a specific dataset ---
+    const getMetrics = (data) => {
+      const revenue = data
+        .filter(b => ['paid', 'completed', 'rated', 'to_rate'].includes(b.status))
+        .reduce((sum, b) => sum + (Number(b.total_estimated_price) || 0), 0);
+      
+      const validBookings = data.filter(b => !['cancelled', 'declined', 'void'].includes(b.status));
+      
+      return { revenue, validBookingsCount: validBookings.length, rawData: data, validBookings };
+    };
 
-    // C. Avg Booking per Customer (Aggressive Integer Conversion)
-    const uniqueCustomers = new Set(validBookings.map(b => b.user_id)).size;
-    // Use Math.floor to strictly drop decimals.
-    const avgBooking = uniqueCustomers > 0 ? Math.floor(totalBookingsCount / uniqueCustomers) : 0;
+    const current = getMetrics(currentMonthData);
+    const previous = getMetrics(prevMonthData);
 
-    // D. Number of Cancellations
-    const cancelledCount = data.filter(b => b.status === 'cancelled').length;
+    // --- MAIN KPI VALUES (Current Month) ---
+    const uniqueCustomers = new Set(current.validBookings.map(b => b.user_id)).size;
+    const avgBooking = uniqueCustomers > 0 ? Math.floor(current.validBookingsCount / uniqueCustomers) : 0;
+    const cancellations = current.rawData.filter(b => b.status === 'cancelled').length;
+
+
+    // --- TREND CALCULATIONS ---
+    
+    // 1. Revenue Trend (Percentage)
+    let revTrendVal = 0;
+    let revTrendDir = 'neutral';
+    
+    if (previous.revenue === 0) {
+      // If previous month was 0, and current is > 0, it's technically 100% increase (or infinite). We cap/handle it.
+      revTrendVal = current.revenue > 0 ? 100 : 0;
+      revTrendDir = current.revenue > 0 ? 'up' : 'neutral';
+    } else {
+      const diff = current.revenue - previous.revenue;
+      revTrendVal = Math.round((diff / previous.revenue) * 100);
+      revTrendDir = diff > 0 ? 'up' : diff < 0 ? 'down' : 'neutral';
+    }
+
+    // 2. Bookings Trend (Absolute Count Difference) -> "10 Lesser Bookings"
+    const bookDiff = current.validBookingsCount - previous.validBookingsCount;
+    const bookTrendDir = bookDiff > 0 ? 'up' : bookDiff < 0 ? 'down' : 'neutral';
+
 
     setStats({
-      grossRevenue: revenue,
-      totalBookings: totalBookingsCount,
+      grossRevenue: current.revenue,
+      totalBookings: current.validBookingsCount,
       avgBookingPerCustomer: avgBooking,
-      cancellations: cancelledCount
+      cancellations: cancellations,
+      
+      revenueTrendValue: Math.abs(revTrendVal),
+      revenueTrendDirection: revTrendDir,
+      
+      bookingsTrendValue: Math.abs(bookDiff),
+      bookingsTrendDirection: bookTrendDir
     });
   };
 
@@ -93,13 +143,44 @@ export default function SPBusinessDashboard() {
   const formatFullCurrency = (val) => 
     `₱${val.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`;
 
+  // Helper component for Trend UI
+  const TrendIndicator = ({ direction, value, suffix }) => {
+    if (direction === 'neutral') {
+      return <div className="kpi-trend neutral"><FaMinus size={10} /> <span>No Change</span></div>;
+    }
+    const isPositive = direction === 'up';
+    // Revenue logic: Up is good (Green). 
+    // Cancellation logic: Up is bad (Red). But here we are doing Bookings & Revenue where Up is generally Good.
+    
+    // HOWEVER: For "Bookings", if it's "Lesser", text color is Red. If "More", Green.
+    // For Revenue: "Higher" is Green, "Lower" is Red.
+    
+    const colorClass = isPositive ? 'positive' : 'negative';
+    const Icon = isPositive ? FaCaretUp : FaCaretDown;
+    const text = isPositive ? `${value} ${suffix || 'Higher'}` : `${value} ${suffix === '%' ? 'Lower' : 'Lesser Bookings'}`;
+
+    // Override for Bookings specific text matching the image ("Lesser Bookings")
+    let displayText = "";
+    if (suffix === '%') {
+       displayText = `${value}% ${isPositive ? 'Higher' : 'Lower'}`;
+    } else {
+       displayText = `${value} ${isPositive ? 'More Bookings' : 'Lesser Bookings'}`;
+    }
+
+    return (
+      <div className={`kpi-trend ${colorClass}`}>
+        <Icon /> <span>{displayText}</span>
+      </div>
+    );
+  };
+
   return (
     <div className="sp-biz-page-wrapper">
       <LoggedInNavbar />
       
       <div className="sp-biz-container">
         
-        {/* --- SIDEBAR AREA --- */}
+        {/* --- SIDEBAR --- */}
         <aside className="sp-biz-sidebar">
           <div className="sidebar-tabs-group">
             <button 
@@ -132,7 +213,7 @@ export default function SPBusinessDashboard() {
           </div>
         </aside>
 
-        {/* --- MAIN CONTENT AREA --- */}
+        {/* --- MAIN CONTENT --- */}
         <main className="sp-biz-main-content">
           
           <div className="sp-biz-kpi-grid">
@@ -145,21 +226,29 @@ export default function SPBusinessDashboard() {
                   : `₱${stats.grossRevenue}`}
               </div>
               <div className="kpi-label">Gross Revenue</div>
-              <div className="kpi-trend positive">
-                <FaCaretUp /> <span>10% Higher</span>
-              </div>
+              
+              {/* Dynamic Revenue Trend */}
+              <TrendIndicator 
+                direction={stats.revenueTrendDirection} 
+                value={stats.revenueTrendValue} 
+                suffix="%" 
+              />
             </div>
 
             {/* Card 2: Total Bookings */}
             <div className="sp-biz-kpi-card">
               <div className="kpi-value">{stats.totalBookings}</div>
               <div className="kpi-label">Total Bookings</div>
-              <div className="kpi-trend negative">
-                <FaCaretDown /> <span>10 Lesser Bookings</span>
-              </div>
+              
+              {/* Dynamic Bookings Trend */}
+              <TrendIndicator 
+                direction={stats.bookingsTrendDirection} 
+                value={stats.bookingsTrendValue} 
+                suffix="Bookings" 
+              />
             </div>
 
-            {/* Card 3: Average Booking (WHOLE NUMBER) */}
+            {/* Card 3: Average Booking */}
             <div className="sp-biz-kpi-card">
               <div className="kpi-value">
                 {stats.avgBookingPerCustomer}
@@ -167,7 +256,7 @@ export default function SPBusinessDashboard() {
               <div className="kpi-label">Average Booking <br/> per Customer</div>
             </div>
 
-            {/* Card 4: Cancellations (WHOLE NUMBER) */}
+            {/* Card 4: Cancellations */}
             <div className="sp-biz-kpi-card">
               <div className="kpi-value">
                 {stats.cancellations}
