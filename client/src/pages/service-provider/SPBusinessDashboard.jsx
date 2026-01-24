@@ -67,23 +67,41 @@ export default function SPBusinessDashboard() {
   const analytics = useMemo(() => {
     const now = new Date();
     
+    // --- DYNAMIC DATE RANGE GENERATOR ---
     const getRange = (filter, isPrevious = false) => {
-      const start = new Date();
-      const end = new Date();
-      if (isPrevious) {
-        if (filter === 'weekly') { start.setDate(now.getDate() - 14); end.setDate(now.getDate() - 7); }
-        else if (filter === 'monthly') { start.setMonth(now.getMonth() - 2); end.setMonth(now.getMonth() - 1); }
-        else { start.setFullYear(now.getFullYear() - 2); end.setFullYear(now.getFullYear() - 1); }
-      } else {
-        if (filter === 'weekly') { start.setDate(now.getDate() - 7); }
-        else if (filter === 'monthly') { start.setMonth(now.getMonth() - 1); }
-        else { start.setFullYear(now.getFullYear() - 1); }
+      let start = new Date();
+      let end = new Date();
+
+      if (filter === 'weekly') {
+        if (isPrevious) {
+          start.setDate(now.getDate() - 14);
+          end.setDate(now.getDate() - 7);
+        } else {
+          start.setDate(now.getDate() - 7);
+        }
+      } else if (filter === 'monthly') {
+        if (isPrevious) {
+          start.setMonth(now.getMonth() - 1, 1);
+          end = new Date(now.getFullYear(), now.getMonth(), 0); // Last day of prev month
+        } else {
+          start.setDate(1); // First day of current month
+        }
+      } else { // Yearly
+        if (isPrevious) {
+          start.setFullYear(now.getFullYear() - 1, 0, 1);
+          end.setFullYear(now.getFullYear() - 1, 11, 31);
+        } else {
+          start.setFullYear(now.getFullYear(), 0, 1); // Jan 1st of current year
+        }
       }
       return { start, end };
     };
 
     const currentRange = getRange(activeFilter);
     const previousRange = getRange(activeFilter, true);
+
+    // Format indicator text (e.g., "Jan 01, 2025 - Jan 25, 2025")
+    const rangeText = `${currentRange.start.toLocaleDateString(undefined, { month: 'short', day: '2-digit', year: 'numeric' })} - ${now.toLocaleDateString(undefined, { month: 'short', day: '2-digit', year: 'numeric' })}`;
 
     const filterByRange = (list, range) => list.filter(b => {
       const d = new Date(b.booking_date);
@@ -94,13 +112,10 @@ export default function SPBusinessDashboard() {
     const previousBookings = filterByRange(rawBookings, previousRange);
 
     const calculateMetrics = (list) => {
-      // Logic: Counts both 'paid' and 'completed' (plus rated/to_rate variants)
       const validStatuses = ['paid', 'completed', 'rated', 'to_rate'];
-      
       const rev = list
         .filter(b => validStatuses.includes(b.status))
         .reduce((sum, b) => sum + (Number(b.total_estimated_price) || 0), 0);
-        
       const valid = list.filter(b => validStatuses.includes(b.status));
       return { rev, count: valid.length, valid };
     };
@@ -120,20 +135,25 @@ export default function SPBusinessDashboard() {
     const uniqueCustomers = new Set(current.valid.map(b => b.user_id)).size;
     const cancellations = currentBookings.filter(b => b.status === 'cancelled').length;
 
-    const serviceMap = {};
-    serviceStats.forEach(s => {
-      serviceMap[s.service_name] = (serviceMap[s.service_name] || 0) + 1;
-    });
+    // Chart Labels with Year Logic
+    let timeLabels = [];
+    if (activeFilter === 'yearly') {
+      const year = currentRange.start.getFullYear();
+      timeLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].map(m => `${m} ${year}`);
+    } else {
+      timeLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    }
 
-    let timeLabels = activeFilter === 'yearly' 
-      ? ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'] 
-      : ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
     let timeValues = new Array(timeLabels.length).fill(0);
-
     current.valid.forEach(b => {
       const bDate = new Date(b.booking_date);
       const idx = activeFilter === 'yearly' ? bDate.getMonth() : (bDate.getDay() + 6) % 7;
-      if(timeValues[idx] !== undefined) timeValues[idx]++;
+      if (timeValues[idx] !== undefined) timeValues[idx]++;
+    });
+
+    const serviceMap = {};
+    serviceStats.forEach(s => {
+      serviceMap[s.service_name] = (serviceMap[s.service_name] || 0) + 1;
     });
 
     return { 
@@ -146,7 +166,8 @@ export default function SPBusinessDashboard() {
       timeLabels, 
       timeValues, 
       sLabels: Object.keys(serviceMap), 
-      sValues: Object.values(serviceMap)
+      sValues: Object.values(serviceMap),
+      rangeText
     };
   }, [rawBookings, serviceStats, activeFilter]);
 
@@ -169,7 +190,7 @@ export default function SPBusinessDashboard() {
     );
   };
 
-  if (loading) return <div className="sp-biz-page-wrapper" style={{justifyContent: 'center'}}>Loading Dashboard...</div>;
+  if (loading) return <div className="sp-biz-page-wrapper" style={{ justifyContent: 'center' }}>Loading Dashboard...</div>;
 
   return (
     <div className="sp-biz-page-wrapper">
@@ -224,7 +245,10 @@ export default function SPBusinessDashboard() {
           </div>
 
           <div className="chart-main-box">
-            <h3 className="chart-title">Average Bookings ({activeFilter})</h3>
+            <div className="chart-header-flex">
+              <h3 className="chart-title">Average Bookings ({activeFilter})</h3>
+              <span className="date-range-indicator">{analytics.rangeText}</span>
+            </div>
             <div className="chart-h-250">
               <Bar data={{ labels: analytics.timeLabels, datasets: [{ data: analytics.timeValues, backgroundColor: '#1e3a8a', borderRadius: 6, barThickness: activeFilter === 'yearly' ? 20 : 50 }] }} options={integerYAxisOptions} />
             </div>
