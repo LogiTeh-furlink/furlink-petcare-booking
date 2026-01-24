@@ -1,996 +1,176 @@
-/* ========================================
-   MAIN CONTAINER
-   ======================================== */
-.pet-details-container {
-    max-width: 1400px;
-    margin: 0 auto;
-    padding: 2rem 3rem; /* Increase the first value (2rem) if it's hitting the top */
+/* GLOBAL COLORS - No pure black */
+:root {
+    --primary-blue: #0E2679;
+    --accent-blue: #1e40af;
+    --text-main: #334155;
+    --text-light: #64748b;
+    --border-color: #e2e8f0;
+    --bg-light: #f8fafc;
 }
 
-/* ========================================
-   PAGE HEADER ROW
-   ======================================== */
-/* Container for the entire header area */
-.pet-details-header-wrapper {
-    margin-top: 1rem;
-    margin-bottom: 2rem;
-    display: flex;
-    flex-direction: column;
-    gap: 1.5rem;
+/* CONSTRAINED PADDING & WIDTH */
+.pet-details-container { 
+    max-width: 1400px; 
+    margin: 0 auto; 
+    padding: 3rem 8%; /* Added 8% horizontal padding for better spacing */
 }
 
-/* TOP ROW: Uses 3-column grid to force true centering of the title */
-.header-top-row {
+.pet-details-page { 
+    background-color: #fbfcfe;
+    color: var(--text-main); 
+}
+
+/* HEADER NAV */
+.header-top-nav {
     display: grid;
     grid-template-columns: 1fr auto 1fr;
     align-items: center;
-    width: 100%;
+    margin-bottom: 2.5rem;
 }
+.centered-page-title { color: var(--primary-blue); font-size: 2rem; font-weight: 700; margin: 0; }
+.btn-back-square { width: 45px; height: 45px; border: 1px solid var(--border-color); border-radius: 12px; background: white; color: var(--primary-blue); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
+.btn-back-square:hover { background: var(--primary-blue); color: white; border-color: var(--primary-blue); }
 
-.header-center-title {
-    font-size: 1.75rem;
-    font-weight: 700;
-    color: #0E2679;
-    margin: 0;
-    text-align: center;
-}
-
-.header-right {
-    display: flex;
-    justify-content: flex-end;
-}
-
-/* BOTTOM ROW: Aligns badge to left and prices to right */
-.header-bottom-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-end;
-    padding-bottom: 1rem;
-    border-bottom: 1px solid #e2e8f0;
-}
-
-.header-price-box {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-}
-
-.total-row {
-    font-size: 0.9rem;
-    color: #64748b;
-}
-
-.total-row span {
-    font-weight: 600;
-    color: #334155;
-}
-
-.downpayment-row {
-    color: #0E2679;
-    font-weight: 700;
-    font-size: 1.2rem;
-    display: flex;
-    align-items: baseline;
-    gap: 8px;
-}
-
-.downpayment-row .label {
-    font-size: 0.8rem;
-    opacity: 0.8;
-    font-weight: 500;
-}
-
-/* Adjusted Back Button for top row */
-.btn-back {
-    background: white;
-    border: 1px solid #e2e8f0;
-    width: 42px;
-    height: 42px;
-    border-radius: 12px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #0E2679;
-    transition: all 0.2s;
-}
-
-.btn-back:hover {
-    background: #f8fafc;
-    border-color: #0E2679;
-    transform: translateX(-3px);
-}
-
-/* Ensure mobile compatibility */
-@media (max-width: 768px) {
-    .header-top-row {
-        grid-template-columns: auto 1fr;
-        gap: 1rem;
-    }
-    .header-right {
-        grid-column: span 2;
-        margin-top: 1rem;
-    }
-    .header-center-title {
-        text-align: left;
-        font-size: 1.4rem;
-    }
-    .header-bottom-row {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 1rem;
-    }
-    .header-price-box {
-        align-items: flex-start;
-    }
-}
-
-.page-header-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 2rem;
-    gap: 1rem;
-    width: 100%;
-}
-
-.page-header-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    /* ADD OR INCREASE THESE LINES */
-    margin-top: 1.5rem;    /* This pushes the header down from the top navbar */
-    margin-bottom: 2.5rem; /* Space between header and the pet cards */
-    padding-top: 10px;     /* Subtle extra breathing room */
-    gap: 1rem;
-    width: 100%;
-}
-
-/* Optional: If you want the items inside to feel lower relative to the 'Pet {n}' title */
-.header-right-actions {
-    display: flex;
-    align-items: center;
-    gap: 1.25rem;
-    margin-left: auto;
-    flex-shrink: 0;
-    /* If you want the right side to sit slightly lower than the back button */
-    padding-top: 5px; 
-}
-
-.btn-back {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.5rem 1rem;
-    border: 1px solid #ffffff;
-    border-radius: 0.5rem;
-    color: #0E2679;
-    font-size: 0.9rem;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.btn-back:hover {
-    background: #e5e7eb;
-    border-color: #9ca3af;
-    border-radius: 100px;
-}
-
-.booking-summary-badge {
-    padding: 0.6rem 1rem;
-    background: #dbeafe;
-    border: 1px solid #3b82f6;
-    border-radius: 0.5rem;
-    color: #1e40af;
-    font-size: 0.875rem;
-    font-weight: 600;
-    white-space: nowrap;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-}
-
-.header-price-box {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    margin-right: 15px;
-}
-
-.top-proceed-btn {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.625rem 1.25rem;
-    background: #1e40af;
-    color: white;
-    border: none;
-    border-radius: 0.5rem;
-    font-size: 0.9rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s;
-    white-space: nowrap;
-}
-
-.top-proceed-btn:hover:not(:disabled) {
-    background: #1e3a8a;
-    transform: translateY(-1px);
-}
-
-.top-proceed-btn:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-}
-
-/* ========================================
-   FORM LAYOUT & GRID
-   ======================================== */
-.all-pets-form {
+/* SUMMARY GRID */
+.summary-info-grid {
     display: grid;
+    grid-template-columns: 1fr 1fr;
     gap: 1.5rem;
-    margin-bottom: 2rem;
-}
-
-.layout-1 { grid-template-columns: 1fr; }
-.layout-2 { grid-template-columns: repeat(2, 1fr); }
-.layout-3-plus { grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); }
-
-/* --- FIX FOR MISALIGNMENT --- */
-/* When grid allows 3+ cards, force the medical upload row to stack vertically 
-   so the boxes don't get squashed and misaligned. */
-.layout-3-plus .medical-row {
-    grid-template-columns: 1fr !important;
-}
-
-/* ========================================
-   PET CARD STYLES
-   ======================================== */
-.pet-details-card {
-    background: white;
-    border: 1px solid #e5e7eb;
-    border-radius: 0.75rem;
-    padding: 1.5rem;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-    transition: all 0.2s;
-}
-
-.pet-details-card:hover {
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-}
-
-.card-has-error {
-    border-color: #ef4444;
-    background: #fef2f2;
-}
-
-.card-header-block {
-    display: flex;
-    justify-content: space-between;
+    margin-bottom: 2.5rem;
     align-items: center;
-    margin-bottom: 1.5rem;
-    padding-bottom: 1rem;
-    border-bottom: 2px solid #e5e7eb;
 }
-
-.card-title {
-    font-size: 1.25rem;
-    font-weight: 700;
-    color: #111827;
-    margin: 0;
+.main-datetime, .main-total-price { 
+    font-size: 1.15rem; 
+    color: var(--primary-blue); 
+    display: flex; 
+    align-items: center; 
 }
+.icon-gap { margin-right: 10px; color: var(--accent-blue); }
+.main-total-price { margin-top: 15px; font-size: 1.15rem; color: var(--primary-blue); }
 
-.card-header-actions {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-}
-
-.card-price-tag {
-    font-size: 1.125rem;
-    font-weight: 700;
-    color: #0E2679;
-}
-
-.card-price-tag.text-red {
-    color: #ef4444;
-}
-
-.btn-add-pet-rect {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.5rem 0.875rem;
-    background: #0E2679;
-    color: white;
-    border: none;
-    border-radius: 0.5rem;
-    font-size: 0.875rem;
+.main-downpayment { 
+    font-size: 1.15rem; 
+    color: var(--primary-blue);
+    display: flex; 
     font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s;
+    align-items: center; 
+    gap: 8px; 
+    justify-content: flex-end; 
 }
-
-.btn-add-pet-rect:hover {
-    background: #fbbf24 ;
-    transform: translateY(-1px);
+.btn-proceed-large { 
+    background: var(--primary-blue); 
+    color: white; 
+    border: none; 
+    padding: 14px 35px; 
+    border-radius: 50px; 
+    font-weight: 700; 
+    cursor: pointer; 
+    margin-top: 15px; 
+    margin-left: auto; 
+    display: flex; 
+    gap: 10px; 
+    box-shadow: 0 4px 10px rgba(14, 38, 121, 0.2);
+    transition: transform 0.2s;
 }
+.btn-proceed-large:hover { transform: translateY(-2px); color: #fbbf24;  }
 
-.icon-btn-danger {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 2rem;
-    height: 2rem;
-    background: #fef2f2;
-    border: 1px solid #ef4444;
-    border-radius: 0.5rem;
-    color: #ef4444;
-    cursor: pointer;
-    transition: all 0.2s;
+/* POLICIES - URGENT VISIBILITY */
+.policies-container { 
+    border: 2px solid var(--primary-blue); 
+    border-radius: 14px; 
+    overflow: hidden; 
+    margin-bottom: 3rem; 
+    box-shadow: 0 4px 12px rgba(14, 38, 121, 0.08);
 }
-
-.icon-btn-danger:hover {
-    background: #ef4444;
-    color: white;
+.policies-toggle-bar { 
+    width: 100%; 
+    display: flex; 
+    justify-content: space-between; 
+    padding: 1.4rem 2rem; 
+    background: #f0f7ff; 
+    border: none; 
+    cursor: pointer; 
+    color: var(--primary-blue); 
+    font-weight: 800; 
+    font-size: 1.15rem; 
 }
-
-/* ========================================
-   FORM ELEMENTS
-   ======================================== */
-.pet-form-content {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
+.policies-body { 
+    padding: 2rem; 
+    background: white; 
+    border-top: 1px solid var(--border-color); 
 }
+.policy-item { margin-bottom: 1rem; color: var(--primary-blue); line-height: 1.6; }
 
-.form-section-label {
-    font-size: 0.875rem;
-    font-weight: 600;
-    color: #6b7280;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    margin-top: 0.5rem;
-}
-
-.form-group {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-}
-
-.form-row {
+/* PET CARDS GRID (2 COLUMNS) */
+.pet-cards-grid {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 1rem;
-}
-
-.form-label {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    font-size: 0.875rem;
-    font-weight: 600;
-    color: #374151;
-}
-
-.label-icon {
-    color: #6b7280;
-}
-
-.required-asterisk { color: #ef4444; }
-
-.form-input {
-    padding: 0.625rem;
-    border: 1px solid #d1d5db;
-    border-radius: 0.5rem;
-    font-size: 0.9rem;
-    transition: all 0.2s;
-}
-
-.form-input:focus {
-    outline: none;
-    border-color: #3b82f6;
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-}
-
-.form-input.input-error {
-    border-color: #ef4444;
-    background: #fef2f2;
-}
-
-.form-input.read-only {
-    background: #f3f4f6;
-    color: #6b7280;
-    cursor: not-allowed;
-}
-
-.select-wrapper { position: relative; }
-
-.select-wrapper select {
-    width: 100%;
-    appearance: none;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%236b7280'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
-    background-repeat: no-repeat;
-    background-position: right 0.625rem center;
-    background-size: 1.25rem;
-    padding-right: 2.5rem;
-}
-
-.textarea {
-    resize: vertical;
-    min-height: 4rem;
-    font-family: inherit;
-}
-
-.upload-helper-text {
-    font-size: 0.75rem;
-    color: #6b7280;
-    margin-top: -0.25rem;
-}
-
-/* ========================================
-   FILE UPLOAD
-   ======================================== */
-.upload-box {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 8rem;
-    border: 2px dashed #d1d5db;
-    border-radius: 0.5rem;
-    background: #f9fafb;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.upload-box:hover {
-    border-color: #3b82f6;
-    background: #eff6ff;
-}
-
-.upload-box.upload-error-border {
-    border-color: #ef4444;
-    background: #fef2f2;
-}
-
-.upload-content {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 0.5rem;
-    color: #6b7280;
-}
-
-.image-preview-container {
-    position: relative;
-    width: 100%;
-    border: 1px solid #e5e7eb;
-    border-radius: 0.5rem;
-    overflow: hidden;
-}
-
-.image-preview {
-    width: 100%;
-    height: auto;
-    display: block;
-}
-
-.remove-file-btn {
-    position: absolute;
-    top: 0.5rem;
-    right: 0.5rem;
-    width: 2rem;
-    height: 2rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: rgba(239, 68, 68, 0.9);
-    border: none;
-    border-radius: 50%;
-    color: white;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.remove-file-btn:hover {
-    background: #dc2626;
-    transform: scale(1.1);
-}
-
-/* ========================================
-   CONSENT & ERROR BANNER
-   ======================================== */
-.consent-form-group {
-    margin-top: 1rem;
-    padding: 1rem;
-    background: #e0e4f0;
-    border: 1px solid #0E2679;
-    border-radius: 0.5rem;
-}
-
-.consent-checkbox-label {
-    display: flex;
-    align-items: flex-start;
-    gap: 0.75rem;
-    cursor: pointer;
-    font-size: 0.875rem;
-    color: #374151;
-    line-height: 1.5;
-}
-
-.consent-checkbox-label input[type="checkbox"] {
-    margin-top: 0.25rem;
-    width: 1.125rem;
-    height: 1.125rem;
-    flex-shrink: 0;
-}
-
-.error-banner {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.75rem;
-    background: #fef2f2;
-    border: 1px solid #ef4444;
-    border-radius: 0.5rem;
-    color: #dc2626;
-    font-size: 0.875rem;
-    font-weight: 500;
-}
-
-/* ========================================
-   REFINED PROFESSIONAL MODAL
-   ======================================== */
-.modal-overlay {
-    position: fixed;
-    top: 0; left: 0; right: 0; bottom: 0;
-    background: rgba(15, 23, 42, 0.7); /* Deep Slate */
-    backdrop-filter: blur(4px);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 2000;
-    padding: 1rem;
-}
-
-.review-booking-modal {
-    background: #ffffff;
-    border-radius: 1rem;
-    max-width: 1000px; /* Professional width */
-    width: 95%;
-    max-height: 90vh;
-    display: flex;
-    flex-direction: column;
-    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
-    font-family: 'Poppins', sans-serif;
-}
-
-/* Header: Compact & Clean */
-.modal-header {
-    padding: 1.25rem 2rem;
-    border-bottom: 1px solid #f1f5f9;
-}
-
-.modal-header h2 {
-    font-size: 1.2rem; /* Smaller text */
-    font-weight: 700;
-    color: #0E2679;
-    margin: 0;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-
-.modal-header p {
-    font-size: 0.8rem; /* Smaller text */
-    color: #64748b;
-    margin: 4px 0 0 0;
-}
-
-/* Summary Bar: Condensed */
-.review-meta-bar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0.75rem 2rem;
-    background: #f8fafc;
-    border-bottom: 1px solid #e2e8f0;
-}
-
-.meta-item {
-    font-size: 0.85rem;
-    color: #475569;
-    font-weight: 600;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-}
-
-.payment-due {
-    font-size: 0.85rem !important;
-    padding: 4px 12px !important;
-    border-radius: 6px !important;
-    background: #eff6ff !important;
-    color: #2563eb !important;
-}
-
-/* Scrollable Content */
-.review-scroll-area {
-    padding: 1.5rem 2rem;
-    overflow-y: auto;
-}
-
-.review-pet-card {
-    background: #ffffff;
-    border: 1px solid #f1f5f9;
-    border-radius: 0.75rem;
-    padding: 1.25rem;
-    margin-bottom: 1rem;
-}
-
-.review-card-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 1rem;
-    padding-bottom: 0.5rem;
-    border-bottom: 1px solid #f1f5f9;
-}
-
-.review-card-header h3 {
-    font-size: 1rem; /* Smaller text */
-    color: #1e293b;
-    margin: 0;
-}
-
-.review-price {
-    font-size: 1rem;
-    font-weight: 700;
-    color: #059669;
-}
-
-/* Grid: Horizontal & Readable */
-.review-grid-section {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 1rem;
-}
-
-.review-group label {
-    font-size: 0.65rem; /* Tiny headers for neatness */
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: #94a3b8;
-    margin-bottom: 2px;
-}
-
-.review-group .value {
-    font-size: 0.85rem; /* Small readable text */
-    color: #334155;
-    font-weight: 500;
-}
-
-.review-group .value.highlight {
-    color: #0E2679;
-    font-weight: 700;
-}
-
-/* Attachments: Smaller Side-by-Side */
-.review-file-row {
-    grid-column: 1 / -1;
-    display: flex;
-    gap: 1rem;
-    margin-top: 0.5rem;
-}
-
-.file-preview-item {
-    flex: 1;
-}
-
-.thumb-container {
-    height: 80px; /* Much smaller previews */
-    border: 1px solid #e2e8f0;
-    border-radius: 6px;
-    background: #f8fafc;
-}
-
-.thumb-container img {
-    height: 100%;
-    width: 100%;
-    object-fit: contain;
-}
-
-/* Actions: Sleek & Balanced */
-.modal-actions {
-    padding: 1.25rem 2rem;
-    display: flex;
-    gap: 1rem;
-    border-top: 1px solid #f1f5f9;
-}
-
-.btn-modal-back {
-    flex: 1;
-    font-size: 0.85rem;
-    font-weight: 600;
-    color: #64748b;
-    background: #f1f5f9;
-    border: none;
-    padding: 0.75rem;
-    border-radius: 8px;
-    cursor: pointer;
-}
-
-.btn-modal-confirm {
-    flex: 2;
-    font-size: 0.85rem;
-    font-weight: 700;
-    background: #0E2679;
-    color: white;
-    border: none;
-    padding: 0.75rem;
-    border-radius: 8px;
-    cursor: pointer;
-    box-shadow: 0 4px 6px -1px rgba(14, 38, 121, 0.1);
-}
-
-/* ========================================
-   SERVICE SELECTION & OTHER STYLES
-   ======================================== */
-.service-rows-container { display: flex; flex-direction: column; gap: 1rem; }
-.service-input-group { display: flex; align-items: center; gap: 0.5rem; width: 100%; }
-.service-input-group .select-wrapper { flex-grow: 1; }
-
-.btn-action-service {
-    display: flex; align-items: center; justify-content: center;
-    width: 2.75rem; height: 2.75rem; border-radius: 0.5rem; border: none;
-    cursor: pointer; transition: all 0.2s; flex-shrink: 0; margin-top: 1px;
-}
-.btn-add-service { background-color: #fade97; color: #051e46; border: 1px solid #fbbf24; }
-.btn-add-service:hover { background-color: #fbbf24; color: white; }
-.btn-remove-service { background-color: #fee2e2; color: #ef4444; border: 1px solid #fca5a5; }
-.btn-remove-service:hover { background-color: #ef4444; color: white; }
-
-.service-price-hint {
-    font-size: 0.75rem; color: #6b7280; margin-top: 0.25rem;
-    display: flex; justify-content: space-between; padding-left: 2px;
-}
-.service-price-hint .price-val { font-weight: 700; color: #0E2679; }
-
-/* ========================================
-   CUSTOM CALENDAR DATE PICKER (POPUP) - UPDATED
-   ======================================== */
-.date-picker-wrapper {
-    position: relative;
-    width: 100%;
-}
-
-.date-picker-input-display {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    background: white;
-    cursor: pointer;
-    padding: 0.625rem;
-    border: 1px solid #d1d5db;
-    border-radius: 0.5rem;
-    font-size: 0.9rem;
-    transition: all 0.2s;
-    height: 42px;
-    box-sizing: border-box;
-}
-
-.date-picker-input-display:hover {
-    border-color: #3b82f6; 
-}
-
-.date-picker-input-display.placeholder {
-    color: #9ca3af;
-}
-
-/* The Popup Dropdown Container - SCROLLABLE */
-.calendar-dropdown {
-    position: absolute;
-    top: 110%;
-    left: 0;
-    z-index: 100;
-    background: white;
-    border: 1px solid #dbeafe;
-    border-radius: 0.75rem;
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-    padding: 1rem;
-    width: 300px;
-    
-    /* FIX: Prevent exceeding page limit */
-    max-height: 320px;       /* Restricts height */
-    overflow-y: auto;        /* Adds scrollbar if needed */
-    scrollbar-width: thin;   /* Firefox scrollbar styling */
-    
-    animation: fadeIn 0.15s ease-out;
-}
-
-/* Webkit Scrollbar Styling for Chrome/Safari/Edge */
-.calendar-dropdown::-webkit-scrollbar {
-    width: 6px;
-}
-.calendar-dropdown::-webkit-scrollbar-track {
-    background: transparent; 
-}
-.calendar-dropdown::-webkit-scrollbar-thumb {
-    background-color: #cbd5e1; 
-    border-radius: 4px; 
-}
-.calendar-dropdown::-webkit-scrollbar-thumb:hover {
-    background-color: #94a3b8; 
-}
-
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(-5px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-
-/* Calendar Header */
-.cal-nav {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 1rem;
-    position: sticky; /* Keeps nav visible while scrolling grid */
-    top: 0;
-    background: white;
-    z-index: 2;
-    padding-bottom: 5px;
-}
-
-.cal-nav button {
-    background: none;
-    border: 1px solid #cce0ff;
-    border-radius: 50%;
-    width: 28px;
-    height: 28px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    cursor: pointer;
-    color: #4a6fa5;
-    transition: all 0.2s;
-    flex-shrink: 0;
-}
-
-.cal-nav button:hover {
-    background-color: #eff6ff;
-    color: #153e75;
-    border-color: #153e75;
-}
-
-/* YEAR/MONTH SELECTORS */
-.cal-month-year-selector {
-    display: flex;
-    gap: 8px;
-    align-items: center;
-    justify-content: center;
-}
-
-.cal-header-select {
-    border: 1px solid transparent; /* Subtle border for interaction feedback */
-    background-color: transparent;
-    font-weight: 700;
-    font-size: 0.95rem;
-    color: #153e75; 
-    cursor: pointer;
-    padding: 4px 6px;
-    border-radius: 6px;
-    outline: none;
-    font-family: inherit;
-    text-align: center;
-    transition: background-color 0.2s;
-}
-
-.cal-header-select:hover {
-    background-color: #eff6ff;
-    border-color: #dbeafe;
-}
-
-.cal-header-select:focus {
-    background-color: #eff6ff;
-    border-color: #3b82f6;
-}
-
-/* Ensure dropdown options have good contrast */
-.cal-header-select option {
-    background-color: white;
-    color: #374151;
-    padding: 10px;
-}
-
-.cal-grid-header {
-    display: grid;
-    grid-template-columns: repeat(7, 1fr);
-    text-align: center;
-    font-weight: 600;
-    color: #8fa3d0;
-    font-size: 0.75rem;
-    margin-bottom: 0.5rem;
-    text-transform: uppercase;
-    
-    /* Sticky header ensures days are seen when scrolling */
-    position: sticky; 
-    top: 35px; /* Adjust based on nav height */
-    background: white;
-    z-index: 1;
-    padding-bottom: 5px;
-}
-
-.cal-grid {
-    display: grid;
-    grid-template-columns: repeat(7, 1fr);
-    gap: 4px;
-}
-
-.cal-day {
-    aspect-ratio: 1;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    border-radius: 50%;
-    cursor: pointer;
-    font-size: 0.85rem;
-    transition: all 0.2s;
-    color: #2a5298;
-}
-
-.cal-day:hover:not(.disabled):not(.empty) {
-    background-color: #dbeafe;
-    color: #153e75;
-    font-weight: 600;
-}
-
-.cal-day.empty {
-    cursor: default;
-    pointer-events: none;
-}
-
-.cal-day.selected {
-    background-color: #2563eb;
-    color: white;
+    grid-template-columns: repeat(auto-fit, minmax(480px, 1fr));
+    gap: 2.5rem;
+}
+.pet-card-wrapper { 
+    background: white; 
+    border: 1px solid var(--border-color); 
+    border-radius: 24px; 
+    padding: 1.8rem; 
+    box-shadow: 0 10px 25px rgba(0,0,0,0.02); 
+}
+.card-top-bar { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 1.2rem; margin-bottom: 1.8rem; }
+.pet-count-label { background: var(--primary-blue); color: white; padding: 5px 15px; border-radius: 10px; font-weight: 700; font-size: 0.9rem; }
+
+.circle-btn { width: 38px; height: 38px; border-radius: 50%; border: none; cursor: pointer; margin-left: 10px; transition: all 0.2s; }
+.circle-btn.delete { background: #fee2e2; color: #ef4444; }
+.circle-btn.delete:hover { transform: scale(1.1);}
+.circle-btn.add { background: var(--primary-blue); color: white; }
+.circle-btn.add:hover { transform: scale(1.1); color: #fbbf24;}
+
+/* FORM ELEMENTS */
+.required-star {
+    color: #ef4444; /* Standard Red */
     font-weight: bold;
-    box-shadow: 0 2px 4px rgba(37, 99, 235, 0.3);
 }
 
-.cal-day.disabled {
-    color: #e2e8f0;
-    cursor: not-allowed;
-    background: transparent;
+/* Ensure labels don't wrap strangely with the star */
+.input-group label, .sub-label {
+    display: flex !important;
+    align-items: left;
 }
 
-.calendar-backdrop {
-    position: fixed;
-    top: 0; left: 0; right: 0; bottom: 0;
-    z-index: 40;
-    cursor: default;
+.form-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1.2rem; margin-bottom: 1.2rem; }
+.input-group label, .sub-label {
+    display: flex !important;
+    align-items: center; /* Changed from left to center for proper vertical alignment */
+    justify-content: flex-start;
+    color: #0E2679 !important;
+    font-weight: 700;
+    font-size: 0.85rem;
 }
+.input-group input, .input-group select { width: 100%; padding: 12px; border: 1px solid #cbd5e1; border-radius: 12px; color: var(--primary-blue); background: #fdfdfe; }
 
-/* ========================================
-   RESPONSIVE DESIGN
-   ======================================== */
-@media (max-width: 1200px) {
-    .pet-details-container { padding: 2rem; }
-    .layout-3-plus { grid-template-columns: repeat(2, 1fr); }
+.realtime-size-display { padding: 14px; background: var(--bg-light); border-radius: 12px; text-align: center; border: 1px solid var(--border-color); margin: 1.5rem 0; font-size: 0.9rem; }
+.realtime-size-display span { font-weight: 900; color: var(--primary-blue); text-transform: uppercase; }
+
+/* BEHAVIOR 5 PER ROW */
+.behavior-row-5 {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 8px;
+    margin-top: 12px;
 }
+.check-item { font-size: 0.72rem; display: flex; align-items: center; gap: 6px; color: var(--text-main); font-weight: 500; }
 
-@media (max-width: 768px) {
-    .page-header-row { flex-direction: column; align-items: stretch; }
-    .header-left-actions, .header-right-actions { width: 100%; }
-    .header-right-actions { flex-direction: column; margin-left: 0; }
-    .booking-summary-badge, .top-proceed-btn { width: 100%; justify-content: center; }
-    
-    .pet-details-container { padding: 1.5rem; }
-    .layout-2, .layout-3-plus { grid-template-columns: 1fr; }
-    .form-row { grid-template-columns: 1fr; }
-    .review-grid-section { grid-template-columns: 1fr; }
-    .review-file-row { flex-direction: column; }
+/* UPLOADS */
+.upload-buttons-flex { display: flex; gap: 1.2rem; margin-top: 12px; }
+.upload-btn-wrap { flex: 1; }
+.upload-btn { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 15px; border: 2px dashed #cbd5e1; border-radius: 15px; cursor: pointer; font-size: 0.8rem; color: var(--text-light); transition: all 0.2s; }
+.upload-btn:hover { background: #f1f5f9; border-color: var(--primary-blue); }
+.mini-preview { width: 100%; height: 75px; object-fit: cover; border-radius: 12px; margin-top: 8px; border: 1px solid var(--border-color); }
+.sub-label {
+    display: flex !important;
+    align-items: center;
+    color: var(--primary-blue) !important; /* Sets color to #0E2679 */
+    font-weight: 700;
+    font-size: 0.85rem;
 }
-
-@media (max-width: 480px) {
-    .pet-details-container { padding: 1rem; }
+.medical-uploads-container {
+    margin-top: 1.5rem; /* Adds margin on top of Medical Records section */
 }
