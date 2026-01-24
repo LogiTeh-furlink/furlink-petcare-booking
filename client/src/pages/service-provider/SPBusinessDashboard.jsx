@@ -111,29 +111,17 @@ export default function SPBusinessDashboard() {
       return { val: Math.abs(Math.round(diff)), dir: diff > 0 ? 'up' : diff < 0 ? 'down' : 'neutral' };
     };
 
-    // --- REFINED TIME NORMALIZATION (Fixes 14:00 vs 2:00 PM) ---
     const formatCleanTime = (timeStr) => {
       if (!timeStr) return null;
-      
-      // Create a dummy date to use built-in parsing
-      // This handles "14:00", "2:00 PM", "14:00:00" equally
       const tempDate = new Date(`1970-01-01T${timeStr.includes(' ') ? timeStr : timeStr.padStart(8, '0')}`);
-      
-      // If native parsing fails (common with strings like "2:00 PM"), fallback to regex
       if (isNaN(tempDate.getTime())) {
         const match = timeStr.match(/(\d{1,2}):(\d{2}).*?([AP]M)/i);
         if (match) return `${parseInt(match[1], 10)}:${match[2]} ${match[3].toUpperCase()}`;
         return timeStr.toUpperCase().trim();
       }
-
-      return tempDate.toLocaleTimeString('en-US', { 
-        hour: 'numeric', 
-        minute: '2-digit', 
-        hour12: true 
-      });
+      return tempDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
     };
 
-    // --- CHART 1: Average Bookings ---
     let dateLabels = [];
     if (activeFilter === 'yearly') {
       const year = currentRange.start.getFullYear();
@@ -149,16 +137,9 @@ export default function SPBusinessDashboard() {
       if(dateValues[idx] !== undefined) dateValues[idx]++;
     });
 
-    // --- CHART 2: Booking Hours Trend (Aggregated/Normalized) ---
     const rawSlots = [...new Set(current.valid.map(b => formatCleanTime(b.time_slot)))].filter(Boolean);
-    
-    const sortedHourLabels = rawSlots.sort((a, b) => {
-      return new Date(`1970/01/01 ${a}`) - new Date(`1970/01/01 ${b}`);
-    });
-
-    const hourValues = sortedHourLabels.map(slot => {
-      return current.valid.filter(b => formatCleanTime(b.time_slot) === slot).length;
-    });
+    const sortedHourLabels = rawSlots.sort((a, b) => new Date(`1970/01/01 ${a}`) - new Date(`1970/01/01 ${b}`));
+    const hourValues = sortedHourLabels.map(slot => current.valid.filter(b => formatCleanTime(b.time_slot) === slot).length);
 
     const uniqueCustomers = new Set(current.valid.map(b => b.user_id)).size;
     const cancellations = currentBookings.filter(b => b.status === 'cancelled').length;
@@ -184,6 +165,12 @@ export default function SPBusinessDashboard() {
     if (trend.dir === 'neutral') return <div className="kpi-trend neutral"><FaMinus /> No change</div>;
     const Icon = trend.dir === 'up' ? FaCaretUp : FaCaretDown;
     return <div className={`kpi-trend ${trend.dir === 'up' ? 'positive' : 'negative'}`}><Icon /> {trend.val}% {trend.dir === 'up' ? 'Higher' : 'Lower'}</div>;
+  };
+
+  // Helper for Gross Revenue Display
+  const formatRevenue = (val) => {
+    if (val >= 1000) return `₱${(val / 1000).toFixed(1)}K`;
+    return `₱${Math.round(val)}`;
   };
 
   if (loading) return <div className="sp-biz-page-wrapper" style={{ justifyContent: 'center' }}>Loading Dashboard...</div>;
@@ -221,7 +208,7 @@ export default function SPBusinessDashboard() {
         <main className="sp-biz-main-content">
           <div className="sp-biz-kpi-grid">
             <div className="sp-biz-kpi-card">
-              <div className="kpi-value">₱{(analytics.revenue / 1000).toFixed(1)}K</div>
+              <div className="kpi-value">{formatRevenue(analytics.revenue)}</div>
               <div className="kpi-label">Gross Revenue</div>
               <TrendIndicator trend={analytics.revTrend} />
             </div>
