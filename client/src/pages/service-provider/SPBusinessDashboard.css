@@ -1,205 +1,175 @@
 :root {
   --primary-blue: #1e3a8a;
-  --accent-yellow: #facc15; /* Matching the button color from image */
+  --accent-yellow: #facc15;
   --bg-gray: #f8fafc;
   --white: #ffffff;
-  --text-dark: #0f172a;
-  --text-light: #64748b;
-  --border: #e2e8f0;
-  --trend-green: #22c55e;
-  --trend-red: #ef4444;
+  --border: #eef2f6;
+  --highlight-blue: #dbeafe; 
 }
 
 .sp-biz-page-wrapper {
   background-color: var(--bg-gray);
   min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  font-family: 'Poppins', sans-serif;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
-/* Flex Container to hold Sidebar and Main Content */
 .sp-biz-container {
-  max-width: 1400px; /* Increased max-width for dashboard layout */
+  max-width: 1400px;
   width: 95%;
-  margin: 2rem auto;
+  margin: 1.5rem auto;
   display: flex;
-  gap: 2rem;
-  flex: 1;
+  gap: 1.5rem;
   align-items: flex-start;
 }
 
-/* --- SIDEBAR STYLING --- */
-.sp-biz-sidebar {
-  width: 260px;
-  flex-shrink: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2rem;
+/* --- SIDEBAR --- */
+.sp-biz-sidebar { 
+  width: 250px; 
+  flex-shrink: 0; 
+  display: flex; 
+  flex-direction: column; 
+  gap: 1.2rem; 
 }
 
 .sidebar-tab-btn {
-  width: 100%;
-  padding: 1rem;
-  margin-bottom: 1rem;
-  border: 1px solid var(--border);
-  background-color: var(--white);
+  width: 100%; 
+  padding: 12px;
+  margin-bottom: 12px; 
+  border: 1px solid var(--border); 
+  background: white;
+  border-radius: 8px; 
+  font-weight: bold; 
   color: var(--primary-blue);
-  font-weight: 800;
-  font-size: 0.95rem;
-  border-radius: 12px;
   cursor: pointer;
-  text-align: center;
-  transition: all 0.2s ease;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.02);
 }
 
-.sidebar-tab-btn.active {
-  background-color: var(--accent-yellow); /* Yellow active state */
-  border-color: var(--accent-yellow);
-  color: var(--primary-blue);
-  box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+.sidebar-tab-btn:last-child {
+  margin-bottom: 0; 
 }
 
-.sidebar-tab-btn:hover:not(.active) {
-  background-color: #f1f5f9;
+.sidebar-tab-btn.active { 
+  background: var(--accent-yellow); 
+  border-color: var(--accent-yellow); 
 }
 
 .sidebar-filters-section {
-  background: var(--white);
-  padding: 1.5rem;
-  border-radius: 12px;
+  background: white; 
+  padding: 20px; 
+  border-radius: 10px; 
   border: 1px solid var(--border);
-  box-shadow: 0 2px 4px rgba(0,0,0,0.02);
-  min-height: 250px; /* Gives it height like the image */
 }
 
-.sidebar-filters-section h3 {
-  color: var(--primary-blue);
-  font-weight: 800;
-  font-size: 1.1rem;
-  margin-top: 0;
-  margin-bottom: 1.5rem;
+.sidebar-filters-section h3 { 
+  color: var(--primary-blue); 
+  font-size: 1rem; 
+  margin-bottom: 12px; 
 }
 
-.sidebar-filters-section ul {
+.filter-list {
   list-style: none;
   padding: 0;
   margin: 0;
 }
 
-.sidebar-filters-section li {
+.filter-list li {
+  padding: 10px 15px; 
   color: var(--primary-blue);
-  font-weight: 600;
-  padding: 0.75rem 0;
   cursor: pointer;
-  transition: color 0.2s;
-  font-size: 1rem;
+  font-weight: 500;
+  border-radius: 8px; 
+  transition: all 0.2s ease;
+  margin-bottom: 4px;
 }
 
-.sidebar-filters-section li.active {
+.filter-list li.active {
+  background-color: var(--highlight-blue);
   color: var(--primary-blue);
   font-weight: 800;
-  text-decoration: underline; /* Or just bold/color change */
+  text-decoration: none; 
 }
 
-.sidebar-filters-section li:hover {
-  color: #1e40af;
+.filter-list li:hover:not(.active) {
+  background-color: #f1f5f9;
 }
 
-/* --- MAIN CONTENT STYLING --- */
-.sp-biz-main-content {
-  flex: 1;
+.sidebar-doughnut-card {
+  background: white; 
+  padding: 15px; 
+  border-radius: 10px; 
+  border: 1px solid var(--border);
+}
+
+.doughnut-container-sidebar {
   display: flex;
   flex-direction: column;
-  gap: 2rem;
+  align-items: center;
+  gap: 15px;
+  padding: 10px 0;
 }
 
-/* KPI Grid */
-.sp-biz-kpi-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr); /* 4 Columns */
+.doughnut-wrapper-sidebar { width: 120px; height: 120px; }
+
+.doughnut-labels-sidebar {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  font-size: 0.7rem;
+  color: #64748b;
+  font-weight: 600;
+}
+
+/* --- MAIN CONTENT --- */
+.sp-biz-main-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
   gap: 1.5rem;
 }
 
+.sp-biz-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+}
+
 .sp-biz-kpi-card {
-  background: var(--white);
-  padding: 1.5rem;
-  border-radius: 16px;
-  box-shadow: 0 4px 10px -2px rgba(0, 0, 0, 0.05);
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  min-height: 140px;
+  background: white; 
+  padding: 15px; 
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.03); 
+  border: 1px solid var(--border);
 }
 
-.kpi-value {
-  font-size: 2.2rem; /* Big Number */
-  font-weight: 800;
-  color: var(--primary-blue);
-  line-height: 1.1;
-  margin-bottom: 0.25rem;
+.kpi-value { font-size: 1.8rem; font-weight: 800; color: var(--primary-blue); }
+.kpi-label { font-size: 0.75rem; color: var(--primary-blue); font-weight: 600; margin-bottom: 5px; }
+.kpi-trend { font-size: 0.7rem; font-weight: bold; display: flex; align-items: center; gap: 3px; }
+.kpi-trend.positive { color: #22c55e; }
+.kpi-trend.negative { color: #ef4444; }
+
+.chart-main-box, .bottom-card {
+  background: white; 
+  padding: 20px; 
+  border-radius: 12px;
+  border: 1px solid var(--border); 
+  box-shadow: 0 2px 10px rgba(0,0,0,0.03);
 }
 
-.kpi-label {
-  font-size: 0.85rem;
-  font-weight: 700;
-  color: var(--primary-blue);
-  line-height: 1.4;
-  margin-bottom: 0.5rem;
+.chart-title { text-align: left; color: var(--primary-blue); font-size: 1.1rem; font-weight: bold; margin-bottom: 15px; }
+.chart-title-sm { font-size: 0.9rem; font-weight: bold; color: var(--primary-blue); margin-bottom: 10px; }
+
+.chart-h-250 { height: 280px; width: 100%; position: relative; }
+.chart-h-150 { height: 180px; width: 100%; position: relative; }
+
+.sp-biz-bottom-grid {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: 1rem;
 }
 
-.kpi-trend {
-  font-size: 0.8rem;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.kpi-trend.positive {
-  color: var(--trend-green);
-}
-
-.kpi-trend.negative {
-  color: var(--trend-red);
-}
-
-/* Placeholder Area for future charts */
-.charts-placeholder-area {
-  flex: 1;
-  min-height: 400px;
-}
-
-/* Responsive Adjustments */
 @media (max-width: 1024px) {
-  .sp-biz-container {
-    flex-direction: column;
-  }
-  .sp-biz-sidebar {
-    width: 100%;
-    flex-direction: row;
-    flex-wrap: wrap;
-  }
-  .sidebar-tabs-group {
-    flex: 1;
-    display: flex;
-    gap: 1rem;
-  }
-  .sidebar-filters-section {
-    flex: 1;
-    min-height: auto;
-  }
-  .sp-biz-kpi-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-@media (max-width: 600px) {
-  .sidebar-tabs-group {
-    flex-direction: column;
-  }
-  .sp-biz-kpi-grid {
-    grid-template-columns: 1fr;
-  }
+  .sp-biz-kpi-grid { grid-template-columns: 1fr 1fr; }
+  .sp-biz-bottom-grid { grid-template-columns: 1fr; }
+  .sp-biz-container { flex-direction: column; }
+  .sp-biz-sidebar { width: 100%; }
 }
