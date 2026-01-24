@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from "../../config/supabase";
 import LoggedInNavbar from "../../components/Header/LoggedInNavbar";
 import Footer from "../../components/Footer/Footer";
-import { FaCaretUp, FaCaretDown } from 'react-icons/fa';
+import { FaCaretUp, FaCaretDown, FaMinus } from 'react-icons/fa';
 import {
   Chart as ChartJS, CategoryScale, LinearScale, BarElement,
   PointElement, LineElement, ArcElement, Tooltip, Legend
@@ -36,7 +36,6 @@ export default function SPBusinessDashboard() {
 
         if (!provider) return;
 
-        // Fetch bookings including the time_slot column
         const { data: bookings, error: bError } = await supabase
           .from('bookings')
           .select('booking_date, total_estimated_price, status, user_id, time_slot')
@@ -67,87 +66,107 @@ export default function SPBusinessDashboard() {
 
   const analytics = useMemo(() => {
     const now = new Date();
-    const filtered = rawBookings.filter(b => {
-      const bDate = new Date(b.booking_date);
-      if (activeFilter === 'weekly') {
-        const weekAgo = new Date(); weekAgo.setDate(now.getDate() - 7);
-        return bDate >= weekAgo;
-      } else if (activeFilter === 'monthly') {
-        return bDate.getMonth() === now.getMonth() && bDate.getFullYear() === now.getFullYear();
+    
+    const getRange = (filter, isPrevious = false) => {
+      const start = new Date();
+      const end = new Date();
+      if (isPrevious) {
+        if (filter === 'weekly') { start.setDate(now.getDate() - 14); end.setDate(now.getDate() - 7); }
+        else if (filter === 'monthly') { start.setMonth(now.getMonth() - 2); end.setMonth(now.getMonth() - 1); }
+        else { start.setFullYear(now.getFullYear() - 2); end.setFullYear(now.getFullYear() - 1); }
+      } else {
+        if (filter === 'weekly') { start.setDate(now.getDate() - 7); }
+        else if (filter === 'monthly') { start.setMonth(now.getMonth() - 1); }
+        else { start.setFullYear(now.getFullYear() - 1); }
       }
-      return bDate.getFullYear() === now.getFullYear();
+      return { start, end };
+    };
+
+    const currentRange = getRange(activeFilter);
+    const previousRange = getRange(activeFilter, true);
+
+    const filterByRange = (list, range) => list.filter(b => {
+      const d = new Date(b.booking_date);
+      return d >= range.start && d <= (range.end || now);
     });
 
-    // KPI Logic
-    const revenue = filtered
-      .filter(b => ['paid', 'completed', 'rated', 'to_rate'].includes(b.status))
-      .reduce((sum, b) => sum + (Number(b.total_estimated_price) || 0), 0);
-    
-    const validBookings = filtered.filter(b => !['cancelled', 'declined'].includes(b.status));
-    const cancellations = filtered.filter(b => b.status === 'cancelled').length;
-    const uniqueCustomers = new Set(filtered.map(b => b.user_id)).size;
+    const currentBookings = filterByRange(rawBookings, currentRange);
+    const previousBookings = filterByRange(rawBookings, previousRange);
 
-    // Service Distribution
+    const calculateMetrics = (list) => {
+      // Logic: Counts both 'paid' and 'completed' (plus rated/to_rate variants)
+      const validStatuses = ['paid', 'completed', 'rated', 'to_rate'];
+      
+      const rev = list
+        .filter(b => validStatuses.includes(b.status))
+        .reduce((sum, b) => sum + (Number(b.total_estimated_price) || 0), 0);
+        
+      const valid = list.filter(b => validStatuses.includes(b.status));
+      return { rev, count: valid.length, valid };
+    };
+
+    const current = calculateMetrics(currentBookings);
+    const previous = calculateMetrics(previousBookings);
+
+    const getTrend = (curr, prev) => {
+      if (prev === 0) return curr > 0 ? { val: 100, dir: 'up' } : { val: 0, dir: 'neutral' };
+      const diff = ((curr - prev) / prev) * 100;
+      return { val: Math.abs(Math.round(diff)), dir: diff > 0 ? 'up' : diff < 0 ? 'down' : 'neutral' };
+    };
+
+    const revTrend = getTrend(current.rev, previous.rev);
+    const bookTrend = getTrend(current.count, previous.count);
+
+    const uniqueCustomers = new Set(current.valid.map(b => b.user_id)).size;
+    const cancellations = currentBookings.filter(b => b.status === 'cancelled').length;
+
     const serviceMap = {};
     serviceStats.forEach(s => {
       serviceMap[s.service_name] = (serviceMap[s.service_name] || 0) + 1;
     });
 
-    // --- TIME DATA LOGIC (HOURS TREND) ---
-    // Extract unique time slots from provider's bookings and count them
-    const hourMap = {};
-    validBookings.forEach(b => {
-      if (b.time_slot) {
-        hourMap[b.time_slot] = (hourMap[b.time_slot] || 0) + 1;
-      }
-    });
-
-    // Sort time slots (e.g., "09:00 AM", "02:00 PM") chronologically
-    const sortedHours = Object.keys(hourMap).sort((a, b) => {
-      return new Date(`1970/01/01 ${a}`) - new Date(`1970/01/01 ${b}`);
-    });
-    const hourValues = sortedHours.map(h => hourMap[h]);
-
-    // --- DAY/MONTH DATA LOGIC ---
     let timeLabels = activeFilter === 'yearly' 
       ? ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'] 
       : ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
     let timeValues = new Array(timeLabels.length).fill(0);
 
-    validBookings.forEach(b => {
+    current.valid.forEach(b => {
       const bDate = new Date(b.booking_date);
       const idx = activeFilter === 'yearly' ? bDate.getMonth() : (bDate.getDay() + 6) % 7;
       if(timeValues[idx] !== undefined) timeValues[idx]++;
     });
 
     return { 
-      revenue, 
-      validCount: validBookings.length, 
+      revenue: current.rev, 
+      validCount: current.count, 
       cancellations, 
-      avg: uniqueCustomers > 0 ? (validBookings.length / uniqueCustomers).toFixed(1) : 0, 
+      avg: uniqueCustomers > 0 ? Math.round(current.count / uniqueCustomers) : 0, 
+      revTrend,
+      bookTrend,
       timeLabels, 
       timeValues, 
       sLabels: Object.keys(serviceMap), 
-      sValues: Object.values(serviceMap),
-      hourLabels: sortedHours,
-      hourValues: hourValues
+      sValues: Object.values(serviceMap)
     };
   }, [rawBookings, serviceStats, activeFilter]);
 
-  // Shared options to force WHOLE NUMBERS on Y-Axis
   const integerYAxisOptions = {
     responsive: true,
     maintainAspectRatio: false,
     plugins: { legend: { display: false } },
     scales: {
-      y: {
-        beginAtZero: true,
-        ticks: {
-          stepSize: 1,
-          callback: (value) => (Number.isInteger(value) ? value : null),
-        }
-      }
+      y: { beginAtZero: true, ticks: { stepSize: 1, callback: (v) => Number.isInteger(v) ? v : null } }
     }
+  };
+
+  const TrendIndicator = ({ trend }) => {
+    if (trend.dir === 'neutral') return <div className="kpi-trend neutral"><FaMinus /> No change</div>;
+    const Icon = trend.dir === 'up' ? FaCaretUp : FaCaretDown;
+    return (
+      <div className={`kpi-trend ${trend.dir === 'up' ? 'positive' : 'negative'}`}>
+        <Icon /> {trend.val}% {trend.dir === 'up' ? 'Higher' : 'Lower'}
+      </div>
+    );
   };
 
   if (loading) return <div className="sp-biz-page-wrapper" style={{justifyContent: 'center'}}>Loading Dashboard...</div>;
@@ -187,11 +206,12 @@ export default function SPBusinessDashboard() {
             <div className="sp-biz-kpi-card">
               <div className="kpi-value">₱{(analytics.revenue / 1000).toFixed(1)}K</div>
               <div className="kpi-label">Gross Revenue</div>
-              <div className="kpi-trend positive"><FaCaretUp /> 10% Higher</div>
+              <TrendIndicator trend={analytics.revTrend} />
             </div>
             <div className="sp-biz-kpi-card">
               <div className="kpi-value">{analytics.validCount}</div>
               <div className="kpi-label">Total Bookings</div>
+              <TrendIndicator trend={analytics.bookTrend} />
             </div>
             <div className="sp-biz-kpi-card">
               <div className="kpi-value">{analytics.avg}</div>
@@ -206,18 +226,7 @@ export default function SPBusinessDashboard() {
           <div className="chart-main-box">
             <h3 className="chart-title">Average Bookings ({activeFilter})</h3>
             <div className="chart-h-250">
-              <Bar 
-                data={{ 
-                  labels: analytics.timeLabels, 
-                  datasets: [{ 
-                    data: analytics.timeValues, 
-                    backgroundColor: '#1e3a8a', 
-                    borderRadius: 6, 
-                    barThickness: activeFilter === 'yearly' ? 20 : 50 
-                  }] 
-                }} 
-                options={integerYAxisOptions} 
-              />
+              <Bar data={{ labels: analytics.timeLabels, datasets: [{ data: analytics.timeValues, backgroundColor: '#1e3a8a', borderRadius: 6, barThickness: activeFilter === 'yearly' ? 20 : 50 }] }} options={integerYAxisOptions} />
             </div>
           </div>
           
@@ -225,34 +234,13 @@ export default function SPBusinessDashboard() {
             <div className="bottom-card">
               <h4 className="chart-title-sm">Booking Days</h4>
               <div className="chart-h-150">
-                <Bar 
-                  data={{ 
-                    labels: analytics.timeLabels.slice(0, 7), 
-                    datasets: [{ 
-                      data: analytics.timeValues.slice(0, 7), 
-                      backgroundColor: '#1e3a8a', 
-                      borderRadius: 6 
-                    }] 
-                  }} 
-                  options={integerYAxisOptions} 
-                />
+                <Bar data={{ labels: analytics.timeLabels.slice(0, 7), datasets: [{ data: analytics.timeValues.slice(0, 7), backgroundColor: '#1e3a8a', borderRadius: 6 }] }} options={integerYAxisOptions} />
               </div>
             </div>
             <div className="bottom-card">
               <h4 className="chart-title-sm">Booking Hours Trend</h4>
               <div className="chart-h-150">
-                <Line 
-                  data={{ 
-                    labels: analytics.hourLabels, 
-                    datasets: [{ 
-                      data: analytics.hourValues, 
-                      borderColor: '#1e3a8a', 
-                      borderWidth: 3, 
-                      tension: 0.4 
-                    }] 
-                  }} 
-                  options={integerYAxisOptions} 
-                />
+                <Line data={{ labels: analytics.timeLabels, datasets: [{ data: analytics.timeValues, borderColor: '#1e3a8a', borderWidth: 3, tension: 0.4 }] }} options={integerYAxisOptions} />
               </div>
             </div>
           </div>
