@@ -60,47 +60,30 @@ export default function SPBusinessDashboard() {
         setLoading(false);
       }
     };
-
     fetchDashboardData();
   }, [navigate]);
 
   const analytics = useMemo(() => {
     const now = new Date();
     
-    // --- DYNAMIC DATE RANGE GENERATOR ---
     const getRange = (filter, isPrevious = false) => {
       let start = new Date();
       let end = new Date();
-
       if (filter === 'weekly') {
-        if (isPrevious) {
-          start.setDate(now.getDate() - 14);
-          end.setDate(now.getDate() - 7);
-        } else {
-          start.setDate(now.getDate() - 7);
-        }
+        if (isPrevious) { start.setDate(now.getDate() - 14); end.setDate(now.getDate() - 7); }
+        else { start.setDate(now.getDate() - 7); }
       } else if (filter === 'monthly') {
-        if (isPrevious) {
-          start.setMonth(now.getMonth() - 1, 1);
-          end = new Date(now.getFullYear(), now.getMonth(), 0); // Last day of prev month
-        } else {
-          start.setDate(1); // First day of current month
-        }
-      } else { // Yearly
-        if (isPrevious) {
-          start.setFullYear(now.getFullYear() - 1, 0, 1);
-          end.setFullYear(now.getFullYear() - 1, 11, 31);
-        } else {
-          start.setFullYear(now.getFullYear(), 0, 1); // Jan 1st of current year
-        }
+        if (isPrevious) { start.setMonth(now.getMonth() - 1, 1); end = new Date(now.getFullYear(), now.getMonth(), 0); }
+        else { start.setDate(1); }
+      } else {
+        if (isPrevious) { start.setFullYear(now.getFullYear() - 1, 0, 1); end.setFullYear(now.getFullYear() - 1, 11, 31); }
+        else { start.setFullYear(now.getFullYear(), 0, 1); }
       }
       return { start, end };
     };
 
     const currentRange = getRange(activeFilter);
     const previousRange = getRange(activeFilter, true);
-
-    // Format indicator text (e.g., "Jan 01, 2025 - Jan 25, 2025")
     const rangeText = `${currentRange.start.toLocaleDateString(undefined, { month: 'short', day: '2-digit', year: 'numeric' })} - ${now.toLocaleDateString(undefined, { month: 'short', day: '2-digit', year: 'numeric' })}`;
 
     const filterByRange = (list, range) => list.filter(b => {
@@ -113,8 +96,7 @@ export default function SPBusinessDashboard() {
 
     const calculateMetrics = (list) => {
       const validStatuses = ['paid', 'completed', 'rated', 'to_rate'];
-      const rev = list
-        .filter(b => validStatuses.includes(b.status))
+      const rev = list.filter(b => validStatuses.includes(b.status))
         .reduce((sum, b) => sum + (Number(b.total_estimated_price) || 0), 0);
       const valid = list.filter(b => validStatuses.includes(b.status));
       return { rev, count: valid.length, valid };
@@ -129,65 +111,79 @@ export default function SPBusinessDashboard() {
       return { val: Math.abs(Math.round(diff)), dir: diff > 0 ? 'up' : diff < 0 ? 'down' : 'neutral' };
     };
 
-    const revTrend = getTrend(current.rev, previous.rev);
-    const bookTrend = getTrend(current.count, previous.count);
+    // --- REFINED TIME NORMALIZATION (Fixes 14:00 vs 2:00 PM) ---
+    const formatCleanTime = (timeStr) => {
+      if (!timeStr) return null;
+      
+      // Create a dummy date to use built-in parsing
+      // This handles "14:00", "2:00 PM", "14:00:00" equally
+      const tempDate = new Date(`1970-01-01T${timeStr.includes(' ') ? timeStr : timeStr.padStart(8, '0')}`);
+      
+      // If native parsing fails (common with strings like "2:00 PM"), fallback to regex
+      if (isNaN(tempDate.getTime())) {
+        const match = timeStr.match(/(\d{1,2}):(\d{2}).*?([AP]M)/i);
+        if (match) return `${parseInt(match[1], 10)}:${match[2]} ${match[3].toUpperCase()}`;
+        return timeStr.toUpperCase().trim();
+      }
 
-    const uniqueCustomers = new Set(current.valid.map(b => b.user_id)).size;
-    const cancellations = currentBookings.filter(b => b.status === 'cancelled').length;
+      return tempDate.toLocaleTimeString('en-US', { 
+        hour: 'numeric', 
+        minute: '2-digit', 
+        hour12: true 
+      });
+    };
 
-    // Chart Labels with Year Logic
-    let timeLabels = [];
+    // --- CHART 1: Average Bookings ---
+    let dateLabels = [];
     if (activeFilter === 'yearly') {
       const year = currentRange.start.getFullYear();
-      timeLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].map(m => `${m} ${year}`);
+      dateLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].map(m => `${m} ${year}`);
     } else {
-      timeLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+      dateLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     }
 
-    let timeValues = new Array(timeLabels.length).fill(0);
+    let dateValues = new Array(dateLabels.length).fill(0);
     current.valid.forEach(b => {
       const bDate = new Date(b.booking_date);
       const idx = activeFilter === 'yearly' ? bDate.getMonth() : (bDate.getDay() + 6) % 7;
-      if (timeValues[idx] !== undefined) timeValues[idx]++;
+      if(dateValues[idx] !== undefined) dateValues[idx]++;
     });
 
-    const serviceMap = {};
-    serviceStats.forEach(s => {
-      serviceMap[s.service_name] = (serviceMap[s.service_name] || 0) + 1;
+    // --- CHART 2: Booking Hours Trend (Aggregated/Normalized) ---
+    const rawSlots = [...new Set(current.valid.map(b => formatCleanTime(b.time_slot)))].filter(Boolean);
+    
+    const sortedHourLabels = rawSlots.sort((a, b) => {
+      return new Date(`1970/01/01 ${a}`) - new Date(`1970/01/01 ${b}`);
     });
+
+    const hourValues = sortedHourLabels.map(slot => {
+      return current.valid.filter(b => formatCleanTime(b.time_slot) === slot).length;
+    });
+
+    const uniqueCustomers = new Set(current.valid.map(b => b.user_id)).size;
+    const cancellations = currentBookings.filter(b => b.status === 'cancelled').length;
+    const serviceMap = {};
+    serviceStats.forEach(s => { serviceMap[s.service_name] = (serviceMap[s.service_name] || 0) + 1; });
 
     return { 
-      revenue: current.rev, 
-      validCount: current.count, 
-      cancellations, 
+      revenue: current.rev, validCount: current.count, cancellations, 
       avg: uniqueCustomers > 0 ? Math.round(current.count / uniqueCustomers) : 0, 
-      revTrend,
-      bookTrend,
-      timeLabels, 
-      timeValues, 
-      sLabels: Object.keys(serviceMap), 
-      sValues: Object.values(serviceMap),
-      rangeText
+      revTrend: getTrend(current.rev, previous.rev), bookTrend: getTrend(current.count, previous.count),
+      dateLabels, dateValues, sortedHourLabels, hourValues,
+      sLabels: Object.keys(serviceMap), sValues: Object.values(serviceMap), rangeText
     };
   }, [rawBookings, serviceStats, activeFilter]);
 
   const integerYAxisOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
+    responsive: true, maintainAspectRatio: false,
     plugins: { legend: { display: false } },
-    scales: {
-      y: { beginAtZero: true, ticks: { stepSize: 1, callback: (v) => Number.isInteger(v) ? v : null } }
-    }
+    scales: { y: { beginAtZero: true, ticks: { stepSize: 1, callback: (v) => Number.isInteger(v) ? v : null } } }
   };
 
   const TrendIndicator = ({ trend }) => {
     if (trend.dir === 'neutral') return <div className="kpi-trend neutral"><FaMinus /> No change</div>;
     const Icon = trend.dir === 'up' ? FaCaretUp : FaCaretDown;
-    return (
-      <div className={`kpi-trend ${trend.dir === 'up' ? 'positive' : 'negative'}`}>
-        <Icon /> {trend.val}% {trend.dir === 'up' ? 'Higher' : 'Lower'}
-      </div>
-    );
+    return <div className={`kpi-trend ${trend.dir === 'up' ? 'positive' : 'negative'}`}><Icon /> {trend.val}% {trend.dir === 'up' ? 'Higher' : 'Lower'}</div>;
   };
 
   if (loading) return <div className="sp-biz-page-wrapper" style={{ justifyContent: 'center' }}>Loading Dashboard...</div>;
@@ -210,7 +206,7 @@ export default function SPBusinessDashboard() {
             </ul>
           </div>
           <div className="sidebar-doughnut-card">
-            <h4 className="chart-title-sm">Most Booked Services</h4>
+            <h4 className="chart-title-sm">Most Booked Services ({activeFilter})</h4>
             <div className="doughnut-container-sidebar">
               <div className="doughnut-wrapper-sidebar">
                 <Doughnut data={{ labels: analytics.sLabels, datasets: [{ data: analytics.sValues, backgroundColor: ['#1e3a8a', '#3b82f6', '#93c5fd'], borderWidth: 0 }] }} options={{ maintainAspectRatio: false, plugins: { legend: { display: false } }, cutout: '70%' }} />
@@ -250,7 +246,7 @@ export default function SPBusinessDashboard() {
               <span className="date-range-indicator">{analytics.rangeText}</span>
             </div>
             <div className="chart-h-250">
-              <Bar data={{ labels: analytics.timeLabels, datasets: [{ data: analytics.timeValues, backgroundColor: '#1e3a8a', borderRadius: 6, barThickness: activeFilter === 'yearly' ? 20 : 50 }] }} options={integerYAxisOptions} />
+              <Bar data={{ labels: analytics.dateLabels, datasets: [{ data: analytics.dateValues, backgroundColor: '#1e3a8a', borderRadius: 6, barThickness: activeFilter === 'yearly' ? 20 : 50 }] }} options={integerYAxisOptions} />
             </div>
           </div>
           
@@ -258,13 +254,13 @@ export default function SPBusinessDashboard() {
             <div className="bottom-card">
               <h4 className="chart-title-sm">Booking Days</h4>
               <div className="chart-h-150">
-                <Bar data={{ labels: analytics.timeLabels.slice(0, 7), datasets: [{ data: analytics.timeValues.slice(0, 7), backgroundColor: '#1e3a8a', borderRadius: 6 }] }} options={integerYAxisOptions} />
+                <Bar data={{ labels: analytics.dateLabels.slice(0, 7), datasets: [{ data: analytics.dateValues.slice(0, 7), backgroundColor: '#1e3a8a', borderRadius: 6 }] }} options={integerYAxisOptions} />
               </div>
             </div>
             <div className="bottom-card">
               <h4 className="chart-title-sm">Booking Hours Trend</h4>
               <div className="chart-h-150">
-                <Line data={{ labels: analytics.timeLabels, datasets: [{ data: analytics.timeValues, borderColor: '#1e3a8a', borderWidth: 3, tension: 0.4 }] }} options={integerYAxisOptions} />
+                <Line data={{ labels: analytics.sortedHourLabels, datasets: [{ data: analytics.hourValues, borderColor: '#1e3a8a', borderWidth: 3, tension: 0.4 }] }} options={integerYAxisOptions} />
               </div>
             </div>
           </div>
