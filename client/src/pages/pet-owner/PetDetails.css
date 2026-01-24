@@ -174,3 +174,101 @@
 .medical-uploads-container {
     margin-top: 1.5rem; /* Adds margin on top of Medical Records section */
 }
+
+/* Update Upload Container Logic */
+.preview-container {
+    position: relative;
+    width: 100%;
+}
+
+.mini-preview {
+    width: 100%;
+    height: 80px;
+    object-fit: cover;
+    border-radius: 12px;
+    border: 2px solid var(--primary-blue);
+    cursor: zoom-in;
+    transition: transform 0.2s;
+}
+
+.mini-preview:hover {
+    filter: brightness(0.9);
+}
+
+.remove-img-btn {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background: #ef4444;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.zoom-hint {
+    font-size: 0.65rem;
+    text-align: center;
+    color: var(--text-light);
+    margin-top: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+}
+
+/* IMAGE FULL VIEW MODAL */
+.image-fullview-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(245, 245, 245, 0.2);    
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    padding: 2rem;
+}
+
+.fullview-content {
+    position: relative;
+    max-width: 90%;
+    max-height: 90%;
+}
+
+.fullview-img {
+    width: auto;
+    height: auto;
+    max-width: 100%;
+    max-height: 85vh;
+    border-radius: 16px;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3);
+}
+
+.close-fullview {
+    position: absolute;
+    top: -40px;
+    right: -10px;
+    background: white;
+    border: none;
+    border-radius: 50%;
+    padding: 5px;
+    cursor: pointer;
+    color: var(--primary-blue);
+}
+
+/* Red Star Align Fix */
+.required-star {
+    color: #ef4444;
+    margin-left: 2px;
+}

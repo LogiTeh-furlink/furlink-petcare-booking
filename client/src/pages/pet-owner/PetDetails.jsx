@@ -4,7 +4,7 @@ import { supabase } from "../../config/supabase";
 import { 
   Calendar, Weight, Activity, Cat, AlertCircle,
   UploadCloud, FileText, Trash2, Plus, ArrowRight,
-  CreditCard, ArrowLeft, ChevronDown, ChevronUp
+  CreditCard, ArrowLeft, ChevronDown, ChevronUp, X, Maximize2
 } from "lucide-react";
 import Header from "../../components/Header/LoggedInNavbar";
 import Footer from "../../components/Footer/Footer";
@@ -21,10 +21,14 @@ const PetDetails = () => {
   const [availablePetTypes, setAvailablePetTypes] = useState([]);
   const [showPolicies, setShowPolicies] = useState(false);
   const [loading, setLoading] = useState(true);
+  
+  // NEW: State for Full View Modal
+  const [selectedImage, setSelectedImage] = useState(null);
 
   const initialProviderId = state?.providerId || sessionStorage.getItem('current_provider_id');
 
-  // --- HELPERS ---
+  const triggerError = (msg) => alert(msg);
+
   const formatLongDate = (dateStr) => {
     if (!dateStr) return "Select Date";
     return new Date(dateStr).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
@@ -44,7 +48,6 @@ const PetDetails = () => {
     illness_file: null, illness_preview: null, total_price: 0
   });
 
-  // --- INITIAL DATA FETCH ---
   useEffect(() => {
     const fetchData = async () => {
       const { data } = await supabase.from('services').select(`*, service_options(*)`).eq('provider_id', initialProviderId);
@@ -65,15 +68,12 @@ const PetDetails = () => {
     fetchData();
   }, [initialProviderId, state]);
 
-  // --- REAL-TIME CALCULATION LOGIC ---
   const updatePetInfo = (index, field, value) => {
     setPetsData(prev => {
       const newPets = [...prev];
       newPets[index][field] = value;
-
       if (field === "weight_kg" || field === "pet_type") {
         const weight = parseFloat(newPets[index].weight_kg);
-        // Real-time matching logic based on provider's weight ranges
         newPets[index].calculated_size = weight > 20 ? "Large" : weight > 10 ? "Medium" : "Small";
       }
       return newPets;
@@ -84,15 +84,12 @@ const PetDetails = () => {
     const file = e.target.files[0];
     if (!file) return;
 
-    // Check file type manually for extra safety
     const validTypes = ['image/png', 'image/jpeg', 'image/jpg'];
     if (!validTypes.includes(file.type)) {
         triggerError("Invalid file type. Please upload a PNG or JPG image.");
         return;
     }
 
-    // Check file size (1MB maximum limit)
-    // 1024 * 1024 bytes = 1,048,576 bytes
     if (file.size > 1 * 1024 * 1024) {
         triggerError("File is too large. Maximum size is 1MB.");
         return;
@@ -100,7 +97,15 @@ const PetDetails = () => {
 
     updatePetInfo(index, `${field}_file`, file);
     updatePetInfo(index, `${field}_preview`, URL.createObjectURL(file));
-};
+  };
+
+  // NEW: Remove File Handler
+  const handleRemoveFile = (index, field) => {
+    const previewUrl = petsData[index][`${field}_preview`];
+    if (previewUrl) URL.revokeObjectURL(previewUrl); // Clean up memory
+    updatePetInfo(index, `${field}_file`, null);
+    updatePetInfo(index, `${field}_preview`, null);
+  };
 
   const calculateGrandTotal = () => petsData.reduce((acc, p) => acc + p.total_price, 0);
 
@@ -109,7 +114,7 @@ const PetDetails = () => {
       <Header />
       <main className="pet-details-container">
         
-        {/* HEADER: Centered Title with Back Button */}
+        {/* HEADER */}
         <div className="header-top-nav">
             <button onClick={() => navigate(-1)} className="btn-back-square"><ArrowLeft size={22}/></button>
             <h1 className="centered-page-title">Pet Information</h1>
@@ -134,7 +139,7 @@ const PetDetails = () => {
             </div>
         </div>
 
-        {/* POLICIES SECTION (Previously Listed Terms Included) */}
+        {/* POLICIES SECTION */}
         <div className="policies-container">
             <button className="policies-toggle-bar" onClick={() => setShowPolicies(!showPolicies)}>
                 <div className="label-flex"><AlertCircle size={20}/> Booking Policies & Conditions</div>
@@ -142,18 +147,10 @@ const PetDetails = () => {
             </button>
             {showPolicies && (
                 <div className="policies-body">
-                    <div className="policy-item">
-                        <strong>1. Booking & Vaccination:</strong> All pets must have valid proof of vaccination (uploaded below) to ensure the safety of all animals in our facility.
-                    </div>
-                    <div className="policy-item">
-                        <strong>2. Non-Refundable Down Payment:</strong> The 30% down payment is required to secure your slot. This amount is non-refundable in the event of a "No-Show" or cancellation made less than 24 hours before the appointment.
-                    </div>
-                    <div className="policy-item">
-                        <strong>3. Aggressive Behavior:</strong> Owners must accurately disclose pet behavior. We reserve the right to refuse service or apply a handling fee for pets showing extreme aggression that puts staff at risk.
-                    </div>
-                    <div className="policy-item">
-                        <strong>4. Late Arrivals:</strong> Arrivals more than 15 minutes late may result in a shortened session or rescheduling to avoid disrupting other clients.
-                    </div>
+                    <div className="policy-item"><strong>1. Booking & Vaccination:</strong> All pets must have valid proof of vaccination.</div>
+                    <div className="policy-item"><strong>2. Non-Refundable Down Payment:</strong> 30% down payment is required to secure slot.</div>
+                    <div className="policy-item"><strong>3. Aggressive Behavior:</strong> Owners must accurately disclose pet behavior.</div>
+                    <div className="policy-item"><strong>4. Late Arrivals:</strong> Rescheduling may occur for arrivals 15+ mins late.</div>
                 </div>
             )}
         </div>
@@ -173,7 +170,6 @@ const PetDetails = () => {
                         </div>
                     </div>
 
-                    {/* Inside your pet card map loop */}
                     <div className="card-form-body">
                         <div className="form-row-2">
                             <div className="input-group">
@@ -205,11 +201,7 @@ const PetDetails = () => {
                         <div className="form-row-2">
                             <div className="input-group">
                                 <label>Date of Birth <span className="required-star">*</span></label>
-                                <input 
-                                    type="date" 
-                                    max={new Date().toISOString().split("T")[0]} 
-                                    onChange={(e) => updatePetInfo(index, 'birth_date', e.target.value)} 
-                                />
+                                <input type="date" max={new Date().toISOString().split("T")[0]} onChange={(e) => updatePetInfo(index, 'birth_date', e.target.value)} />
                             </div>
                             <div className="input-group">
                                 <label>Weight (kg) <span className="required-star">*</span></label>
@@ -217,7 +209,10 @@ const PetDetails = () => {
                             </div>
                         </div>
 
-                        {/* Behavior section update */}
+                        <div className="realtime-size-display">
+                            Calculated Size: <span>{pet.calculated_size}</span>
+                        </div>
+
                         <div className="behavior-container">
                             <label className="sub-label">Pet Behavior <span className="required-star">*</span></label>
                             <div className="behavior-row-5">
@@ -229,35 +224,39 @@ const PetDetails = () => {
                             </div>
                         </div>
 
-                        {/* Medical uploads section update */}
                         <div className="medical-uploads-container">
                             <label className="sub-label">Medical Records</label>
                             <div className="upload-buttons-flex">
+                                {/* VACCINE SLOT */}
                                 <div className="upload-btn-wrap">
-                                    <label className="upload-btn vaccine">
-                                        <input 
-                                            type="file" 
-                                            accept=".png, .jpg, .jpeg" 
-                                            onChange={(e) => handleFileUpload(index, 'vaccine', e)} 
-                                            hidden 
-                                        />
-                                        <UploadCloud size={18} /> 
-                                        {pet.vaccine_file ? "Uploaded" : <>Vaccine Record <span className="required-star">*</span></>}
-                                    </label>
-                                    {pet.vaccine_preview && <img src={pet.vaccine_preview} className="mini-preview" alt="prev"/>}
+                                    {!pet.vaccine_preview ? (
+                                      <label className="upload-btn vaccine">
+                                          <input type="file" accept=".png, .jpg, .jpeg" onChange={(e) => handleFileUpload(index, 'vaccine', e)} hidden />
+                                          <UploadCloud size={18} /> Vaccine Record <span className="required-star">*</span>
+                                      </label>
+                                    ) : (
+                                      <div className="preview-container">
+                                          <img src={pet.vaccine_preview} className="mini-preview" onClick={() => setSelectedImage(pet.vaccine_preview)} alt="prev"/>
+                                          <button className="remove-img-btn" onClick={() => handleRemoveFile(index, 'vaccine')}><X size={14}/></button>
+                                          <div className="zoom-hint"><Maximize2 size={10}/> Click to view</div>
+                                      </div>
+                                    )}
                                 </div>
+
+                                {/* ILLNESS SLOT */}
                                 <div className="upload-btn-wrap">
-                                    <label className="upload-btn illness">
-                                        <input 
-                                            type="file" 
-                                            accept=".png, .jpg, .jpeg" 
-                                            onChange={(e) => handleFileUpload(index, 'illness', e)} 
-                                            hidden 
-                                        />
-                                        <FileText size={18} /> 
-                                        {pet.illness_file ? "Uploaded" : "Illness Record"}
-                                    </label>
-                                    {pet.illness_preview && <img src={pet.illness_preview} className="mini-preview" alt="prev"/>}
+                                    {!pet.illness_preview ? (
+                                      <label className="upload-btn illness">
+                                          <input type="file" accept=".png, .jpg, .jpeg" onChange={(e) => handleFileUpload(index, 'illness', e)} hidden />
+                                          <FileText size={18} /> Illness Record
+                                      </label>
+                                    ) : (
+                                      <div className="preview-container">
+                                          <img src={pet.illness_preview} className="mini-preview" onClick={() => setSelectedImage(pet.illness_preview)} alt="prev"/>
+                                          <button className="remove-img-btn" onClick={() => handleRemoveFile(index, 'illness')}><X size={14}/></button>
+                                          <div className="zoom-hint"><Maximize2 size={10}/> Click to view</div>
+                                      </div>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -265,6 +264,16 @@ const PetDetails = () => {
                 </div>
             ))}
         </div>
+
+        {/* NEW: IMAGE FULL VIEW MODAL */}
+        {selectedImage && (
+          <div className="image-fullview-overlay" onClick={() => setSelectedImage(null)}>
+            <div className="fullview-content" onClick={(e) => e.stopPropagation()}>
+              <button className="close-fullview" onClick={() => setSelectedImage(null)}><X size={24}/></button>
+              <img src={selectedImage} alt="Full view" className="fullview-img" />
+            </div>
+          </div>
+        )}
       </main>
       <Footer />
     </div>
