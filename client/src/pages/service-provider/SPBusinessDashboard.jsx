@@ -36,7 +36,6 @@ export default function SPBusinessDashboard() {
 
         if (!provider) return;
 
-        // 1. Fetch primary booking data
         const { data: bookings, error: bError } = await supabase
           .from('bookings')
           .select('id, booking_date, total_estimated_price, status, user_id, time_slot')
@@ -45,7 +44,6 @@ export default function SPBusinessDashboard() {
         if (bError) throw bError;
         setRawBookings(bookings || []);
 
-        // 2. Fetch booking services with nested booking info for strict filtering
         const { data: bServices, error: sError } = await supabase
           .from('booking_services')
           .select(`
@@ -78,7 +76,6 @@ export default function SPBusinessDashboard() {
     const now = new Date();
     const validStatuses = ['paid', 'completed', 'rated', 'to_rate'];
     
-    // --- DATE RANGE LOGIC ---
     const getRange = (filter, isPrevious = false) => {
       let start = new Date();
       let end = new Date();
@@ -116,7 +113,6 @@ export default function SPBusinessDashboard() {
     const current = calculateMetrics(currentBookings);
     const previous = calculateMetrics(previousBookings);
 
-    // --- TIME NORMALIZATION (Fixes 14:00:00 vs 2:00 PM) ---
     const formatCleanTime = (timeStr) => {
       if (!timeStr) return null;
       const [hour, minute] = timeStr.split(':');
@@ -126,14 +122,13 @@ export default function SPBusinessDashboard() {
       return `${displayHour}:${minute.substring(0,2)} ${ampm}`;
     };
 
-    // --- TREND LOGIC ---
     const getTrend = (curr, prev) => {
       if (prev === 0) return curr > 0 ? { val: 100, dir: 'up' } : { val: 0, dir: 'neutral' };
       const diff = ((curr - prev) / prev) * 100;
       return { val: Math.abs(Math.round(diff)), dir: diff > 0 ? 'up' : diff < 0 ? 'down' : 'neutral' };
     };
 
-    // --- CHART LABELS ---
+    // --- CHART 1: Average Bookings (Context Labels) ---
     let dateLabels = [];
     if (activeFilter === 'yearly') {
       const year = currentRange.start.getFullYear();
@@ -149,6 +144,15 @@ export default function SPBusinessDashboard() {
       if(dateValues[idx] !== undefined) dateValues[idx]++;
     });
 
+    // --- CHART 2: Peak Booking Days (Always frequency by day of week) ---
+    const peakDaysLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    let peakDaysValues = new Array(7).fill(0);
+    current.valid.forEach(b => {
+      const dayIdx = (new Date(b.booking_date).getDay() + 6) % 7;
+      peakDaysValues[dayIdx]++;
+    });
+
+    // --- CHART 3: Booking Hours Trend ---
     const rawSlots = [...new Set(current.valid.map(b => formatCleanTime(b.time_slot)))].filter(Boolean);
     const sortedHourLabels = rawSlots.sort((a, b) => new Date(`1970/01/01 ${a}`) - new Date(`1970/01/01 ${b}`));
     const hourValues = sortedHourLabels.map(slot => current.valid.filter(b => formatCleanTime(b.time_slot) === slot).length);
@@ -158,11 +162,27 @@ export default function SPBusinessDashboard() {
       const b = s.booking_pets?.bookings;
       return b && validStatuses.includes(b.status) && new Date(b.booking_date) >= currentRange.start;
     });
-
     const serviceMap = {};
     filteredServices.forEach(s => { serviceMap[s.service_name] = (serviceMap[s.service_name] || 0) + 1; });
+    const sLabels = Object.keys(serviceMap);
     const sValues = Object.values(serviceMap);
     const totalS = sValues.reduce((a, b) => a + b, 0);
+
+    // --- DYNAMIC INSIGHT CALCULATION ---
+    const getBestLabel = (labels, values) => {
+      const max = Math.max(...values);
+      return max > 0 ? labels[values.indexOf(max)] : "None";
+    };
+
+    const bestAvgLabel = getBestLabel(dateLabels, dateValues);
+    const bestDayLabel = getBestLabel(peakDaysLabels, peakDaysValues);
+    const bestTimeLabel = getBestLabel(sortedHourLabels, hourValues);
+    const bestServiceLabel = getBestLabel(sLabels, sValues);
+
+    const avgInsight = `${bestAvgLabel} is the most booked ${activeFilter === 'yearly' ? 'month' : 'day'}`;
+    const peakDayInsight = `${bestDayLabel} is the most booked day`;
+    const timeInsight = `${bestTimeLabel} is usually a bit busy`;
+    const serviceInsight = `${bestServiceLabel} is the most booked service`;
 
     const uniqueCustomers = new Set(current.valid.map(b => b.user_id)).size;
     const cancellations = currentBookings.filter(b => b.status === 'cancelled').length;
@@ -171,8 +191,9 @@ export default function SPBusinessDashboard() {
       revenue: current.rev, validCount: current.count, cancellations, 
       avg: uniqueCustomers > 0 ? Math.round(current.count / uniqueCustomers) : 0, 
       revTrend: getTrend(current.rev, previous.rev), bookTrend: getTrend(current.count, previous.count),
-      dateLabels, dateValues, sortedHourLabels, hourValues,
-      sLabels: Object.keys(serviceMap), sValues, totalS, rangeText
+      dateLabels, dateValues, peakDaysLabels, peakDaysValues, sortedHourLabels, hourValues,
+      sLabels, sValues, totalS, rangeText,
+      avgInsight, peakDayInsight, timeInsight, serviceInsight
     };
   }, [rawBookings, serviceStats, activeFilter]);
 
@@ -208,11 +229,7 @@ export default function SPBusinessDashboard() {
           <div className="sidebar-filters-section">
             <h3>Time Period</h3>
             <div className="dropdown-container">
-              <select 
-                value={activeFilter} 
-                onChange={(e) => setActiveFilter(e.target.value)}
-                className="filter-dropdown"
-              >
+              <select value={activeFilter} onChange={(e) => setActiveFilter(e.target.value)} className="filter-dropdown">
                 <option value="weekly">Weekly</option>
                 <option value="monthly">Monthly</option>
                 <option value="yearly">Yearly</option>
@@ -231,6 +248,7 @@ export default function SPBusinessDashboard() {
                   <span key={l}>{analytics.sValues[i]} ({Math.round((analytics.sValues[i]/analytics.totalS)*100)}% {l})</span>
                 ))}
               </div>
+              <p className="chart-insight-text">{analytics.serviceInsight}</p>
             </div>
           </div>
         </aside>
@@ -265,20 +283,23 @@ export default function SPBusinessDashboard() {
             <div className="chart-h-250">
               <Bar data={{ labels: analytics.dateLabels, datasets: [{ data: analytics.dateValues, backgroundColor: '#1e3a8a', borderRadius: 6, barThickness: activeFilter === 'yearly' ? 20 : 50 }] }} options={integerYAxisOptions} />
             </div>
+            <p className="chart-insight-text-main">{analytics.avgInsight}</p>
           </div>
           
           <div className="sp-biz-bottom-grid">
             <div className="bottom-card">
-              <h4 className="chart-title-sm">Booking Days</h4>
+              <h4 className="chart-title-sm">Peak Booking Days</h4>
               <div className="chart-h-150">
-                <Bar data={{ labels: analytics.dateLabels.slice(0, 7), datasets: [{ data: analytics.dateValues.slice(0, 7), backgroundColor: '#1e3a8a', borderRadius: 6 }] }} options={integerYAxisOptions} />
+                <Bar data={{ labels: analytics.peakDaysLabels, datasets: [{ data: analytics.peakDaysValues, backgroundColor: '#1e3a8a', borderRadius: 6 }] }} options={integerYAxisOptions} />
               </div>
+              <p className="chart-insight-text">{analytics.peakDayInsight}</p>
             </div>
             <div className="bottom-card">
               <h4 className="chart-title-sm">Booking Hours Trend</h4>
               <div className="chart-h-150">
                 <Line data={{ labels: analytics.sortedHourLabels, datasets: [{ data: analytics.hourValues, borderColor: '#1e3a8a', borderWidth: 3, tension: 0.4 }] }} options={integerYAxisOptions} />
               </div>
+              <p className="chart-insight-text">{analytics.timeInsight}</p>
             </div>
           </div>
         </main>
