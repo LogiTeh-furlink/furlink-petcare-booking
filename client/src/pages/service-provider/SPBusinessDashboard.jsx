@@ -36,7 +36,7 @@ export default function SPBusinessDashboard() {
 
         if (!provider) return;
 
-        // 1. Fetch bookings
+        // 1. Fetch primary booking data
         const { data: bookings, error: bError } = await supabase
           .from('bookings')
           .select('id, booking_date, total_estimated_price, status, user_id, time_slot')
@@ -45,8 +45,7 @@ export default function SPBusinessDashboard() {
         if (bError) throw bError;
         setRawBookings(bookings || []);
 
-        // 2. Fetch booking services linked to those specific bookings
-        // We fetch the join data to ensure we can filter services by booking status later
+        // 2. Fetch booking services with nested booking info for strict filtering
         const { data: bServices, error: sError } = await supabase
           .from('booking_services')
           .select(`
@@ -79,7 +78,7 @@ export default function SPBusinessDashboard() {
     const now = new Date();
     const validStatuses = ['paid', 'completed', 'rated', 'to_rate'];
     
-    // --- PERIOD DEFINITIONS ---
+    // --- DATE RANGE LOGIC ---
     const getRange = (filter, isPrevious = false) => {
       let start = new Date();
       let end = new Date();
@@ -109,33 +108,32 @@ export default function SPBusinessDashboard() {
     const previousBookings = filterByRange(rawBookings, previousRange);
 
     const calculateMetrics = (list) => {
-      const rev = list.filter(b => validStatuses.includes(b.status))
-        .reduce((sum, b) => sum + (Number(b.total_estimated_price) || 0), 0);
       const valid = list.filter(b => validStatuses.includes(b.status));
+      const rev = valid.reduce((sum, b) => sum + (Number(b.total_estimated_price) || 0), 0);
       return { rev, count: valid.length, valid };
     };
 
     const current = calculateMetrics(currentBookings);
     const previous = calculateMetrics(previousBookings);
 
+    // --- TIME NORMALIZATION (Fixes 14:00:00 vs 2:00 PM) ---
+    const formatCleanTime = (timeStr) => {
+      if (!timeStr) return null;
+      const [hour, minute] = timeStr.split(':');
+      const h = parseInt(hour, 10);
+      const ampm = h >= 12 ? 'PM' : 'AM';
+      const displayHour = h % 12 || 12;
+      return `${displayHour}:${minute.substring(0,2)} ${ampm}`;
+    };
+
+    // --- TREND LOGIC ---
     const getTrend = (curr, prev) => {
       if (prev === 0) return curr > 0 ? { val: 100, dir: 'up' } : { val: 0, dir: 'neutral' };
       const diff = ((curr - prev) / prev) * 100;
       return { val: Math.abs(Math.round(diff)), dir: diff > 0 ? 'up' : diff < 0 ? 'down' : 'neutral' };
     };
 
-    const formatCleanTime = (timeStr) => {
-      if (!timeStr) return null;
-      const tempDate = new Date(`1970-01-01T${timeStr.includes(' ') ? timeStr : timeStr.padStart(8, '0')}`);
-      if (isNaN(tempDate.getTime())) {
-        const match = timeStr.match(/(\d{1,2}):(\d{2}).*?([AP]M)/i);
-        if (match) return `${parseInt(match[1], 10)}:${match[2]} ${match[3].toUpperCase()}`;
-        return timeStr.toUpperCase().trim();
-      }
-      return tempDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-    };
-
-    // --- CHART 1: Average Bookings ---
+    // --- CHART LABELS ---
     let dateLabels = [];
     if (activeFilter === 'yearly') {
       const year = currentRange.start.getFullYear();
@@ -151,25 +149,18 @@ export default function SPBusinessDashboard() {
       if(dateValues[idx] !== undefined) dateValues[idx]++;
     });
 
-    // --- CHART 2: Booking Hours Trend ---
     const rawSlots = [...new Set(current.valid.map(b => formatCleanTime(b.time_slot)))].filter(Boolean);
     const sortedHourLabels = rawSlots.sort((a, b) => new Date(`1970/01/01 ${a}`) - new Date(`1970/01/01 ${b}`));
     const hourValues = sortedHourLabels.map(slot => current.valid.filter(b => formatCleanTime(b.time_slot) === slot).length);
 
-    // --- MOST BOOKED SERVICES (DOUGHNUT) ---
-    // Filter serviceStats to only include those from the current period AND with valid status
-    const filteredServiceStats = serviceStats.filter(s => {
-      const bStatus = s.booking_pets?.bookings?.status;
-      const bDate = new Date(s.booking_pets?.bookings?.booking_date);
-      return validStatuses.includes(bStatus) && bDate >= currentRange.start && bDate <= (currentRange.end || now);
+    // --- DOUGHNUT LOGIC ---
+    const filteredServices = serviceStats.filter(s => {
+      const b = s.booking_pets?.bookings;
+      return b && validStatuses.includes(b.status) && new Date(b.booking_date) >= currentRange.start;
     });
 
     const serviceMap = {};
-    filteredServiceStats.forEach(s => {
-      serviceMap[s.service_name] = (serviceMap[s.service_name] || 0) + 1;
-    });
-
-    const sLabels = Object.keys(serviceMap);
+    filteredServices.forEach(s => { serviceMap[s.service_name] = (serviceMap[s.service_name] || 0) + 1; });
     const sValues = Object.values(serviceMap);
     const totalS = sValues.reduce((a, b) => a + b, 0);
 
@@ -181,7 +172,7 @@ export default function SPBusinessDashboard() {
       avg: uniqueCustomers > 0 ? Math.round(current.count / uniqueCustomers) : 0, 
       revTrend: getTrend(current.rev, previous.rev), bookTrend: getTrend(current.count, previous.count),
       dateLabels, dateValues, sortedHourLabels, hourValues,
-      sLabels, sValues, totalS, rangeText
+      sLabels: Object.keys(serviceMap), sValues, totalS, rangeText
     };
   }, [rawBookings, serviceStats, activeFilter]);
 
@@ -213,14 +204,22 @@ export default function SPBusinessDashboard() {
             <button className={`sidebar-tab-btn ${activeTab === 'business_performance' ? 'active' : ''}`} onClick={() => setActiveTab('business_performance')}>Business Performance</button>
             <button className={`sidebar-tab-btn ${activeTab === 'customer_insights' ? 'active' : ''}`} onClick={() => setActiveTab('customer_insights')}>Customer Insights</button>
           </div>
+
           <div className="sidebar-filters-section">
-            <h3>Filters</h3>
-            <ul className="filter-list">
-              {['Weekly', 'Monthly', 'Yearly'].map(f => (
-                <li key={f} className={activeFilter === f.toLowerCase() ? 'active' : ''} onClick={() => setActiveFilter(f.toLowerCase())}>{f}</li>
-              ))}
-            </ul>
+            <h3>Time Period</h3>
+            <div className="dropdown-container">
+              <select 
+                value={activeFilter} 
+                onChange={(e) => setActiveFilter(e.target.value)}
+                className="filter-dropdown"
+              >
+                <option value="weekly">Weekly</option>
+                <option value="monthly">Monthly</option>
+                <option value="yearly">Yearly</option>
+              </select>
+            </div>
           </div>
+
           <div className="sidebar-doughnut-card">
             <h4 className="chart-title-sm">Most Booked Services ({activeFilter})</h4>
             <div className="doughnut-container-sidebar">
@@ -228,7 +227,7 @@ export default function SPBusinessDashboard() {
                 <Doughnut data={{ labels: analytics.sLabels, datasets: [{ data: analytics.sValues, backgroundColor: ['#1e3a8a', '#3b82f6', '#93c5fd'], borderWidth: 0 }] }} options={{ maintainAspectRatio: false, plugins: { legend: { display: false } }, cutout: '70%' }} />
               </div>
               <div className="doughnut-labels-sidebar">
-                {analytics.sLabels.slice(0, 3).map((l, i) => (
+                {analytics.sLabels.slice(0, 2).map((l, i) => (
                   <span key={l}>{analytics.sValues[i]} ({Math.round((analytics.sValues[i]/analytics.totalS)*100)}% {l})</span>
                 ))}
               </div>
