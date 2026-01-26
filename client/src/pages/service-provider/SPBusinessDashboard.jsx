@@ -36,17 +36,29 @@ export default function SPBusinessDashboard() {
 
         if (!provider) return;
 
+        // 1. Fetch bookings
         const { data: bookings, error: bError } = await supabase
           .from('bookings')
-          .select('booking_date, total_estimated_price, status, user_id, time_slot')
+          .select('id, booking_date, total_estimated_price, status, user_id, time_slot')
           .eq('provider_id', provider.id);
 
         if (bError) throw bError;
         setRawBookings(bookings || []);
 
+        // 2. Fetch booking services linked to those specific bookings
+        // We fetch the join data to ensure we can filter services by booking status later
         const { data: bServices, error: sError } = await supabase
           .from('booking_services')
-          .select('service_name, price')
+          .select(`
+            service_name,
+            booking_pets!inner (
+              booking_id,
+              bookings!inner (
+                status,
+                booking_date
+              )
+            )
+          `)
           .in('service_id', (
             await supabase.from('services').select('id').eq('provider_id', provider.id)
           ).data.map(s => s.id));
@@ -65,7 +77,9 @@ export default function SPBusinessDashboard() {
 
   const analytics = useMemo(() => {
     const now = new Date();
+    const validStatuses = ['paid', 'completed', 'rated', 'to_rate'];
     
+    // --- PERIOD DEFINITIONS ---
     const getRange = (filter, isPrevious = false) => {
       let start = new Date();
       let end = new Date();
@@ -95,7 +109,6 @@ export default function SPBusinessDashboard() {
     const previousBookings = filterByRange(rawBookings, previousRange);
 
     const calculateMetrics = (list) => {
-      const validStatuses = ['paid', 'completed', 'rated', 'to_rate'];
       const rev = list.filter(b => validStatuses.includes(b.status))
         .reduce((sum, b) => sum + (Number(b.total_estimated_price) || 0), 0);
       const valid = list.filter(b => validStatuses.includes(b.status));
@@ -122,6 +135,7 @@ export default function SPBusinessDashboard() {
       return tempDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
     };
 
+    // --- CHART 1: Average Bookings ---
     let dateLabels = [];
     if (activeFilter === 'yearly') {
       const year = currentRange.start.getFullYear();
@@ -137,21 +151,37 @@ export default function SPBusinessDashboard() {
       if(dateValues[idx] !== undefined) dateValues[idx]++;
     });
 
+    // --- CHART 2: Booking Hours Trend ---
     const rawSlots = [...new Set(current.valid.map(b => formatCleanTime(b.time_slot)))].filter(Boolean);
     const sortedHourLabels = rawSlots.sort((a, b) => new Date(`1970/01/01 ${a}`) - new Date(`1970/01/01 ${b}`));
     const hourValues = sortedHourLabels.map(slot => current.valid.filter(b => formatCleanTime(b.time_slot) === slot).length);
 
+    // --- MOST BOOKED SERVICES (DOUGHNUT) ---
+    // Filter serviceStats to only include those from the current period AND with valid status
+    const filteredServiceStats = serviceStats.filter(s => {
+      const bStatus = s.booking_pets?.bookings?.status;
+      const bDate = new Date(s.booking_pets?.bookings?.booking_date);
+      return validStatuses.includes(bStatus) && bDate >= currentRange.start && bDate <= (currentRange.end || now);
+    });
+
+    const serviceMap = {};
+    filteredServiceStats.forEach(s => {
+      serviceMap[s.service_name] = (serviceMap[s.service_name] || 0) + 1;
+    });
+
+    const sLabels = Object.keys(serviceMap);
+    const sValues = Object.values(serviceMap);
+    const totalS = sValues.reduce((a, b) => a + b, 0);
+
     const uniqueCustomers = new Set(current.valid.map(b => b.user_id)).size;
     const cancellations = currentBookings.filter(b => b.status === 'cancelled').length;
-    const serviceMap = {};
-    serviceStats.forEach(s => { serviceMap[s.service_name] = (serviceMap[s.service_name] || 0) + 1; });
 
     return { 
       revenue: current.rev, validCount: current.count, cancellations, 
       avg: uniqueCustomers > 0 ? Math.round(current.count / uniqueCustomers) : 0, 
       revTrend: getTrend(current.rev, previous.rev), bookTrend: getTrend(current.count, previous.count),
       dateLabels, dateValues, sortedHourLabels, hourValues,
-      sLabels: Object.keys(serviceMap), sValues: Object.values(serviceMap), rangeText
+      sLabels, sValues, totalS, rangeText
     };
   }, [rawBookings, serviceStats, activeFilter]);
 
@@ -167,7 +197,6 @@ export default function SPBusinessDashboard() {
     return <div className={`kpi-trend ${trend.dir === 'up' ? 'positive' : 'negative'}`}><Icon /> {trend.val}% {trend.dir === 'up' ? 'Higher' : 'Lower'}</div>;
   };
 
-  // Helper for Gross Revenue Display
   const formatRevenue = (val) => {
     if (val >= 1000) return `₱${(val / 1000).toFixed(1)}K`;
     return `₱${Math.round(val)}`;
@@ -199,7 +228,9 @@ export default function SPBusinessDashboard() {
                 <Doughnut data={{ labels: analytics.sLabels, datasets: [{ data: analytics.sValues, backgroundColor: ['#1e3a8a', '#3b82f6', '#93c5fd'], borderWidth: 0 }] }} options={{ maintainAspectRatio: false, plugins: { legend: { display: false } }, cutout: '70%' }} />
               </div>
               <div className="doughnut-labels-sidebar">
-                {analytics.sLabels.slice(0, 2).map((l, i) => <span key={l}>{analytics.sValues[i]} ({l})</span>)}
+                {analytics.sLabels.slice(0, 3).map((l, i) => (
+                  <span key={l}>{analytics.sValues[i]} ({Math.round((analytics.sValues[i]/analytics.totalS)*100)}% {l})</span>
+                ))}
               </div>
             </div>
           </div>
