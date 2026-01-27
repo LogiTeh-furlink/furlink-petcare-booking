@@ -128,7 +128,7 @@ export default function SPBusinessDashboard() {
       return { val: Math.abs(Math.round(diff)), dir: diff > 0 ? 'up' : diff < 0 ? 'down' : 'neutral' };
     };
 
-    // --- CHART 1: Average Bookings (Context Labels) ---
+    // --- CHART 1: Average Bookings ---
     let dateLabels = [];
     if (activeFilter === 'yearly') {
       const year = currentRange.start.getFullYear();
@@ -144,7 +144,7 @@ export default function SPBusinessDashboard() {
       if(dateValues[idx] !== undefined) dateValues[idx]++;
     });
 
-    // --- CHART 2: Peak Booking Days (Always frequency by day of week) ---
+    // --- CHART 2: Peak Booking Days ---
     const peakDaysLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     let peakDaysValues = new Array(7).fill(0);
     current.valid.forEach(b => {
@@ -227,14 +227,18 @@ export default function SPBusinessDashboard() {
           </div>
 
           <div className="sidebar-filters-section">
-            <h3>Time Period</h3>
-            <div className="dropdown-container">
-              <select value={activeFilter} onChange={(e) => setActiveFilter(e.target.value)} className="filter-dropdown">
-                <option value="weekly">Weekly</option>
-                <option value="monthly">Monthly</option>
-                <option value="yearly">Yearly</option>
-              </select>
-            </div>
+            <h3>Filters</h3>
+            <ul className="filter-list">
+              {['Weekly', 'Monthly', 'Yearly'].map((f) => (
+                <li 
+                  key={f} 
+                  className={activeFilter === f.toLowerCase() ? 'active' : ''} 
+                  onClick={() => setActiveFilter(f.toLowerCase())}
+                >
+                  {f}
+                </li>
+              ))}
+            </ul>
           </div>
 
           <div className="sidebar-doughnut-card">
