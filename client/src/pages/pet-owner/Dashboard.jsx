@@ -10,103 +10,91 @@ import "./Dashboard.css";
 const Dashboard = () => {
   const navigate = useNavigate();
 
-  const [currentUser, setCurrentUser] = useState(null); // 1. Store the full user object
+  const [currentUser, setCurrentUser] = useState(null);
   const [profile, setProfile] = useState(null);
   const [providers, setProviders] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // --- UPDATED: Handle Click & Count ---
   const handleProviderClick = async (providerId, providerOwnerId) => {
     try {
-        // 2. CHECK: Is the person clicking the owner?
-        const isOwner = currentUser && currentUser.id === providerOwnerId;
+      const isOwner = currentUser && currentUser.id === providerOwnerId;
 
-        // Only count the view if it is NOT the owner
-        if (!isOwner) {
-            supabase.rpc('increment_provider_click', { provider_id: providerId }).then(({ error }) => {
-                if (error) console.error("Error counting click:", error);
-            });
-        }
+      if (!isOwner) {
+        supabase.rpc('increment_provider_click', { provider_id: providerId }).then(({ error }) => {
+          if (error) console.error("Error counting click:", error);
+        });
+      }
     } catch (err) {
-        console.error("Click handler error:", err);
+      console.error("Click handler error:", err);
     } finally {
-        navigate(`/listing/${providerId}`);
+      navigate(`/listing/${providerId}`);
     }
   };
 
   useEffect(() => {
     const fetchProfile = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
+      const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        setCurrentUser(user); // Save user for comparison later
+        setCurrentUser(user);
         const { data, error } = await supabase
           .from("profiles")
           .select("first_name, display_name")
           .eq("id", user.id)
           .single();
-
         if (!error && data) setProfile(data);
       }
     };
 
     const fetchProviders = async () => {
-  const { data, error } = await supabase
-    .from("service_providers")
-    .select(`
-      id, 
-      business_name, 
-      city, 
-      user_id,
-      provider_rating_analytics(total_combined_avg)
-    `) 
-    .eq("status", "approved")
-    .order("created_at", { ascending: false });
+      const { data, error } = await supabase
+        .from("service_providers")
+        .select(`
+          id, 
+          business_name, 
+          city, 
+          user_id,
+          provider_rating_analytics(total_combined_avg)
+        `) 
+        .eq("status", "approved")
+        .order("created_at", { ascending: false });
 
-  if (!error && data) {
-    const providersWithDetails = await Promise.all(
-      data.map(async (provider) => {
-        // --- Keep existing Price Logic ---
-        const { data: services } = await supabase
-          .from("services")
-          .select(`service_options (price)`)
-          .eq("provider_id", provider.id);
+      if (!error && data) {
+        const providersWithDetails = await Promise.all(
+          data.map(async (provider) => {
+            const { data: services } = await supabase
+              .from("services")
+              .select(`service_options (price)`)
+              .eq("provider_id", provider.id);
 
-        let minPrice = null, maxPrice = null;
-        if (services?.length > 0) {
-          const prices = services.flatMap(s => s.service_options || []).map(opt => parseFloat(opt.price)).filter(p => !isNaN(p));
-          if (prices.length > 0) {
-            minPrice = Math.min(...prices);
-            maxPrice = Math.max(...prices);
-          }
-        }
+            let minPrice = null, maxPrice = null;
+            if (services?.length > 0) {
+              const prices = services.flatMap(s => s.service_options || []).map(opt => parseFloat(opt.price)).filter(p => !isNaN(p));
+              if (prices.length > 0) {
+                minPrice = Math.min(...prices);
+                maxPrice = Math.max(...prices);
+              }
+            }
 
-        // --- Keep existing Image Logic ---
-        const { data: images } = await supabase
-          .from("service_provider_images")
-          .select("image_url")
-          .eq("provider_id", provider.id)
-          .limit(1);
+            const { data: images } = await supabase
+              .from("service_provider_images")
+              .select("image_url")
+              .eq("provider_id", provider.id)
+              .limit(1);
 
-        // --- DYNAMIC RATING LOGIC ---
-        // This looks into the joined array for the specific provider's data
-        const stats = provider.provider_rating_analytics?.[0];
-        const avgRating = stats ? parseFloat(stats.total_combined_avg).toFixed(1) : "0.0";
+            const stats = provider.provider_rating_analytics?.[0];
+            const avgRating = stats ? parseFloat(stats.total_combined_avg).toFixed(1) : "0.0";
 
-        return {
-          ...provider,
-          priceRange: minPrice ? `₱${minPrice} - ₱${maxPrice}` : "Price not available",
-          imageUrl: images?.[0]?.image_url || null,
-          rating: avgRating // This is now unique to EACH shop
-        };
-      })
-    );
-
-    setProviders(providersWithDetails);
-  }
-};
+            return {
+              ...provider,
+              priceRange: minPrice ? `₱${minPrice} - ₱${maxPrice}` : "Price not available",
+              imageUrl: images?.[0]?.image_url || null,
+              rating: avgRating
+            };
+          })
+        );
+        setProviders(providersWithDetails);
+      }
+    };
 
     const loadData = async () => {
       setLoading(true);
@@ -123,7 +111,9 @@ const Dashboard = () => {
       <div className="dashboard-page">
         <Header />
         <main className="dashboard-container dashboard-loading">
-          <h2>Loading...</h2>
+          <div className="dashboard-content">
+            <h2>Loading...</h2>
+          </div>
         </main>
         <Footer />
       </div>
@@ -142,7 +132,6 @@ const Dashboard = () => {
               <div
                 key={provider.id}
                 className="provider-card"
-                // 4. Pass the provider.user_id (owner ID) to the handler
                 onClick={() => handleProviderClick(provider.id, provider.user_id)}
               >
                 <div className="provider-image-container">

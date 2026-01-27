@@ -5,29 +5,34 @@
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  font-family: 'Poppins', sans-serif; /* Global Poppins application */
+  font-family: 'Poppins', sans-serif;
+  background-color: #f8fafc; /* Apply background to the whole page */
 }
 
 .dashboard-container {
   flex: 1;
-  background-color: #f8fafc; /* Light slate background for better card contrast */
+  background-color: #f8fafc; /* Keep background here for content area */
   padding: 2rem 1rem;
+  width: 100%;
 }
 
 /* Loading State Container */
 .dashboard-loading {
-  text-align: center;
-  padding: 4rem;
-  color: #64748b; /* Slate-500 instead of pure gray */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 60vh;
+  color: #64748b;
 }
 
 .dashboard-content {
   max-width: 1200px;
   margin: 0 auto;
+  width: 100%;
 }
 
 .dashboard-title {
-  color: #0E2679; /* Brand Blue */
+  color: #0E2679; 
   font-size: 1.75rem;
   font-weight: 700;
   margin-bottom: 2rem;
@@ -42,7 +47,7 @@
 
 .provider-card {
   background: white;
-  border-radius: 16px; /* Slightly rounder for modern look */
+  border-radius: 16px; 
   overflow: hidden;
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
   transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s;
@@ -67,7 +72,6 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
-  border-radius: 8px;
 }
 
 .provider-image-placeholder {
@@ -93,29 +97,25 @@
 .provider-name {
   font-size: 1.15rem;
   font-weight: 700;
-  color: #0E2679 !important; /* Dark Slate-800 instead of black */
+  color: #0E2679 !important; 
   margin: 0;
   flex: 1;
   line-height: 1.3;
 }
 
 .provider-location {
-  color: #0E2679 !important; /* Slate-500 */
+  color: #64748b !important; /* Changed to a lighter blue-gray for location */
   font-size: 0.85rem;
   margin: 0.25rem 0;
-  display: flex;
-  align-items: center;
-  gap: 4px;
 }
 
 .provider-price {
-  color: #0E2679; /* Brand Blue */
+  color: #0E2679; 
   font-size: 0.95rem;
   font-weight: 600;
   margin: 0.5rem 0;
 }
 
-/* Updated Provider Rating Styling */
 .provider-rating {
   display: flex;
   align-items: center;
@@ -126,15 +126,14 @@
 }
 
 .rating-value {
-  color: #fbbf24; /* Brand Blue */
+  color: #fbbf24; 
   font-weight: 700;
   font-size: 0.9rem;
-  background-color: #fdffef; /* Very light blue pill background */
+  background-color: #fffbeb; 
   padding: 2px 8px;
   border-radius: 6px;
 }
 
-/* Empty State Message */
 .dashboard-empty-message {
   text-align: center;
   color: #94a3b8;
