@@ -62,60 +62,52 @@ const SignUpPage = () => {
   };
 
   const handleFinalSubmit = async () => {
-  if (!agreedToTerms) return;
-  setLoading(true);
-  setShowTermsModal(false);
+    if (!agreedToTerms) return;
+    setLoading(true);
+    setShowTermsModal(false);
 
-  try {
-    // 1. Auth SignUp
-    const { data: signUpData, error: authError } = await supabase.auth.signUp({
-      email: formData.email,
-      password: formData.password,
-    });
+    try {
+      const { data: signUpData, error: authError } = await supabase.auth.signUp({
+        email: formData.email,
+        password: formData.password,
+      });
 
-    if (authError) throw authError;
+      if (authError) throw authError;
 
-    const user = signUpData.user;
-    if (user) {
-      // 2. Use UPSERT instead of INSERT to avoid "Duplicate Key" errors
-      // This handles cases where a DB trigger might have already created the row
-      // Inside handleFinalSubmit in SignUpPage.jsx
-      const { error: profileError } = await supabase.from("profiles").upsert([
-        {
-          id: user.id,
-          first_name: formData.firstName,
-          last_name: formData.lastName,
-          display_name: `${formData.firstName} ${formData.lastName}`,
-          mobile_number: formData.mobile,
-          date_of_birth: formData.dob,
-          // FIX: Save the actual choice, including 'both'
-          role: formData.roleChoice 
-        },
-      ], { onConflict: 'id' });
+      const user = signUpData.user;
+      if (user) {
+        const { error: profileError } = await supabase.from("profiles").upsert([
+          {
+            id: user.id,
+            first_name: formData.firstName,
+            last_name: formData.lastName,
+            display_name: `${formData.firstName} ${formData.lastName}`,
+            mobile_number: formData.mobile,
+            date_of_birth: formData.dob,
+            role: formData.roleChoice 
+          },
+        ], { onConflict: 'id' });
 
-      if (profileError) throw profileError;
+        if (profileError) throw profileError;
 
-      // 3. Create Session Record
-      await supabase.from("user_sessions").insert([{ user_id: user.id }]);
+        await supabase.from("user_sessions").insert([{ user_id: user.id }]);
 
-      // 4. Handle Redirections (Now reachable since errors are caught/resolved)
-      if (formData.roleChoice === "pet_owner") {
-        navigate("/dashboard");
-      } else if (formData.roleChoice === "service_provider") {
-        navigate("/apply-provider");
-      } else if (formData.roleChoice === "both") {
-        // For 'both', redirect to dashboard then show the modal
-        navigate("/dashboard");
-        setTimeout(() => setShowHybridWelcomeModal(true), 500);
+        if (formData.roleChoice === "pet_owner") {
+          navigate("/dashboard");
+        } else if (formData.roleChoice === "service_provider") {
+          navigate("/apply-provider");
+        } else if (formData.roleChoice === "both") {
+          navigate("/dashboard");
+          setTimeout(() => setShowHybridWelcomeModal(true), 500);
+        }
       }
+    } catch (err) {
+      console.error("Registration error:", err);
+      setErrors({ general: err.message });
+    } finally {
+      setLoading(false);
     }
-  } catch (err) {
-    console.error("Registration error:", err);
-    setErrors({ general: err.message });
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   return (
     <div className="signup-page">
@@ -172,6 +164,11 @@ const SignUpPage = () => {
           </div>
 
           <button className="btn-primary" type="submit" disabled={loading}>{loading ? "Processing..." : "Register"}</button>
+          
+          {/* UPDATED: Login redirect link added here */}
+          <p className="redirect-text">
+            Already have an account? <span className="redirect-link" onClick={() => navigate("/login")}>Login here</span>
+          </p>
         </form>
       </div>
 

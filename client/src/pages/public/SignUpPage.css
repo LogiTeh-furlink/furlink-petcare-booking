@@ -289,18 +289,23 @@
     REDIRECTS
 =========================== */
 .redirect-text {
-    text-align: center;
-    margin-top: 1.5rem;
-    font-size: 0.9rem;
-    color: #64748b;
+  text-align: center;
+  margin-top: 1.5rem;
+  font-size: 0.9rem;
+  color: #64748b;
 }
 
 .redirect-link {
-    color: #0E2679;
-    font-weight: 700;
-    cursor: pointer;
-    text-decoration: underline;
+  color: #0E2679;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: underline;
 }
+
+.redirect-link:hover {
+  color: #FDBF00;
+}
+
 
 /* ===========================
     RESPONSIVE
