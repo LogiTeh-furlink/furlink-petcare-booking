@@ -36,6 +36,7 @@ export default function SPBusinessDashboard() {
 
         if (!provider) return;
 
+        // 1. Fetch primary booking data - strictly selecting time_slot
         const { data: bookings, error: bError } = await supabase
           .from('bookings')
           .select('id, booking_date, total_estimated_price, status, user_id, time_slot')
@@ -44,6 +45,7 @@ export default function SPBusinessDashboard() {
         if (bError) throw bError;
         setRawBookings(bookings || []);
 
+        // 2. Fetch booking services for Doughnut
         const { data: bServices, error: sError } = await supabase
           .from('booking_services')
           .select(`
@@ -113,13 +115,42 @@ export default function SPBusinessDashboard() {
     const current = calculateMetrics(currentBookings);
     const previous = calculateMetrics(previousBookings);
 
+    // Helper to normalize time_slot to consistent 12-hour format
+    // Handles both "14:00:00" (24-hour) and "3:00 PM" (12-hour) formats
     const formatCleanTime = (timeStr) => {
-      if (!timeStr) return null;
-      const [hour, minute] = timeStr.split(':');
-      const h = parseInt(hour, 10);
-      const ampm = h >= 12 ? 'PM' : 'AM';
-      const displayHour = h % 12 || 12;
-      return `${displayHour}:${minute.substring(0,2)} ${ampm}`;
+      if (!timeStr || typeof timeStr !== 'string') return null;
+      
+      const trimmed = timeStr.trim();
+      
+      // Check if already in 12-hour format (contains AM/PM)
+      if (trimmed.toUpperCase().includes('AM') || trimmed.toUpperCase().includes('PM')) {
+        // Already in 12-hour format, just clean it up
+        const match = trimmed.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+        if (match) {
+          const hour = parseInt(match[1], 10);
+          const minutes = match[2];
+          const period = match[3].toUpperCase();
+          return `${hour}:${minutes} ${period}`;
+        }
+        return null; // Invalid format
+      }
+      
+      // Must be 24-hour format (e.g., "14:00" or "14:00:00")
+      const parts = trimmed.split(':');
+      if (parts.length >= 2) {
+        const h = parseInt(parts[0], 10);
+        const m = parts[1].substring(0, 2);
+        
+        // Validate hour range
+        if (isNaN(h) || h < 0 || h > 23) return null;
+        
+        // Convert to 12-hour format
+        const period = h >= 12 ? 'PM' : 'AM';
+        const displayHour = h % 12 || 12;
+        return `${displayHour}:${m} ${period}`;
+      }
+      
+      return null; // Invalid format
     };
 
     const getTrend = (curr, prev) => {
@@ -152,10 +183,35 @@ export default function SPBusinessDashboard() {
       peakDaysValues[dayIdx]++;
     });
 
-    // --- CHART 3: Booking Hours Trend ---
-    const rawSlots = [...new Set(current.valid.map(b => formatCleanTime(b.time_slot)))].filter(Boolean);
-    const sortedHourLabels = rawSlots.sort((a, b) => new Date(`1970/01/01 ${a}`) - new Date(`1970/01/01 ${b}`));
-    const hourValues = sortedHourLabels.map(slot => current.valid.filter(b => formatCleanTime(b.time_slot) === slot).length);
+    // --- CHART 3: Booking Hours Trend (Strictly using time_slot from valid bookings only) ---
+    const timeSlotCounts = {};
+    
+    current.valid.forEach(b => {
+      // Only process bookings with valid time_slot data
+      if (b.time_slot) {
+        const formatted = formatCleanTime(b.time_slot);
+        if (formatted) {
+          timeSlotCounts[formatted] = (timeSlotCounts[formatted] || 0) + 1;
+        }
+      }
+    });
+    
+    // Sort time slots chronologically (convert back to 24-hour for proper sorting)
+    const sortedHourLabels = Object.keys(timeSlotCounts).sort((a, b) => {
+      const parseTime = (timeStr) => {
+        const match = timeStr.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+        if (!match) return 0;
+        let hour = parseInt(match[1], 10);
+        const period = match[3].toUpperCase();
+        if (period === 'PM' && hour !== 12) hour += 12;
+        if (period === 'AM' && hour === 12) hour = 0;
+        return hour * 60 + parseInt(match[2], 10);
+      };
+      return parseTime(a) - parseTime(b);
+    });
+    
+    // Get counts in sorted order
+    const hourValues = sortedHourLabels.map(slot => timeSlotCounts[slot]);
 
     // --- DOUGHNUT LOGIC ---
     const filteredServices = serviceStats.filter(s => {
@@ -168,7 +224,6 @@ export default function SPBusinessDashboard() {
     const sValues = Object.values(serviceMap);
     const totalS = sValues.reduce((a, b) => a + b, 0);
 
-    // --- DYNAMIC INSIGHT CALCULATION ---
     const getBestLabel = (labels, values) => {
       const max = Math.max(...values);
       return max > 0 ? labels[values.indexOf(max)] : "None";
@@ -179,21 +234,16 @@ export default function SPBusinessDashboard() {
     const bestTimeLabel = getBestLabel(sortedHourLabels, hourValues);
     const bestServiceLabel = getBestLabel(sLabels, sValues);
 
-    const avgInsight = `${bestAvgLabel} is the most booked ${activeFilter === 'yearly' ? 'month' : 'day'}`;
-    const peakDayInsight = `${bestDayLabel} is the most booked day`;
-    const timeInsight = `${bestTimeLabel} is usually a bit busy`;
-    const serviceInsight = `${bestServiceLabel} is the most booked service`;
-
-    const uniqueCustomers = new Set(current.valid.map(b => b.user_id)).size;
-    const cancellations = currentBookings.filter(b => b.status === 'cancelled').length;
-
     return { 
-      revenue: current.rev, validCount: current.count, cancellations, 
-      avg: uniqueCustomers > 0 ? Math.round(current.count / uniqueCustomers) : 0, 
+      revenue: current.rev, validCount: current.count, cancellations: currentBookings.filter(b => b.status === 'cancelled').length, 
+      avg: new Set(current.valid.map(b => b.user_id)).size > 0 ? Math.round(current.count / new Set(current.valid.map(b => b.user_id)).size) : 0, 
       revTrend: getTrend(current.rev, previous.rev), bookTrend: getTrend(current.count, previous.count),
       dateLabels, dateValues, peakDaysLabels, peakDaysValues, sortedHourLabels, hourValues,
       sLabels, sValues, totalS, rangeText,
-      avgInsight, peakDayInsight, timeInsight, serviceInsight
+      avgInsight: `${bestAvgLabel} is the most booked ${activeFilter === 'yearly' ? 'month' : 'day'}`,
+      peakDayInsight: `${bestDayLabel} is the most booked day`,
+      timeInsight: `${bestTimeLabel} is usually a bit busy`,
+      serviceInsight: `${bestServiceLabel} is the most booked service`
     };
   }, [rawBookings, serviceStats, activeFilter]);
 
@@ -225,22 +275,14 @@ export default function SPBusinessDashboard() {
             <button className={`sidebar-tab-btn ${activeTab === 'business_performance' ? 'active' : ''}`} onClick={() => setActiveTab('business_performance')}>Business Performance</button>
             <button className={`sidebar-tab-btn ${activeTab === 'customer_insights' ? 'active' : ''}`} onClick={() => setActiveTab('customer_insights')}>Customer Insights</button>
           </div>
-
           <div className="sidebar-filters-section">
             <h3>Filters</h3>
             <ul className="filter-list">
               {['Weekly', 'Monthly', 'Yearly'].map((f) => (
-                <li 
-                  key={f} 
-                  className={activeFilter === f.toLowerCase() ? 'active' : ''} 
-                  onClick={() => setActiveFilter(f.toLowerCase())}
-                >
-                  {f}
-                </li>
+                <li key={f} className={activeFilter === f.toLowerCase() ? 'active' : ''} onClick={() => setActiveFilter(f.toLowerCase())}>{f}</li>
               ))}
             </ul>
           </div>
-
           <div className="sidebar-doughnut-card">
             <h4 className="chart-title-sm">Most Booked Services ({activeFilter})</h4>
             <div className="doughnut-container-sidebar">
