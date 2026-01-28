@@ -15,7 +15,9 @@ ChartJS.register(CategoryScale, LinearScale, BarElement, PointElement, LineEleme
 
 export default function SPBusinessDashboard() {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState('business_performance'); 
+  // activeTab is no longer needed for switching views, but we keep the variable for conditional class styling if needed
+  // We default it to business_performance since this IS the business dashboard page.
+  const [activeTab] = useState('business_performance'); 
   const [activeFilter, setActiveFilter] = useState('monthly');
   const [loading, setLoading] = useState(true);
   const [rawBookings, setRawBookings] = useState([]);
@@ -245,8 +247,18 @@ export default function SPBusinessDashboard() {
         <div className="sp-biz-container">
           <aside className="sp-biz-sidebar">
             <div className="sidebar-tabs-group">
-              <button className={`sidebar-tab-btn ${activeTab === 'business_performance' ? 'active' : ''}`} onClick={() => setActiveTab('business_performance')}>Business Performance</button>
-              <button className={`sidebar-tab-btn ${activeTab === 'customer_insights' ? 'active' : ''}`} onClick={() => setActiveTab('customer_insights')}>Customer Insights</button>
+              <button 
+                className={`sidebar-tab-btn ${activeTab === 'business_performance' ? 'active' : ''}`} 
+                onClick={() => navigate('/service/business-dashboard')}
+              >
+                Business Performance
+              </button>
+              <button 
+                className={`sidebar-tab-btn ${activeTab === 'customer_insights' ? 'active' : ''}`} 
+                onClick={() => navigate('/service/customer-insight')}
+              >
+                Customer Insights
+              </button>
             </div>
             <div className="sidebar-filters-section">
               <h3>Filters</h3>
