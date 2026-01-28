@@ -120,32 +120,18 @@ const PetDetails = () => {
           total_estimated_price: calculateGrandTotal(),
           status: 'pending'
         }])
-        .select()
-        .single();
+        .select().single();
 
       if (bError) throw bError;
 
-      // 2. Process each pet (Upload files + Save to DB)
-      // Note: Using a single loop to keep everything aligned
-      for (let i = 0; i < petsData.length; i++) {
-        const pet = petsData[i];
+      // 2. Process each pet
+      for (const [i, pet] of petsData.entries()) {
         const storagePath = `${user.id}/${booking.id}/pet_${i}`;
-        
-        let vUrl = null;
-        let iUrl = null;
+        const vUrl = await uploadFile(pet.vaccine_file, storagePath);
+        const iUrl = pet.illness_file ? await uploadFile(pet.illness_file, storagePath) : null;
 
-        // Upload Vaccine Record
-        if (pet.vaccine_file) {
-          vUrl = await uploadFile(pet.vaccine_file, storagePath);
-        }
-
-        // Upload Illness Record (if exists)
-        if (pet.illness_file) {
-          iUrl = await uploadFile(pet.illness_file, storagePath);
-        }
-
-        // 3. Save Pet details to database
-        const { error: pError } = await supabase
+        // Save Pet Info (grooming_specifications stays as user notes only)
+        const { data: petRecord, error: pError } = await supabase
           .from('booking_pets')
           .insert([{
             booking_id: booking.id,
@@ -159,31 +145,35 @@ const PetDetails = () => {
             behavior: Array.isArray(pet.behavior) ? pet.behavior.join(', ') : pet.behavior,
             vaccine_card_url: vUrl,
             illness_proof_url: iUrl,
-            grooming_specifications: `Services: ${pet.services.map(s => s.service_name).join(', ')}. ${pet.grooming_specifications}`,
+            grooming_specifications: pet.grooming_specifications, 
             emergency_consent: pet.emergency_consent
-          }]);
+          }])
+          .select().single();
 
         if (pError) throw pError;
+
+        // 3. Save Each Selected Service to booking_services table
+        for (const srv of pet.services) {
+          if (srv.id) {
+            const { error: sError } = await supabase
+              .from('booking_services')
+              .insert([{
+                booking_pet_id: petRecord.id,
+                service_id: srv.id,
+                service_name: srv.service_name,
+                service_type: srv.service_type,
+                price: parseFloat(srv.price)
+              }]);
+            if (sError) throw sError;
+          }
+        }
       }
 
-      // Success!
-      // 1. Close the modal
       setShowSummaryModal(false);
-
-      // 2. Redirect to Dashboard
-      // Ensure your route is "/dashboard" as defined in your App.jsx
-      navigate("/dashboard", { 
-        state: { 
-          success: true, 
-          message: "Booking confirmed successfully!" 
-        } 
-      });
-
+      navigate("/dashboard", { state: { success: true } });
     } catch (error) {
-      console.error("Submission error:", error);
-      // Only trigger the alert if there is a real message, otherwise show a fallback
-      const errorMsg = error?.message || "An unexpected error occurred. Please try again.";
-      triggerError(errorMsg);
+      console.error(error);
+      triggerError(error.message);
     } finally {
       setLoading(false);
     }
@@ -341,12 +331,10 @@ const PetDetails = () => {
     const pet = petsData[petIndex];
     const lastService = pet.services[pet.services.length - 1];
 
-    // Check if the last row is empty to prevent spamming empty fields
     if (lastService && lastService.id === "") {
-      // We set a local error state on the pet to show near the field instead of an alert
       setPetsData(prev => {
         const newPets = [...prev];
-        newPets[petIndex].service_error = "Please select a service before adding another.";
+        newPets[petIndex].service_error = "Please select a service before adding another field.";
         return newPets;
       });
       return;
@@ -354,10 +342,9 @@ const PetDetails = () => {
 
     setPetsData(prev => {
       const newPets = [...prev];
-      // Clear the error and add exactly one new row
       newPets[petIndex].service_error = null;
       newPets[petIndex].services = [
-        ...newPets[petIndex].services,
+        ...newPets[petIndex].services, 
         { id: "", service_name: "", service_type: "", price: "0.00" }
       ];
       return newPets;
@@ -460,59 +447,39 @@ const PetDetails = () => {
 
                         <div className="service-rows-container">
                           {pet.services.map((service, sIndex) => {
-                            const availableOptions = getAvailableOptions(index, sIndex);
-
+                            const availableOptions = getFilteredOptions(pet, service.id);
                             return (
-                              <div key={sIndex} className="service-selection-row" style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', marginBottom: '10px' }}>
+                              <div key={sIndex} className="service-selection-row" style={{ marginBottom: '15px' }}>
                                 <div className={`input-group ${attemptedSubmit && !service.id ? 'field-error' : ''}`} style={{ flex: 1 }}>
                                   <label className="form-label">
                                     {sIndex === 0 && <Tag size={14} className="label-icon" />}
-                                    {service.id 
-                                      ? `${service.service_name} (${service.service_type})` 
-                                      : `Select Service ${sIndex + 1} *`}
+                                    {service.id ? `${service.service_name} (${service.service_type})` : `Select Service ${sIndex + 1} *`}
                                   </label>
-                                  
                                   <div className="service-input-group" style={{ display: 'flex', gap: '8px' }}>
-                                    <div className="select-wrapper" style={{ flex: 1 }}>
-                                      <select className="form-input" value={service.id} onChange={(e) => handleServiceSelect(index, sIndex, e)}>
-                                        <option value="">Choose a Service</option>
-                                        {availableOptions.map(s => (
-                                          <option key={s.id} value={s.id}>
-                                            {s.name} ({s.type.toLowerCase().includes('package') ? 'Packaged Service' : 'Individual Service'})
-                                          </option>
-                                        ))}
-                                      </select>
-                                    </div>
-
-                                    <div className="service-row-actions" style={{ display: 'flex', gap: '5px' }}>
-                                      {/* Only show PLUS if this is the last row to prevent bulk adding */}
-                                      {sIndex === pet.services.length - 1 ? (
-                                        <button type="button" className="circle-btn add" onClick={() => handleAddServiceRow(index)}>
-                                          <Plus size={14} />
-                                        </button>
-                                      ) : null}
-
+                                    <select className="form-input" style={{flex: 1}} value={service.id} onChange={(e) => handleServiceSelect(index, sIndex, e)}>
+                                      <option value="">Choose a Service</option>
+                                      {availableOptions.map(s => (
+                                        <option key={s.id} value={s.id}>{s.name} ({s.type})</option>
+                                      ))}
+                                    </select>
+                                    <div className="service-row-actions" style={{display: 'flex', gap: '5px'}}>
+                                      {/* Only show PLUS on the absolute last row */}
+                                      {sIndex === pet.services.length - 1 && (
+                                        <button type="button" className="circle-btn add" onClick={() => handleAddServiceRow(index)}><Plus size={14} /></button>
+                                      )}
                                       {pet.services.length > 1 && (
-                                        <button type="button" className="circle-btn delete" onClick={() => handleRemoveServiceRow(index, sIndex)}>
-                                          <Minus size={14} />
-                                        </button>
+                                        <button type="button" className="circle-btn delete" onClick={() => handleRemoveServiceRow(index, sIndex)}><Minus size={14} /></button>
                                       )}
                                     </div>
                                   </div>
-
-                                  {service.id && (
-                                    <div className="service-price-hint" style={{ fontSize: '0.8rem', marginTop: '4px', color: '#2563eb', fontWeight: '600' }}>
-                                      Price: ₱{service.price}
-                                    </div>
-                                  )}
+                                  {service.id && <div className="service-price-hint" style={{fontSize: '0.8rem', color: '#2563eb', marginTop: '4px', fontWeight: '600'}}>Price: ₱{service.price}</div>}
                                 </div>
                               </div>
                             );
                           })}
-                          
                           {/* INLINE ERROR DISPLAY */}
                           {pet.service_error && (
-                            <div className="inline-error-msg" style={{ color: '#dc2626', fontSize: '0.85rem', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                            <div style={{ color: '#dc2626', fontSize: '0.8rem', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '5px' }}>
                               <AlertCircle size={14} /> {pet.service_error}
                             </div>
                           )}
