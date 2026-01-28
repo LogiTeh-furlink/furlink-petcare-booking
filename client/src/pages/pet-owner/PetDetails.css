@@ -464,3 +464,98 @@
     border-radius: 12px;
     backdrop-filter: blur(2px);
 }
+
+.spec-textarea:focus {
+  outline: none;
+  border-color: #0E2679; /* Matching your theme color */
+  box-shadow: 0 0 0 2px rgba(14, 38, 121, 0.1);
+}
+
+.char-counter {
+  font-weight: 500;
+  transition: color 0.2s ease;
+}
+
+.summary-modal-overlay {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.summary-modal-content {
+  background: white;
+  width: 100%; max-width: 600px;
+  max-height: 90vh;
+  border-radius: 12px;
+  display: flex; flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+}
+
+.modal-header {
+  padding: 20px; border-bottom: 1px solid #eee;
+  display: flex; justify-content: space-between; align-items: center;
+  background: #0E2679; color: white;
+}
+
+.modal-body {
+  padding: 20px; overflow-y: auto;
+}
+
+.pet-summary-item {
+  background: #f8f9fa; padding: 15px;
+  border-radius: 8px; margin-bottom: 15px;
+  border-left: 4px solid #0E2679;
+}
+
+.consent-badge {
+  display: inline-block; padding: 4px 8px;
+  border-radius: 4px; font-size: 11px; margin-top: 8px;
+}
+
+.consent-badge.granted { background: #e6fffa; color: #2c7a7b; }
+.consent-badge.none { background: #fff5f5; color: #c53030; }
+
+.modal-footer {
+  padding: 20px; border-top: 1px solid #eee;
+  display: flex; gap: 10px;
+}
+
+.btn-confirm-booking {
+  flex: 1; background: #0E2679; color: white;
+  padding: 12px; border: none; border-radius: 6px;
+  font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;
+}
+
+/* Container highlights */
+.field-error input, 
+.field-error select {
+    border: 2px solid #dc2626 !important;
+    background-color: #fef2f2 !important;
+}
+
+/* Small error text below inputs */
+.error-text {
+    color: #dc2626;
+    font-size: 11px;
+    margin-top: 4px;
+    display: block;
+}
+
+/* Red dash border for the upload record when empty */
+.upload-error {
+    border: 2px dashed #dc2626 !important;
+    border-radius: 8px;
+    padding: 4px;
+}
+
+.error-text-upload {
+    color: #dc2626;
+    font-size: 10px;
+    text-align: center;
+    display: block;
+}
