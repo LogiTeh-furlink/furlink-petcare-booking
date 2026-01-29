@@ -18,6 +18,8 @@ export default function SPBusinessDashboard() {
   const [activeTab] = useState('business_performance'); 
   const [activeFilter, setActiveFilter] = useState('monthly');
   const [petTypeFilter, setPetTypeFilter] = useState('both');
+  const [customDateStart, setCustomDateStart] = useState('');
+  const [customDateEnd, setCustomDateEnd] = useState('');
   const [loading, setLoading] = useState(true);
   const [rawBookings, setRawBookings] = useState([]);
   const [serviceStats, setServiceStats] = useState([]);
@@ -118,6 +120,25 @@ export default function SPBusinessDashboard() {
     console.log('Pet Type Filter:', petTypeFilter);
     
     const getRange = (filter, isPrevious = false) => {
+      // Handle custom date range
+      if (filter === 'custom' && customDateStart && customDateEnd) {
+        const start = new Date(customDateStart);
+        const end = new Date(customDateEnd);
+        end.setHours(23, 59, 59, 999); // Set to end of day
+        
+        if (isPrevious) {
+          // For trend comparison, get the same duration before the custom range
+          const duration = end - start;
+          const prevEnd = new Date(start);
+          prevEnd.setDate(prevEnd.getDate() - 1);
+          const prevStart = new Date(prevEnd - duration);
+          return { start: prevStart, end: prevEnd };
+        }
+        
+        return { start, end };
+      }
+      
+      // Original logic for weekly, monthly, yearly
       let start = new Date();
       let end = new Date();
       if (filter === 'weekly') {
@@ -153,7 +174,9 @@ export default function SPBusinessDashboard() {
       end: currentRange.end?.toISOString() || 'now'
     });
     
-    const rangeText = `${currentRange.start.toLocaleDateString(undefined, { month: 'short', day: '2-digit' })} - ${now.toLocaleDateString(undefined, { month: 'short', day: '2-digit', year: 'numeric' })}`;
+    const rangeText = activeFilter === 'custom' && customDateStart && customDateEnd
+      ? `${new Date(customDateStart).toLocaleDateString(undefined, { month: 'short', day: '2-digit' })} - ${new Date(customDateEnd).toLocaleDateString(undefined, { month: 'short', day: '2-digit', year: 'numeric' })}`
+      : `${currentRange.start.toLocaleDateString(undefined, { month: 'short', day: '2-digit' })} - ${now.toLocaleDateString(undefined, { month: 'short', day: '2-digit', year: 'numeric' })}`;
 
     const convertTo24Hour = (timeStr) => {
       if (!timeStr) return "00:00";
@@ -548,18 +571,26 @@ export default function SPBusinessDashboard() {
       rangeText,
       busiestHour: getBusiestHour()
     };
-  }, [rawBookings, serviceStats, activeFilter, providerHours, petTypeFilter]);
+  }, [rawBookings, serviceStats, activeFilter, providerHours, petTypeFilter, customDateStart, customDateEnd]);
 
   const groupedChartOptions = {
     responsive: true, 
     maintainAspectRatio: false,
+    layout: {
+      padding: {
+        top: 0,
+        bottom: 0,
+        left: 0,
+        right: 0
+      }
+    },
     plugins: { 
       legend: { 
         display: petTypeFilter === 'both',
         position: 'top',
         labels: {
           boxWidth: 10,
-          padding: 6,
+          padding: 4,
           font: { size: 8 }
         }
       } 
@@ -567,10 +598,12 @@ export default function SPBusinessDashboard() {
     scales: { 
       y: { 
         beginAtZero: true, 
-        ticks: { stepSize: 1, font: { size: 8 } } 
+        ticks: { stepSize: 1, font: { size: 8 }, padding: 2 },
+        grid: { display: true, drawBorder: true }
       }, 
       x: { 
-        ticks: { font: { size: 8 } } 
+        ticks: { font: { size: 8 }, padding: 2 },
+        grid: { display: false }
       } 
     }
   };
@@ -578,10 +611,25 @@ export default function SPBusinessDashboard() {
   const commonChartOptions = {
     responsive: true, 
     maintainAspectRatio: false,
+    layout: {
+      padding: {
+        top: 0,
+        bottom: 0,
+        left: 0,
+        right: 0
+      }
+    },
     plugins: { legend: { display: false } },
     scales: { 
-      y: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 8 } } }, 
-      x: { ticks: { font: { size: 8 } } } 
+      y: { 
+        beginAtZero: true, 
+        ticks: { stepSize: 1, font: { size: 8 }, padding: 2 },
+        grid: { display: true, drawBorder: true }
+      }, 
+      x: { 
+        ticks: { font: { size: 8 }, padding: 2 },
+        grid: { display: false }
+      } 
     }
   };
 
@@ -735,7 +783,31 @@ export default function SPBusinessDashboard() {
                 <option value="weekly">Weekly</option>
                 <option value="monthly">Monthly</option>
                 <option value="yearly">Yearly</option>
+                <option value="custom">Custom Range</option>
               </select>
+              
+              {/* Custom Date Range Inputs */}
+              {activeFilter === 'custom' && (
+                <div className="custom-date-range">
+                  <label className="date-label">From:</label>
+                  <input 
+                    type="date" 
+                    className="date-input" 
+                    value={customDateStart}
+                    onChange={(e) => setCustomDateStart(e.target.value)}
+                    max={customDateEnd || new Date().toISOString().split('T')[0]}
+                  />
+                  <label className="date-label">To:</label>
+                  <input 
+                    type="date" 
+                    className="date-input" 
+                    value={customDateEnd}
+                    onChange={(e) => setCustomDateEnd(e.target.value)}
+                    min={customDateStart}
+                    max={new Date().toISOString().split('T')[0]}
+                  />
+                </div>
+              )}
             </div>
 
             <div className="sidebar-section">
