@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from "../../config/supabase";
 import LoggedInNavbar from "../../components/Header/LoggedInNavbar";
 import Footer from "../../components/Footer/Footer";
-import { FaCaretUp, FaCaretDown, FaMinus } from 'react-icons/fa';
+import { FaCaretUp, FaCaretDown, FaMinus, FaFileAlt, FaTimes } from 'react-icons/fa';
 import {
   Chart as ChartJS, CategoryScale, LinearScale, BarElement,
   PointElement, LineElement, ArcElement, Tooltip, Legend
@@ -17,12 +17,13 @@ export default function SPBusinessDashboard() {
   const navigate = useNavigate();
   const [activeTab] = useState('business_performance'); 
   const [activeFilter, setActiveFilter] = useState('monthly');
-  const [petTypeFilter, setPetTypeFilter] = useState('both'); // 'both', 'Dog', 'Cat'
+  const [petTypeFilter, setPetTypeFilter] = useState('both');
   const [loading, setLoading] = useState(true);
   const [rawBookings, setRawBookings] = useState([]);
   const [serviceStats, setServiceStats] = useState([]);
   const [providerHours, setProviderHours] = useState([]);
   const [listingVisitors, setListingVisitors] = useState(0);
+  const [showReportModal, setShowReportModal] = useState(false);
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -39,7 +40,6 @@ export default function SPBusinessDashboard() {
 
         if (!provider) return;
 
-        // Set listing visitors count
         setListingVisitors(provider.click_count || 0);
 
         const { data: bookings, error: bError } = await supabase
@@ -77,7 +77,8 @@ export default function SPBusinessDashboard() {
               booking_id,
               bookings!inner (
                 status,
-                booking_date
+                booking_date,
+                time_slot
               )
             )
           `)
@@ -90,7 +91,6 @@ export default function SPBusinessDashboard() {
         
         setServiceStats(bServices || []);
 
-        // Fetch service provider hours
         const { data: providerHours, error: hError } = await supabase
           .from('service_provider_hours')
           .select('start_time, end_time, slot_interval_minutes')
@@ -112,7 +112,6 @@ export default function SPBusinessDashboard() {
 
   const analytics = useMemo(() => {
     const now = new Date();
-    const validStatuses = ['paid', 'completed', 'rated', 'to_rate'];
     
     console.log('Current Date:', now.toISOString());
     console.log('Active Filter:', activeFilter);
@@ -156,13 +155,34 @@ export default function SPBusinessDashboard() {
     
     const rangeText = `${currentRange.start.toLocaleDateString(undefined, { month: 'short', day: '2-digit' })} - ${now.toLocaleDateString(undefined, { month: 'short', day: '2-digit', year: 'numeric' })}`;
 
-    // Filter by pet type
-    const filterByPetType = (list) => {
-      if (petTypeFilter === 'both') return list;
-      return list.filter(b => {
-        // Check if booking has any pets matching the selected type
-        return b.booking_pets?.some(pet => pet.pet_type === petTypeFilter);
-      });
+    const convertTo24Hour = (timeStr) => {
+      if (!timeStr) return "00:00";
+      if (timeStr.includes('M')) {
+        const [time, modifier] = timeStr.split(' ');
+        let [hours, minutes] = time.split(':');
+        if (hours === '12') { hours = '00'; }
+        if (modifier === 'PM') { hours = parseInt(hours, 10) + 12; }
+        return `${hours}:${minutes}`;
+      }
+      return timeStr;
+    };
+
+    const isFourHoursPast = (dateStr, timeStr) => {
+      if (!dateStr || !timeStr) return false;
+      try {
+        const bookingDateTime = new Date(`${dateStr}T${convertTo24Hour(timeStr)}`);
+        const diffMs = now - bookingDateTime;
+        const diffHours = diffMs / (1000 * 60 * 60);
+        return diffHours >= 4;
+      } catch (e) {
+        return false;
+      }
+    };
+
+    const isBookingComplete = (b) => {
+      if (['completed', 'to_rate', 'rated'].includes(b.status)) return true;
+      if (['paid', 'confirmed'].includes(b.status) && isFourHoursPast(b.booking_date, b.time_slot)) return true;
+      return false;
     };
 
     const filterByRange = (list, range) => {
@@ -174,36 +194,67 @@ export default function SPBusinessDashboard() {
       return filtered;
     };
 
-    const currentBookings = filterByPetType(filterByRange(rawBookings, currentRange));
-    const previousBookings = filterByPetType(filterByRange(rawBookings, previousRange));
+    const currentBookings = filterByRange(rawBookings, currentRange);
+    const previousBookings = filterByRange(rawBookings, previousRange);
     
     console.log('Current Period Bookings:', currentBookings.length);
     console.log('Current Bookings:', currentBookings);
 
-    const calculateMetrics = (list) => {
-      const valid = list.filter(b => validStatuses.includes(b.status));
-      const rev = valid.reduce((sum, b) => sum + (Number(b.total_estimated_price) || 0), 0);
-      
-      console.log('Valid Bookings:', valid.length, valid.map(b => ({ 
-        id: b.id, 
-        status: b.status, 
-        date: b.booking_date,
-        time: b.time_slot 
-      })));
-      
-      return { rev, count: valid.length, valid };
+    // FIXED: Only use isBookingComplete to determine validity (matching SPDashboard)
+    const getValidPets = (bookingsList) => {
+      const validPets = [];
+      bookingsList.forEach(b => {
+        const isComplete = isBookingComplete(b);
+        
+        // Only count bookings that are actually complete
+        if (isComplete && b.booking_pets && Array.isArray(b.booking_pets)) {
+          b.booking_pets.forEach(pet => {
+            // Apply pet type filter at the PET level
+            if (petTypeFilter === 'both' || pet.pet_type === petTypeFilter) {
+              validPets.push({
+                ...pet,
+                booking_date: b.booking_date,
+                time_slot: b.time_slot,
+                status: b.status,
+                user_id: b.user_id,
+                total_estimated_price: b.total_estimated_price,
+                booking_id: b.id
+              });
+            }
+          });
+        }
+      });
+      return validPets;
     };
 
-    const current = calculateMetrics(currentBookings);
-    const previous = calculateMetrics(previousBookings);
+    const currentValidPets = getValidPets(currentBookings);
+    const previousValidPets = getValidPets(previousBookings);
 
-    // FIXED: Handle BOTH 24-hour (14:00:00) and 12-hour (3:00 PM) formats
+    console.log('Current Valid Pets:', currentValidPets.length);
+    console.log('Previous Valid Pets:', previousValidPets.length);
+
+    // Calculate metrics based on PETS, not bookings
+    const calculateMetrics = (petsList) => {
+      // Revenue is still at booking level, but we need unique bookings
+      const uniqueBookingIds = new Set(petsList.map(p => p.booking_id));
+      const uniqueBookings = currentBookings.filter(b => uniqueBookingIds.has(b.id));
+      const rev = uniqueBookings.reduce((sum, b) => sum + (Number(b.total_estimated_price) || 0), 0);
+      
+      return { 
+        rev, 
+        count: petsList.length, // Count individual pets
+        validPets: petsList 
+      };
+    };
+
+    const current = calculateMetrics(currentValidPets);
+    const previous = calculateMetrics(previousValidPets);
+
     const formatCleanTime = (timeStr) => {
       if (!timeStr || typeof timeStr !== 'string') return null;
       
       const trimmed = timeStr.trim();
       
-      // Check if already in 12-hour format (contains AM/PM)
       if (trimmed.toUpperCase().includes('AM') || trimmed.toUpperCase().includes('PM')) {
         const match = trimmed.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
         if (match) {
@@ -212,16 +263,13 @@ export default function SPBusinessDashboard() {
         return null;
       }
       
-      // Must be 24-hour format (e.g., "14:00" or "14:00:00")
       const parts = trimmed.split(':');
       if (parts.length >= 2) {
         const h = parseInt(parts[0], 10);
         const m = parts[1].substring(0, 2);
         
-        // Validate hour range
         if (isNaN(h) || h < 0 || h > 23) return null;
         
-        // Convert to 12-hour format
         const period = h >= 12 ? 'PM' : 'AM';
         const displayHour = h % 12 || 12;
         return `${displayHour}:${m} ${period}`;
@@ -244,60 +292,51 @@ export default function SPBusinessDashboard() {
       dateLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     }
 
-    // Grouped data for Average Bookings chart
+    // FIXED: Count pets by type for charts
     let dateValuesDog = new Array(dateLabels.length).fill(0);
     let dateValuesCat = new Array(dateLabels.length).fill(0);
     
-    current.valid.forEach(b => {
-      const bDate = new Date(b.booking_date);
+    current.validPets.forEach(pet => {
+      const bDate = new Date(pet.booking_date);
       const idx = activeFilter === 'yearly' ? bDate.getMonth() : (bDate.getDay() + 6) % 7;
       
       if (dateValuesDog[idx] !== undefined && dateValuesCat[idx] !== undefined) {
-        // Count pets by type in this booking
-        b.booking_pets?.forEach(pet => {
-          if (pet.pet_type === 'Dog') {
-            dateValuesDog[idx]++;
-          } else if (pet.pet_type === 'Cat') {
-            dateValuesCat[idx]++;
-          }
-        });
+        if (pet.pet_type === 'Dog') {
+          dateValuesDog[idx]++;
+        } else if (pet.pet_type === 'Cat') {
+          dateValuesCat[idx]++;
+        }
       }
     });
 
-    // Grouped data for Peak Days chart
     const peakDaysLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     let peakDaysValuesDog = new Array(7).fill(0);
     let peakDaysValuesCat = new Array(7).fill(0);
     
-    current.valid.forEach(b => {
-      const dayIdx = (new Date(b.booking_date).getDay() + 6) % 7;
-      b.booking_pets?.forEach(pet => {
-        if (pet.pet_type === 'Dog') {
-          peakDaysValuesDog[dayIdx]++;
-        } else if (pet.pet_type === 'Cat') {
-          peakDaysValuesCat[dayIdx]++;
-        }
-      });
+    current.validPets.forEach(pet => {
+      const dayIdx = (new Date(pet.booking_date).getDay() + 6) % 7;
+      if (pet.pet_type === 'Dog') {
+        peakDaysValuesDog[dayIdx]++;
+      } else if (pet.pet_type === 'Cat') {
+        peakDaysValuesCat[dayIdx]++;
+      }
     });
 
-    // Time slot processing - Generate all slots based on provider hours across ALL days
     const generateProviderTimeSlots = () => {
       if (!providerHours || providerHours.length === 0) {
         console.warn('No provider hours found, showing only booked times');
         const timeSlotCountsDog = {};
         const timeSlotCountsCat = {};
         
-        current.valid.forEach(b => {
-          if (b.time_slot) {
-            const formatted = formatCleanTime(b.time_slot);
+        current.validPets.forEach(pet => {
+          if (pet.time_slot) {
+            const formatted = formatCleanTime(pet.time_slot);
             if (formatted) {
-              b.booking_pets?.forEach(pet => {
-                if (pet.pet_type === 'Dog') {
-                  timeSlotCountsDog[formatted] = (timeSlotCountsDog[formatted] || 0) + 1;
-                } else if (pet.pet_type === 'Cat') {
-                  timeSlotCountsCat[formatted] = (timeSlotCountsCat[formatted] || 0) + 1;
-                }
-              });
+              if (pet.pet_type === 'Dog') {
+                timeSlotCountsDog[formatted] = (timeSlotCountsDog[formatted] || 0) + 1;
+              } else if (pet.pet_type === 'Cat') {
+                timeSlotCountsCat[formatted] = (timeSlotCountsCat[formatted] || 0) + 1;
+              }
             }
           }
         });
@@ -348,14 +387,6 @@ export default function SPBusinessDashboard() {
         }
       });
 
-      console.log('Provider Hours Analysis:', {
-        earliestMinutes,
-        latestMinutes,
-        earliestTime: `${Math.floor(earliestMinutes / 60)}:${(earliestMinutes % 60).toString().padStart(2, '0')}`,
-        latestTime: `${Math.floor(latestMinutes / 60)}:${(latestMinutes % 60).toString().padStart(2, '0')}`,
-        slotInterval
-      });
-
       const allTimeSlots = [];
       for (let currentMinutes = earliestMinutes; currentMinutes < latestMinutes; currentMinutes += slotInterval) {
         const hours = Math.floor(currentMinutes / 60);
@@ -367,8 +398,6 @@ export default function SPBusinessDashboard() {
         allTimeSlots.push(`${displayHour}:${displayMin} ${period}`);
       }
 
-      console.log('All Generated Time Slots:', allTimeSlots);
-
       const timeSlotCountsDog = {};
       const timeSlotCountsCat = {};
       allTimeSlots.forEach(slot => {
@@ -376,18 +405,16 @@ export default function SPBusinessDashboard() {
         timeSlotCountsCat[slot] = 0;
       });
 
-      current.valid.forEach(b => {
-        if (b.time_slot) {
-          const formatted = formatCleanTime(b.time_slot);
+      current.validPets.forEach(pet => {
+        if (pet.time_slot) {
+          const formatted = formatCleanTime(pet.time_slot);
           if (formatted) {
             if (timeSlotCountsDog.hasOwnProperty(formatted)) {
-              b.booking_pets?.forEach(pet => {
-                if (pet.pet_type === 'Dog') {
-                  timeSlotCountsDog[formatted]++;
-                } else if (pet.pet_type === 'Cat') {
-                  timeSlotCountsCat[formatted]++;
-                }
-              });
+              if (pet.pet_type === 'Dog') {
+                timeSlotCountsDog[formatted]++;
+              } else if (pet.pet_type === 'Cat') {
+                timeSlotCountsCat[formatted]++;
+              }
             } else {
               const bookingMinutes = (() => {
                 const m = formatted.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
@@ -420,23 +447,17 @@ export default function SPBusinessDashboard() {
                   }
                 });
                 if (closestSlot) {
-                  b.booking_pets?.forEach(pet => {
-                    if (pet.pet_type === 'Dog') {
-                      timeSlotCountsDog[closestSlot]++;
-                    } else if (pet.pet_type === 'Cat') {
-                      timeSlotCountsCat[closestSlot]++;
-                    }
-                  });
-                  console.log(`📌 Mapped ${formatted} to closest slot ${closestSlot}`);
+                  if (pet.pet_type === 'Dog') {
+                    timeSlotCountsDog[closestSlot]++;
+                  } else if (pet.pet_type === 'Cat') {
+                    timeSlotCountsCat[closestSlot]++;
+                  }
                 }
               }
             }
           }
         }
       });
-
-      console.log('⏰ Time Slot Counts Dog:', timeSlotCountsDog);
-      console.log('⏰ Time Slot Counts Cat:', timeSlotCountsCat);
 
       return {
         labels: allTimeSlots,
@@ -447,12 +468,15 @@ export default function SPBusinessDashboard() {
 
     const { labels: sortedHourLabels, valuesDog: hourValuesDog, valuesCat: hourValuesCat } = generateProviderTimeSlots();
 
-    // Process Booked Services with pet type filter
-    const serviceTypeMap = {};
+    // FIXED: Filter services using only isBookingComplete (matching SPDashboard)
     const filteredServices = serviceStats.filter(s => {
       const b = s.booking_pets?.bookings;
       if (!b) return false;
-      const hasValidStatus = validStatuses.includes(b.status);
+      
+      // Use the same completion logic as SPDashboard
+      const isComplete = ['completed', 'to_rate', 'rated'].includes(b.status) || 
+                        (['paid', 'confirmed'].includes(b.status) && isFourHoursPast(b.booking_date, b.time_slot));
+      
       const inDateRange = new Date(b.booking_date) >= currentRange.start;
       
       // Apply pet type filter
@@ -461,22 +485,21 @@ export default function SPBusinessDashboard() {
         matchesPetType = s.booking_pets?.pet_type === petTypeFilter;
       }
       
-      return hasValidStatus && inDateRange && matchesPetType;
+      return isComplete && inDateRange && matchesPetType;
     });
     
     console.log('🔧 Filtered Services:', filteredServices.length);
     
-    // Group by service_type instead of service_name for better categorization
+    const serviceNameMap = {};
     filteredServices.forEach(s => { 
-      const serviceType = s.service_type || s.service_name || 'Other';
-      serviceTypeMap[serviceType] = (serviceTypeMap[serviceType] || 0) + 1; 
+      const serviceName = s.service_name || 'Other';
+      serviceNameMap[serviceName] = (serviceNameMap[serviceName] || 0) + 1; 
     });
     
-    const sLabels = Object.keys(serviceTypeMap);
-    const sValues = Object.values(serviceTypeMap);
+    const sLabels = Object.keys(serviceNameMap);
+    const sValues = Object.values(serviceNameMap);
     const totalS = sValues.reduce((a, b) => a + b, 0);
 
-    // Get busiest hour for insight
     const getBusiestHour = () => {
       if (sortedHourLabels.length === 0) return "No data";
       
@@ -491,12 +514,22 @@ export default function SPBusinessDashboard() {
       return maxBooking.label;
     };
 
+    // FIXED: Calculate cancellations from filtered valid pets' bookings
+    const uniqueCancelledBookings = new Set(
+      currentBookings
+        .filter(b => b.status === 'cancelled')
+        .map(b => b.id)
+    );
+
+    // FIXED: Average should be unique customers who have valid pets in the period
+    const uniqueCustomers = new Set(current.validPets.map(p => p.user_id));
+
     return { 
       revenue: current.rev, 
       validCount: current.count, 
-      cancellations: currentBookings.filter(b => b.status === 'cancelled').length, 
-      avg: new Set(current.valid.map(b => b.user_id)).size > 0 
-        ? Math.round(current.count / new Set(current.valid.map(b => b.user_id)).size) 
+      cancellations: uniqueCancelledBookings.size, 
+      avg: uniqueCustomers.size > 0 
+        ? Math.round(current.count / uniqueCustomers.size) 
         : 0, 
       revTrend: getTrend(current.rev, previous.rev), 
       bookTrend: getTrend(current.count, previous.count),
@@ -517,7 +550,6 @@ export default function SPBusinessDashboard() {
     };
   }, [rawBookings, serviceStats, activeFilter, providerHours, petTypeFilter]);
 
-  // Chart options with legend for grouped charts
   const groupedChartOptions = {
     responsive: true, 
     maintainAspectRatio: false,
@@ -526,19 +558,19 @@ export default function SPBusinessDashboard() {
         display: petTypeFilter === 'both',
         position: 'top',
         labels: {
-          boxWidth: 12,
-          padding: 8,
-          font: { size: 9 }
+          boxWidth: 10,
+          padding: 6,
+          font: { size: 8 }
         }
       } 
     },
     scales: { 
       y: { 
         beginAtZero: true, 
-        ticks: { stepSize: 1, font: { size: 9 } } 
+        ticks: { stepSize: 1, font: { size: 8 } } 
       }, 
       x: { 
-        ticks: { font: { size: 9 } } 
+        ticks: { font: { size: 8 } } 
       } 
     }
   };
@@ -548,8 +580,8 @@ export default function SPBusinessDashboard() {
     maintainAspectRatio: false,
     plugins: { legend: { display: false } },
     scales: { 
-      y: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 9 } } }, 
-      x: { ticks: { font: { size: 9 } } } 
+      y: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 8 } } }, 
+      x: { ticks: { font: { size: 8 } } } 
     }
   };
 
@@ -559,7 +591,6 @@ export default function SPBusinessDashboard() {
     </div>
   );
 
-  // Generate chart data based on pet type filter
   const getAverageBookingsChartData = () => {
     if (petTypeFilter === 'both') {
       return {
@@ -746,6 +777,13 @@ export default function SPBusinessDashboard() {
           </aside>
 
           <main className="sp-biz-main-content">
+            <div className="report-button-container">
+              <button className="generate-report-btn" onClick={() => setShowReportModal(true)}>
+                <FaFileAlt size={16} />
+                <span>Generate Business Report</span>
+              </button>
+            </div>
+
             <div className="sp-biz-kpi-grid">
               <div className="kpi-card">
                 <span className="kpi-label">Gross Revenue</span>
@@ -812,6 +850,163 @@ export default function SPBusinessDashboard() {
           </main>
         </div>
       </div>
+
+      {/* Business Report Modal */}
+      {showReportModal && (
+        <div className="report-modal-overlay" onClick={() => setShowReportModal(false)}>
+          <div className="report-modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="report-modal-header">
+              <div className="report-header-title">
+                <FaFileAlt size={20} />
+                <h2>Business Performance Report</h2>
+              </div>
+              <button className="modal-close-btn" onClick={() => setShowReportModal(false)}>
+                <FaTimes />
+              </button>
+            </div>
+
+            <div className="report-modal-body">
+              {/* Report Header Info */}
+              <div className="report-info-section">
+                <div className="report-info-row">
+                  <span className="report-label">Report Period:</span>
+                  <span className="report-value">{analytics.rangeText}</span>
+                </div>
+                <div className="report-info-row">
+                  <span className="report-label">Report Type:</span>
+                  <span className="report-value">{activeFilter.charAt(0).toUpperCase() + activeFilter.slice(1)} Summary</span>
+                </div>
+                <div className="report-info-row">
+                  <span className="report-label">Pet Type Filter:</span>
+                  <span className="report-value">{petTypeFilter === 'both' ? 'All Pets (Dog & Cat)' : petTypeFilter}</span>
+                </div>
+                <div className="report-info-row">
+                  <span className="report-label">Generated:</span>
+                  <span className="report-value">{new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</span>
+                </div>
+              </div>
+
+              {/* Executive Summary */}
+              <div className="report-section">
+                <h3 className="report-section-title">Executive Summary</h3>
+                <div className="report-kpi-grid">
+                  <div className="report-kpi-item">
+                    <span className="report-kpi-label">Gross Revenue</span>
+                    <span className="report-kpi-value">
+                      {analytics.revenue >= 1000 ? `₱${(analytics.revenue / 1000).toFixed(1)}K` : `₱${Math.round(analytics.revenue)}`}
+                    </span>
+                    <div className="report-trend">
+                      {analytics.revTrend.dir === 'up' ? <FaCaretUp /> : analytics.revTrend.dir === 'down' ? <FaCaretDown /> : <FaMinus />}
+                      <span className={analytics.revTrend.dir}>{analytics.revTrend.val}% vs previous period</span>
+                    </div>
+                  </div>
+                  <div className="report-kpi-item">
+                    <span className="report-kpi-label">Total Bookings</span>
+                    <span className="report-kpi-value">{analytics.validCount}</span>
+                    <div className="report-trend">
+                      {analytics.bookTrend.dir === 'up' ? <FaCaretUp /> : analytics.bookTrend.dir === 'down' ? <FaCaretDown /> : <FaMinus />}
+                      <span className={analytics.bookTrend.dir}>{analytics.bookTrend.val}% vs previous period</span>
+                    </div>
+                  </div>
+                  <div className="report-kpi-item">
+                    <span className="report-kpi-label">Listing Visitors</span>
+                    <span className="report-kpi-value">{listingVisitors.toLocaleString()}</span>
+                  </div>
+                  <div className="report-kpi-item">
+                    <span className="report-kpi-label">Avg Bookings/Customer</span>
+                    <span className="report-kpi-value">{analytics.avg}</span>
+                  </div>
+                  <div className="report-kpi-item">
+                    <span className="report-kpi-label">Cancellations</span>
+                    <span className="report-kpi-value">{analytics.cancellations}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Performance Analysis */}
+              <div className="report-section">
+                <h3 className="report-section-title">Performance Analysis</h3>
+                <div className="report-insights">
+                  <div className="insight-item">
+                    <strong>Peak Activity:</strong>
+                    <p>Your busiest time slot is typically <strong>{analytics.busiestHour}</strong>. Consider optimizing staffing during this period.</p>
+                  </div>
+                  <div className="insight-item">
+                    <strong>Revenue Trend:</strong>
+                    <p>
+                      {analytics.revTrend.dir === 'up' 
+                        ? `Revenue has increased by ${analytics.revTrend.val}% compared to the previous ${activeFilter} period. Keep up the good work!`
+                        : analytics.revTrend.dir === 'down'
+                        ? `Revenue has decreased by ${analytics.revTrend.val}% compared to the previous ${activeFilter} period. Consider reviewing your pricing or marketing strategy.`
+                        : 'Revenue has remained stable compared to the previous period.'}
+                    </p>
+                  </div>
+                  <div className="insight-item">
+                    <strong>Booking Trend:</strong>
+                    <p>
+                      {analytics.bookTrend.dir === 'up'
+                        ? `Bookings have increased by ${analytics.bookTrend.val}%, indicating growing demand for your services.`
+                        : analytics.bookTrend.dir === 'down'
+                        ? `Bookings have decreased by ${analytics.bookTrend.val}%. Consider promotional campaigns to boost customer engagement.`
+                        : 'Booking volume has remained consistent with the previous period.'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Service Breakdown */}
+              {analytics.sLabels.length > 0 && (
+                <div className="report-section">
+                  <h3 className="report-section-title">Top Services</h3>
+                  <div className="report-services-list">
+                    {analytics.sLabels.slice(0, 5).map((service, idx) => (
+                      <div key={service} className="service-item">
+                        <div className="service-info">
+                          <span className="service-rank">#{idx + 1}</span>
+                          <span className="service-name">{service}</span>
+                        </div>
+                        <div className="service-stats">
+                          <span className="service-count">{analytics.sValues[idx]} bookings</span>
+                          <span className="service-percentage">
+                            {analytics.totalS > 0 ? Math.round((analytics.sValues[idx] / analytics.totalS) * 100) : 0}%
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Pet Type Distribution (only show when "both" is selected) */}
+              {petTypeFilter === 'both' && (
+                <div className="report-section">
+                  <h3 className="report-section-title">Pet Type Distribution</h3>
+                  <div className="pet-distribution">
+                    <div className="pet-dist-item">
+                      <span className="pet-type">🐕 Dogs</span>
+                      <span className="pet-count">{analytics.dateValuesDog.reduce((a, b) => a + b, 0)} bookings</span>
+                    </div>
+                    <div className="pet-dist-item">
+                      <span className="pet-type">🐱 Cats</span>
+                      <span className="pet-count">{analytics.dateValuesCat.reduce((a, b) => a + b, 0)} bookings</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="report-modal-footer">
+              <button className="btn-download-report" disabled>
+                <FaFileAlt />
+                Download Report (Coming Soon)
+              </button>
+              <button className="btn-close-report" onClick={() => setShowReportModal(false)}>
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <Footer />
     </div>
