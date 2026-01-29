@@ -15,8 +15,6 @@ ChartJS.register(CategoryScale, LinearScale, BarElement, PointElement, LineEleme
 
 export default function SPBusinessDashboard() {
   const navigate = useNavigate();
-  // activeTab is no longer needed for switching views, but we keep the variable for conditional class styling if needed
-  // We default it to business_performance since this IS the business dashboard page.
   const [activeTab] = useState('business_performance'); 
   const [activeFilter, setActiveFilter] = useState('monthly');
   const [loading, setLoading] = useState(true);
@@ -260,14 +258,21 @@ export default function SPBusinessDashboard() {
                 Customer Insights
               </button>
             </div>
+            
+            {/* --- FILTER SECTION --- */}
             <div className="sidebar-filters-section">
-              <h3>Filters</h3>
-              <ul className="filter-list">
-                {['Weekly', 'Monthly', 'Yearly'].map((f) => (
-                  <li key={f} className={activeFilter === f.toLowerCase() ? 'active' : ''} onClick={() => setActiveFilter(f.toLowerCase())}>{f}</li>
-                ))}
-              </ul>
+              <h3>Timeframe</h3>
+              <select 
+                className="filter-dropdown" 
+                value={activeFilter} 
+                onChange={(e) => setActiveFilter(e.target.value)}
+              >
+                <option value="weekly">Weekly</option>
+                <option value="monthly">Monthly</option>
+                <option value="yearly">Yearly</option>
+              </select>
             </div>
+            
             <div className="sidebar-doughnut-card">
               <h4 className="chart-title-sm">Most Booked Services ({activeFilter})</h4>
               <div className="doughnut-container-sidebar">

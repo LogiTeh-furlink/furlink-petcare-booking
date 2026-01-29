@@ -7,7 +7,6 @@
   --highlight-blue: #dbeafe; 
 }
 
-/* Ensure the wrapper covers the whole page viewport */
 .sp-biz-page-wrapper {
   background-color: var(--bg-gray);
   min-height: 100vh;
@@ -16,9 +15,8 @@
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
-/* This new container ensures the gray background fills the space between header and footer */
 .sp-biz-main-layout {
-  flex: 1; /* Pushes footer down */
+  flex: 1;
   background-color: var(--bg-gray);
   width: 100%;
 }
@@ -84,34 +82,36 @@
 
 .sidebar-filters-section h3 { 
   color: var(--primary-blue); 
-  font-size: 1rem; 
+  font-size: 0.85rem; 
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
   margin-bottom: 12px; 
 }
 
-.filter-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-
-.filter-list li {
-  padding: 10px 15px; 
+/* --- NEW DROPDOWN STYLES --- */
+.filter-dropdown {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  background-color: #ffffff;
   color: var(--primary-blue);
+  font-weight: 600;
+  font-size: 0.95rem;
   cursor: pointer;
-  font-weight: 500;
-  border-radius: 8px; 
-  transition: all 0.2s ease;
-  margin-bottom: 4px;
+  outline: none;
+  transition: border-color 0.2s;
+  /* Custom Arrow */
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%231e3a8a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 1em;
 }
 
-.filter-list li.active {
-  background-color: var(--highlight-blue);
-  color: var(--primary-blue);
-  font-weight: 800;
-}
-
-.filter-list li:hover:not(.active) {
-  background-color: #f1f5f9;
+.filter-dropdown:focus {
+  border-color: var(--primary-blue);
+  box-shadow: 0 0 0 3px var(--highlight-blue);
 }
 
 .sidebar-doughnut-card {
