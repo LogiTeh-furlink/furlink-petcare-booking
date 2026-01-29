@@ -1001,7 +1001,7 @@ export default function SPBusinessDashboard() {
                 <div className="report-insights">
                   <div className="insight-item">
                     <strong>Peak Activity:</strong>
-                    <p>Your busiest time slot is typically <strong>{analytics.busiestHour}</strong>. Consider optimizing staffing during this period.</p>
+                    <p>Your busiest time slot is typically <strong>{analytics.busiestHour}</strong>Consider optimizing staffing during this period.</p>
                   </div>
                   <div className="insight-item">
                     <strong>Revenue Trend:</strong>

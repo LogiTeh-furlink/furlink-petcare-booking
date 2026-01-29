@@ -106,7 +106,7 @@
   flex: 1; 
   display: flex; 
   flex-direction: column; 
-  gap: 0.4rem; 
+  gap: 0.3rem; /* Reduced gap between vertical sections */
   height: 100%; 
   overflow: hidden;
 }
@@ -186,7 +186,7 @@
 
 .chart-box { 
   background: white; 
-  padding: 8px 12px 4px 12px; 
+  padding: 6px 10px; /* Tighter padding to save space */
   border-radius: 10px; 
   border: 1px solid var(--border); 
 }
@@ -220,13 +220,13 @@
 }
 
 .chart-container-large { 
-  height: 140px;
+  height: 160px; /* Slightly taller for the main chart */
   padding-bottom: 0;
   margin-bottom: 0;
 }
 
 .chart-container-small { 
-  height: 95px;
+  height: 110px; /* Slightly taller for better visibility while closing gap */
   padding-bottom: 0;
   margin-bottom: 0;
 }
@@ -234,7 +234,7 @@
 .sp-biz-bottom-grid { 
   display: grid; 
   grid-template-columns: 1fr 1.5fr; 
-  gap: 0.4rem; 
+  gap: 0.3rem; /* Reduced gap between Peak Days and Booked Hours charts */
 }
 
 .loading-state { 
@@ -251,7 +251,7 @@
   font-size: 0.65rem;
   color: #64748b;
   font-weight: 500;
-  margin-top: 2px;
+  margin-top: 1px;
   margin-bottom: 0;
   text-align: center;
   font-style: italic;
@@ -357,7 +357,6 @@
   flex: 1;
 }
 
-/* Report Info Section */
 .report-info-section {
   background: #f8fafc;
   padding: 16px;
@@ -389,7 +388,6 @@
   font-size: 0.9rem;
 }
 
-/* Report Sections */
 .report-section {
   margin-bottom: 28px;
 }
@@ -454,7 +452,6 @@
   color: #64748b;
 }
 
-/* Insights */
 .report-insights {
   display: flex;
   flex-direction: column;
@@ -482,7 +479,6 @@
   line-height: 1.5;
 }
 
-/* Services List */
 .report-services-list {
   display: flex;
   flex-direction: column;
@@ -544,7 +540,6 @@
   font-size: 0.85rem;
 }
 
-/* Pet Distribution */
 .pet-distribution {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -574,7 +569,6 @@
   color: #334155;
 }
 
-/* Modal Footer */
 .report-modal-footer {
   padding: 16px 24px;
   border-top: 2px solid var(--border);
