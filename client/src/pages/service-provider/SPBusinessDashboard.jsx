@@ -820,7 +820,7 @@ export default function SPBusinessDashboard() {
             </div>
             
             <div className="sidebar-section doughnut-card">
-              <h4 className="chart-title-sm">Booked Services</h4>
+              <h4 className="chart-title-sm">Most Booked Services</h4>
               <div className="doughnut-container">
                 <div className="doughnut-wrapper">
                   <Doughnut 
@@ -909,7 +909,7 @@ export default function SPBusinessDashboard() {
                 </div>
               </div>
               <div className="chart-box">
-                <h4 className="chart-title-sm">Booked Hours</h4>
+                <h4 className="chart-title-sm">Most Booked Hours</h4>
                 <div className="chart-container-small">
                   <Bar 
                     data={getBookedHoursChartData()} 
@@ -1001,7 +1001,7 @@ export default function SPBusinessDashboard() {
                 <div className="report-insights">
                   <div className="insight-item">
                     <strong>Peak Activity:</strong>
-                    <p>Your busiest time slot is typically <strong>{analytics.busiestHour}</strong>Consider optimizing staffing during this period.</p>
+                    <p>Your busiest time slot is typically <strong>{analytics.busiestHour}</strong>. Consider optimizing staffing during this period.</p>
                   </div>
                   <div className="insight-item">
                     <strong>Revenue Trend:</strong>
