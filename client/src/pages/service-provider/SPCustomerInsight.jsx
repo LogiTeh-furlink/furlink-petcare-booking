@@ -451,7 +451,9 @@ export default function SPCustomerInsight() {
                         data: analytics.petSizeData.values,
                         backgroundColor: '#1e3a8a',
                         borderRadius: 4,
-                        barThickness: 40
+                        barThickness: 20, // Reduced from 40 to create gaps
+                        barPercentage: 0.8,
+                        categoryPercentage: 0.8
                       }]
                     }}
                     options={{
@@ -531,7 +533,7 @@ export default function SPCustomerInsight() {
                                 const label = context.label || '';
                                 const value = context.parsed || 0;
                                 const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                                const percentage = Math.round((value / total) * 100);
+                                const percentage = total > 0 ? Math.round((value / total) * 100) : 0;
                                 return `${label}: ${value} (${percentage}%)`;
                               }
                             }
@@ -540,10 +542,7 @@ export default function SPCustomerInsight() {
                         cutout: '70%'
                       }}
                     />
-                    <div className="doughnut-center-text">
-                      <div className="center-number">{analytics.petTypeData.values.reduce((a, b) => a + b, 0)}</div>
-                      <div className="center-label">Total</div>
-                    </div>
+                    {/* Center text indicator removed */}
                   </div>
                 </div>
               </div>
@@ -598,10 +597,7 @@ export default function SPCustomerInsight() {
                         cutout: '70%'
                       }}
                     />
-                    <div className="doughnut-center-text">
-                      <div className="center-number">{analytics.customerTypeData.values.reduce((a, b) => a + b, 0)}</div>
-                      <div className="center-label">(100%)</div>
-                    </div>
+                    {/* Center text indicator removed */}
                   </div>
                 </div>
               </div>
