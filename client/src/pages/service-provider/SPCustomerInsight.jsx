@@ -3,8 +3,15 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from "../../config/supabase";
 import LoggedInNavbar from "../../components/Header/LoggedInNavbar";
 import Footer from "../../components/Footer/Footer";
-import { FaCaretUp, FaCaretDown, FaMinus } from 'react-icons/fa';
+import { FaCaretUp, FaCaretDown, FaMinus, FaStar } from 'react-icons/fa';
+import {
+  Chart as ChartJS, CategoryScale, LinearScale, BarElement,
+  PointElement, LineElement, ArcElement, Tooltip, Legend
+} from 'chart.js';
+import { Bar, Doughnut } from 'react-chartjs-2';
 import './SPCustomerInsight.css';
+
+ChartJS.register(CategoryScale, LinearScale, BarElement, PointElement, LineElement, ArcElement, Tooltip, Legend);
 
 export default function SPCustomerInsight() {
   const navigate = useNavigate();
@@ -215,6 +222,48 @@ export default function SPCustomerInsight() {
 
     const uniqueCustomers = new Set(current.validPets.map(p => p.user_id));
 
+    // Customer Insights Data (placeholder data for now - will integrate with Supabase later)
+    const customerReviewData = {
+      averageRating: 4.0,
+      totalReviews: 127,
+      ratings: {
+        service: 4.0,
+        cleanliness: 4.2,
+        communication: 3.8,
+        value: 4.1
+      }
+    };
+
+    const petSizeData = {
+      labels: ['Extra Large', 'Extra Small', 'Large', 'Medium', 'Small', 'Standard'],
+      values: [12, 8, 15, 10, 6, 14]
+    };
+
+    const petTypeData = {
+      labels: ['Dogs', 'Cats'],
+      values: [23, 23],
+      colors: ['#1e3a8a', '#facc15']
+    };
+
+    const customerTypeData = {
+      labels: ['New', 'Old'],
+      values: [0, 23],
+      colors: ['#1e3a8a', '#60a5fa']
+    };
+
+    const topRebookedCustomers = [
+      { id: '353b1220-f5d7-4edd-ba3b-de7961...', bookings: 18 },
+      { id: '992826f1-4a40-4ea8-b714-eb092b...', bookings: 6 },
+      { id: '511ebf44-1012-4e39-afb0-987b561...', bookings: 2 },
+      { id: 'cf41262b-065b-4483-af8d-a57cc09...', bookings: 2 },
+      { id: '8a7d3c21-9f2e-4b81-a3c5-d4e8f91...', bookings: 1 }
+    ];
+
+    const dogBreedsData = {
+      labels: ['Maltese', 'Shih Tzu', 'Golden Retriever', 'Labrador', 'Poodle', 'Beagle'],
+      values: [25, 18, 12, 10, 8, 5]
+    };
+
     return { 
       revenue: current.rev, 
       validCount: current.count, 
@@ -223,7 +272,13 @@ export default function SPCustomerInsight() {
         ? Math.round(current.count / uniqueCustomers.size) 
         : 0, 
       revTrend: getTrend(current.rev, previous.rev), 
-      bookTrend: getTrend(current.count, previous.count)
+      bookTrend: getTrend(current.count, previous.count),
+      customerReviewData,
+      petSizeData,
+      petTypeData,
+      customerTypeData,
+      topRebookedCustomers,
+      dogBreedsData
     };
   }, [rawBookings, activeFilter, petTypeFilter, customDateStart, customDateEnd]);
 
@@ -308,10 +363,44 @@ export default function SPCustomerInsight() {
                 <option value="Cat">Cat</option>
               </select>
             </div>
+
+            {/* Customer Review Summary - Moved to Sidebar */}
+            <div className="sidebar-section review-summary-sidebar">
+              <h3>Customer Review Summary</h3>
+              <div className="review-summary-content">
+                <div className="overall-rating">
+                  <div className="rating-number">{analytics.customerReviewData.averageRating.toFixed(1)}</div>
+                  <div className="rating-stars">
+                    {[1, 2, 3, 4, 5].map(star => (
+                      <FaStar 
+                        key={star} 
+                        className={star <= Math.floor(analytics.customerReviewData.averageRating) ? 'star-filled' : 'star-empty'}
+                      />
+                    ))}
+                  </div>
+                  <div className="rating-count">{analytics.customerReviewData.totalReviews} reviews</div>
+                </div>
+                
+                <div className="rating-breakdown">
+                  {Object.entries(analytics.customerReviewData.ratings).map(([category, rating]) => (
+                    <div key={category} className="rating-item">
+                      <span className="rating-category">{category.charAt(0).toUpperCase() + category.slice(1)}</span>
+                      <div className="rating-bar-container">
+                        <div 
+                          className="rating-bar-fill" 
+                          style={{ width: `${(rating / 5) * 100}%` }}
+                        />
+                      </div>
+                      <span className="rating-value">{rating.toFixed(1)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
           </aside>
 
           <main className="sp-biz-main-content">
-            {/* KPI Cards - Exact copy from SPBusinessDashboard */}
+            {/* KPI Cards */}
             <div className="sp-biz-kpi-grid">
               <div className="kpi-card">
                 <span className="kpi-label">Gross Revenue</span>
@@ -349,7 +438,295 @@ export default function SPCustomerInsight() {
               </div>
             </div>
 
-            {/* Rest of the content area for future customer insights */}
+            {/* Top Row: Most Booked Pet Size, Pet Type, & New vs Old Customers */}
+            <div className="insights-top-row">
+              {/* Most Booked Pet Size */}
+              <div className="chart-box">
+                <h4 className="chart-title-sm">Most Booked Pet Size</h4>
+                <div className="chart-container-large">
+                  <Bar 
+                    data={{
+                      labels: analytics.petSizeData.labels,
+                      datasets: [{
+                        data: analytics.petSizeData.values,
+                        backgroundColor: '#1e3a8a',
+                        borderRadius: 4,
+                        barThickness: 40
+                      }]
+                    }}
+                    options={{
+                      indexAxis: 'y',
+                      responsive: true,
+                      maintainAspectRatio: false,
+                      plugins: { 
+                        legend: { display: false },
+                        tooltip: {
+                          callbacks: {
+                            label: function(context) {
+                              return context.parsed.x + ' bookings';
+                            }
+                          }
+                        }
+                      },
+                      scales: {
+                        x: { 
+                          beginAtZero: true,
+                          max: 15,
+                          ticks: { 
+                            stepSize: 5,
+                            font: { size: 10 }
+                          },
+                          grid: { display: true }
+                        },
+                        y: {
+                          ticks: { 
+                            font: { size: 10 }
+                          },
+                          grid: { display: false }
+                        }
+                      }
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Most Booked Pet Type */}
+              <div className="chart-box doughnut-card">
+                <h4 className="chart-title-sm">Most Booked Pet Type</h4>
+                <div className="doughnut-container-large">
+                  <div className="doughnut-wrapper-large">
+                    <Doughnut 
+                      data={{
+                        labels: analytics.petTypeData.labels,
+                        datasets: [{
+                          data: analytics.petTypeData.values,
+                          backgroundColor: analytics.petTypeData.colors,
+                          borderWidth: 0
+                        }]
+                      }}
+                      options={{
+                        maintainAspectRatio: false,
+                        plugins: {
+                          legend: {
+                            display: true,
+                            position: 'bottom',
+                            labels: {
+                              boxWidth: 12,
+                              padding: 8,
+                              font: { size: 10 },
+                              generateLabels: function(chart) {
+                                const data = chart.data;
+                                return data.labels.map((label, i) => ({
+                                  text: `${label}`,
+                                  fillStyle: data.datasets[0].backgroundColor[i],
+                                  hidden: false,
+                                  index: i
+                                }));
+                              }
+                            }
+                          },
+                          tooltip: {
+                            callbacks: {
+                              label: function(context) {
+                                const label = context.label || '';
+                                const value = context.parsed || 0;
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const percentage = Math.round((value / total) * 100);
+                                return `${label}: ${value} (${percentage}%)`;
+                              }
+                            }
+                          }
+                        },
+                        cutout: '70%'
+                      }}
+                    />
+                    <div className="doughnut-center-text">
+                      <div className="center-number">{analytics.petTypeData.values.reduce((a, b) => a + b, 0)}</div>
+                      <div className="center-label">Total</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* New vs Old Customers */}
+              <div className="chart-box doughnut-card">
+                <h4 className="chart-title-sm">New vs Old Customers</h4>
+                <div className="doughnut-container-large">
+                  <div className="doughnut-wrapper-large">
+                    <Doughnut 
+                      data={{
+                        labels: analytics.customerTypeData.labels,
+                        datasets: [{
+                          data: analytics.customerTypeData.values,
+                          backgroundColor: analytics.customerTypeData.colors,
+                          borderWidth: 0
+                        }]
+                      }}
+                      options={{
+                        maintainAspectRatio: false,
+                        plugins: {
+                          legend: {
+                            display: true,
+                            position: 'bottom',
+                            labels: {
+                              boxWidth: 12,
+                              padding: 8,
+                              font: { size: 10 },
+                              generateLabels: function(chart) {
+                                const data = chart.data;
+                                return data.labels.map((label, i) => ({
+                                  text: `${label}`,
+                                  fillStyle: data.datasets[0].backgroundColor[i],
+                                  hidden: false,
+                                  index: i
+                                }));
+                              }
+                            }
+                          },
+                          tooltip: {
+                            callbacks: {
+                              label: function(context) {
+                                const label = context.label || '';
+                                const value = context.parsed || 0;
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const percentage = total > 0 ? Math.round((value / total) * 100) : 0;
+                                return `${label}: ${value} (${percentage}%)`;
+                              }
+                            }
+                          }
+                        },
+                        cutout: '70%'
+                      }}
+                    />
+                    <div className="doughnut-center-text">
+                      <div className="center-number">{analytics.customerTypeData.values.reduce((a, b) => a + b, 0)}</div>
+                      <div className="center-label">(100%)</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Bottom Row: Top 5 Rebooked & Dog Breeds */}
+            <div className="insights-bottom-row">
+              {/* Top 5 Rebooked Customers */}
+              <div className="chart-box">
+                <h4 className="chart-title-sm">Top 5 Rebooked Customers</h4>
+                <div className="chart-container-large">
+                  <Bar 
+                    data={{
+                      labels: analytics.topRebookedCustomers.map(c => c.id),
+                      datasets: [{
+                        data: analytics.topRebookedCustomers.map(c => c.bookings),
+                        backgroundColor: '#1e3a8a',
+                        borderRadius: 4,
+                        barThickness: 25
+                      }]
+                    }}
+                    options={{
+                      indexAxis: 'y',
+                      responsive: true,
+                      maintainAspectRatio: false,
+                      plugins: { 
+                        legend: { display: false },
+                        tooltip: {
+                          callbacks: {
+                            title: function(context) {
+                              return 'User ID: ' + context[0].label;
+                            },
+                            label: function(context) {
+                              return 'Bookings: ' + context.parsed.x;
+                            }
+                          }
+                        }
+                      },
+                      scales: {
+                        x: { 
+                          beginAtZero: true,
+                          ticks: { 
+                            stepSize: 5,
+                            font: { size: 10 }
+                          },
+                          title: {
+                            display: true,
+                            text: 'Count of booking_id',
+                            font: { size: 11 },
+                            color: '#64748b'
+                          },
+                          grid: { display: true }
+                        },
+                        y: {
+                          ticks: { 
+                            font: { size: 9 },
+                            callback: function(value, index) {
+                              const label = this.getLabelForValue(value);
+                              return label.length > 20 ? label.substring(0, 18) + '...' : label;
+                            }
+                          },
+                          title: {
+                            display: true,
+                            text: 'User_id',
+                            font: { size: 11 },
+                            color: '#64748b'
+                          },
+                          grid: { display: false }
+                        }
+                      }
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Most Booked Dog Breeds */}
+              <div className="chart-box">
+                <h4 className="chart-title-sm">Most Booked Dog Breeds</h4>
+                <div className="chart-container-large">
+                  <Bar 
+                    data={{
+                      labels: analytics.dogBreedsData.labels,
+                      datasets: [{
+                        data: analytics.dogBreedsData.values,
+                        backgroundColor: '#1e3a8a',
+                        borderRadius: 4,
+                        barThickness: 25
+                      }]
+                    }}
+                    options={{
+                      indexAxis: 'y',
+                      responsive: true,
+                      maintainAspectRatio: false,
+                      plugins: { 
+                        legend: { display: false },
+                        tooltip: {
+                          callbacks: {
+                            label: function(context) {
+                              return context.parsed.x + ' bookings';
+                            }
+                          }
+                        }
+                      },
+                      scales: {
+                        x: { 
+                          beginAtZero: true,
+                          max: 30,
+                          ticks: { 
+                            stepSize: 5,
+                            font: { size: 10 }
+                          },
+                          grid: { display: true }
+                        },
+                        y: {
+                          ticks: { 
+                            font: { size: 10 }
+                          },
+                          grid: { display: false }
+                        }
+                      }
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
           </main>
 
         </div>
