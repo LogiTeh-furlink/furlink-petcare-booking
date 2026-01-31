@@ -27,6 +27,7 @@ export default function SPCustomerInsight() {
   const [loading, setLoading] = useState(true);
   const [rawBookings, setRawBookings] = useState([]);
   const [listingVisitors, setListingVisitors] = useState(0);
+  const [providerServiceSizes, setProviderServiceSizes] = useState([]); // Valid labels from service_options
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -45,6 +46,26 @@ export default function SPCustomerInsight() {
 
         setListingVisitors(provider.click_count || 0);
 
+        // 1. Fetch Source of Truth: Sizes from service_options for this provider
+        const { data: serviceData } = await supabase
+          .from('services')
+          .select(`
+            id,
+            service_options (
+              size
+            )
+          `)
+          .eq('provider_id', provider.id);
+
+        if (serviceData) {
+          // Extract unique sizes from all services offered by this provider
+          const uniqueServiceSizes = [...new Set(
+            serviceData.flatMap(s => s.service_options.map(opt => opt.size))
+          )];
+          setProviderServiceSizes(uniqueServiceSizes);
+        }
+
+        // 2. Fetch Booking Data with calculated_size
         const { data: bookings, error: bError } = await supabase
           .from('bookings')
           .select(`
@@ -56,7 +77,8 @@ export default function SPCustomerInsight() {
             time_slot,
             booking_pets (
               id,
-              pet_type
+              pet_type,
+              calculated_size
             )
           `)
           .eq('provider_id', provider.id);
@@ -75,6 +97,20 @@ export default function SPCustomerInsight() {
   }, [navigate]);
 
   const analytics = useMemo(() => {
+    // Utility to normalize strings for comparison (removes underscores, lowercase)
+    const normalize = (str) => str?.toLowerCase().replace(/_/g, ' ').trim() || '';
+
+    // Utility to Format Labels for Display (Title Case & Remove Underscores)
+    const formatLabel = (str) => {
+      if (!str) return '';
+      return str
+        .replace(/_/g, ' ') // Replace underscores with spaces
+        .toLowerCase()
+        .split(' ')
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1)) // Capitalize first letter
+        .join(' ');
+    };
+
     const now = new Date();
     
     const getRange = (filter, isPrevious = false) => {
@@ -222,7 +258,55 @@ export default function SPCustomerInsight() {
 
     const uniqueCustomers = new Set(current.validPets.map(p => p.user_id));
 
-    // Customer Insights Data (placeholder data for now - will integrate with Supabase later)
+    // --- INTEGRATED CHART LOGIC START ---
+
+    // 1. Map normalized keys to pretty labels from service_options (Source of Truth)
+    const sizeMap = {};
+    
+    // Define mappings for specific service option labels to "Standard"
+    const labelOverrides = {
+      'cat': 'Standard',
+      'all': 'Standard'
+    };
+
+    providerServiceSizes.forEach(label => {
+      const normalizedLabel = normalize(label);
+      
+      // Check if this label should be mapped to "Standard"
+      if (labelOverrides[normalizedLabel]) {
+        const targetLabel = labelOverrides[normalizedLabel];
+        const targetKey = normalize(targetLabel); 
+        
+        // Create or merge into the 'standard' entry
+        if (!sizeMap[targetKey]) {
+          sizeMap[targetKey] = { label: targetLabel, count: 0 };
+        }
+      } else {
+        // Standard behavior: apply Title Case formatting
+        if (!sizeMap[normalizedLabel]) {
+          sizeMap[normalizedLabel] = { label: formatLabel(label), count: 0 };
+        }
+      }
+    });
+
+    // 2. Count ALL valid pets (Completed + To Rate + Rated)
+    // Removed the .filter(p => p.status === 'rated') to match KPI logic
+    currentValidPets.forEach(pet => {
+      const petSizeNormalized = normalize(pet.calculated_size);
+      
+      // If the normalized size exists in our map, increment it
+      if (sizeMap[petSizeNormalized]) {
+        sizeMap[petSizeNormalized].count += 1;
+      }
+    });
+
+    const petSizeData = {
+      labels: Object.values(sizeMap).map(v => v.label),
+      values: Object.values(sizeMap).map(v => v.count)
+    };
+
+    // --- INTEGRATED CHART LOGIC END ---
+
     const customerReviewData = {
       averageRating: 4.0,
       totalReviews: 127,
@@ -232,11 +316,6 @@ export default function SPCustomerInsight() {
         communication: 3.8,
         value: 4.1
       }
-    };
-
-    const petSizeData = {
-      labels: ['Extra Large', 'Extra Small', 'Large', 'Medium', 'Small', 'Standard'],
-      values: [12, 8, 15, 10, 6, 14]
     };
 
     const petTypeData = {
@@ -274,13 +353,13 @@ export default function SPCustomerInsight() {
       revTrend: getTrend(current.rev, previous.rev), 
       bookTrend: getTrend(current.count, previous.count),
       customerReviewData,
-      petSizeData,
+      petSizeData, // Updated with full count logic and formatted labels
       petTypeData,
       customerTypeData,
       topRebookedCustomers,
       dogBreedsData
     };
-  }, [rawBookings, activeFilter, petTypeFilter, customDateStart, customDateEnd]);
+  }, [rawBookings, providerServiceSizes, activeFilter, petTypeFilter, customDateStart, customDateEnd]);
 
   const TrendIndicator = ({ trend }) => (
     <div className={`kpi-trend ${trend.dir === 'up' ? 'positive' : trend.dir === 'down' ? 'negative' : 'neutral'}`}>
@@ -473,9 +552,10 @@ export default function SPCustomerInsight() {
                       scales: {
                         x: { 
                           beginAtZero: true,
-                          max: 15,
+                          // Dynamic max based on data, defaulting to 10 if empty
+                          max: Math.max(...analytics.petSizeData.values, 10) + 2,
                           ticks: { 
-                            stepSize: 5,
+                            stepSize: 1, // Changed to 1 for smaller counts
                             font: { size: 10 }
                           },
                           grid: { display: true }
