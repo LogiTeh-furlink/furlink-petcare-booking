@@ -309,3 +309,21 @@
     .form-row { flex-direction: column; gap: 0; }
     .signup-form { padding: 2rem 1.5rem; }
 }
+.login-redirect {
+  margin-top: 1.5rem;
+  text-align: center;
+  font-size: 0.9rem;
+  color: #666;
+}
+
+.login-link {
+  color: #0E2679; /* Use your primary brand color */
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: underline;
+  transition: color 0.2s ease;
+}
+
+.login-link:hover {
+  color: #1a3fa0; /* A slightly lighter shade for hover */
+}
