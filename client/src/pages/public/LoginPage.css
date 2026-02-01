@@ -102,3 +102,23 @@
 .redirect-link:hover {
   color: #fdbf00;
 }
+
+.btn-secondary-outline {
+  background-color: transparent;
+  color: #0E2679; /* Your brand color */
+  border: none;
+  padding: 12px 24px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  width: 100%; /* Makes it consistent with other form buttons */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-secondary-outline:hover {
+  color: #fdbf00;
+  transform: translateY(-1px); /* Subtle lift effect */
+}
