@@ -35,6 +35,28 @@ const LoggedInNavbar = () => {
   const notifRef = useRef();
   const menuRef = useRef();
 
+  const handleSwitchToPetOwner = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Update role to 'both' to unlock Pet Owner features
+      const { error } = await supabase
+        .from("profiles")
+        .update({ role: "both" })
+        .eq("id", user.id);
+
+      if (error) throw error;
+
+      // Refresh the page or navigate to owner dashboard
+      navigate("/dashboard");
+      window.location.reload(); 
+    } catch (err) {
+      console.error("Error switching to Pet Owner:", err);
+      alert("Failed to update account role.");
+    }
+  };
+
   const currentPath = location.pathname;
   const isServiceProviderPage = currentPath.startsWith("/service/");
 
@@ -161,7 +183,18 @@ const LoggedInNavbar = () => {
           </div>
 
           <div className="nav-right">
-            {/* Locate the button inside the nav-right div */}
+            {/* OPTION A: For users who are strictly Providers and want to become Pet Owners */}
+            {isStrictProvider && (
+              <button 
+                className="provider-btn switch-role-btn" 
+                onClick={handleSwitchToPetOwner}
+                title="Unlock Pet Owner features"
+              >
+                Become a Pet Owner
+              </button>
+            )}
+
+            {/* OPTION B: Your existing Switch/Become Provider Button */}
             {!isStrictProvider && !hideBecomeProviderAction && (
               <button 
                 className={`provider-btn ${isApproved ? 'business-mode' : ''}`}
@@ -170,7 +203,7 @@ const LoggedInNavbar = () => {
                 {isApproved 
                   ? (isServiceProviderPage ? "Switch to Pet Owner" : `Switch to ${providerData.business_name}`) 
                   : isIncomplete 
-                    ? "Continue Application"  // <--- If status is incomplete, show this
+                    ? "Continue Application"
                     : "Become a Service Provider"} 
               </button>
             )}
