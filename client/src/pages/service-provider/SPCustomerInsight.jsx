@@ -26,6 +26,7 @@ export default function SPCustomerInsight() {
   // Data states
   const [loading, setLoading] = useState(true);
   const [rawBookings, setRawBookings] = useState([]);
+  const [rawReviews, setRawReviews] = useState([]); 
   const [listingVisitors, setListingVisitors] = useState(0);
   const [providerServiceSizes, setProviderServiceSizes] = useState([]); 
   const [profilesMap, setProfilesMap] = useState({}); // Stores { userId: profileData }
@@ -73,7 +74,8 @@ export default function SPCustomerInsight() {
             booking_pets (
               id,
               pet_type,
-              calculated_size
+              calculated_size,
+              breed
             )
           `)
           .eq('provider_id', provider.id);
@@ -81,7 +83,23 @@ export default function SPCustomerInsight() {
         if (bError) throw bError;
         setRawBookings(bookings || []);
 
-        // 3. Fetch Profiles Separately
+        // 3. Fetch Reviews Data (Updated to include comment)
+        const { data: reviews, error: rError } = await supabase
+          .from('reviews')
+          .select(`
+            id,
+            booking_id,
+            rating_overall,
+            rating_staff,
+            comment,
+            created_at
+          `)
+          .eq('provider_id', provider.id);
+
+        if (rError) throw rError;
+        setRawReviews(reviews || []);
+
+        // 4. Fetch Profiles Separately
         if (bookings && bookings.length > 0) {
           const userIds = [...new Set(bookings.map(b => b.user_id))];
           
@@ -291,20 +309,16 @@ export default function SPCustomerInsight() {
     // --- CHART LOGIC 3: New vs Old Customers ---
     let newCustomerCount = 0;
     let returningCustomerCount = 0;
-    // Get unique users from the current timeframe's valid bookings
     const uniqueCurrentUsers = new Set(currentBookings.filter(b => isBookingComplete(b)).map(b => b.user_id));
 
     uniqueCurrentUsers.forEach(userId => {
-      // Check for History strictly BEFORE the current range start
       const hasHistory = rawBookings.some(b => 
         b.user_id === userId &&
         isBookingComplete(b) &&
         new Date(b.booking_date) < currentRange.start &&
-        // Ensure historical booking matches the filter (e.g. was a 'Dog' booking if we are filtering for Dogs)
         (petTypeFilter === 'both' ? true : b.booking_pets?.some(p => p.pet_type === petTypeFilter))
       );
 
-      // Verify the current booking also matches the pet type filter (redundant check but safe)
       const currentHasMatchingPet = currentBookings.some(b => 
         b.user_id === userId && 
         (petTypeFilter === 'both' || b.booking_pets?.some(p => p.pet_type === petTypeFilter))
@@ -324,18 +338,14 @@ export default function SPCustomerInsight() {
 
     // --- CHART LOGIC 4: Top 5 Rebooked Customers ---
     const customerCounts = {};
-    
-    // Iterate 'currentBookings' (responsive to timeframe)
     currentBookings.forEach(b => {
       if (isBookingComplete(b)) {
-        // Filter by Pet Type
         const hasMatchingPet = b.booking_pets?.some(p => petTypeFilter === 'both' || p.pet_type === petTypeFilter);
         
         if (hasMatchingPet) {
           const uid = b.user_id;
           const profile = profilesMap[uid];
 
-          // Determine Name (Default to "User" if missing/orphan)
           let fullName = 'User'; 
           if (profile) {
             if (profile.display_name) fullName = profile.display_name;
@@ -355,16 +365,64 @@ export default function SPCustomerInsight() {
       .sort((a, b) => b.count - a.count)
       .slice(0, 5);
 
-    // Placeholder for Dog Breeds
+    // --- CHART LOGIC 5: Most Booked Dog Breeds ---
+    const breedCounts = {};
+    currentValidPets.forEach(pet => {
+      if (pet.pet_type === 'Dog' && pet.breed) {
+        const normalizedBreed = formatLabel(pet.breed);
+        if (!breedCounts[normalizedBreed]) {
+          breedCounts[normalizedBreed] = 0;
+        }
+        breedCounts[normalizedBreed] += 1;
+      }
+    });
+
+    const sortedBreeds = Object.entries(breedCounts)
+      .sort(([, countA], [, countB]) => countB - countA)
+      .slice(0, 6);
+
     const dogBreedsData = {
-      labels: ['Maltese', 'Shih Tzu', 'Golden Retriever', 'Labrador', 'Poodle', 'Beagle'],
-      values: [25, 18, 12, 10, 8, 5]
+      labels: sortedBreeds.map(([breed]) => breed),
+      values: sortedBreeds.map(([, count]) => count)
     };
 
+    // --- CHART LOGIC 6: Customer Review Summary (Responsive) ---
+    // 1. Identify IDs of bookings that are in the current timeframe
+    // 2. Ensure those bookings also contain a pet matching the petTypeFilter
+    const validBookingIdsForReviews = new Set();
+    
+    currentBookings.forEach(b => {
+      const matchesPetFilter = petTypeFilter === 'both' 
+        ? true 
+        : b.booking_pets?.some(p => p.pet_type === petTypeFilter);
+
+      if (matchesPetFilter) {
+        validBookingIdsForReviews.add(b.id);
+      }
+    });
+
+    // 3. Filter reviews based on valid booking IDs
+    const validReviews = rawReviews.filter(r => validBookingIdsForReviews.has(r.booking_id));
+
+    let totalOverall = 0;
+    let totalStaff = 0;
+    const reviewCount = validReviews.length;
+
+    validReviews.forEach(r => {
+      totalOverall += r.rating_overall;
+      totalStaff += r.rating_staff;
+    });
+
+    const avgOverall = reviewCount > 0 ? totalOverall / reviewCount : 0;
+    const avgStaff = reviewCount > 0 ? totalStaff / reviewCount : 0;
+
     const customerReviewData = {
-      averageRating: 4.0,
-      totalReviews: 127,
-      ratings: { service: 4.0, cleanliness: 4.2, communication: 3.8, value: 4.1 }
+      averageRating: avgOverall,
+      totalReviews: reviewCount,
+      ratings: { 
+        overall: avgOverall, 
+        staff: avgStaff 
+      }
     };
 
     return { 
@@ -381,7 +439,7 @@ export default function SPCustomerInsight() {
       topRebookedCustomers, 
       dogBreedsData
     };
-  }, [rawBookings, providerServiceSizes, profilesMap, activeFilter, petTypeFilter, customDateStart, customDateEnd]);
+  }, [rawBookings, rawReviews, providerServiceSizes, profilesMap, activeFilter, petTypeFilter, customDateStart, customDateEnd]);
 
   const TrendIndicator = ({ trend }) => (
     <div className={`kpi-trend ${trend.dir === 'up' ? 'positive' : trend.dir === 'down' ? 'negative' : 'neutral'}`}>
@@ -597,7 +655,34 @@ export default function SPCustomerInsight() {
               <div className="chart-box">
                 <h4 className="chart-title-sm">Most Booked Dog Breeds</h4>
                 <div className="chart-container-large">
-                  <Bar data={{ labels: analytics.dogBreedsData.labels, datasets: [{ data: analytics.dogBreedsData.values, backgroundColor: '#1e3a8a', borderRadius: 4, barThickness: 25 }] }} options={{ indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true, max: 30, ticks: { stepSize: 5 } }, y: { grid: { display: false } } } }} />
+                  <Bar 
+                    data={{ 
+                      labels: analytics.dogBreedsData.labels, 
+                      datasets: [{ 
+                        data: analytics.dogBreedsData.values, 
+                        backgroundColor: '#1e3a8a', 
+                        borderRadius: 4, 
+                        barThickness: 25 
+                      }] 
+                    }} 
+                    options={{ 
+                      indexAxis: 'y', 
+                      responsive: true, 
+                      maintainAspectRatio: false, 
+                      plugins: { legend: { display: false } }, 
+                      scales: { 
+                        x: { 
+                          beginAtZero: true, 
+                          ticks: { stepSize: 1 },
+                          title: { display: true, text: 'Number of Bookings', font: { size: 11 }, color: '#64748b' }
+                        }, 
+                        y: { 
+                          grid: { display: false },
+                          title: { display: true, text: 'Dog Breed', font: { size: 11 }, color: '#64748b' }
+                        } 
+                      } 
+                    }} 
+                  />
                 </div>
               </div>
             </div>
