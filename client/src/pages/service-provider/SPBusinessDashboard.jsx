@@ -820,7 +820,7 @@ export default function SPBusinessDashboard() {
             </div>
             
             <div className="sidebar-section doughnut-card">
-              <h4 className="chart-title-sm">Most Booked Services</h4>
+              <h4 className="chart-title-sm">Booked Services</h4>
               <div className="doughnut-container">
                 <div className="doughnut-wrapper">
                   <Doughnut 
@@ -909,7 +909,7 @@ export default function SPBusinessDashboard() {
                 </div>
               </div>
               <div className="chart-box">
-                <h4 className="chart-title-sm">Most Booked Hours</h4>
+                <h4 className="chart-title-sm">Booked Hours</h4>
                 <div className="chart-container-small">
                   <Bar 
                     data={getBookedHoursChartData()} 
@@ -1055,11 +1055,11 @@ export default function SPBusinessDashboard() {
                   <h3 className="report-section-title">Pet Type Distribution</h3>
                   <div className="pet-distribution">
                     <div className="pet-dist-item">
-                      <span className="pet-type">🐕 Dogs</span>
+                      <span className="pet-type">Dogs</span>
                       <span className="pet-count">{analytics.dateValuesDog.reduce((a, b) => a + b, 0)} bookings</span>
                     </div>
                     <div className="pet-dist-item">
-                      <span className="pet-type">🐱 Cats</span>
+                      <span className="pet-type">Cats</span>
                       <span className="pet-count">{analytics.dateValuesCat.reduce((a, b) => a + b, 0)} bookings</span>
                     </div>
                   </div>
