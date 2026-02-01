@@ -559,3 +559,19 @@
     text-align: center;
     display: block;
 }
+
+.input-group.field-error input {
+    border-color: #dc2626 !important;
+    background-color: #fef2f2;
+}
+
+.error-text {
+    font-weight: 500;
+    animation: shake 0.2s ease-in-out;
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-4px); }
+    75% { transform: translateX(4px); }
+}

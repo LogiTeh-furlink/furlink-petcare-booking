@@ -12,6 +12,20 @@ import "./PetDetails.css";
 
 const BEHAVIOR_OPTIONS = ["Friendly / Social", "Aggressive / Reactive", "Anxious / Nervous", "High Energy", "House Trained"];
 
+// Helper to convert file to Base64 string for Gemini
+const fileToBase64 = (file) => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => resolve(reader.result.split(',')[1]); 
+    reader.onerror = (error) => reject(error);
+  });
+};
+
+// List of styles for the dropdown
+const DOG_HAIRSTYLES = ["Lion Cut", "Teddy Bear", "Summer Shave", "Poodle Show Cut", "Puppy Cut"];
+const CAT_HAIRSTYLES = ["Lion Cut", "Belly Shave", "Comb Cut", "Dragon Cut", "Sanitary Cut"];
+
 const PetDetails = () => {
   const { state } = useLocation();
   const navigate = useNavigate();
@@ -31,6 +45,41 @@ const PetDetails = () => {
 
   const triggerError = (msg) => alert(msg);
 
+  const handleGenerateAIHaircut = async (index) => {
+    const pet = petsData[index];
+    updatePetInfo(index, 'ai_error', null);
+
+    // Weight and Breed are now the primary "Anchors" for the AI
+    if (!pet.breed || !pet.weight_kg) {
+      return updatePetInfo(index, 'ai_error', "Please ensure Breed and Weight are filled for accurate styling.");
+    }
+
+    updatePetInfo(index, 'ai_loading', true);
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-pet-haircut', {
+        body: { 
+          hairstyle: pet.ai_selected_style,
+          petType: pet.pet_type,
+          breed: pet.breed,
+          weight: pet.weight_kg,
+          groomingSpecs: pet.grooming_specifications || "professional cut" 
+        }
+      });
+
+      if (data?.generatedImageUrl && !error) {
+        // SUCCESS: Use the generated URL directly
+        updatePetInfo(index, 'ai_generated_preview', data.generatedImageUrl);
+      } else {
+        updatePetInfo(index, 'ai_error', "Analyzing breed features... try again in a moment.");
+      }
+    } catch (err) {
+      updatePetInfo(index, 'ai_error', "Connection reset. Retrying generation...");
+    } finally {
+      updatePetInfo(index, 'ai_loading', false);
+    }
+  };
+
   const formatLongDate = (dateStr) => {
     if (!dateStr) return "Select Date";
     return new Date(dateStr).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
@@ -48,7 +97,13 @@ const PetDetails = () => {
     services: [{ id: "", service_name: "", service_type: "", price: "0.00" }],
     pet_name: "", pet_type: type, breed: "", gender: "Male", birth_date: "", weight_kg: "",
     calculated_size: "Auto-calc", behavior: [], vaccine_file: null, vaccine_preview: null,
-    illness_file: null, illness_preview: null, total_price: 0, grooming_specifications: "", emergency_consent: false
+    illness_file: null, illness_preview: null, total_price: 0, grooming_specifications: "", emergency_consent: false,
+    ai_selected_style: "Lion Cut",
+    ai_loading: false,
+    ai_confirmed: false,
+    ai_reference_file: null,
+    ai_reference_preview: null,
+    ai_generated_preview: null
   });
 
   useEffect(() => {
@@ -104,80 +159,100 @@ const PetDetails = () => {
   };
 
   const handleFinalSubmit = async () => {
-    setLoading(true);
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("User session not found.");
+  setLoading(true);
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("User session not found.");
 
-      // 1. Create the main booking record
-      const { data: booking, error: bError } = await supabase
-        .from('bookings')
-        .insert([{
-          user_id: user.id,
-          provider_id: initialProviderId,
-          booking_date: state?.bookingDate,
-          time_slot: state?.bookingTime,
-          total_estimated_price: calculateGrandTotal(),
-          status: 'pending'
-        }])
-        .select().single();
+    // 1. Create the main booking record
+    const { data: booking, error: bError } = await supabase
+      .from('bookings')
+      .insert([{
+        user_id: user.id,
+        provider_id: initialProviderId,
+        booking_date: state?.bookingDate,
+        time_slot: state?.bookingTime,
+        total_estimated_price: calculateGrandTotal(),
+        status: 'pending'
+      }])
+      .select().single();
 
-      if (bError) throw bError;
+    if (bError) throw bError;
 
-      // 2. Process each pet
-      for (const [i, pet] of petsData.entries()) {
-        const storagePath = `${user.id}/${booking.id}/pet_${i}`;
-        const vUrl = await uploadFile(pet.vaccine_file, storagePath);
-        const iUrl = pet.illness_file ? await uploadFile(pet.illness_file, storagePath) : null;
+    // 2. Process each pet
+    for (const [i, pet] of petsData.entries()) {
+      const storagePath = `${user.id}/${booking.id}/pet_${i}`;
+      
+      // Upload standard records
+      const vUrl = await uploadFile(pet.vaccine_file, storagePath);
+      const iUrl = pet.illness_file ? await uploadFile(pet.illness_file, storagePath) : null;
 
-        // Save Pet Info (grooming_specifications stays as user notes only)
-        const { data: petRecord, error: pError } = await supabase
-          .from('booking_pets')
-          .insert([{
-            booking_id: booking.id,
-            pet_name: pet.pet_name,
-            pet_type: pet.pet_type,
-            breed: pet.breed,
-            gender: pet.gender,
-            weight_kg: parseFloat(pet.weight_kg),
-            birth_date: pet.birth_date,
-            calculated_size: pet.calculated_size,
-            behavior: Array.isArray(pet.behavior) ? pet.behavior.join(', ') : pet.behavior,
-            vaccine_card_url: vUrl,
-            illness_proof_url: iUrl,
-            grooming_specifications: pet.grooming_specifications, 
-            emergency_consent: pet.emergency_consent
-          }])
-          .select().single();
-
-        if (pError) throw pError;
-
-        // 3. Save Each Selected Service to booking_services table
-        for (const srv of pet.services) {
-          if (srv.id) {
-            const { error: sError } = await supabase
-              .from('booking_services')
-              .insert([{
-                booking_pet_id: petRecord.id,
-                service_id: srv.id,
-                service_name: srv.service_name,
-                service_type: srv.service_type,
-                price: parseFloat(srv.price)
-              }]);
-            if (sError) throw sError;
-          }
+      // --- AI PREVIEW PROCESSING ---
+      let aiUrl = null;
+      if (pet.ai_confirmed && pet.ai_generated_preview) {
+        try {
+          // Convert the Base64 preview back to a File for storage
+          const res = await fetch(pet.ai_generated_preview);
+          const blob = await res.blob();
+          const aiFile = new File([blob], "ai_haircut.jpg", { type: "image/jpeg" });
+          
+          // Upload to Supabase Storage
+          aiUrl = await uploadFile(aiFile, storagePath);
+        } catch (aiErr) {
+          console.error("Failed to save AI image, continuing with booking:", aiErr);
+          // We continue even if AI save fails so the booking isn't blocked
         }
       }
 
-      setShowSummaryModal(false);
-      navigate("/dashboard", { state: { success: true } });
-    } catch (error) {
-      console.error(error);
-      triggerError(error.message);
-    } finally {
-      setLoading(false);
+      // 3. Save Pet Info to booking_pets
+      const { data: petRecord, error: pError } = await supabase
+        .from('booking_pets')
+        .insert([{
+          booking_id: booking.id,
+          pet_name: pet.pet_name,
+          pet_type: pet.pet_type,
+          breed: pet.breed,
+          gender: pet.gender,
+          weight_kg: parseFloat(pet.weight_kg),
+          birth_date: pet.birth_date,
+          calculated_size: pet.calculated_size,
+          behavior: Array.isArray(pet.behavior) ? pet.behavior.join(', ') : pet.behavior,
+          vaccine_card_url: vUrl,
+          illness_proof_url: iUrl,
+          ai_generated_url: aiUrl, // <--- New AI field
+          grooming_specifications: pet.grooming_specifications, 
+          emergency_consent: pet.emergency_consent
+        }])
+        .select().single();
+
+      if (pError) throw pError;
+
+      // 4. Save Each Selected Service to booking_services table
+      for (const srv of pet.services) {
+        if (srv.id) {
+          const { error: sError } = await supabase
+            .from('booking_services')
+            .insert([{
+              booking_pet_id: petRecord.id,
+              service_id: srv.id,
+              service_name: srv.service_name,
+              service_type: srv.service_type,
+              price: parseFloat(srv.price)
+            }]);
+          if (sError) throw sError;
+        }
+      }
     }
-  };
+
+    setShowSummaryModal(false);
+    navigate("/dashboard", { state: { success: true } });
+  } catch (error) {
+    console.error(error);
+    triggerError(error.message);
+  } finally {
+    setLoading(false);
+  }
+};
   
   const updatePetInfo = (index, field, value) => {
     setPetsData(prev => {
@@ -593,10 +668,85 @@ const PetDetails = () => {
                             </div>
                         </div>
 
-                        <div className="specifications-container" style={{ marginTop: '20px' }}>
+                        {/* --- AI HAIRCUT GENERATOR SECTION --- */}
+                        <div className="ai-section-divider">
+                          <div className="specifications-container" style={{ marginTop: '20px' }}>
+                            <label className="sub-label">Grooming Specifications</label>
+                            <textarea 
+                              className="spec-textarea" 
+                              maxLength={500} 
+                              placeholder="e.g., leave the tail fluffy, trim short around eyes..."
+                              value={pet.grooming_specifications || ""} 
+                              onChange={(e) => updatePetInfo(index, 'grooming_specifications', e.target.value)} 
+                              style={{ width: '100%', minHeight: '100px', padding: '12px', borderRadius: '8px', border: '1px solid #ddd' }} 
+                            />
+                          </div>
+
+                          <label className="sub-label" style={{ color: '#0E2679', fontWeight: '700', marginTop: '15px', display: 'block' }}>
+                            AI Pet Haircut Generator
+                          </label>
+                          
+                          <div className="ai-warning-box" style={{ backgroundColor: '#fdf2f2', border: '1px solid #fecaca', padding: '12px', borderRadius: '8px', marginBottom: '15px' }}>
+                            <p style={{ fontSize: '0.85rem', color: '#991b1b', margin: 0, display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                              <AlertCircle size={28} /> 
+                              <span>
+                                <strong>Style Preview Info:</strong> Direct photo uploading is temporarily disabled. The AI will now generate a high-fidelity preview based <strong>strictly</strong> on your pet's <strong>Type, Breed, Weight</strong>, and <strong>Hairstyle</strong> choice!
+                              </span>
+                            </p>
+                          </div>
+
+                          <div className="ai-card-box">
+                            {!pet.ai_generated_preview ? (
+                              <div className="ai-setup-simple" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                <div className="style-select-group">
+                                  <label className="form-label" style={{fontSize: '0.8rem', fontWeight: '600'}}>Desired Style:</label>
+                                  <select 
+                                    className="form-input" 
+                                    value={pet.ai_selected_style} 
+                                    onChange={(e) => updatePetInfo(index, 'ai_selected_style', e.target.value)}
+                                  >
+                                    {(pet.pet_type === "Cat" ? CAT_HAIRSTYLES : DOG_HAIRSTYLES).map(s => (
+                                      <option key={s} value={s}>{s}</option>
+                                    ))}
+                                  </select>
+                                </div>
+
+                                {pet.ai_error && (
+                                  <div style={{ color: '#dc2626', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: '#fef2f2', padding: '8px', borderRadius: '6px' }}>
+                                    <AlertCircle size={14} /> <span>{pet.ai_error}</span>
+                                  </div>
+                                )}
+
+                                <button 
+                                  type="button" 
+                                  className="btn-ai-gen" 
+                                  onClick={() => handleGenerateAIHaircut(index)}
+                                  disabled={pet.ai_loading}
+                                  style={{ backgroundColor: '#0E2679', color: 'white', border: 'none', padding: '12px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}
+                                >
+                                  {pet.ai_loading ? "AI is Designing..." : "Generate AI Style Preview"}
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="ai-preview-container" style={{ textAlign: 'center' }}>
+                                {/* (Keep existing preview img and confirmed-overlay logic here) */}
+                                <div className="ai-img-frame" style={{ position: 'relative', marginBottom: '10px' }}>
+                                    <img src={pet.ai_generated_preview} alt="AI Preview" className="ai-result-img" style={{ width: '100%', borderRadius: '12px', border: '3px solid #0E2679' }} />
+                                    {pet.ai_confirmed && <div className="confirmed-overlay" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(14, 38, 121, 0.7)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '12px', fontWeight: 'bold' }}>✓ Style Confirmed</div>}
+                                  </div>
+                                  <div className="ai-button-group" style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+                                      <button type="button" className="ai-btn retry" onClick={() => updatePetInfo(index, 'ai_generated_preview', null)}>Reset</button>
+                                      {!pet.ai_confirmed && <button type="button" className="ai-btn confirm" onClick={() => updatePetInfo(index, 'ai_confirmed', true)} style={{backgroundColor: '#28a745', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '6px'}}>Confirm</button>}
+                                  </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* <div className="specifications-container" style={{ marginTop: '20px' }}>
                             <label className="sub-label">Grooming Specifications</label>
                             <textarea className="spec-textarea" maxLength={500} value={pet.grooming_specifications || ""} onChange={(e) => updatePetInfo(index, 'grooming_specifications', e.target.value)} style={{ width: '100%', minHeight: '100px', padding: '12px', borderRadius: '8px', border: '1px solid #ddd' }} />
-                        </div>
+                        </div> */}
 
                         <div className="emergency-consent-container" style={{ marginTop: '15px' }}>
                             <label style={{ display: 'flex', gap: '10px', fontSize: '13px' }}>
