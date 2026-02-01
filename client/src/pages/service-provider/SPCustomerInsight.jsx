@@ -83,12 +83,13 @@ export default function SPCustomerInsight() {
         if (bError) throw bError;
         setRawBookings(bookings || []);
 
-        // 3. Fetch Reviews Data (Updated to include comment)
+        // 3. Fetch Reviews Data (Includes comment and user_id)
         const { data: reviews, error: rError } = await supabase
           .from('reviews')
           .select(`
             id,
             booking_id,
+            user_id,
             rating_overall,
             rating_staff,
             comment,
@@ -100,14 +101,17 @@ export default function SPCustomerInsight() {
         setRawReviews(reviews || []);
 
         // 4. Fetch Profiles Separately
+        // We collect user IDs from both bookings and reviews to be safe
         if (bookings && bookings.length > 0) {
-          const userIds = [...new Set(bookings.map(b => b.user_id))];
+          const bookingUserIds = bookings.map(b => b.user_id);
+          const reviewUserIds = reviews ? reviews.map(r => r.user_id) : [];
+          const allUserIds = [...new Set([...bookingUserIds, ...reviewUserIds])];
           
-          if (userIds.length > 0) {
+          if (allUserIds.length > 0) {
             const { data: profilesData, error: pError } = await supabase
               .from('profiles')
               .select('id, first_name, last_name, display_name')
-              .in('id', userIds);
+              .in('id', allUserIds);
 
             if (!pError && profilesData) {
               const map = {};
@@ -386,9 +390,7 @@ export default function SPCustomerInsight() {
       values: sortedBreeds.map(([, count]) => count)
     };
 
-    // --- CHART LOGIC 6: Customer Review Summary (Responsive) ---
-    // 1. Identify IDs of bookings that are in the current timeframe
-    // 2. Ensure those bookings also contain a pet matching the petTypeFilter
+    // --- CHART LOGIC 6: Customer Review Summary & Comments ---
     const validBookingIdsForReviews = new Set();
     
     currentBookings.forEach(b => {
@@ -401,9 +403,9 @@ export default function SPCustomerInsight() {
       }
     });
 
-    // 3. Filter reviews based on valid booking IDs
     const validReviews = rawReviews.filter(r => validBookingIdsForReviews.has(r.booking_id));
 
+    // Calculate Ratings
     let totalOverall = 0;
     let totalStaff = 0;
     const reviewCount = validReviews.length;
@@ -416,13 +418,35 @@ export default function SPCustomerInsight() {
     const avgOverall = reviewCount > 0 ? totalOverall / reviewCount : 0;
     const avgStaff = reviewCount > 0 ? totalStaff / reviewCount : 0;
 
+    // Process Recent Comments (Last 3)
+    const recentReviews = validReviews
+      .filter(r => r.comment && r.comment.trim() !== '')
+      .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+      .slice(0, 3)
+      .map(r => {
+        const profile = profilesMap[r.user_id];
+        let name = 'Anonymous';
+        if (profile) {
+          if (profile.display_name) name = profile.display_name;
+          else if (profile.first_name) name = profile.first_name;
+        }
+        return {
+          id: r.id,
+          name,
+          rating: r.rating_overall,
+          comment: r.comment,
+          date: new Date(r.created_at).toLocaleDateString()
+        };
+      });
+
     const customerReviewData = {
       averageRating: avgOverall,
       totalReviews: reviewCount,
       ratings: { 
         overall: avgOverall, 
         staff: avgStaff 
-      }
+      },
+      recentReviews
     };
 
     return { 
@@ -511,6 +535,7 @@ export default function SPCustomerInsight() {
                   </div>
                   <div className="rating-count">{analytics.customerReviewData.totalReviews} reviews</div>
                 </div>
+                
                 <div className="rating-breakdown">
                   {Object.entries(analytics.customerReviewData.ratings).map(([category, rating]) => (
                     <div key={category} className="rating-item">
@@ -522,6 +547,36 @@ export default function SPCustomerInsight() {
                     </div>
                   ))}
                 </div>
+
+                {/* New Comments Section */}
+                <div style={{ marginTop: '12px', borderTop: '1px solid #e2e8f0', paddingTop: '8px' }}>
+                  <h4 style={{ fontSize: '0.65rem', color: '#64748b', marginBottom: '8px', textTransform: 'uppercase', fontWeight: 600 }}>Recent Comments</h4>
+                  {analytics.customerReviewData.recentReviews.length === 0 ? (
+                    <div style={{ fontSize: '0.7rem', color: '#94a3b8', fontStyle: 'italic', textAlign: 'center' }}>No comments found.</div>
+                  ) : (
+                    analytics.customerReviewData.recentReviews.map(review => (
+                      <div key={review.id} style={{ marginBottom: '10px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
+                          <span style={{ fontSize: '0.7rem', fontWeight: '700', color: '#1e3a8a', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', maxWidth: '80px' }}>
+                            {review.name}
+                          </span>
+                          <div style={{ display: 'flex', gap: '1px' }}>
+                            {[1, 2, 3, 4, 5].map(star => (
+                              <FaStar key={star} style={{ fontSize: '0.5rem', color: star <= review.rating ? '#facc15' : '#e2e8f0' }} />
+                            ))}
+                          </div>
+                        </div>
+                        <p style={{ fontSize: '0.65rem', color: '#334155', lineHeight: '1.3', margin: '0 0 2px 0', fontStyle: 'italic' }}>
+                          "{review.comment.length > 50 ? review.comment.substring(0, 50) + '...' : review.comment}"
+                        </p>
+                        <div style={{ fontSize: '0.6rem', color: '#94a3b8', textAlign: 'right' }}>
+                          {review.date}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+
               </div>
             </div>
           </aside>
