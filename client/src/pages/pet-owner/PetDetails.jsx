@@ -4,7 +4,8 @@ import { supabase } from "../../config/supabase";
 import { 
   Calendar, Weight, Activity, Cat, AlertCircle,
   UploadCloud, FileText, Trash2, Plus, ArrowRight,
-  CreditCard, ArrowLeft, ChevronDown, ChevronUp, X, Maximize2, Minus, Tag
+  CreditCard, ArrowLeft, ChevronDown, ChevronUp, X, 
+  Maximize2, Minus, Tag, Clock, ShieldCheck // <--- ADD THESE TWO
 } from "lucide-react";
 import Header from "../../components/Header/LoggedInNavbar";
 import Footer from "../../components/Footer/Footer";
@@ -40,6 +41,12 @@ const PetDetails = () => {
 
   const [showCapacityModal, setShowCapacityModal] = useState(false);
   const [remainingSpots, setRemainingSpots] = useState(0);
+
+  const formatDOB = (dateStr) => {
+    if (!dateStr) return "N/A";
+    const options = { year: 'numeric', month: 'long', day: 'numeric' };
+    return new Date(dateStr).toLocaleDateString('en-US', options);
+  };
 
   const CapacityWarningModal = ({ isOpen, onClose, limit }) => {
     if (!isOpen) return null;
@@ -201,22 +208,23 @@ const handleAddPet = () => {
 };
 
   const validateForm = () => {
-  setAttemptedSubmit(true);
-  
-  const remainingSpots = maxSlots - occupiedSlots;
-  if (petsData.length > remainingSpots) {
-    triggerError(`Total pets exceeds remaining capacity (${remainingSpots}). Please remove a pet.`);
-    return { valid: false };
-  }
+    setAttemptedSubmit(true);
+    
+    const isAllValid = petsData.every(pet => {
+        const hasRequiredFields = pet.pet_name.trim() && pet.breed.trim() && pet.vaccine_file;
+        const allServicesMatched = pet.services.every(s => s.id === "" || s.matched !== false);
+        
+        return hasRequiredFields && allServicesMatched;
+    });
 
-  const isAllValid = petsData.every(pet => 
-    pet.services.length > 0 && 
-    pet.services.every(s => s.id !== "") && 
-    pet.pet_name.trim() && 
-    pet.breed.trim() && 
-    pet.vaccine_file
-  );
-  return { valid: isAllValid };
+    if (!isAllValid) {
+        const hasUnmatched = petsData.some(p => p.services.some(s => s.matched === false));
+        triggerError(hasUnmatched 
+            ? "One or more selected services do not support your pet's weight. Please check the warnings." 
+            : "Please complete all required fields.");
+        return { valid: false };
+    }
+    return { valid: true };
 };
 
   const uploadFile = async (file, path) => {
@@ -335,26 +343,39 @@ const handleAddPet = () => {
   
   const updatePetInfo = (index, field, value) => {
     setPetsData(prev => {
-      const newPets = [...prev];
-      newPets[index][field] = value;
+        const newPets = [...prev];
+        const targetPet = { ...newPets[index] };
+        
+        targetPet[field] = value;
 
-      if (field === "weight_kg" || field === "pet_type") {
-        const weight = parseFloat(newPets[index].weight_kg) || 0;
-        newPets[index].calculated_size = weight > 20 ? "Large" : weight > 10 ? "Medium" : "Small";
+        // Trigger real-time sync when weight or type changes
+        if (field === "weight_kg" || field === "pet_type") {
+            const currentWeight = targetPet.weight_kg; 
+            
+            // Re-calculate size label
+            const numWeight = parseFloat(currentWeight) || 0;
+            targetPet.calculated_size = numWeight > 20 ? "Large" : numWeight > 10 ? "Medium" : "Small";
 
-        // REAL-TIME PRICE UPDATE: Re-check prices for all selected services
-        newPets[index].services = newPets[index].services.map(srv => {
-          if (!srv.id) return srv;
-          const { price } = getServicePriceAndSize(srv.id, newPets[index].pet_type, weight);
-          return { ...srv, price };
-        });
+            // Update all currently selected services based on the new data
+            targetPet.services = targetPet.services.map(srv => {
+                if (!srv.id) return srv;
+                // getServicePriceAndSize handles the N/A logic internally
+                const result = getServicePriceAndSize(srv.id, targetPet.pet_type, weight);
+                return { 
+                    ...srv, 
+                    price: result.price, 
+                    matched: result.matched 
+                };
+            });
 
-        // Update total_price display
-        newPets[index].total_price = newPets[index].services.reduce((sum, s) => sum + parseFloat(s.price || 0), 0);
-      }
-      return newPets;
+            // Re-calculate the grand total for this pet card
+            targetPet.total_price = targetPet.services.reduce((sum, s) => sum + parseFloat(s.price || 0), 0);
+        }
+        
+        newPets[index] = targetPet;
+        return newPets;
     });
-  };
+};
 
   const handleFileUpload = (index, field, e) => {
     const file = e.target.files[0];
@@ -397,70 +418,86 @@ const handleAddPet = () => {
     });
   };
 
-    const handleServiceSelect = (petIndex, serviceIndex, e) => {
+   const handleServiceSelect = (petIndex, serviceIndex, e) => {
     const selectedId = e.target.value;
     const sObj = providerServices.find(s => s.id === selectedId);
     
-    // Check if adding a duplicate packaged service
     if (sObj?.type?.toLowerCase().includes('package')) {
-      const hasExistingPackage = petsData[petIndex].services.some(
-        (s, idx) => idx !== serviceIndex && s.service_type?.toLowerCase().includes('package')
-      );
-      if (hasExistingPackage) {
-        triggerError("Only one Packaged Service is allowed per pet.");
-        return; 
-      }
+        const hasExistingPackage = petsData[petIndex].services.some(
+            (s, idx) => idx !== serviceIndex && s.service_type?.toLowerCase().includes('package')
+        );
+        if (hasExistingPackage) {
+            triggerError("Only one Packaged Service is allowed per pet.");
+            return; 
+        }
     }
 
     setPetsData(prev => {
-      const newPetsData = [...prev];
-      const targetPet = { ...newPetsData[petIndex] };
-      
-      // Get price based on current weight/type
-      const { price, size } = getServicePriceAndSize(selectedId, targetPet.pet_type, targetPet.weight_kg);
+        const newPetsData = [...prev];
+        const targetPet = { ...newPetsData[petIndex] };
+        const updatedServices = [...targetPet.services];
 
-      targetPet.services[serviceIndex] = {
-        id: selectedId,
-        service_name: sObj?.name || "",
-        service_type: sObj?.type?.toLowerCase().includes('package') ? 'Packaged Service' : 'Individual Service',
-        price: price // Real-time price from helper
-      };
+        // Get price based on current weight/type
+        const { price, matched } = getServicePriceAndSize(selectedId, targetPet.pet_type, targetPet.weight_kg);
 
-      // Update Pet Total
-      targetPet.total_price = targetPet.services.reduce((sum, s) => sum + parseFloat(s.price || 0), 0);
-      newPetsData[petIndex] = targetPet;
-      return newPetsData;
+        updatedServices[serviceIndex] = {
+            id: selectedId,
+            service_name: sObj?.name || "",
+            service_type: sObj?.type?.toLowerCase().includes('package') ? 'Packaged Service' : 'Individual Service',
+            price: price,
+            matched: matched // <--- Captures the matched status immediately
+        };
+
+        targetPet.services = updatedServices;
+        targetPet.total_price = targetPet.services.reduce((sum, s) => sum + parseFloat(s.price || 0), 0);
+        
+        newPetsData[petIndex] = targetPet;
+        return newPetsData;
     });
-  };
+};
 
 
-    const getServicePriceAndSize = (serviceId, petType, weight) => {
+  const getServicePriceAndSize = (serviceId, petType, weight) => {
     const service = providerServices.find(s => s.id === serviceId);
-    if (!service || !service.service_options) return { price: "0.00", size: "", matched: false };
+    if (!service || !service.service_options) return { price: 0, size: "N/A", matched: false };
     
     const userType = (petType || "Dog").toLowerCase();
     const w = parseFloat(weight) || 0;
 
-    const perfectMatch = service.service_options.find(opt => {
-      const dbType = (opt.pet_type || "").toLowerCase();
-      const isTypeMatch = dbType === userType || dbType === 'dog-cat';
-      
-      // Basis logic for weight range
-      const range = (opt.weight_range || "").replace(/\s+/g, '').toUpperCase();
-      let isWeightMatch = true;
-      if (range.includes('-')) {
-        const parts = range.split('-');
-        isWeightMatch = w >= parseFloat(parts[0]) && w <= parseFloat(parts[1]);
-      } else if (range.includes('+')) {
-        isWeightMatch = w >= parseFloat(range.replace('+', ''));
-      }
-      return isTypeMatch && isWeightMatch;
+    // 1. Try to find an EXACT type match that is "Universal" (N/A, Cat, All)
+    const universalMatch = service.service_options.find(opt => {
+        const dbType = (opt.pet_type || "").toLowerCase();
+        const dbSize = (opt.size || "").toUpperCase();
+        const isTypeMatch = dbType === userType || dbType === 'dog-cat';
+        
+        // If type matches and size is a non-weight category, it's a guaranteed match
+        return isTypeMatch && (dbSize === 'N/A' || dbSize === 'CAT' || dbSize === 'ALL' || dbSize === 'ANY');
     });
 
-    return perfectMatch 
-      ? { price: parseFloat(perfectMatch.price).toFixed(2), size: perfectMatch.size, matched: true }
-      : { price: "0.00", size: "N/A", matched: false };
-  };
+    if (universalMatch) {
+        return { price: parseFloat(universalMatch.price), size: universalMatch.size, matched: true };
+    }
+
+    // 2. If no universal match, try to find a Weight-Based match
+    const weightMatch = service.service_options.find(opt => {
+        const dbType = (opt.pet_type || "").toLowerCase();
+        const isTypeMatch = dbType === userType || dbType === 'dog-cat';
+        if (!isTypeMatch) return false;
+
+        const range = (opt.weight_range || "").replace(/\s+/g, '').toUpperCase();
+        if (range.includes('-')) {
+            const parts = range.split('-');
+            return w >= parseFloat(parts[0]) && w <= parseFloat(parts[1]);
+        } else if (range.includes('+')) {
+            return w >= parseFloat(range.replace('+', ''));
+        }
+        return false;
+    });
+
+    return weightMatch 
+        ? { price: parseFloat(weightMatch.price), size: weightMatch.size, matched: true }
+        : { price: 0, size: "N/A", matched: false };
+};
 
   const getAvailableOptions = (petIndex, currentServiceRowIndex) => {
     const currentPet = petsData[petIndex];
@@ -609,22 +646,33 @@ const handleAddPet = () => {
                         <div className="service-rows-container">
                           {pet.services.map((service, sIndex) => {
                             const availableOptions = getFilteredOptions(pet, service.id);
+                            
+                            // Check if the field should show an error: 
+                            // Either no service selected OR service weight doesn't match SP chart
+                            const hasError = attemptedSubmit && (!service.id || service.matched === false);
+
                             return (
                               <div key={sIndex} className="service-selection-row" style={{ marginBottom: '15px' }}>
-                                <div className={`input-group ${attemptedSubmit && !service.id ? 'field-error' : ''}`} style={{ flex: 1 }}>
+                                <div className={`input-group ${hasError ? 'field-error' : ''}`} style={{ flex: 1 }}>
                                   <label className="form-label">
                                     {sIndex === 0 && <Tag size={14} className="label-icon" />}
                                     {service.id ? `${service.service_name} (${service.service_type})` : `Select Service ${sIndex + 1} *`}
                                   </label>
+
                                   <div className="service-input-group" style={{ display: 'flex', gap: '8px' }}>
-                                    <select className="form-input" style={{flex: 1}} value={service.id} onChange={(e) => handleServiceSelect(index, sIndex, e)}>
+                                    <select 
+                                      className="form-input" 
+                                      style={{flex: 1}} 
+                                      value={service.id} 
+                                      onChange={(e) => handleServiceSelect(index, sIndex, e)}
+                                    >
                                       <option value="">Choose a Service</option>
                                       {availableOptions.map(s => (
                                         <option key={s.id} value={s.id}>{s.name} ({s.type})</option>
                                       ))}
                                     </select>
+
                                     <div className="service-row-actions" style={{display: 'flex', gap: '5px'}}>
-                                      {/* Only show PLUS on the absolute last row */}
                                       {sIndex === pet.services.length - 1 && (
                                         <button type="button" className="circle-btn add" onClick={() => handleAddServiceRow(index)}><Plus size={14} /></button>
                                       )}
@@ -633,12 +681,41 @@ const handleAddPet = () => {
                                       )}
                                     </div>
                                   </div>
-                                  {service.id && <div className="service-price-hint" style={{fontSize: '0.8rem', color: '#2563eb', marginTop: '4px', fontWeight: '600'}}>Price: ₱{service.price}</div>}
+
+                                  {/* REAL-TIME WEIGHT/PRICE VALIDATION DISPLAY */}
+                                  {service.id && (
+                                    <div style={{ marginTop: '5px' }}>
+                                      {service.matched === false ? (
+                                        <span style={{ 
+                                          color: '#dc2626', 
+                                          fontSize: '0.75rem', 
+                                          display: 'flex', 
+                                          alignItems: 'center', 
+                                          gap: '4px', 
+                                          fontWeight: '600',
+                                          backgroundColor: '#fff1f1',
+                                          padding: '4px 8px',
+                                          borderRadius: '4px'
+                                        }}>
+                                          <AlertCircle size={14} /> 
+                                          {/* If user selected Cat but no match found */}
+                                          {pet.pet_type === "Cat" 
+                                            ? "No cat pricing found for this service." 
+                                            : `Unavailable for ${pet.weight_kg || '0'}kg pets.`}
+                                        </span>
+                                      ) : (
+                                        <div className="service-price-hint" style={{ fontSize: '0.85rem', color: '#2563eb', fontWeight: '700' }}>
+                                          Price: ₱{parseFloat(service.price || 0).toFixed(2)}
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                             );
                           })}
-                          {/* INLINE ERROR DISPLAY */}
+                          
+                          {/* INLINE ERROR DISPLAY FOR EMPTY FIELDS */}
                           {pet.service_error && (
                             <div style={{ color: '#dc2626', fontSize: '0.8rem', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '5px' }}>
                               <AlertCircle size={14} /> {pet.service_error}
@@ -690,7 +767,12 @@ const handleAddPet = () => {
                             </div>
                             <div className={`input-group ${attemptedSubmit && (!pet.weight_kg || parseFloat(pet.weight_kg) <= 0) ? 'field-error' : ''}`}>
                                 <label>Weight (kg) <span className="required-star">*</span></label>
-                                <input type="number" placeholder="0.0" value={pet.weight_kg} onChange={(e) => updatePetInfo(index, 'weight_kg', e.target.value)} />
+                                <input 
+                                  type="number" 
+                                  placeholder="0.0" 
+                                  value={pet.weight_kg} 
+                                  onChange={(e) => updatePetInfo(index, 'weight_kg', e.target.value)} 
+                                />
                                 {attemptedSubmit && (!pet.weight_kg || parseFloat(pet.weight_kg) <= 0) && <span className="error-text" style={{color: 'red', fontSize: '11px'}}>Valid weight is required</span>}
                             </div>
                         </div>
@@ -855,69 +937,118 @@ const handleAddPet = () => {
           </div>
         )}
 
-        {/* --- SUMMARY MODAL --- */}
         {showSummaryModal && (
-          <div className="summary-modal-overlay">
-            <div className="summary-modal-content">
-              <div className="modal-header">
-                <h2>Booking Summary</h2>
-                <button className="close-modal" onClick={() => setShowSummaryModal(false)}><X size={24}/></button>
+  <div className="summary-modal-overlay">
+    <div className="summary-modal-content detailed-summary">
+      <div className="modal-header">
+        <h2 style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <FileText size={24} /> Booking Confirmation
+        </h2>
+        <button className="close-modal" onClick={() => setShowSummaryModal(false)}><X size={24}/></button>
+      </div>
+
+      <div className="modal-body" style={{ paddingTop: '10px' }}>
+        <div className="summary-scroll-area" style={{ maxHeight: '65vh', overflowY: 'auto', paddingRight: '10px' }}>
+          {petsData.map((p, i) => (
+            <div key={i} className="pet-summary-card" style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '20px', marginBottom: '20px', background: '#ffffff', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
+              
+              {/* Pet Header & Individual Price */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px', borderBottom: '1px solid #f1f5f9', paddingBottom: '10px' }}>
+                <h3 style={{ color: '#0E2679', margin: 0 }}>Pet #{i + 1}: {p.pet_name || "Unnamed"}</h3>
+                <div style={{ textAlign: 'right' }}>
+                  <span style={{ fontSize: '0.75rem', color: '#64748b', display: 'block' }}>Pet Total</span>
+                  <strong style={{ color: '#2563eb', fontSize: '1.1rem' }}>₱{parseFloat(p.total_price || 0).toFixed(2)}</strong>
+                </div>
               </div>
 
-              <div className="modal-body">
-                <div className="summary-section">
-                  <h3><Calendar size={18} /> Schedule</h3>
-                  <p>{formatLongDate(state?.bookingDate)} at {formatTime12h(state?.bookingTime)}</p>
-                </div>
+              {/* Physical Profile */}
+              <div className="pet-details-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px', fontSize: '0.85rem', marginBottom: '15px' }}>
+                <div><span style={{ color: '#64748b' }}>Type:</span> <strong>{p.pet_type}</strong></div>
+                <div><span style={{ color: '#64748b' }}>Breed:</span> <strong>{p.breed}</strong></div>
+                <div><span style={{ color: '#64748b' }}>Gender:</span> <strong>{p.gender}</strong></div>
+                <div><span style={{ color: '#64748b' }}>Birth Date:</span> <strong>{formatDOB(p.birth_date)}</strong></div>
+                <div><span style={{ color: '#64748b' }}>Weight:</span> <strong>{p.weight_kg} kg</strong></div>
+                <div><span style={{ color: '#64748b' }}>Size:</span> <strong>{p.calculated_size}</strong></div>
+              </div>
 
-                <div className="summary-section">
-                  <h3><Cat size={18} /> Pet Details</h3>
-                  {petsData.map((p, i) => (
-                    <div key={i} className="pet-summary-item">
-                      <div className="summary-row">
-                        <strong>Pet #{i + 1}: {p.pet_name || "Unnamed"}</strong>
-                        <span>₱{p.total_price.toFixed(2)}</span>
-                      </div>
-                      <p className="summary-subtext">{p.breed} • {p.gender} • {p.calculated_size}</p>
-                      
-                      {p.grooming_specifications && (
-                        <div className="summary-note">
-                          <strong>Notes:</strong> {p.grooming_specifications}
-                        </div>
-                      )}
-                      
-                      <div className={`consent-badge ${p.emergency_consent ? 'granted' : 'none'}`}>
-                        {p.emergency_consent ? "✓ Emergency Consent Granted" : "✕ No Emergency Consent"}
-                      </div>
+              {/* Services Availed */}
+              <div style={{ marginBottom: '15px', padding: '10px', background: '#f8fafc', borderRadius: '8px' }}>
+                <label style={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#0E2679', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Availed Services:</label>
+                <div style={{ marginTop: '5px' }}>
+                  {p.services.map((srv, sIdx) => (
+                    <div key={sIdx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', padding: '2px 0' }}>
+                      <span>• {srv.service_name}</span>
+                      <span>₱{parseFloat(srv.price).toFixed(2)}</span>
                     </div>
                   ))}
                 </div>
-
-                <div className="summary-total-box">
-                  <div className="total-row">
-                    <span>Grand Total:</span>
-                    <strong>₱{calculateGrandTotal().toFixed(2)}</strong>
-                  </div>
-                  <div className="total-row downpayment">
-                    <span>30% Down Payment:</span>
-                    <strong>₱{(calculateGrandTotal() * 0.3).toFixed(2)}</strong>
-                  </div>
-                </div>
               </div>
 
-              <div className="modal-footer">
-                <button className="btn-cancel-modal" onClick={() => setShowSummaryModal(false)}>Edit Details</button>
-                <button 
-                  className="btn-confirm-booking" 
-                  onClick={handleFinalSubmit}
-                  disabled={loading}
-                >
-                  {loading ? "Processing..." : "Confirm Booking"} <ArrowRight size={18} className="icon-left"/>
-                </button>
+              {/* Behaviors & Specifications */}
+              <div style={{ fontSize: '0.85rem', marginBottom: '15px' }}>
+                <div style={{ marginBottom: '8px' }}>
+                  <span style={{ color: '#64748b' }}>Behaviors:</span> {p.behavior?.length > 0 ? p.behavior.join(", ") : "None specified"}
+                </div>
+                {p.grooming_specifications && (
+                  <div>
+                    <span style={{ color: '#64748b' }}>Grooming Specs:</span> 
+                    <p style={{ margin: '4px 0 0 0', fontStyle: 'italic', color: '#475569' }}>"{p.grooming_specifications}"</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Records and AI (Three-column Image Grid) */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
+                {p.vaccine_preview && (
+                  <div className="summary-media-item">
+                    <label style={{ fontSize: '0.65rem', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Vaccine</label>
+                    <img src={p.vaccine_preview} onClick={() => setSelectedImage(p.vaccine_preview)} style={{ width: '100%', height: '70px', objectFit: 'cover', borderRadius: '6px', border: '1px solid #e2e8f0' }} alt="vax" />
+                  </div>
+                )}
+                {p.illness_preview && (
+                  <div className="summary-media-item">
+                    <label style={{ fontSize: '0.65rem', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Medical</label>
+                    <img src={p.illness_preview} onClick={() => setSelectedImage(p.illness_preview)} style={{ width: '100%', height: '70px', objectFit: 'cover', borderRadius: '6px', border: '1px solid #e2e8f0' }} alt="ill" />
+                  </div>
+                )}
+                {p.ai_generated_preview && (
+                  <div className="summary-media-item">
+                    <label style={{ fontSize: '0.65rem', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>AI Style</label>
+                    <img src={p.ai_generated_preview} onClick={() => setSelectedImage(p.ai_generated_preview)} style={{ width: '100%', height: '70px', objectFit: 'cover', borderRadius: '6px', border: '1px solid #0E2679' }} alt="ai" />
+                  </div>
+                )}
+              </div>
+
+              <div style={{ marginTop: '12px', fontSize: '0.75rem', color: p.emergency_consent ? '#059669' : '#dc2626', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                {p.emergency_consent ? <ShieldCheck size={14} /> : <AlertCircle size={14} />}
+                {p.emergency_consent ? "Emergency Transport Consent: GRANTED" : "Emergency Transport Consent: DECLINED"}
               </div>
             </div>
+          ))}
+        </div>
+
+        {/* Final Financial Breakdown */}
+        <div className="summary-footer-totals" style={{ borderTop: '2px solid #f1f5f9', paddingTop: '15px', marginTop: '10px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px', fontSize: '1.1rem' }}>
+            <span>Grand Total:</span>
+            <strong style={{ color: '#0E2679' }}>₱{calculateGrandTotal().toFixed(2)}</strong>
           </div>
-        )}
+          <div style={{ display: 'flex', justifyContent: 'space-between', color: '#2563eb', fontWeight: 'bold', fontSize: '1.2rem' }}>
+            <span>30% Down Payment:</span>
+            <span>₱{(calculateGrandTotal() * 0.3).toFixed(2)}</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="modal-footer" style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
+        <button className="btn-cancel-modal" style={{ flex: 1 }} onClick={() => setShowSummaryModal(false)}>Back to Edit</button>
+        <button className="btn-confirm-booking" style={{ flex: 2, backgroundColor: '#0E2679', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold' }} onClick={handleFinalSubmit} disabled={loading}>
+          {loading ? "Processing Request..." : "Confirm Booking"}
+        </button>
+      </div>
+    </div>
+  </div>
+)}
           <CapacityWarningModal 
             isOpen={showCapacityModal} 
             onClose={() => setShowCapacityModal(false)} 

@@ -575,3 +575,35 @@
     25% { transform: translateX(-4px); }
     75% { transform: translateX(4px); }
 }
+
+.summary-scroll-area {
+  max-height: 50vh;
+  overflow-y: auto;
+  padding-right: 10px;
+}
+.pet-summary-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 15px;
+  margin-bottom: 20px;
+  background: #f8fafc;
+}
+.pet-details-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin: 10px 0;
+  font-size: 0.85rem;
+}
+.summary-media-grid {
+  display: flex;
+  gap: 15px;
+  margin-top: 15px;
+}
+.summary-media-grid img {
+  width: 80px;
+  height: 80px;
+  object-fit: cover;
+  border-radius: 6px;
+  cursor: pointer;
+}
