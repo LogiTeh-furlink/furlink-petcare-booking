@@ -204,6 +204,25 @@ const ListingInfo = () => {
 
   const daysOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
+  const [existingBookings, setExistingBookings] = useState([]);
+  useEffect(() => {
+    const fetchDateBookings = async () => {
+        if (!bookingDate || !id) return;
+        const dateStr = bookingDate.toLocaleDateString('en-CA'); // YYYY-MM-DD
+        
+        const { data, error } = await supabase
+            .from("bookings")
+            .select("time_slot, status")
+            .eq("provider_id", id)
+            .eq("booking_date", dateStr)
+            // We only care about bookings that aren't cancelled or rejected
+            .not("status", "in", '("cancelled", "rejected")');
+
+        if (!error) setExistingBookings(data || []);
+    };
+    fetchDateBookings();
+}, [bookingDate, id]);
+
   // 1. Fetch User & Data
   useEffect(() => {
     const init = async () => {
@@ -246,7 +265,8 @@ const ListingInfo = () => {
   }, [id, location.state]);
 
   // 3. AUTO-GENERATE TIME SLOTS
-  useEffect(() => {
+  // Updated AUTO-GENERATE TIME SLOTS Effect
+useEffect(() => {
     setAvailableTimeSlots([]);
     if (!bookingDate || hours.length === 0) return;
 
@@ -257,16 +277,38 @@ const ListingInfo = () => {
         const slots = [];
         const start = new Date(`2000-01-01T${workingDay.start_time}`);
         const end = new Date(`2000-01-01T${workingDay.end_time}`);
+        const interval = parseInt(workingDay.slot_interval_minutes) || 60;
+        const capacity = parseInt(workingDay.slot_capacity) || 1;
 
         while (start < end) {
-            const timeValue = start.toTimeString().split(' ')[0];
+            const timeValue = start.toTimeString().split(' ')[0]; // "09:00:00"
             const displayLabel = start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-            slots.push({ value: timeValue, label: displayLabel });
-            start.setHours(start.getHours() + 1);
+            
+            // FILTER LOGIC: Count existing bookings for this specific timeValue
+            const bookingsAtThisTime = existingBookings.filter(b => b.time_slot === timeValue);
+            const confirmedCount = bookingsAtThisTime.filter(b => b.status === 'confirmed' || b.status === 'completed').length;
+            const pendingCount = bookingsAtThisTime.filter(b => ['pending', 'payment_verification', 'awaiting_payment'].includes(b.status)).length;
+
+            const totalOccupied = confirmedCount + pendingCount;
+
+           let status = "available";
+            if (confirmedCount >= capacity) {
+                status = "full"; 
+            } else if (totalOccupied >= capacity) {
+                status = "clash_risk"; 
+            }
+
+            slots.push({ 
+                value: timeValue, 
+                label: displayLabel, 
+                status: status 
+            });
+
+            start.setMinutes(start.getMinutes() + interval);
         }
         setAvailableTimeSlots(slots);
     }
-  }, [bookingDate, hours]);
+}, [bookingDate, hours, existingBookings]);
 
   const fetchAllData = async () => {
     try {
@@ -356,15 +398,38 @@ const ListingInfo = () => {
 
   // 2. Modify handleCompleteBooking
   const handleCompleteBooking = () => {
-      setBookingError(null);
+    setBookingError(null);
 
-      if (!user) { setBookingError("You must be logged in to book."); return; }
-      if (!bookingDate) { setDateError("Please select a date."); return; }
-      if (!bookingTime) { setBookingError("Please select a time slot."); return; }
-      if (numberOfPets < 1) { setBookingError("Please select at least 1 pet."); return; } 
+    if (!user) { setBookingError("You must be logged in to book."); return; }
+    if (!bookingDate) { setDateError("Please select a date."); return; }
+    if (!bookingTime) { setBookingError("Please select a time slot."); return; }
+    
+    const petCount = parseInt(numberOfPets, 10);
+    if (isNaN(petCount) || petCount < 1) { 
+      setBookingError("Please select at least 1 pet."); 
+      return; 
+    }
 
-      // Instead of navigating, show the modal
-      setShowTermsModal(true);
+    // --- NEW: CAPACITY VALIDATION ---
+    const selectedSlot = availableTimeSlots.find(s => s.value === bookingTime);
+    if (selectedSlot) {
+      // Find the operating hours for the current day to get total capacity
+      const dayName = bookingDate.toLocaleDateString('en-US', { weekday: 'long' });
+      const workingDay = hours.find(h => h.day_of_week === dayName);
+      const maxCapacity = workingDay ? parseInt(workingDay.slot_capacity) : 1;
+
+      // Calculate currently occupied (Confirmed + Pending)
+      const bookingsAtThisTime = existingBookings.filter(b => b.time_slot === bookingTime);
+      const occupied = bookingsAtThisTime.length; 
+      const availableRemaining = maxCapacity - occupied;
+
+      if (petCount > availableRemaining) {
+        setBookingError(`Only ${availableRemaining} pet slot(s) available for this time. Please reduce pet count or choose another time.`);
+        return;
+      }
+    }
+
+    setShowTermsModal(true);
   };
 
   // 3. Add the actual redirect function
@@ -653,14 +718,26 @@ const ListingInfo = () => {
                 onChange={(e) => setBookingTime(e.target.value)} 
                 className="booking-select"
                 disabled={!bookingDate || availableTimeSlots.length === 0}
-              >
+            >
                 <option value="">
-                  {availableTimeSlots.length > 0 ? "Select Time" : "No slots available"}
+                    {availableTimeSlots.length > 0 ? "Select Time" : "No slots available"}
                 </option>
-                {availableTimeSlots.map((slot, idx) => (
-                  <option key={idx} value={slot.value}>{slot.label}</option>
-                ))}
-              </select>
+                {availableTimeSlots.map((slot, idx) => {
+                    const isUnavailable = slot.status === "full" || slot.status === "clash_risk";
+                    return (
+                        <option 
+                            key={idx} 
+                            value={slot.value} 
+                            disabled={isUnavailable}
+                            style={isUnavailable ? { color: '#999', backgroundColor: '#f0f0f0' } : {}}
+                        >
+                            {slot.label} 
+                            {slot.status === "full" ? " (Fully Booked)" : 
+                            slot.status === "clash_risk" ? " (Pending Approval)" : ""}
+                        </option>
+                    );
+                })}
+            </select>
               <ChevronDown size={20} className="booking-select-icon" />
             </div>
           </div>
@@ -672,12 +749,26 @@ const ListingInfo = () => {
             </label>
             <input 
               type="number" 
-              min="0"
+              min="1"
+              // Calculate remaining capacity for the current selection for the 'max' attribute
+              max={bookingTime ? 
+                (hours.find(h => h.day_of_week === bookingDate?.toLocaleDateString('en-US', { weekday: 'long' }))?.slot_capacity || 1) - 
+                existingBookings.filter(b => b.time_slot === bookingTime).length 
+                : 10
+              }
               value={numberOfPets} 
               onChange={(e) => setNumberOfPets(e.target.value)} 
               className="booking-date-input" 
               style={{width: '100%', boxSizing: 'border-box'}}
             />
+            {bookingTime && (
+              <span style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '4px', display: 'block' }}>
+                Available slots for this time: {
+                  (hours.find(h => h.day_of_week === bookingDate?.toLocaleDateString('en-US', { weekday: 'long' }))?.slot_capacity || 1) - 
+                  existingBookings.filter(b => b.time_slot === bookingTime).length
+                }
+              </span>
+            )}
           </div>
 
           <button onClick={handleCompleteBooking} className="booking-button">
