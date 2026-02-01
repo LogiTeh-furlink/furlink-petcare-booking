@@ -260,7 +260,8 @@ export default function SPCustomerInsight() {
 
     // --- INTEGRATED CHART LOGIC START ---
 
-    // 1. Map normalized keys to pretty labels from service_options (Source of Truth)
+    // 1. Most Booked Pet Size
+    // Map normalized keys to pretty labels from service_options (Source of Truth)
     const sizeMap = {};
     
     // Define mappings for specific service option labels to "Standard"
@@ -289,8 +290,7 @@ export default function SPCustomerInsight() {
       }
     });
 
-    // 2. Count ALL valid pets (Completed + To Rate + Rated)
-    // Removed the .filter(p => p.status === 'rated') to match KPI logic
+    // Count ALL valid pets (Completed + To Rate + Rated)
     currentValidPets.forEach(pet => {
       const petSizeNormalized = normalize(pet.calculated_size);
       
@@ -305,6 +305,22 @@ export default function SPCustomerInsight() {
       values: Object.values(sizeMap).map(v => v.count)
     };
 
+    // 2. Most Booked Pet Type (Dynamic Calculation)
+    // Counts occurrences of 'Dog' and 'Cat' from the same valid pets list
+    let dogCount = 0;
+    let catCount = 0;
+
+    currentValidPets.forEach(pet => {
+      if (pet.pet_type === 'Dog') dogCount++;
+      else if (pet.pet_type === 'Cat') catCount++;
+    });
+
+    const petTypeData = {
+      labels: ['Dogs', 'Cats'],
+      values: [dogCount, catCount],
+      colors: ['#1e3a8a', '#facc15']
+    };
+
     // --- INTEGRATED CHART LOGIC END ---
 
     const customerReviewData = {
@@ -316,12 +332,6 @@ export default function SPCustomerInsight() {
         communication: 3.8,
         value: 4.1
       }
-    };
-
-    const petTypeData = {
-      labels: ['Dogs', 'Cats'],
-      values: [23, 23],
-      colors: ['#1e3a8a', '#facc15']
     };
 
     const customerTypeData = {
@@ -353,8 +363,8 @@ export default function SPCustomerInsight() {
       revTrend: getTrend(current.rev, previous.rev), 
       bookTrend: getTrend(current.count, previous.count),
       customerReviewData,
-      petSizeData, // Updated with full count logic and formatted labels
-      petTypeData,
+      petSizeData, 
+      petTypeData, // Now using dynamic data
       customerTypeData,
       topRebookedCustomers,
       dogBreedsData
