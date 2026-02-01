@@ -28,7 +28,7 @@ export default function SPCustomerInsight() {
   const [rawBookings, setRawBookings] = useState([]);
   const [listingVisitors, setListingVisitors] = useState(0);
   const [providerServiceSizes, setProviderServiceSizes] = useState([]); 
-  const [profilesMap, setProfilesMap] = useState({}); // New: Store profile lookup
+  const [profilesMap, setProfilesMap] = useState({}); // Stores { userId: profileData }
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -111,10 +111,10 @@ export default function SPCustomerInsight() {
   }, [navigate]);
 
   const analytics = useMemo(() => {
-    // Utility to normalize strings
+    // Utility to normalize strings for comparison 
     const normalize = (str) => str?.toLowerCase().replace(/_/g, ' ').trim() || '';
 
-    // Utility to Format Labels
+    // Utility to Format Labels for Display
     const formatLabel = (str) => {
       if (!str) return '';
       return str
@@ -170,8 +170,6 @@ export default function SPCustomerInsight() {
     };
 
     const currentBookings = filterByRange(rawBookings, currentRange);
-    
-    // For previous trend calculation
     const previousRange = getRange(activeFilter, true);
     const previousBookings = filterByRange(rawBookings, previousRange);
 
@@ -293,16 +291,29 @@ export default function SPCustomerInsight() {
     // --- CHART LOGIC 3: New vs Old Customers ---
     let newCustomerCount = 0;
     let returningCustomerCount = 0;
-    const uniqueCurrentUsers = new Set(currentValidPets.map(p => p.user_id));
+    // Get unique users from the current timeframe's valid bookings
+    const uniqueCurrentUsers = new Set(currentBookings.filter(b => isBookingComplete(b)).map(b => b.user_id));
 
     uniqueCurrentUsers.forEach(userId => {
+      // Check for History strictly BEFORE the current range start
       const hasHistory = rawBookings.some(b => 
         b.user_id === userId &&
         isBookingComplete(b) &&
-        new Date(b.booking_date) < currentRange.start
+        new Date(b.booking_date) < currentRange.start &&
+        // Ensure historical booking matches the filter (e.g. was a 'Dog' booking if we are filtering for Dogs)
+        (petTypeFilter === 'both' ? true : b.booking_pets?.some(p => p.pet_type === petTypeFilter))
       );
-      if (hasHistory) returningCustomerCount++;
-      else newCustomerCount++;
+
+      // Verify the current booking also matches the pet type filter (redundant check but safe)
+      const currentHasMatchingPet = currentBookings.some(b => 
+        b.user_id === userId && 
+        (petTypeFilter === 'both' || b.booking_pets?.some(p => p.pet_type === petTypeFilter))
+      );
+
+      if (currentHasMatchingPet) {
+        if (hasHistory) returningCustomerCount++;
+        else newCustomerCount++;
+      }
     });
 
     const customerTypeData = {
@@ -311,32 +322,28 @@ export default function SPCustomerInsight() {
       colors: ['#1e3a8a', '#60a5fa']
     };
 
-    // --- CHART LOGIC 4: Top 5 Rebooked Customers (Responsive + Fallback) ---
+    // --- CHART LOGIC 4: Top 5 Rebooked Customers ---
     const customerCounts = {};
     
-    // Scan current timeframe bookings
+    // Iterate 'currentBookings' (responsive to timeframe)
     currentBookings.forEach(b => {
       if (isBookingComplete(b)) {
-        // Ensure this booking matches Pet Type filter (if applied)
+        // Filter by Pet Type
         const hasMatchingPet = b.booking_pets?.some(p => petTypeFilter === 'both' || p.pet_type === petTypeFilter);
         
         if (hasMatchingPet) {
           const uid = b.user_id;
           const profile = profilesMap[uid];
 
+          // Determine Name (Default to "User" if missing/orphan)
+          let fullName = 'User'; 
+          if (profile) {
+            if (profile.display_name) fullName = profile.display_name;
+            else if (profile.first_name && profile.last_name) fullName = `${profile.first_name} ${profile.last_name}`;
+            else if (profile.first_name) fullName = profile.first_name;
+          }
+
           if (!customerCounts[uid]) {
-            let fullName = 'User'; // Default fallback
-            
-            if (profile) {
-              if (profile.display_name) {
-                fullName = profile.display_name;
-              } else if (profile.first_name && profile.last_name) {
-                fullName = `${profile.first_name} ${profile.last_name}`;
-              } else if (profile.first_name) {
-                fullName = profile.first_name;
-              }
-            }
-            
             customerCounts[uid] = { name: fullName, count: 0 };
           }
           customerCounts[uid].count += 1;
@@ -500,42 +507,32 @@ export default function SPCustomerInsight() {
                 <h4 className="chart-title-sm">Most Booked Pet Size</h4>
                 <div className="chart-container-large">
                   <Bar 
-                    data={{ 
-                      labels: analytics.petSizeData.labels, 
-                      datasets: [{ 
-                        data: analytics.petSizeData.values, 
-                        backgroundColor: '#1e3a8a', 
-                        borderRadius: 4, 
-                        barThickness: 20 
-                      }] 
-                    }} 
-                    options={{ 
-                      indexAxis: 'y', 
-                      responsive: true, 
-                      maintainAspectRatio: false, 
-                      plugins: { legend: { display: false } }, 
-                      scales: { 
+                    data={{
+                      labels: analytics.petSizeData.labels,
+                      datasets: [{
+                        data: analytics.petSizeData.values,
+                        backgroundColor: '#1e3a8a',
+                        borderRadius: 4,
+                        barThickness: 20
+                      }]
+                    }}
+                    options={{
+                      indexAxis: 'y',
+                      responsive: true,
+                      maintainAspectRatio: false,
+                      plugins: { legend: { display: false } },
+                      scales: {
                         x: { 
                           beginAtZero: true, 
                           ticks: { stepSize: 1 },
-                          title: {
-                            display: true,
-                            text: 'Number of Bookings',
-                            font: { size: 11 },
-                            color: '#64748b'
-                          }
-                        }, 
+                          title: { display: true, text: 'Number of Bookings', font: { size: 11 }, color: '#64748b' }
+                        },
                         y: { 
                           grid: { display: false },
-                          title: {
-                            display: true,
-                            text: 'Pet Size',
-                            font: { size: 11 },
-                            color: '#64748b'
-                          }
-                        } 
-                      } 
-                    }} 
+                          title: { display: true, text: 'Pet Size', font: { size: 11 }, color: '#64748b' }
+                        }
+                      }
+                    }}
                   />
                 </div>
               </div>
@@ -580,12 +577,7 @@ export default function SPCustomerInsight() {
                         x: { 
                           beginAtZero: true, 
                           ticks: { stepSize: 1 },
-                          title: {
-                            display: true,
-                            text: 'Number of Bookings',
-                            font: { size: 11 },
-                            color: '#64748b'
-                          }
+                          title: { display: true, text: 'Number of Bookings', font: { size: 11 }, color: '#64748b' }
                         },
                         y: { 
                           grid: { display: false },
@@ -595,12 +587,7 @@ export default function SPCustomerInsight() {
                               return label.length > 15 ? label.substr(0, 15) + '...' : label;
                             }
                           },
-                          title: {
-                            display: true,
-                            text: 'Customer Name',
-                            font: { size: 11 },
-                            color: '#64748b'
-                          }
+                          title: { display: true, text: 'Customer Name', font: { size: 11 }, color: '#64748b' }
                         }
                       }
                     }}
