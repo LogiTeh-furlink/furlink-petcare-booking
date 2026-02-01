@@ -366,6 +366,7 @@ export default function BookingHistory() {
                        <div className="pet-images-row">
                          {pet.vaccine_card_url && <div className="image-wrapper clickable-img" onClick={() => setPreviewImage(pet.vaccine_card_url)}><p className="img-label">Vaccine Card <FaSearchPlus size={12} /></p><img src={pet.vaccine_card_url} className="proof-image" alt="Vaccine"/></div>}
                          {pet.illness_proof_url && <div className="image-wrapper clickable-img" onClick={() => setPreviewImage(pet.illness_proof_url)}><p className="img-label">Proof of Illness <FaSearchPlus size={12} /></p><img src={pet.illness_proof_url} className="proof-image" alt="Illness"/></div>}
+                         {pet.ai_generated_url && <div className="image-wrapper clickable-img" onClick={() => setPreviewImage(pet.ai_generated_url)}><p className="img-label">AI Style Preview <FaSearchPlus size={12} /></p><img src={pet.ai_generated_url} className="proof-image"/></div>}
                        </div>
                     </div>
                   ))}
