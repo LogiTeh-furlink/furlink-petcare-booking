@@ -346,21 +346,25 @@ const handleAddPet = () => {
         const newPets = [...prev];
         const targetPet = { ...newPets[index] };
         
+        // 1. Update the field (Weight or Type)
         targetPet[field] = value;
 
-        // Trigger real-time sync when weight or type changes
+        // 2. Trigger sync if the physical attributes changed
         if (field === "weight_kg" || field === "pet_type") {
             const currentWeight = targetPet.weight_kg; 
+            const currentType = targetPet.pet_type;
             
-            // Re-calculate size label
-            const numWeight = parseFloat(currentWeight) || 0;
-            targetPet.calculated_size = numWeight > 20 ? "Large" : numWeight > 10 ? "Medium" : "Small";
+            // Re-calculate size label for display
+            const numericWeight = parseFloat(currentWeight) || 0;
+            targetPet.calculated_size = numericWeight > 20 ? "Large" : numericWeight > 10 ? "Medium" : "Small";
 
-            // Update all currently selected services based on the new data
+            // 3. Update all currently selected services for this pet
             targetPet.services = targetPet.services.map(srv => {
                 if (!srv.id) return srv;
-                // getServicePriceAndSize handles the N/A logic internally
-                const result = getServicePriceAndSize(srv.id, targetPet.pet_type, weight);
+                
+                // FIXED: Passing currentType and currentWeight (the actual variables in scope)
+                const result = getServicePriceAndSize(srv.id, currentType, currentWeight);
+                
                 return { 
                     ...srv, 
                     price: result.price, 
@@ -368,14 +372,14 @@ const handleAddPet = () => {
                 };
             });
 
-            // Re-calculate the grand total for this pet card
+            // 4. Refresh the pet card total
             targetPet.total_price = targetPet.services.reduce((sum, s) => sum + parseFloat(s.price || 0), 0);
         }
         
         newPets[index] = targetPet;
         return newPets;
     });
-};
+  };
 
   const handleFileUpload = (index, field, e) => {
     const file = e.target.files[0];
@@ -464,26 +468,21 @@ const handleAddPet = () => {
     const userType = (petType || "Dog").toLowerCase();
     const w = parseFloat(weight) || 0;
 
-    // 1. Try to find an EXACT type match that is "Universal" (N/A, Cat, All)
-    const universalMatch = service.service_options.find(opt => {
+    // Look for a match in the service provider's options
+    const match = service.service_options.find(opt => {
         const dbType = (opt.pet_type || "").toLowerCase();
         const dbSize = (opt.size || "").toUpperCase();
-        const isTypeMatch = dbType === userType || dbType === 'dog-cat';
         
-        // If type matches and size is a non-weight category, it's a guaranteed match
-        return isTypeMatch && (dbSize === 'N/A' || dbSize === 'CAT' || dbSize === 'ALL' || dbSize === 'ANY');
-    });
-
-    if (universalMatch) {
-        return { price: parseFloat(universalMatch.price), size: universalMatch.size, matched: true };
-    }
-
-    // 2. If no universal match, try to find a Weight-Based match
-    const weightMatch = service.service_options.find(opt => {
-        const dbType = (opt.pet_type || "").toLowerCase();
+        // Match type (handles 'dog', 'cat', or 'dog-cat')
         const isTypeMatch = dbType === userType || dbType === 'dog-cat';
         if (!isTypeMatch) return false;
 
+        // If listing is N/A, CAT, or ALL, it's a flat rate - accept any weight
+        if (dbSize === 'N/A' || dbSize === 'CAT' || dbSize === 'ALL' || dbSize === 'ANY' || dbSize === 'UNIVERSAL') {
+            return true;
+        }
+
+        // Otherwise, check the weight range
         const range = (opt.weight_range || "").replace(/\s+/g, '').toUpperCase();
         if (range.includes('-')) {
             const parts = range.split('-');
@@ -494,10 +493,10 @@ const handleAddPet = () => {
         return false;
     });
 
-    return weightMatch 
-        ? { price: parseFloat(weightMatch.price), size: weightMatch.size, matched: true }
+    return match 
+        ? { price: parseFloat(match.price), size: match.size, matched: true }
         : { price: 0, size: "N/A", matched: false };
-};
+  };
 
   const getAvailableOptions = (petIndex, currentServiceRowIndex) => {
     const currentPet = petsData[petIndex];
