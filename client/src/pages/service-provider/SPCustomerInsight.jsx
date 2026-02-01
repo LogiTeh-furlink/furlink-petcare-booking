@@ -97,17 +97,17 @@ export default function SPCustomerInsight() {
   }, [navigate]);
 
   const analytics = useMemo(() => {
-    // Utility to normalize strings for comparison (removes underscores, lowercase)
+    // Utility to normalize strings for comparison 
     const normalize = (str) => str?.toLowerCase().replace(/_/g, ' ').trim() || '';
 
-    // Utility to Format Labels for Display (Title Case & Remove Underscores)
+    // Utility to Format Labels for Display
     const formatLabel = (str) => {
       if (!str) return '';
       return str
-        .replace(/_/g, ' ') // Replace underscores with spaces
+        .replace(/_/g, ' ')
         .toLowerCase()
         .split(' ')
-        .map(word => word.charAt(0).toUpperCase() + word.slice(1)) // Capitalize first letter
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
         .join(' ');
     };
 
@@ -261,40 +261,26 @@ export default function SPCustomerInsight() {
     // --- INTEGRATED CHART LOGIC START ---
 
     // 1. Most Booked Pet Size
-    // Map normalized keys to pretty labels from service_options (Source of Truth)
     const sizeMap = {};
-    
-    // Define mappings for specific service option labels to "Standard"
-    const labelOverrides = {
-      'cat': 'Standard',
-      'all': 'Standard'
-    };
+    const labelOverrides = { 'cat': 'Standard', 'all': 'Standard' };
 
     providerServiceSizes.forEach(label => {
       const normalizedLabel = normalize(label);
-      
-      // Check if this label should be mapped to "Standard"
       if (labelOverrides[normalizedLabel]) {
         const targetLabel = labelOverrides[normalizedLabel];
         const targetKey = normalize(targetLabel); 
-        
-        // Create or merge into the 'standard' entry
         if (!sizeMap[targetKey]) {
           sizeMap[targetKey] = { label: targetLabel, count: 0 };
         }
       } else {
-        // Standard behavior: apply Title Case formatting
         if (!sizeMap[normalizedLabel]) {
           sizeMap[normalizedLabel] = { label: formatLabel(label), count: 0 };
         }
       }
     });
 
-    // Count ALL valid pets (Completed + To Rate + Rated)
     currentValidPets.forEach(pet => {
       const petSizeNormalized = normalize(pet.calculated_size);
-      
-      // If the normalized size exists in our map, increment it
       if (sizeMap[petSizeNormalized]) {
         sizeMap[petSizeNormalized].count += 1;
       }
@@ -305,8 +291,7 @@ export default function SPCustomerInsight() {
       values: Object.values(sizeMap).map(v => v.count)
     };
 
-    // 2. Most Booked Pet Type (Dynamic Calculation)
-    // Counts occurrences of 'Dog' and 'Cat' from the same valid pets list
+    // 2. Most Booked Pet Type
     let dogCount = 0;
     let catCount = 0;
 
@@ -321,6 +306,34 @@ export default function SPCustomerInsight() {
       colors: ['#1e3a8a', '#facc15']
     };
 
+    // 3. New vs Old Customers (Dynamic Calculation)
+    let newCustomerCount = 0;
+    let returningCustomerCount = 0;
+
+    // Get unique users from the current timeframe's valid pets/bookings
+    const uniqueCurrentUsers = new Set(currentValidPets.map(p => p.user_id));
+
+    uniqueCurrentUsers.forEach(userId => {
+      // Check if this user has any COMPLETED booking strictly BEFORE the start of current range
+      const hasHistory = rawBookings.some(b => 
+        b.user_id === userId &&
+        isBookingComplete(b) &&
+        new Date(b.booking_date) < currentRange.start
+      );
+
+      if (hasHistory) {
+        returningCustomerCount++;
+      } else {
+        newCustomerCount++;
+      }
+    });
+
+    const customerTypeData = {
+      labels: ['New', 'Old'],
+      values: [newCustomerCount, returningCustomerCount],
+      colors: ['#1e3a8a', '#60a5fa']
+    };
+
     // --- INTEGRATED CHART LOGIC END ---
 
     const customerReviewData = {
@@ -332,12 +345,6 @@ export default function SPCustomerInsight() {
         communication: 3.8,
         value: 4.1
       }
-    };
-
-    const customerTypeData = {
-      labels: ['New', 'Old'],
-      values: [0, 23],
-      colors: ['#1e3a8a', '#60a5fa']
     };
 
     const topRebookedCustomers = [
@@ -364,8 +371,8 @@ export default function SPCustomerInsight() {
       bookTrend: getTrend(current.count, previous.count),
       customerReviewData,
       petSizeData, 
-      petTypeData, // Now using dynamic data
-      customerTypeData,
+      petTypeData,
+      customerTypeData, // Now using dynamic data
       topRebookedCustomers,
       dogBreedsData
     };
