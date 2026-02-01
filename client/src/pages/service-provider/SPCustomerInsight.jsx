@@ -27,7 +27,8 @@ export default function SPCustomerInsight() {
   const [loading, setLoading] = useState(true);
   const [rawBookings, setRawBookings] = useState([]);
   const [listingVisitors, setListingVisitors] = useState(0);
-  const [providerServiceSizes, setProviderServiceSizes] = useState([]); // Valid labels from service_options
+  const [providerServiceSizes, setProviderServiceSizes] = useState([]); 
+  const [profilesMap, setProfilesMap] = useState({}); // Lookup object for names
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -46,26 +47,20 @@ export default function SPCustomerInsight() {
 
         setListingVisitors(provider.click_count || 0);
 
-        // 1. Fetch Source of Truth: Sizes from service_options for this provider
+        // 1. Fetch Source of Truth: Sizes from service_options
         const { data: serviceData } = await supabase
           .from('services')
-          .select(`
-            id,
-            service_options (
-              size
-            )
-          `)
+          .select(`id, service_options ( size )`)
           .eq('provider_id', provider.id);
 
         if (serviceData) {
-          // Extract unique sizes from all services offered by this provider
           const uniqueServiceSizes = [...new Set(
             serviceData.flatMap(s => s.service_options.map(opt => opt.size))
           )];
           setProviderServiceSizes(uniqueServiceSizes);
         }
 
-        // 2. Fetch Booking Data with calculated_size
+        // 2. Fetch Booking Data
         const { data: bookings, error: bError } = await supabase
           .from('bookings')
           .select(`
@@ -87,6 +82,27 @@ export default function SPCustomerInsight() {
         
         setRawBookings(bookings || []);
 
+        // 3. Fetch Profiles Separately and Map them
+        // We fetch profiles for ALL bookings so the map is ready for any filter combination
+        if (bookings && bookings.length > 0) {
+          const userIds = [...new Set(bookings.map(b => b.user_id))];
+          
+          if (userIds.length > 0) {
+            const { data: profilesData, error: pError } = await supabase
+              .from('profiles')
+              .select('id, first_name, last_name, display_name')
+              .in('id', userIds);
+
+            if (!pError && profilesData) {
+              const map = {};
+              profilesData.forEach(profile => {
+                map[profile.id] = profile;
+              });
+              setProfilesMap(map);
+            }
+          }
+        }
+
       } catch (err) {
         console.error("Dashboard Fetch Error:", err);
       } finally {
@@ -97,29 +113,27 @@ export default function SPCustomerInsight() {
   }, [navigate]);
 
   const analytics = useMemo(() => {
-    // Utility to normalize strings for comparison 
+    // Utility to normalize strings
     const normalize = (str) => str?.toLowerCase().replace(/_/g, ' ').trim() || '';
 
-    // Utility to Format Labels for Display
+    // Utility to Format Labels
     const formatLabel = (str) => {
       if (!str) return '';
       return str
-        .replace(/_/g, ' ')
+        .replace(/_/g, ' ') 
         .toLowerCase()
         .split(' ')
-        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1)) 
         .join(' ');
     };
 
     const now = new Date();
     
     const getRange = (filter, isPrevious = false) => {
-      // Handle custom date range
       if (filter === 'custom' && customDateStart && customDateEnd) {
         const start = new Date(customDateStart);
         const end = new Date(customDateEnd);
         end.setHours(23, 59, 59, 999);
-        
         if (isPrevious) {
           const duration = end - start;
           const prevEnd = new Date(start);
@@ -127,20 +141,14 @@ export default function SPCustomerInsight() {
           const prevStart = new Date(prevEnd - duration);
           return { start: prevStart, end: prevEnd };
         }
-        
         return { start, end };
       }
       
-      // Original logic for weekly, monthly, yearly
       let start = new Date();
       let end = new Date();
       if (filter === 'weekly') {
-        if (isPrevious) { 
-          start.setDate(now.getDate() - 14); 
-          end.setDate(now.getDate() - 7); 
-        } else { 
-          start.setDate(now.getDate() - 7); 
-        }
+        start.setDate(now.getDate() - (isPrevious ? 14 : 7));
+        if (isPrevious) end.setDate(now.getDate() - 7);
       } else if (filter === 'monthly') {
         if (isPrevious) { 
           start.setMonth(now.getMonth() - 1, 1); 
@@ -149,29 +157,33 @@ export default function SPCustomerInsight() {
           start = new Date(now.getFullYear(), now.getMonth(), 1);
         }
       } else {
-        if (isPrevious) { 
-          start.setFullYear(now.getFullYear() - 1, 0, 1); 
-          end.setFullYear(now.getFullYear() - 1, 11, 31); 
-        } else { 
-          start = new Date(now.getFullYear(), 0, 1);
-        }
+        start.setFullYear(now.getFullYear() - (isPrevious ? 1 : 0), 0, 1);
+        if (isPrevious) end.setFullYear(now.getFullYear() - 1, 11, 31);
       }
       return { start, end };
     };
 
     const currentRange = getRange(activeFilter);
+    const filterByRange = (list, range) => {
+      return list.filter(b => {
+        const d = new Date(b.booking_date);
+        return d >= range.start && d <= (range.end || now);
+      });
+    };
+
+    const currentBookings = filterByRange(rawBookings, currentRange);
+    
+    // For previous trend calculation
     const previousRange = getRange(activeFilter, true);
+    const previousBookings = filterByRange(rawBookings, previousRange);
 
     const convertTo24Hour = (timeStr) => {
-      if (!timeStr) return "00:00";
-      if (timeStr.includes('M')) {
-        const [time, modifier] = timeStr.split(' ');
-        let [hours, minutes] = time.split(':');
-        if (hours === '12') { hours = '00'; }
-        if (modifier === 'PM') { hours = parseInt(hours, 10) + 12; }
-        return `${hours}:${minutes}`;
-      }
-      return timeStr;
+      if (!timeStr || !timeStr.includes('M')) return timeStr || "00:00";
+      const [time, modifier] = timeStr.split(' ');
+      let [hours, minutes] = time.split(':');
+      if (hours === '12') hours = '00';
+      if (modifier === 'PM') hours = parseInt(hours, 10) + 12;
+      return `${hours}:${minutes}`;
     };
 
     const isFourHoursPast = (dateStr, timeStr) => {
@@ -179,8 +191,7 @@ export default function SPCustomerInsight() {
       try {
         const bookingDateTime = new Date(`${dateStr}T${convertTo24Hour(timeStr)}`);
         const diffMs = now - bookingDateTime;
-        const diffHours = diffMs / (1000 * 60 * 60);
-        return diffHours >= 4;
+        return diffMs / (1000 * 60 * 60) >= 4;
       } catch (e) {
         return false;
       }
@@ -192,21 +203,10 @@ export default function SPCustomerInsight() {
       return false;
     };
 
-    const filterByRange = (list, range) => {
-      return list.filter(b => {
-        const d = new Date(b.booking_date);
-        return d >= range.start && d <= (range.end || now);
-      });
-    };
-
-    const currentBookings = filterByRange(rawBookings, currentRange);
-    const previousBookings = filterByRange(rawBookings, previousRange);
-
     const getValidPets = (bookingsList) => {
       const validPets = [];
       bookingsList.forEach(b => {
         const isComplete = isBookingComplete(b);
-        
         if (isComplete && b.booking_pets && Array.isArray(b.booking_pets)) {
           b.booking_pets.forEach(pet => {
             if (petTypeFilter === 'both' || pet.pet_type === petTypeFilter) {
@@ -231,14 +231,9 @@ export default function SPCustomerInsight() {
 
     const calculateMetrics = (petsList) => {
       const uniqueBookingIds = new Set(petsList.map(p => p.booking_id));
-      const uniqueBookings = currentBookings.filter(b => uniqueBookingIds.has(b.id));
-      const rev = uniqueBookings.reduce((sum, b) => sum + (Number(b.total_estimated_price) || 0), 0);
-      
-      return { 
-        rev, 
-        count: petsList.length,
-        validPets: petsList 
-      };
+      const filteredBookings = rawBookings.filter(b => uniqueBookingIds.has(b.id)); 
+      const rev = filteredBookings.reduce((sum, b) => sum + (Number(b.total_estimated_price) || 0), 0);
+      return { rev, count: petsList.length, validPets: petsList };
     };
 
     const current = calculateMetrics(currentValidPets);
@@ -251,16 +246,12 @@ export default function SPCustomerInsight() {
     };
 
     const uniqueCancelledBookings = new Set(
-      currentBookings
-        .filter(b => b.status === 'cancelled')
-        .map(b => b.id)
+      currentBookings.filter(b => b.status === 'cancelled').map(b => b.id)
     );
 
     const uniqueCustomers = new Set(current.validPets.map(p => p.user_id));
 
-    // --- INTEGRATED CHART LOGIC START ---
-
-    // 1. Most Booked Pet Size
+    // --- CHART LOGIC 1: Most Booked Pet Size ---
     const sizeMap = {};
     const labelOverrides = { 'cat': 'Standard', 'all': 'Standard' };
 
@@ -269,13 +260,9 @@ export default function SPCustomerInsight() {
       if (labelOverrides[normalizedLabel]) {
         const targetLabel = labelOverrides[normalizedLabel];
         const targetKey = normalize(targetLabel); 
-        if (!sizeMap[targetKey]) {
-          sizeMap[targetKey] = { label: targetLabel, count: 0 };
-        }
+        if (!sizeMap[targetKey]) sizeMap[targetKey] = { label: targetLabel, count: 0 };
       } else {
-        if (!sizeMap[normalizedLabel]) {
-          sizeMap[normalizedLabel] = { label: formatLabel(label), count: 0 };
-        }
+        if (!sizeMap[normalizedLabel]) sizeMap[normalizedLabel] = { label: formatLabel(label), count: 0 };
       }
     });
 
@@ -291,10 +278,9 @@ export default function SPCustomerInsight() {
       values: Object.values(sizeMap).map(v => v.count)
     };
 
-    // 2. Most Booked Pet Type
+    // --- CHART LOGIC 2: Most Booked Pet Type ---
     let dogCount = 0;
     let catCount = 0;
-
     currentValidPets.forEach(pet => {
       if (pet.pet_type === 'Dog') dogCount++;
       else if (pet.pet_type === 'Cat') catCount++;
@@ -306,26 +292,19 @@ export default function SPCustomerInsight() {
       colors: ['#1e3a8a', '#facc15']
     };
 
-    // 3. New vs Old Customers (Dynamic Calculation)
+    // --- CHART LOGIC 3: New vs Old Customers ---
     let newCustomerCount = 0;
     let returningCustomerCount = 0;
-
-    // Get unique users from the current timeframe's valid pets/bookings
     const uniqueCurrentUsers = new Set(currentValidPets.map(p => p.user_id));
 
     uniqueCurrentUsers.forEach(userId => {
-      // Check if this user has any COMPLETED booking strictly BEFORE the start of current range
       const hasHistory = rawBookings.some(b => 
         b.user_id === userId &&
         isBookingComplete(b) &&
         new Date(b.booking_date) < currentRange.start
       );
-
-      if (hasHistory) {
-        returningCustomerCount++;
-      } else {
-        newCustomerCount++;
-      }
+      if (hasHistory) returningCustomerCount++;
+      else newCustomerCount++;
     });
 
     const customerTypeData = {
@@ -334,49 +313,70 @@ export default function SPCustomerInsight() {
       colors: ['#1e3a8a', '#60a5fa']
     };
 
-    // --- INTEGRATED CHART LOGIC END ---
+    // --- CHART LOGIC 4: Top 5 Rebooked Customers (Responsive + Filtered) ---
+    const customerCounts = {};
+    
+    // We iterate through 'currentBookings' (responsive to Timeframe)
+    currentBookings.forEach(b => {
+      if (isBookingComplete(b)) {
+        // Check Pet Type Compatibility
+        const hasMatchingPet = b.booking_pets?.some(p => petTypeFilter === 'both' || p.pet_type === petTypeFilter);
+        
+        if (hasMatchingPet) {
+          const uid = b.user_id;
+          const profile = profilesMap[uid];
+
+          // STRICT FILTER: Only include if profile exists (Filters out Unknowns)
+          if (profile) {
+            let fullName = '';
+            if (profile.display_name) {
+              fullName = profile.display_name;
+            } else if (profile.first_name && profile.last_name) {
+              fullName = `${profile.first_name} ${profile.last_name}`;
+            } else {
+              fullName = profile.first_name;
+            }
+
+            if (!customerCounts[uid]) {
+              customerCounts[uid] = { name: fullName, count: 0 };
+            }
+            customerCounts[uid].count += 1;
+          }
+        }
+      }
+    });
+
+    const topRebookedCustomers = Object.values(customerCounts)
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
+
+    // Placeholder for Dog Breeds
+    const dogBreedsData = {
+      labels: ['Maltese', 'Shih Tzu', 'Golden Retriever', 'Labrador', 'Poodle', 'Beagle'],
+      values: [25, 18, 12, 10, 8, 5]
+    };
 
     const customerReviewData = {
       averageRating: 4.0,
       totalReviews: 127,
-      ratings: {
-        service: 4.0,
-        cleanliness: 4.2,
-        communication: 3.8,
-        value: 4.1
-      }
-    };
-
-    const topRebookedCustomers = [
-      { id: '353b1220-f5d7-4edd-ba3b-de7961...', bookings: 18 },
-      { id: '992826f1-4a40-4ea8-b714-eb092b...', bookings: 6 },
-      { id: '511ebf44-1012-4e39-afb0-987b561...', bookings: 2 },
-      { id: 'cf41262b-065b-4483-af8d-a57cc09...', bookings: 2 },
-      { id: '8a7d3c21-9f2e-4b81-a3c5-d4e8f91...', bookings: 1 }
-    ];
-
-    const dogBreedsData = {
-      labels: ['Maltese', 'Shih Tzu', 'Golden Retriever', 'Labrador', 'Poodle', 'Beagle'],
-      values: [25, 18, 12, 10, 8, 5]
+      ratings: { service: 4.0, cleanliness: 4.2, communication: 3.8, value: 4.1 }
     };
 
     return { 
       revenue: current.rev, 
       validCount: current.count, 
       cancellations: uniqueCancelledBookings.size, 
-      avg: uniqueCustomers.size > 0 
-        ? Math.round(current.count / uniqueCustomers.size) 
-        : 0, 
+      avg: uniqueCustomers.size > 0 ? Math.round(current.count / uniqueCustomers.size) : 0, 
       revTrend: getTrend(current.rev, previous.rev), 
       bookTrend: getTrend(current.count, previous.count),
       customerReviewData,
       petSizeData, 
       petTypeData,
-      customerTypeData, // Now using dynamic data
-      topRebookedCustomers,
+      customerTypeData,
+      topRebookedCustomers, 
       dogBreedsData
     };
-  }, [rawBookings, providerServiceSizes, activeFilter, petTypeFilter, customDateStart, customDateEnd]);
+  }, [rawBookings, providerServiceSizes, profilesMap, activeFilter, petTypeFilter, customDateStart, customDateEnd]);
 
   const TrendIndicator = ({ trend }) => (
     <div className={`kpi-trend ${trend.dir === 'up' ? 'positive' : trend.dir === 'down' ? 'negative' : 'neutral'}`}>
@@ -409,58 +409,33 @@ export default function SPCustomerInsight() {
               </button>
             </div>
 
-            {/* Timeframe Filter Section */}
             <div className="sidebar-section">
               <h3>Timeframe</h3>
-              <select 
-                className="filter-dropdown" 
-                value={activeFilter} 
-                onChange={(e) => setActiveFilter(e.target.value)}
-              >
+              <select className="filter-dropdown" value={activeFilter} onChange={(e) => setActiveFilter(e.target.value)}>
                 <option value="weekly">Weekly</option>
                 <option value="monthly">Monthly</option>
                 <option value="yearly">Yearly</option>
                 <option value="custom">Custom Range</option>
               </select>
-              
               {activeFilter === 'custom' && (
                 <div className="custom-date-range">
                   <label className="date-label">From:</label>
-                  <input 
-                    type="date" 
-                    className="date-input" 
-                    value={customDateStart}
-                    onChange={(e) => setCustomDateStart(e.target.value)}
-                    max={customDateEnd || new Date().toISOString().split('T')[0]}
-                  />
+                  <input type="date" className="date-input" value={customDateStart} onChange={(e) => setCustomDateStart(e.target.value)} max={customDateEnd} />
                   <label className="date-label">To:</label>
-                  <input 
-                    type="date" 
-                    className="date-input" 
-                    value={customDateEnd}
-                    onChange={(e) => setCustomDateEnd(e.target.value)}
-                    min={customDateStart}
-                    max={new Date().toISOString().split('T')[0]}
-                  />
+                  <input type="date" className="date-input" value={customDateEnd} onChange={(e) => setCustomDateEnd(e.target.value)} min={customDateStart} />
                 </div>
               )}
             </div>
 
-            {/* Pet Type Filter Section */}
             <div className="sidebar-section">
               <h3>Pet Type</h3>
-              <select 
-                className="filter-dropdown" 
-                value={petTypeFilter} 
-                onChange={(e) => setPetTypeFilter(e.target.value)}
-              >
+              <select className="filter-dropdown" value={petTypeFilter} onChange={(e) => setPetTypeFilter(e.target.value)}>
                 <option value="both">Both (Dog & Cat)</option>
                 <option value="Dog">Dog</option>
                 <option value="Cat">Cat</option>
               </select>
             </div>
 
-            {/* Customer Review Summary - Moved to Sidebar */}
             <div className="sidebar-section review-summary-sidebar">
               <h3>Customer Review Summary</h3>
               <div className="review-summary-content">
@@ -468,24 +443,17 @@ export default function SPCustomerInsight() {
                   <div className="rating-number">{analytics.customerReviewData.averageRating.toFixed(1)}</div>
                   <div className="rating-stars">
                     {[1, 2, 3, 4, 5].map(star => (
-                      <FaStar 
-                        key={star} 
-                        className={star <= Math.floor(analytics.customerReviewData.averageRating) ? 'star-filled' : 'star-empty'}
-                      />
+                      <FaStar key={star} className={star <= Math.floor(analytics.customerReviewData.averageRating) ? 'star-filled' : 'star-empty'} />
                     ))}
                   </div>
                   <div className="rating-count">{analytics.customerReviewData.totalReviews} reviews</div>
                 </div>
-                
                 <div className="rating-breakdown">
                   {Object.entries(analytics.customerReviewData.ratings).map(([category, rating]) => (
                     <div key={category} className="rating-item">
                       <span className="rating-category">{category.charAt(0).toUpperCase() + category.slice(1)}</span>
                       <div className="rating-bar-container">
-                        <div 
-                          className="rating-bar-fill" 
-                          style={{ width: `${(rating / 5) * 100}%` }}
-                        />
+                        <div className="rating-bar-fill" style={{ width: `${(rating / 5) * 100}%` }} />
                       </div>
                       <span className="rating-value">{rating.toFixed(1)}</span>
                     </div>
@@ -496,7 +464,6 @@ export default function SPCustomerInsight() {
           </aside>
 
           <main className="sp-biz-main-content">
-            {/* KPI Cards */}
             <div className="sp-biz-kpi-grid">
               <div className="kpi-card">
                 <span className="kpi-label">Gross Revenue</span>
@@ -509,7 +476,6 @@ export default function SPCustomerInsight() {
                   <TrendIndicator trend={analytics.revTrend} />
                 </div>
               </div>
-              
               <div className="kpi-card">
                 <span className="kpi-label">Total Bookings</span>
                 <div className="kpi-row">
@@ -517,200 +483,54 @@ export default function SPCustomerInsight() {
                   <TrendIndicator trend={analytics.bookTrend} />
                 </div>
               </div>
-              
               <div className="kpi-card">
                 <span className="kpi-label">Listing Visitors</span>
                 <span className="kpi-value">{listingVisitors.toLocaleString()}</span>
               </div>
-              
               <div className="kpi-card">
                 <span className="kpi-label">Avg/Customer</span>
                 <span className="kpi-value">{analytics.avg}</span>
               </div>
-              
               <div className="kpi-card">
                 <span className="kpi-label">Cancellations</span>
                 <span className="kpi-value">{analytics.cancellations.toString().padStart(2, '0')}</span>
               </div>
             </div>
 
-            {/* Top Row: Most Booked Pet Size, Pet Type, & New vs Old Customers */}
             <div className="insights-top-row">
-              {/* Most Booked Pet Size */}
               <div className="chart-box">
                 <h4 className="chart-title-sm">Most Booked Pet Size</h4>
                 <div className="chart-container-large">
-                  <Bar 
-                    data={{
-                      labels: analytics.petSizeData.labels,
-                      datasets: [{
-                        data: analytics.petSizeData.values,
-                        backgroundColor: '#1e3a8a',
-                        borderRadius: 4,
-                        barThickness: 20, // Reduced from 40 to create gaps
-                        barPercentage: 0.8,
-                        categoryPercentage: 0.8
-                      }]
-                    }}
-                    options={{
-                      indexAxis: 'y',
-                      responsive: true,
-                      maintainAspectRatio: false,
-                      plugins: { 
-                        legend: { display: false },
-                        tooltip: {
-                          callbacks: {
-                            label: function(context) {
-                              return context.parsed.x + ' bookings';
-                            }
-                          }
-                        }
-                      },
-                      scales: {
-                        x: { 
-                          beginAtZero: true,
-                          // Dynamic max based on data, defaulting to 10 if empty
-                          max: Math.max(...analytics.petSizeData.values, 10) + 2,
-                          ticks: { 
-                            stepSize: 1, // Changed to 1 for smaller counts
-                            font: { size: 10 }
-                          },
-                          grid: { display: true }
-                        },
-                        y: {
-                          ticks: { 
-                            font: { size: 10 }
-                          },
-                          grid: { display: false }
-                        }
-                      }
-                    }}
-                  />
+                  <Bar data={{ labels: analytics.petSizeData.labels, datasets: [{ data: analytics.petSizeData.values, backgroundColor: '#1e3a8a', borderRadius: 4, barThickness: 20 }] }} options={{ indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true, ticks: { stepSize: 1 } }, y: { grid: { display: false } } } }} />
                 </div>
               </div>
-
-              {/* Most Booked Pet Type */}
               <div className="chart-box doughnut-card">
                 <h4 className="chart-title-sm">Most Booked Pet Type</h4>
                 <div className="doughnut-container-large">
                   <div className="doughnut-wrapper-large">
-                    <Doughnut 
-                      data={{
-                        labels: analytics.petTypeData.labels,
-                        datasets: [{
-                          data: analytics.petTypeData.values,
-                          backgroundColor: analytics.petTypeData.colors,
-                          borderWidth: 0
-                        }]
-                      }}
-                      options={{
-                        maintainAspectRatio: false,
-                        plugins: {
-                          legend: {
-                            display: true,
-                            position: 'bottom',
-                            labels: {
-                              boxWidth: 12,
-                              padding: 8,
-                              font: { size: 10 },
-                              generateLabels: function(chart) {
-                                const data = chart.data;
-                                return data.labels.map((label, i) => ({
-                                  text: `${label}`,
-                                  fillStyle: data.datasets[0].backgroundColor[i],
-                                  hidden: false,
-                                  index: i
-                                }));
-                              }
-                            }
-                          },
-                          tooltip: {
-                            callbacks: {
-                              label: function(context) {
-                                const label = context.label || '';
-                                const value = context.parsed || 0;
-                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                                const percentage = total > 0 ? Math.round((value / total) * 100) : 0;
-                                return `${label}: ${value} (${percentage}%)`;
-                              }
-                            }
-                          }
-                        },
-                        cutout: '70%'
-                      }}
-                    />
-                    {/* Center text indicator removed */}
+                    <Doughnut data={{ labels: analytics.petTypeData.labels, datasets: [{ data: analytics.petTypeData.values, backgroundColor: analytics.petTypeData.colors, borderWidth: 0 }] }} options={{ maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } }, cutout: '70%' }} />
                   </div>
                 </div>
               </div>
-
-              {/* New vs Old Customers */}
               <div className="chart-box doughnut-card">
                 <h4 className="chart-title-sm">New vs Old Customers</h4>
                 <div className="doughnut-container-large">
                   <div className="doughnut-wrapper-large">
-                    <Doughnut 
-                      data={{
-                        labels: analytics.customerTypeData.labels,
-                        datasets: [{
-                          data: analytics.customerTypeData.values,
-                          backgroundColor: analytics.customerTypeData.colors,
-                          borderWidth: 0
-                        }]
-                      }}
-                      options={{
-                        maintainAspectRatio: false,
-                        plugins: {
-                          legend: {
-                            display: true,
-                            position: 'bottom',
-                            labels: {
-                              boxWidth: 12,
-                              padding: 8,
-                              font: { size: 10 },
-                              generateLabels: function(chart) {
-                                const data = chart.data;
-                                return data.labels.map((label, i) => ({
-                                  text: `${label}`,
-                                  fillStyle: data.datasets[0].backgroundColor[i],
-                                  hidden: false,
-                                  index: i
-                                }));
-                              }
-                            }
-                          },
-                          tooltip: {
-                            callbacks: {
-                              label: function(context) {
-                                const label = context.label || '';
-                                const value = context.parsed || 0;
-                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                                const percentage = total > 0 ? Math.round((value / total) * 100) : 0;
-                                return `${label}: ${value} (${percentage}%)`;
-                              }
-                            }
-                          }
-                        },
-                        cutout: '70%'
-                      }}
-                    />
-                    {/* Center text indicator removed */}
+                    <Doughnut data={{ labels: analytics.customerTypeData.labels, datasets: [{ data: analytics.customerTypeData.values, backgroundColor: analytics.customerTypeData.colors, borderWidth: 0 }] }} options={{ maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } }, cutout: '70%' }} />
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Bottom Row: Top 5 Rebooked & Dog Breeds */}
             <div className="insights-bottom-row">
-              {/* Top 5 Rebooked Customers */}
               <div className="chart-box">
                 <h4 className="chart-title-sm">Top 5 Rebooked Customers</h4>
                 <div className="chart-container-large">
                   <Bar 
                     data={{
-                      labels: analytics.topRebookedCustomers.map(c => c.id),
+                      labels: analytics.topRebookedCustomers.map(c => c.name),
                       datasets: [{
-                        data: analytics.topRebookedCustomers.map(c => c.bookings),
+                        data: analytics.topRebookedCustomers.map(c => c.count),
                         backgroundColor: '#1e3a8a',
                         borderRadius: 4,
                         barThickness: 25
@@ -720,111 +540,33 @@ export default function SPCustomerInsight() {
                       indexAxis: 'y',
                       responsive: true,
                       maintainAspectRatio: false,
-                      plugins: { 
-                        legend: { display: false },
-                        tooltip: {
-                          callbacks: {
-                            title: function(context) {
-                              return 'User ID: ' + context[0].label;
-                            },
-                            label: function(context) {
-                              return 'Bookings: ' + context.parsed.x;
+                      plugins: { legend: { display: false } },
+                      scales: {
+                        x: { beginAtZero: true, ticks: { stepSize: 1 } },
+                        y: { 
+                          grid: { display: false },
+                          ticks: { 
+                            callback: function(val, index) {
+                              const label = this.getLabelForValue(val);
+                              return label.length > 15 ? label.substr(0, 15) + '...' : label;
                             }
                           }
-                        }
-                      },
-                      scales: {
-                        x: { 
-                          beginAtZero: true,
-                          ticks: { 
-                            stepSize: 5,
-                            font: { size: 10 }
-                          },
-                          title: {
-                            display: true,
-                            text: 'Count of booking_id',
-                            font: { size: 11 },
-                            color: '#64748b'
-                          },
-                          grid: { display: true }
-                        },
-                        y: {
-                          ticks: { 
-                            font: { size: 9 },
-                            callback: function(value, index) {
-                              const label = this.getLabelForValue(value);
-                              return label.length > 20 ? label.substring(0, 18) + '...' : label;
-                            }
-                          },
-                          title: {
-                            display: true,
-                            text: 'User_id',
-                            font: { size: 11 },
-                            color: '#64748b'
-                          },
-                          grid: { display: false }
                         }
                       }
                     }}
                   />
                 </div>
               </div>
-
-              {/* Most Booked Dog Breeds */}
               <div className="chart-box">
                 <h4 className="chart-title-sm">Most Booked Dog Breeds</h4>
                 <div className="chart-container-large">
-                  <Bar 
-                    data={{
-                      labels: analytics.dogBreedsData.labels,
-                      datasets: [{
-                        data: analytics.dogBreedsData.values,
-                        backgroundColor: '#1e3a8a',
-                        borderRadius: 4,
-                        barThickness: 25
-                      }]
-                    }}
-                    options={{
-                      indexAxis: 'y',
-                      responsive: true,
-                      maintainAspectRatio: false,
-                      plugins: { 
-                        legend: { display: false },
-                        tooltip: {
-                          callbacks: {
-                            label: function(context) {
-                              return context.parsed.x + ' bookings';
-                            }
-                          }
-                        }
-                      },
-                      scales: {
-                        x: { 
-                          beginAtZero: true,
-                          max: 30,
-                          ticks: { 
-                            stepSize: 5,
-                            font: { size: 10 }
-                          },
-                          grid: { display: true }
-                        },
-                        y: {
-                          ticks: { 
-                            font: { size: 10 }
-                          },
-                          grid: { display: false }
-                        }
-                      }
-                    }}
-                  />
+                  <Bar data={{ labels: analytics.dogBreedsData.labels, datasets: [{ data: analytics.dogBreedsData.values, backgroundColor: '#1e3a8a', borderRadius: 4, barThickness: 25 }] }} options={{ indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true, max: 30, ticks: { stepSize: 5 } }, y: { grid: { display: false } } } }} />
                 </div>
               </div>
             </div>
           </main>
-
         </div>
       </div>
-
       <Footer />
     </div>
   );
