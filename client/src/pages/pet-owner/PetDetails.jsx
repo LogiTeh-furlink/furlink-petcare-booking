@@ -38,6 +38,35 @@ const PetDetails = () => {
   const [showSummaryModal, setShowSummaryModal] = useState(false);
   const [attemptedSubmit, setAttemptedSubmit] = useState(false);
 
+  const [showCapacityModal, setShowCapacityModal] = useState(false);
+  const [remainingSpots, setRemainingSpots] = useState(0);
+
+  const CapacityWarningModal = ({ isOpen, onClose, limit }) => {
+    if (!isOpen) return null;
+    return (
+      <div className="modal-overlay">
+        <div className="modal-content capacity-modal" style={{ textAlign: 'center', padding: '30px' }}>
+          <div style={{ marginBottom: '20px', color: '#ef4444' }}>
+            <AlertCircle size={48} style={{ margin: '0 auto' }} />
+          </div>
+          <h2 style={{ color: '#0E2679', marginBottom: '10px' }}>Capacity Reached</h2>
+          <p style={{ color: '#64748b', lineHeight: '1.6' }}>
+            We apologize, but this shop only has <strong>{limit} slot(s)</strong> remaining 
+            for your selected time: <br/> 
+            <strong>{formatTime12h(state?.bookingTime)}</strong>.
+          </p>
+          <button 
+            onClick={onClose} 
+            className="btn-modal-confirm" 
+            style={{ marginTop: '20px', width: '100%' }}
+          >
+            Got it
+          </button>
+        </div>
+      </div>
+    );
+  };
+
   // NEW: State for Full View Modal
   const [selectedImage, setSelectedImage] = useState(null);
 
@@ -126,19 +155,69 @@ const PetDetails = () => {
     fetchData();
   }, [initialProviderId, state]);
 
-  const validateForm = () => {
-    setAttemptedSubmit(true); 
-    const isAllValid = petsData.every(pet => 
-      pet.services.length > 0 && 
-      pet.services.every(s => s.id !== "") && // All selected
-      pet.pet_name.trim() && 
-      pet.breed.trim() && 
-      pet.birth_date && 
-      pet.weight_kg && 
-      pet.vaccine_file
-    );
-    return { valid: isAllValid };
+  // Inside PetDetails component
+const [maxSlots, setMaxSlots] = useState(1);
+const [occupiedSlots, setOccupiedSlots] = useState(0);
+
+useEffect(() => {
+  const fetchCapacity = async () => {
+    if (!state?.bookingDate || !initialProviderId) return;
+    
+    const dayName = new Date(state.bookingDate).toLocaleDateString('en-US', { weekday: 'long' });
+    
+    // 1. Fetch Max Capacity for this specific day
+    const { data: hourData } = await supabase
+      .from("service_provider_hours")
+      .select("slot_capacity")
+      .eq("provider_id", initialProviderId)
+      .eq("day_of_week", dayName)
+      .single();
+
+    // 2. Fetch existing bookings (Confirmed + Pending) for this exact slot
+    const { data: bookings } = await supabase
+      .from("bookings")
+      .select("id")
+      .eq("provider_id", initialProviderId)
+      .eq("booking_date", state.bookingDate)
+      .eq("time_slot", state.bookingTime)
+      .not("status", "in", '("cancelled", "rejected")');
+
+    setMaxSlots(hourData?.slot_capacity || 1);
+    setOccupiedSlots(bookings?.length || 0);
   };
+  fetchCapacity();
+}, [initialProviderId, state]);
+
+const handleAddPet = () => {
+  const currentRemaining = maxSlots - occupiedSlots;
+  setRemainingSpots(currentRemaining); // Update state for the modal text
+
+  if (petsData.length >= currentRemaining) {
+    setShowCapacityModal(true); // Trigger Modal
+    return;
+  }
+  
+  setPetsData([...petsData, getEmptyPet(availablePetTypes[0])]);
+};
+
+  const validateForm = () => {
+  setAttemptedSubmit(true);
+  
+  const remainingSpots = maxSlots - occupiedSlots;
+  if (petsData.length > remainingSpots) {
+    triggerError(`Total pets exceeds remaining capacity (${remainingSpots}). Please remove a pet.`);
+    return { valid: false };
+  }
+
+  const isAllValid = petsData.every(pet => 
+    pet.services.length > 0 && 
+    pet.services.every(s => s.id !== "") && 
+    pet.pet_name.trim() && 
+    pet.breed.trim() && 
+    pet.vaccine_file
+  );
+  return { valid: isAllValid };
+};
 
   const uploadFile = async (file, path) => {
     const ext = file.name.split('.').pop();
@@ -505,13 +584,20 @@ const PetDetails = () => {
                 <div key={index} className="pet-card-wrapper">
                     <div className="card-top-bar">
                         <span className="pet-count-label">Pet #{index + 1}</span>
+                        {/* Inside the card-actions div */}
                         <div className="card-actions">
-                            <span className="individual-price">₱{pet.total_price.toFixed(2)}</span>
-                            {petsData.length > 1 && (
-                                <button type="button" className="circle-btn delete" onClick={() => setPetsData(petsData.filter((_, i) => i !== index))}><Trash2 size={16}/></button>
-                            )}
-                            <button type="button" className="circle-btn add" onClick={() => setPetsData([...petsData, getEmptyPet(availablePetTypes[0])])}><Plus size={16}/></button>
-                        </div>
+                          <span className="individual-price">₱{pet.total_price.toFixed(2)}</span>
+                          
+                          {petsData.length > 1 && (
+                          <button type="button" className="circle-btn delete" onClick={() => setPetsData(petsData.filter((_, i) => i !== index))}>
+                            <Trash2 size={16}/>
+                          </button>
+                        )}
+
+                        <button type="button" className="circle-btn add" onClick={handleAddPet}>
+                          <Plus size={16}/>
+                        </button>
+                      </div>
                     </div>
 
                     <div className="card-form-body">
@@ -832,6 +918,12 @@ const PetDetails = () => {
             </div>
           </div>
         )}
+          <CapacityWarningModal 
+            isOpen={showCapacityModal} 
+            onClose={() => setShowCapacityModal(false)} 
+            limit={remainingSpots} 
+          />
+
       </main>
       <Footer />
     </div>
