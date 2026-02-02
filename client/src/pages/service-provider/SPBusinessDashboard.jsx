@@ -137,7 +137,6 @@ export default function SPBusinessDashboard() {
           end = new Date(now.getFullYear(), now.getMonth(), 0); 
         } else { 
           start = new Date(now.getFullYear(), now.getMonth(), 1);
-          // Set end to the last day of the current month
           end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
         }
       } else {
@@ -202,7 +201,15 @@ export default function SPBusinessDashboard() {
         if (isBookingComplete(b) && b.booking_pets && Array.isArray(b.booking_pets)) {
           b.booking_pets.forEach(pet => {
             if (petTypeFilter === 'both' || pet.pet_type === petTypeFilter) {
-              validPets.push({ ...pet, booking_date: b.booking_date, time_slot: b.time_slot, status: b.status, user_id: b.user_id, total_estimated_price: b.total_estimated_price, booking_id: b.id });
+              validPets.push({ 
+                ...pet, 
+                booking_date: b.booking_date, 
+                time_slot: b.time_slot, 
+                status: b.status, 
+                user_id: b.user_id, 
+                total_estimated_price: b.total_estimated_price, 
+                booking_id: b.id 
+              });
             }
           });
         }
@@ -229,7 +236,6 @@ export default function SPBusinessDashboard() {
       return { val: Math.abs(Math.round(diff)), dir: diff > 0 ? 'up' : diff < 0 ? 'down' : 'neutral' };
     };
 
-    // --- EDITED SECTION: Weekly increments for Monthly Filter ---
     let dateLabels = [];
     if (activeFilter === 'yearly') {
       const year = currentRange.start.getFullYear();
@@ -270,11 +276,11 @@ export default function SPBusinessDashboard() {
         else if (pet.pet_type === 'Cat') dateValuesCat[idx]++;
       }
     });
-    // --- END EDITED SECTION ---
 
     const peakDaysLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     let peakDaysValuesDog = new Array(7).fill(0);
     let peakDaysValuesCat = new Array(7).fill(0);
+    
     current.validPets.forEach(pet => {
       const dayIdx = (new Date(pet.booking_date).getDay() + 6) % 7;
       if (pet.pet_type === 'Dog') peakDaysValuesDog[dayIdx]++;
@@ -294,20 +300,25 @@ export default function SPBusinessDashboard() {
 
     const generateProviderTimeSlots = () => {
       if (!providerHours || providerHours.length === 0) return { labels: [], valuesDog: [], valuesCat: [] };
+      
       const timeToMinutes = (t) => {
         const [h, m] = t.split(':').map(Number);
         return h * 60 + m;
       };
+      
       let start = Math.min(...providerHours.map(ph => timeToMinutes(ph.start_time)));
       let end = Math.max(...providerHours.map(ph => timeToMinutes(ph.end_time)));
       let step = providerHours[0].slot_interval_minutes || 60;
+      
       const labels = [];
       for (let i = start; i < end; i += step) {
         const h = Math.floor(i / 60);
         labels.push(`${h % 12 || 12}:${(i % 60).toString().padStart(2, '0')} ${h >= 12 ? 'PM' : 'AM'}`);
       }
+      
       const vDog = new Array(labels.length).fill(0);
       const vCat = new Array(labels.length).fill(0);
+      
       current.validPets.forEach(pet => {
         const f = formatCleanTime(pet.time_slot);
         const idx = labels.indexOf(f);
@@ -316,6 +327,7 @@ export default function SPBusinessDashboard() {
           else vCat[idx]++;
         }
       });
+      
       return { labels, valuesDog: vDog, valuesCat: vCat };
     };
 
@@ -339,31 +351,83 @@ export default function SPBusinessDashboard() {
     const sLabels = Object.keys(serviceNameMap);
     const sValues = Object.values(serviceNameMap);
 
+    const getBusiestHour = () => {
+      if (timeSlots.labels.length === 0) return "No data";
+      const combinedValues = timeSlots.labels.map((label, idx) => ({
+        label,
+        total: timeSlots.valuesDog[idx] + timeSlots.valuesCat[idx]
+      }));
+      const maxBooking = combinedValues.reduce((max, curr) => 
+        curr.total > max.total ? curr : max, { label: "No data", total: 0 });
+      return maxBooking.label;
+    };
+
     return { 
       revenue: current.rev, 
       validCount: current.count, 
       cancellations: new Set(currentBookings.filter(b => b.status === 'cancelled').map(b => b.id)).size, 
-      avg: new Set(current.validPets.map(p => p.user_id)).size > 0 ? Math.round(current.count / new Set(current.validPets.map(p => p.user_id)).size) : 0, 
+      avg: new Set(current.validPets.map(p => p.user_id)).size > 0 
+        ? Math.round(current.count / new Set(current.validPets.map(p => p.user_id)).size) 
+        : 0, 
       revTrend: getTrend(current.rev, previous.rev), 
       bookTrend: getTrend(current.count, previous.count),
-      dateLabels, dateValuesDog, dateValuesCat,
-      peakDaysLabels, peakDaysValuesDog, peakDaysValuesCat,
-      sortedHourLabels: timeSlots.labels, hourValuesDog: timeSlots.valuesDog, hourValuesCat: timeSlots.valuesCat,
-      sLabels, sValues, totalS: sValues.reduce((a, b) => a + b, 0),
-      rangeText, busiestHour: timeSlots.labels[timeSlots.valuesDog.map((v, i) => v + timeSlots.valuesCat[i]).indexOf(Math.max(...timeSlots.valuesDog.map((v, i) => v + timeSlots.valuesCat[i])))] || "No data"
+      dateLabels, 
+      dateValuesDog, 
+      dateValuesCat,
+      peakDaysLabels, 
+      peakDaysValuesDog, 
+      peakDaysValuesCat,
+      sortedHourLabels: timeSlots.labels, 
+      hourValuesDog: timeSlots.valuesDog, 
+      hourValuesCat: timeSlots.valuesCat,
+      sLabels, 
+      sValues, 
+      totalS: sValues.reduce((a, b) => a + b, 0),
+      rangeText, 
+      busiestHour: getBusiestHour()
     };
   }, [rawBookings, serviceStats, activeFilter, providerHours, petTypeFilter, customDateStart, customDateEnd]);
 
   const groupedChartOptions = {
-    responsive: true, maintainAspectRatio: false,
-    plugins: { legend: { display: petTypeFilter === 'both', position: 'top', labels: { boxWidth: 10, font: { size: 8 } } } },
-    scales: { y: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 8 } } }, x: { ticks: { font: { size: 8 } } } }
+    responsive: true, 
+    maintainAspectRatio: false,
+    layout: { padding: 0 },
+    plugins: { 
+      legend: { 
+        display: petTypeFilter === 'both', 
+        position: 'top', 
+        labels: { boxWidth: 10, padding: 4, font: { size: 8 } } 
+      } 
+    },
+    scales: { 
+      y: { 
+        beginAtZero: true, 
+        ticks: { stepSize: 1, font: { size: 8 }, padding: 2 },
+        grid: { display: true, drawBorder: true }
+      }, 
+      x: { 
+        ticks: { font: { size: 8 }, padding: 2 },
+        grid: { display: false }
+      } 
+    }
   };
 
   const commonChartOptions = {
-    responsive: true, maintainAspectRatio: false,
+    responsive: true, 
+    maintainAspectRatio: false,
+    layout: { padding: 0 },
     plugins: { legend: { display: false } },
-    scales: { y: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 8 } } }, x: { ticks: { font: { size: 8 } } } }
+    scales: { 
+      y: { 
+        beginAtZero: true, 
+        ticks: { stepSize: 1, font: { size: 8 }, padding: 2 },
+        grid: { display: true, drawBorder: true }
+      }, 
+      x: { 
+        ticks: { font: { size: 8 }, padding: 2 },
+        grid: { display: false }
+      } 
+    }
   };
 
   const TrendIndicator = ({ trend }) => (
@@ -373,18 +437,76 @@ export default function SPBusinessDashboard() {
   );
 
   const getAverageBookingsChartData = () => {
-    const base = { labels: analytics.dateLabels };
     if (petTypeFilter === 'both') {
-      return { ...base, datasets: [
-        { label: 'Dog', data: analytics.dateValuesDog, backgroundColor: '#1e3a8a', borderRadius: 4, barThickness: activeFilter === 'yearly' ? 8 : 25 },
-        { label: 'Cat', data: analytics.dateValuesCat, backgroundColor: '#facc15', borderRadius: 4, barThickness: activeFilter === 'yearly' ? 8 : 25 }
-      ]};
+      return {
+        labels: analytics.dateLabels,
+        datasets: [
+          { 
+            label: 'Dog', 
+            data: analytics.dateValuesDog, 
+            backgroundColor: '#1e3a8a', 
+            borderRadius: 4, 
+            barThickness: activeFilter === 'yearly' ? 8 : 25 
+          },
+          { 
+            label: 'Cat', 
+            data: analytics.dateValuesCat, 
+            backgroundColor: '#facc15', 
+            borderRadius: 4, 
+            barThickness: activeFilter === 'yearly' ? 8 : 25 
+          }
+        ]
+      };
     }
-    return { ...base, datasets: [{
-      data: petTypeFilter === 'Dog' ? analytics.dateValuesDog : analytics.dateValuesCat,
-      backgroundColor: petTypeFilter === 'Dog' ? '#1e3a8a' : '#facc15',
-      borderRadius: 4, barThickness: activeFilter === 'yearly' ? 12 : 35
-    }]};
+    return {
+      labels: analytics.dateLabels,
+      datasets: [{
+        data: petTypeFilter === 'Dog' ? analytics.dateValuesDog : analytics.dateValuesCat,
+        backgroundColor: petTypeFilter === 'Dog' ? '#1e3a8a' : '#facc15',
+        borderRadius: 4, 
+        barThickness: activeFilter === 'yearly' ? 12 : 35
+      }]
+    };
+  };
+
+  const getPeakDaysChartData = () => {
+    if (petTypeFilter === 'both') {
+      return {
+        labels: analytics.peakDaysLabels,
+        datasets: [
+          { label: 'Dog', data: analytics.peakDaysValuesDog, backgroundColor: '#1e3a8a', borderRadius: 4 },
+          { label: 'Cat', data: analytics.peakDaysValuesCat, backgroundColor: '#facc15', borderRadius: 4 }
+        ]
+      };
+    }
+    return {
+      labels: analytics.peakDaysLabels,
+      datasets: [{
+        data: petTypeFilter === 'Dog' ? analytics.peakDaysValuesDog : analytics.peakDaysValuesCat,
+        backgroundColor: petTypeFilter === 'Dog' ? '#1e3a8a' : '#facc15',
+        borderRadius: 4
+      }]
+    };
+  };
+
+  const getBookedHoursChartData = () => {
+    if (petTypeFilter === 'both') {
+      return {
+        labels: analytics.sortedHourLabels,
+        datasets: [
+          { label: 'Dog', data: analytics.hourValuesDog, backgroundColor: '#1e3a8a', borderRadius: 4 },
+          { label: 'Cat', data: analytics.hourValuesCat, backgroundColor: '#facc15', borderRadius: 4 }
+        ]
+      };
+    }
+    return {
+      labels: analytics.sortedHourLabels,
+      datasets: [{
+        data: petTypeFilter === 'Dog' ? analytics.hourValuesDog : analytics.hourValuesCat,
+        backgroundColor: petTypeFilter === 'Dog' ? '#1e3a8a' : '#facc15',
+        borderRadius: 4
+      }]
+    };
   };
 
   if (loading) return <div className="loading-state">Loading Dashboard...</div>;
@@ -392,13 +514,25 @@ export default function SPBusinessDashboard() {
   return (
     <div className="sp-biz-page-wrapper">
       <LoggedInNavbar />
+      
       <div className="sp-biz-main-layout">
         <div className="sp-biz-container">
           <aside className="sp-biz-sidebar">
             <div className="sidebar-tabs-group">
-              <button className={`sidebar-tab-btn ${activeTab === 'business_performance' ? 'active' : ''}`} onClick={() => navigate('/service/business-dashboard')}>Business Performance</button>
-              <button className={`sidebar-tab-btn ${activeTab === 'customer_insights' ? 'active' : ''}`} onClick={() => navigate('/service/customer-insight')}>Customer Insights</button>
+              <button 
+                className={`sidebar-tab-btn ${activeTab === 'business_performance' ? 'active' : ''}`} 
+                onClick={() => navigate('/service/business-dashboard')}
+              >
+                Business Performance
+              </button>
+              <button 
+                className={`sidebar-tab-btn ${activeTab === 'customer_insights' ? 'active' : ''}`} 
+                onClick={() => navigate('/service/customer-insight')}
+              >
+                Customer Insights
+              </button>
             </div>
+            
             <div className="sidebar-section">
               <h3>Timeframe</h3>
               <select className="filter-dropdown" value={activeFilter} onChange={(e) => setActiveFilter(e.target.value)}>
@@ -407,15 +541,30 @@ export default function SPBusinessDashboard() {
                 <option value="yearly">Yearly</option>
                 <option value="custom">Custom Range</option>
               </select>
+              
               {activeFilter === 'custom' && (
                 <div className="custom-date-range">
                   <label className="date-label">From:</label>
-                  <input type="date" className="date-input" value={customDateStart} onChange={(e) => setCustomDateStart(e.target.value)} />
+                  <input 
+                    type="date" 
+                    className="date-input" 
+                    value={customDateStart} 
+                    onChange={(e) => setCustomDateStart(e.target.value)} 
+                    max={customDateEnd || new Date().toISOString().split('T')[0]} 
+                  />
                   <label className="date-label">To:</label>
-                  <input type="date" className="date-input" value={customDateEnd} onChange={(e) => setCustomDateEnd(e.target.value)} />
+                  <input 
+                    type="date" 
+                    className="date-input" 
+                    value={customDateEnd} 
+                    onChange={(e) => setCustomDateEnd(e.target.value)} 
+                    min={customDateStart} 
+                    max={new Date().toISOString().split('T')[0]} 
+                  />
                 </div>
               )}
             </div>
+
             <div className="sidebar-section">
               <h3>Pet Type</h3>
               <select className="filter-dropdown" value={petTypeFilter} onChange={(e) => setPetTypeFilter(e.target.value)}>
@@ -424,15 +573,32 @@ export default function SPBusinessDashboard() {
                 <option value="Cat">Cat</option>
               </select>
             </div>
+            
             <div className="sidebar-section doughnut-card">
               <h4 className="chart-title-sm">Booked Services</h4>
               <div className="doughnut-container">
                 <div className="doughnut-wrapper">
-                  <Doughnut data={{ labels: analytics.sLabels, datasets: [{ data: analytics.sValues, backgroundColor: ['#1e3a8a', '#3b82f6', '#93c5fd', '#60a5fa', '#2563eb'], borderWidth: 0 }] }} options={{ maintainAspectRatio: false, plugins: { legend: { display: false } }, cutout: '75%' }} />
+                  <Doughnut 
+                    data={{ 
+                      labels: analytics.sLabels, 
+                      datasets: [{ 
+                        data: analytics.sValues, 
+                        backgroundColor: ['#1e3a8a', '#3b82f6', '#93c5fd', '#60a5fa', '#2563eb'], 
+                        borderWidth: 0 
+                      }] 
+                    }} 
+                    options={{ 
+                      maintainAspectRatio: false, 
+                      plugins: { legend: { display: false } }, 
+                      cutout: '75%' 
+                    }} 
+                  />
                 </div>
                 <div className="doughnut-labels">
                   {analytics.sLabels.slice(0, 3).map((l, i) => (
-                    <span key={l}>{analytics.totalS > 0 ? Math.round((analytics.sValues[i]/analytics.totalS)*100) : 0}% {l}</span>
+                    <span key={l}>
+                      {analytics.totalS > 0 ? Math.round((analytics.sValues[i]/analytics.totalS)*100) : 0}% {l}
+                    </span>
                   ))}
                 </div>
               </div>
@@ -441,58 +607,268 @@ export default function SPBusinessDashboard() {
 
           <main className="sp-biz-main-content">
             <div className="report-button-container">
-              <button className="generate-report-btn" onClick={() => setShowReportModal(true)}><FaFileAlt size={16} /><span>Generate Business Report</span></button>
-            </div>
-            <div className="sp-biz-kpi-grid">
-              <div className="kpi-card"><span className="kpi-label">Gross Revenue</span><div className="kpi-row"><span className="kpi-value">₱{Math.round(analytics.revenue)}</span><TrendIndicator trend={analytics.revTrend} /></div></div>
-              <div className="kpi-card"><span className="kpi-label">Total Bookings</span><div className="kpi-row"><span className="kpi-value">{analytics.validCount}</span><TrendIndicator trend={analytics.bookTrend} /></div></div>
-              <div className="kpi-card"><span className="kpi-label">Listing Visitors</span><span className="kpi-value">{listingVisitors.toLocaleString()}</span></div>
-              <div className="kpi-card"><span className="kpi-label">Avg/Customer</span><span className="kpi-value">{analytics.avg}</span></div>
-              <div className="kpi-card"><span className="kpi-label">Cancellations</span><span className="kpi-value">{analytics.cancellations}</span></div>
+              <button className="generate-report-btn" onClick={() => setShowReportModal(true)}>
+                <FaFileAlt size={16} />
+                <span>Generate Business Report</span>
+              </button>
             </div>
 
-            <div className="chart-box main-chart">
-              <div className="chart-header"><h3 className="chart-title">Average Bookings ({activeFilter})</h3><span className="date-range">{analytics.rangeText}</span></div>
-              <div className="chart-container-large">
-                <Bar data={getAverageBookingsChartData()} options={petTypeFilter === 'both' ? groupedChartOptions : commonChartOptions} />
+            <div className="sp-biz-kpi-grid">
+              <div className="kpi-card">
+                <span className="kpi-label">Gross Revenue</span>
+                <div className="kpi-row">
+                  <span className="kpi-value">
+                    {analytics.revenue >= 1000 
+                      ? `₱${(analytics.revenue / 1000).toFixed(1)}K` 
+                      : `₱${Math.round(analytics.revenue)}`}
+                  </span>
+                  <TrendIndicator trend={analytics.revTrend} />
+                </div>
+              </div>
+              <div className="kpi-card">
+                <span className="kpi-label">Total Bookings</span>
+                <div className="kpi-row">
+                  <span className="kpi-value">{analytics.validCount}</span>
+                  <TrendIndicator trend={analytics.bookTrend} />
+                </div>
+              </div>
+              <div className="kpi-card">
+                <span className="kpi-label">Listing Visitors</span>
+                <span className="kpi-value">{listingVisitors.toLocaleString()}</span>
+              </div>
+              <div className="kpi-card">
+                <span className="kpi-label">Avg/Customer</span>
+                <span className="kpi-value">{analytics.avg}</span>
+              </div>
+              <div className="kpi-card">
+                <span className="kpi-label">Cancellations</span>
+                <span className="kpi-value">{analytics.cancellations.toString().padStart(2, '0')}</span>
               </div>
             </div>
 
+            <div className="chart-box main-chart">
+              <div className="chart-header">
+                <h3 className="chart-title">Average Bookings ({activeFilter})</h3>
+                <span className="date-range">{analytics.rangeText}</span>
+              </div>
+              <div className="chart-container-large">
+                <Bar 
+                  data={getAverageBookingsChartData()} 
+                  options={petTypeFilter === 'both' ? groupedChartOptions : commonChartOptions} 
+                />
+              </div>
+            </div>
+            
             <div className="sp-biz-bottom-grid">
-              <div className="chart-box"><h4 className="chart-title-sm">Peak Days</h4><div className="chart-container-small"><Bar data={{ labels: analytics.peakDaysLabels, datasets: petTypeFilter === 'both' ? [{ label: 'Dog', data: analytics.peakDaysValuesDog, backgroundColor: '#1e3a8a' }, { label: 'Cat', data: analytics.peakDaysValuesCat, backgroundColor: '#facc15' }] : [{ data: petTypeFilter === 'Dog' ? analytics.peakDaysValuesDog : analytics.peakDaysValuesCat, backgroundColor: '#1e3a8a' }] }} options={petTypeFilter === 'both' ? groupedChartOptions : commonChartOptions} /></div></div>
-              <div className="chart-box"><h4 className="chart-title-sm">Booked Hours</h4><div className="chart-container-small"><Bar data={{ labels: analytics.sortedHourLabels, datasets: petTypeFilter === 'both' ? [{ label: 'Dog', data: analytics.hourValuesDog, backgroundColor: '#1e3a8a' }, { label: 'Cat', data: analytics.hourValuesCat, backgroundColor: '#facc15' }] : [{ data: petTypeFilter === 'Dog' ? analytics.hourValuesDog : analytics.hourValuesCat, backgroundColor: '#1e3a8a' }] }} options={petTypeFilter === 'both' ? groupedChartOptions : commonChartOptions} /></div><p className="chart-insight-text">{analytics.busiestHour} is usually busy</p></div>
+              <div className="chart-box">
+                <h4 className="chart-title-sm">Peak Days</h4>
+                <div className="chart-container-small">
+                  <Bar 
+                    data={getPeakDaysChartData()} 
+                    options={petTypeFilter === 'both' ? groupedChartOptions : commonChartOptions} 
+                  />
+                </div>
+              </div>
+              
+              <div className="chart-box">
+                <h4 className="chart-title-sm">Booked Hours</h4>
+                <div className="chart-container-small">
+                  <Bar 
+                    data={getBookedHoursChartData()} 
+                    options={petTypeFilter === 'both' ? groupedChartOptions : commonChartOptions} 
+                  />
+                </div>
+                <p className="chart-insight-text">{analytics.busiestHour} is usually busy</p>
+              </div>
             </div>
           </main>
         </div>
       </div>
 
-      {/* Report Modal */}
+      {/* Business Report Modal */}
       {showReportModal && (
         <div className="report-modal-overlay" onClick={() => setShowReportModal(false)}>
           <div className="report-modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="report-modal-header">
-              <div className="report-header-title"><FaFileAlt size={20} /><h2>Business Performance Report</h2></div>
-              <button className="modal-close-btn" onClick={() => setShowReportModal(false)}><FaTimes /></button>
-            </div>
-            <div className="report-modal-body">
-              <div className="report-info-section">
-                <div className="report-info-row"><span className="report-label">Report Period:</span><span className="report-value">{analytics.rangeText}</span></div>
-                <div className="report-info-row"><span className="report-label">Report Type:</span><span className="report-value">{activeFilter} Summary</span></div>
+              <div className="report-header-title">
+                <FaFileAlt size={20} />
+                <h2>Business Performance Report</h2>
               </div>
+              <button className="modal-close-btn" onClick={() => setShowReportModal(false)}>
+                <FaTimes />
+              </button>
+            </div>
+
+            <div className="report-modal-body">
+              {/* Report Header Info */}
+              <div className="report-info-section">
+                <div className="report-info-row">
+                  <span className="report-label">Report Period:</span>
+                  <span className="report-value">{analytics.rangeText}</span>
+                </div>
+                <div className="report-info-row">
+                  <span className="report-label">Report Type:</span>
+                  <span className="report-value">
+                    {activeFilter.charAt(0).toUpperCase() + activeFilter.slice(1)} Summary
+                  </span>
+                </div>
+                <div className="report-info-row">
+                  <span className="report-label">Pet Type Filter:</span>
+                  <span className="report-value">
+                    {petTypeFilter === 'both' ? 'All Pets (Dog & Cat)' : petTypeFilter}
+                  </span>
+                </div>
+                <div className="report-info-row">
+                  <span className="report-label">Generated:</span>
+                  <span className="report-value">
+                    {new Date().toLocaleDateString('en-US', { 
+                      month: 'long', 
+                      day: 'numeric', 
+                      year: 'numeric' 
+                    })}
+                  </span>
+                </div>
+              </div>
+
+              {/* Executive Summary */}
               <div className="report-section">
                 <h3 className="report-section-title">Executive Summary</h3>
                 <div className="report-kpi-grid">
-                  <div className="report-kpi-item"><span className="report-kpi-label">Gross Revenue</span><span className="report-kpi-value">₱{Math.round(analytics.revenue)}</span></div>
-                  <div className="report-kpi-item"><span className="report-kpi-label">Total Bookings</span><span className="report-kpi-value">{analytics.validCount}</span></div>
+                  <div className="report-kpi-item">
+                    <span className="report-kpi-label">Gross Revenue</span>
+                    <span className="report-kpi-value">
+                      {analytics.revenue >= 1000 
+                        ? `₱${(analytics.revenue / 1000).toFixed(1)}K` 
+                        : `₱${Math.round(analytics.revenue)}`}
+                    </span>
+                    <div className="report-trend">
+                      {analytics.revTrend.dir === 'up' ? <FaCaretUp /> : 
+                       analytics.revTrend.dir === 'down' ? <FaCaretDown /> : <FaMinus />}
+                      <span className={analytics.revTrend.dir}>
+                        {analytics.revTrend.val}% vs previous period
+                      </span>
+                    </div>
+                  </div>
+                  <div className="report-kpi-item">
+                    <span className="report-kpi-label">Total Bookings</span>
+                    <span className="report-kpi-value">{analytics.validCount}</span>
+                    <div className="report-trend">
+                      {analytics.bookTrend.dir === 'up' ? <FaCaretUp /> : 
+                       analytics.bookTrend.dir === 'down' ? <FaCaretDown /> : <FaMinus />}
+                      <span className={analytics.bookTrend.dir}>
+                        {analytics.bookTrend.val}% vs previous period
+                      </span>
+                    </div>
+                  </div>
+                  <div className="report-kpi-item">
+                    <span className="report-kpi-label">Listing Visitors</span>
+                    <span className="report-kpi-value">{listingVisitors.toLocaleString()}</span>
+                  </div>
+                  <div className="report-kpi-item">
+                    <span className="report-kpi-label">Avg Bookings/Customer</span>
+                    <span className="report-kpi-value">{analytics.avg}</span>
+                  </div>
+                  <div className="report-kpi-item">
+                    <span className="report-kpi-label">Cancellations</span>
+                    <span className="report-kpi-value">{analytics.cancellations}</span>
+                  </div>
                 </div>
               </div>
+
+              {/* Performance Analysis */}
+              <div className="report-section">
+                <h3 className="report-section-title">Performance Analysis</h3>
+                <div className="report-insights">
+                  <div className="insight-item">
+                    <strong>Peak Activity:</strong>
+                    <p>
+                      Your busiest time slot is typically <strong>{analytics.busiestHour}</strong> 
+                      Consider optimizing staffing during this period.
+                    </p>
+                  </div>
+                  <div className="insight-item">
+                    <strong>Revenue Trend:</strong>
+                    <p>
+                      {analytics.revTrend.dir === 'up' 
+                        ? `Revenue has increased by ${analytics.revTrend.val}% compared to the previous ${activeFilter} period. Keep up the good work!`
+                        : analytics.revTrend.dir === 'down'
+                        ? `Revenue has decreased by ${analytics.revTrend.val}% compared to the previous ${activeFilter} period. Consider reviewing your pricing or marketing strategy.`
+                        : 'Revenue has remained stable compared to the previous period.'}
+                    </p>
+                  </div>
+                  <div className="insight-item">
+                    <strong>Booking Trend:</strong>
+                    <p>
+                      {analytics.bookTrend.dir === 'up'
+                        ? `Bookings have increased by ${analytics.bookTrend.val}%, indicating growing demand for your services.`
+                        : analytics.bookTrend.dir === 'down'
+                        ? `Bookings have decreased by ${analytics.bookTrend.val}%. Consider promotional campaigns to boost customer engagement.`
+                        : 'Booking volume has remained consistent with the previous period.'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Service Breakdown */}
+              {analytics.sLabels.length > 0 && (
+                <div className="report-section">
+                  <h3 className="report-section-title">Top Services</h3>
+                  <div className="report-services-list">
+                    {analytics.sLabels.slice(0, 5).map((service, idx) => (
+                      <div key={service} className="service-item">
+                        <div className="service-info">
+                          <span className="service-rank">#{idx + 1}</span>
+                          <span className="service-name">{service}</span>
+                        </div>
+                        <div className="service-stats">
+                          <span className="service-count">{analytics.sValues[idx]} bookings</span>
+                          <span className="service-percentage">
+                            {analytics.totalS > 0 
+                              ? Math.round((analytics.sValues[idx] / analytics.totalS) * 100) 
+                              : 0}%
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Pet Type Distribution (only show when "both" is selected) */}
+              {petTypeFilter === 'both' && (
+                <div className="report-section">
+                  <h3 className="report-section-title">Pet Type Distribution</h3>
+                  <div className="pet-distribution">
+                    <div className="pet-dist-item">
+                      <span className="pet-type">🐕 Dogs</span>
+                      <span className="pet-count">
+                        {analytics.dateValuesDog.reduce((a, b) => a + b, 0)} bookings
+                      </span>
+                    </div>
+                    <div className="pet-dist-item">
+                      <span className="pet-type">🐱 Cats</span>
+                      <span className="pet-count">
+                        {analytics.dateValuesCat.reduce((a, b) => a + b, 0)} bookings
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
+
             <div className="report-modal-footer">
-              <button className="btn-close-report" onClick={() => setShowReportModal(false)}>Close</button>
+              <button className="btn-download-report" disabled>
+                <FaFileAlt />
+                Download Report (Coming Soon)
+              </button>
+              <button className="btn-close-report" onClick={() => setShowReportModal(false)}>
+                Close
+              </button>
             </div>
           </div>
         </div>
       )}
+
       <Footer />
     </div>
   );
