@@ -61,10 +61,6 @@ export default function SPBusinessDashboard() {
           .eq('provider_id', provider.id);
 
         if (bError) throw bError;
-        
-        console.log('Raw Bookings Fetched:', bookings?.length || 0);
-        console.log('All Bookings:', bookings);
-        
         setRawBookings(bookings || []);
 
         const { data: bServices, error: sError } = await supabase
@@ -89,19 +85,15 @@ export default function SPBusinessDashboard() {
           ).data.map(s => s.id));
 
         if (sError) throw sError;
-        console.log('📊 Service Stats Fetched:', bServices?.length || 0);
-        
         setServiceStats(bServices || []);
 
-        const { data: providerHours, error: hError } = await supabase
+        const { data: phours, error: hError } = await supabase
           .from('service_provider_hours')
           .select('start_time, end_time, slot_interval_minutes')
           .eq('provider_id', provider.id);
 
         if (hError) throw hError;
-        console.log('Provider Hours Fetched:', providerHours);
-        
-        setProviderHours(providerHours || []);
+        setProviderHours(phours || []);
 
       } catch (err) {
         console.error("Dashboard Fetch Error:", err);
@@ -115,17 +107,11 @@ export default function SPBusinessDashboard() {
   const analytics = useMemo(() => {
     const now = new Date();
     
-    console.log('Current Date:', now.toISOString());
-    console.log('Active Filter:', activeFilter);
-    console.log('Pet Type Filter:', petTypeFilter);
-    
     const getRange = (filter, isPrevious = false) => {
-      // Handle custom date range
       if (filter === 'custom' && customDateStart && customDateEnd) {
         const start = new Date(customDateStart);
         const end = new Date(customDateEnd);
         end.setHours(23, 59, 59, 999);
-        
         if (isPrevious) {
           const duration = end - start;
           const prevEnd = new Date(start);
@@ -133,11 +119,9 @@ export default function SPBusinessDashboard() {
           const prevStart = new Date(prevEnd - duration);
           return { start: prevStart, end: prevEnd };
         }
-        
         return { start, end };
       }
       
-      // Original logic for weekly, monthly, yearly
       let start = new Date();
       let end = new Date();
       if (filter === 'weekly') {
@@ -153,6 +137,8 @@ export default function SPBusinessDashboard() {
           end = new Date(now.getFullYear(), now.getMonth(), 0); 
         } else { 
           start = new Date(now.getFullYear(), now.getMonth(), 1);
+          // Set end to the last day of the current month
+          end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
         }
       } else {
         if (isPrevious) { 
@@ -167,11 +153,6 @@ export default function SPBusinessDashboard() {
 
     const currentRange = getRange(activeFilter);
     const previousRange = getRange(activeFilter, true);
-    
-    console.log('📅 Current Range:', {
-      start: currentRange.start.toISOString(),
-      end: currentRange.end?.toISOString() || 'now'
-    });
     
     const rangeText = activeFilter === 'custom' && customDateStart && customDateEnd
       ? `${new Date(customDateStart).toLocaleDateString(undefined, { month: 'short', day: '2-digit' })} - ${new Date(customDateEnd).toLocaleDateString(undefined, { month: 'short', day: '2-digit', year: 'numeric' })}`
@@ -196,9 +177,7 @@ export default function SPBusinessDashboard() {
         const diffMs = now - bookingDateTime;
         const diffHours = diffMs / (1000 * 60 * 60);
         return diffHours >= 4;
-      } catch (e) {
-        return false;
-      }
+      } catch (e) { return false; }
     };
 
     const isBookingComplete = (b) => {
@@ -208,37 +187,22 @@ export default function SPBusinessDashboard() {
     };
 
     const filterByRange = (list, range) => {
-      const filtered = list.filter(b => {
+      return list.filter(b => {
         const d = new Date(b.booking_date);
-        const inRange = d >= range.start && d <= (range.end || now);
-        return inRange;
+        return d >= range.start && d <= (range.end || now);
       });
-      return filtered;
     };
 
     const currentBookings = filterByRange(rawBookings, currentRange);
     const previousBookings = filterByRange(rawBookings, previousRange);
-    
-    console.log('Current Period Bookings:', currentBookings.length);
-    console.log('Current Bookings:', currentBookings);
 
     const getValidPets = (bookingsList) => {
       const validPets = [];
       bookingsList.forEach(b => {
-        const isComplete = isBookingComplete(b);
-        
-        if (isComplete && b.booking_pets && Array.isArray(b.booking_pets)) {
+        if (isBookingComplete(b) && b.booking_pets && Array.isArray(b.booking_pets)) {
           b.booking_pets.forEach(pet => {
             if (petTypeFilter === 'both' || pet.pet_type === petTypeFilter) {
-              validPets.push({
-                ...pet,
-                booking_date: b.booking_date,
-                time_slot: b.time_slot,
-                status: b.status,
-                user_id: b.user_id,
-                total_estimated_price: b.total_estimated_price,
-                booking_id: b.id
-              });
+              validPets.push({ ...pet, booking_date: b.booking_date, time_slot: b.time_slot, status: b.status, user_id: b.user_id, total_estimated_price: b.total_estimated_price, booking_id: b.id });
             }
           });
         }
@@ -249,51 +213,15 @@ export default function SPBusinessDashboard() {
     const currentValidPets = getValidPets(currentBookings);
     const previousValidPets = getValidPets(previousBookings);
 
-    console.log('Current Valid Pets:', currentValidPets.length);
-    console.log('Previous Valid Pets:', previousValidPets.length);
-
-    const calculateMetrics = (petsList) => {
+    const calculateMetrics = (petsList, originalBookings) => {
       const uniqueBookingIds = new Set(petsList.map(p => p.booking_id));
-      const uniqueBookings = currentBookings.filter(b => uniqueBookingIds.has(b.id));
+      const uniqueBookings = originalBookings.filter(b => uniqueBookingIds.has(b.id));
       const rev = uniqueBookings.reduce((sum, b) => sum + (Number(b.total_estimated_price) || 0), 0);
-      
-      return { 
-        rev, 
-        count: petsList.length,
-        validPets: petsList 
-      };
+      return { rev, count: petsList.length, validPets: petsList };
     };
 
-    const current = calculateMetrics(currentValidPets);
-    const previous = calculateMetrics(previousValidPets);
-
-    const formatCleanTime = (timeStr) => {
-      if (!timeStr || typeof timeStr !== 'string') return null;
-      
-      const trimmed = timeStr.trim();
-      
-      if (trimmed.toUpperCase().includes('AM') || trimmed.toUpperCase().includes('PM')) {
-        const match = trimmed.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
-        if (match) {
-          return `${match[1]}:${match[2]} ${match[3].toUpperCase()}`;
-        }
-        return null;
-      }
-      
-      const parts = trimmed.split(':');
-      if (parts.length >= 2) {
-        const h = parseInt(parts[0], 10);
-        const m = parts[1].substring(0, 2);
-        
-        if (isNaN(h) || h < 0 || h > 23) return null;
-        
-        const period = h >= 12 ? 'PM' : 'AM';
-        const displayHour = h % 12 || 12;
-        return `${displayHour}:${m} ${period}`;
-      }
-      
-      return null;
-    };
+    const current = calculateMetrics(currentValidPets, currentBookings);
+    const previous = calculateMetrics(previousValidPets, previousBookings);
 
     const getTrend = (curr, prev) => {
       if (prev === 0) return curr > 0 ? { val: 100, dir: 'up' } : { val: 0, dir: 'neutral' };
@@ -301,429 +229,141 @@ export default function SPBusinessDashboard() {
       return { val: Math.abs(Math.round(diff)), dir: diff > 0 ? 'up' : diff < 0 ? 'down' : 'neutral' };
     };
 
-    // CHANGED: Generate labels based on filter type
+    // --- EDITED SECTION: Weekly increments for Monthly Filter ---
     let dateLabels = [];
-    let dateValuesDog = [];
-    let dateValuesCat = [];
-
     if (activeFilter === 'yearly') {
       const year = currentRange.start.getFullYear();
       dateLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].map(m => `${m} ${year}`);
-      dateValuesDog = new Array(12).fill(0);
-      dateValuesCat = new Array(12).fill(0);
-      
-      current.validPets.forEach(pet => {
-        const bDate = new Date(pet.booking_date);
-        const idx = bDate.getMonth();
-        
-        if (pet.pet_type === 'Dog') {
-          dateValuesDog[idx]++;
-        } else if (pet.pet_type === 'Cat') {
-          dateValuesCat[idx]++;
-        }
-      });
     } else if (activeFilter === 'monthly') {
-      // CHANGED: Show weeks of the month instead of days of the week
-      const year = currentRange.start.getFullYear();
-      const month = currentRange.start.getMonth();
-      
-      // Calculate number of weeks in the current month
-      const firstDayOfMonth = new Date(year, month, 1);
-      const lastDayOfMonth = new Date(year, month + 1, 0);
-      
-      // Get the week number for the first and last day
-      const getWeekOfMonth = (date) => {
-        const firstDay = new Date(date.getFullYear(), date.getMonth(), 1);
-        const dayOfMonth = date.getDate();
-        const firstDayOfWeek = firstDay.getDay(); // 0 = Sunday
-        return Math.ceil((dayOfMonth + firstDayOfWeek) / 7);
-      };
-      
-      const weeksInMonth = getWeekOfMonth(lastDayOfMonth);
-      
-      // Create labels for each week
-      dateLabels = [];
-      for (let week = 1; week <= weeksInMonth; week++) {
-        dateLabels.push(`Week ${week}`);
-      }
-      
-      dateValuesDog = new Array(weeksInMonth).fill(0);
-      dateValuesCat = new Array(weeksInMonth).fill(0);
-      
-      current.validPets.forEach(pet => {
-        const bDate = new Date(pet.booking_date);
-        // Only count if the booking is in the current month
-        if (bDate.getMonth() === month && bDate.getFullYear() === year) {
-          const weekOfMonth = getWeekOfMonth(bDate);
-          const idx = weekOfMonth - 1; // Convert to 0-based index
-          
-          if (idx >= 0 && idx < weeksInMonth) {
-            if (pet.pet_type === 'Dog') {
-              dateValuesDog[idx]++;
-            } else if (pet.pet_type === 'Cat') {
-              dateValuesCat[idx]++;
-            }
-          }
-        }
-      });
+      const monthName = currentRange.start.toLocaleString('default', { month: 'short' });
+      const lastDay = new Date(currentRange.start.getFullYear(), currentRange.start.getMonth() + 1, 0).getDate();
+      dateLabels = [
+        `${monthName} 1 - 7`,
+        `${monthName} 8 - 14`,
+        `${monthName} 15 - 21`,
+        `${monthName} 22 - ${lastDay}`
+      ];
     } else {
-      // Weekly filter - show days of the week
       dateLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-      dateValuesDog = new Array(7).fill(0);
-      dateValuesCat = new Array(7).fill(0);
-      
-      current.validPets.forEach(pet => {
-        const bDate = new Date(pet.booking_date);
-        const idx = (bDate.getDay() + 6) % 7; // Convert Sunday=0 to Monday=0
-        
-        if (pet.pet_type === 'Dog') {
-          dateValuesDog[idx]++;
-        } else if (pet.pet_type === 'Cat') {
-          dateValuesCat[idx]++;
-        }
-      });
     }
 
-    // CHANGED: Peak Days chart - also use weeks for monthly filter
-    let peakDaysLabels = [];
-    let peakDaysValuesDog = [];
-    let peakDaysValuesCat = [];
-
-    if (activeFilter === 'monthly') {
-      // Use the same weekly breakdown as the main chart
-      const year = currentRange.start.getFullYear();
-      const month = currentRange.start.getMonth();
-      
-      const getWeekOfMonth = (date) => {
-        const firstDay = new Date(date.getFullYear(), date.getMonth(), 1);
-        const dayOfMonth = date.getDate();
-        const firstDayOfWeek = firstDay.getDay();
-        return Math.ceil((dayOfMonth + firstDayOfWeek) / 7);
-      };
-      
-      const lastDayOfMonth = new Date(year, month + 1, 0);
-      const weeksInMonth = getWeekOfMonth(lastDayOfMonth);
-      
-      peakDaysLabels = [];
-      for (let week = 1; week <= weeksInMonth; week++) {
-        peakDaysLabels.push(`Week ${week}`);
+    let dateValuesDog = new Array(dateLabels.length).fill(0);
+    let dateValuesCat = new Array(dateLabels.length).fill(0);
+    
+    current.validPets.forEach(pet => {
+      const bDate = new Date(pet.booking_date);
+      let idx;
+      if (activeFilter === 'yearly') {
+        idx = bDate.getMonth();
+      } else if (activeFilter === 'monthly') {
+        const day = bDate.getDate();
+        if (day <= 7) idx = 0;
+        else if (day <= 14) idx = 1;
+        else if (day <= 21) idx = 2;
+        else idx = 3;
+      } else {
+        idx = (bDate.getDay() + 6) % 7;
       }
       
-      peakDaysValuesDog = new Array(weeksInMonth).fill(0);
-      peakDaysValuesCat = new Array(weeksInMonth).fill(0);
-      
-      current.validPets.forEach(pet => {
-        const bDate = new Date(pet.booking_date);
-        if (bDate.getMonth() === month && bDate.getFullYear() === year) {
-          const weekOfMonth = getWeekOfMonth(bDate);
-          const idx = weekOfMonth - 1;
-          
-          if (idx >= 0 && idx < weeksInMonth) {
-            if (pet.pet_type === 'Dog') {
-              peakDaysValuesDog[idx]++;
-            } else if (pet.pet_type === 'Cat') {
-              peakDaysValuesCat[idx]++;
-            }
-          }
-        }
-      });
-    } else {
-      // For weekly and yearly, show days of the week
-      peakDaysLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-      peakDaysValuesDog = new Array(7).fill(0);
-      peakDaysValuesCat = new Array(7).fill(0);
-      
-      current.validPets.forEach(pet => {
-        const dayIdx = (new Date(pet.booking_date).getDay() + 6) % 7;
-        if (pet.pet_type === 'Dog') {
-          peakDaysValuesDog[dayIdx]++;
-        } else if (pet.pet_type === 'Cat') {
-          peakDaysValuesCat[dayIdx]++;
-        }
-      });
-    }
-
-    const generateProviderTimeSlots = () => {
-      if (!providerHours || providerHours.length === 0) {
-        console.warn('No provider hours found, showing only booked times');
-        const timeSlotCountsDog = {};
-        const timeSlotCountsCat = {};
-        
-        current.validPets.forEach(pet => {
-          if (pet.time_slot) {
-            const formatted = formatCleanTime(pet.time_slot);
-            if (formatted) {
-              if (pet.pet_type === 'Dog') {
-                timeSlotCountsDog[formatted] = (timeSlotCountsDog[formatted] || 0) + 1;
-              } else if (pet.pet_type === 'Cat') {
-                timeSlotCountsCat[formatted] = (timeSlotCountsCat[formatted] || 0) + 1;
-              }
-            }
-          }
-        });
-        
-        const allLabels = new Set([...Object.keys(timeSlotCountsDog), ...Object.keys(timeSlotCountsCat)]);
-        const labels = Array.from(allLabels).sort((a, b) => {
-          const parseTime = (t) => {
-            const m = t.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
-            if (!m) return 0;
-            let h = parseInt(m[1], 10);
-            const period = m[3].toUpperCase();
-            if (period === 'PM' && h !== 12) h += 12;
-            if (period === 'AM' && h === 12) h = 0;
-            return h * 60 + parseInt(m[2], 10);
-          };
-          return parseTime(a) - parseTime(b);
-        });
-        
-        return { 
-          labels, 
-          valuesDog: labels.map(l => timeSlotCountsDog[l] || 0),
-          valuesCat: labels.map(l => timeSlotCountsCat[l] || 0)
-        };
+      if (dateValuesDog[idx] !== undefined) {
+        if (pet.pet_type === 'Dog') dateValuesDog[idx]++;
+        else if (pet.pet_type === 'Cat') dateValuesCat[idx]++;
       }
+    });
+    // --- END EDITED SECTION ---
 
-      const timeToMinutes = (timeStr) => {
-        const parts = timeStr.split(':');
-        const hours = parseInt(parts[0], 10);
-        const minutes = parseInt(parts[1], 10);
-        return hours * 60 + minutes;
-      };
+    const peakDaysLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    let peakDaysValuesDog = new Array(7).fill(0);
+    let peakDaysValuesCat = new Array(7).fill(0);
+    current.validPets.forEach(pet => {
+      const dayIdx = (new Date(pet.booking_date).getDay() + 6) % 7;
+      if (pet.pet_type === 'Dog') peakDaysValuesDog[dayIdx]++;
+      else if (pet.pet_type === 'Cat') peakDaysValuesCat[dayIdx]++;
+    });
 
-      let earliestMinutes = Infinity;
-      let latestMinutes = 0;
-      let slotInterval = 60;
-
-      providerHours.forEach(ph => {
-        if (ph.start_time) {
-          const startMinutes = timeToMinutes(ph.start_time);
-          if (startMinutes < earliestMinutes) earliestMinutes = startMinutes;
-        }
-        if (ph.end_time) {
-          const endMinutes = timeToMinutes(ph.end_time);
-          if (endMinutes > latestMinutes) latestMinutes = endMinutes;
-        }
-        if (ph.slot_interval_minutes) {
-          slotInterval = ph.slot_interval_minutes;
-        }
-      });
-
-      const allTimeSlots = [];
-      for (let currentMinutes = earliestMinutes; currentMinutes < latestMinutes; currentMinutes += slotInterval) {
-        const hours = Math.floor(currentMinutes / 60);
-        const minutes = currentMinutes % 60;
-        
-        const period = hours >= 12 ? 'PM' : 'AM';
-        const displayHour = hours % 12 || 12;
-        const displayMin = minutes.toString().padStart(2, '0');
-        allTimeSlots.push(`${displayHour}:${displayMin} ${period}`);
+    const formatCleanTime = (timeStr) => {
+      if (!timeStr || typeof timeStr !== 'string') return null;
+      const parts = timeStr.trim().split(':');
+      if (parts.length >= 2) {
+        const h = parseInt(parts[0], 10);
+        const m = parts[1].substring(0, 2);
+        return `${h % 12 || 12}:${m} ${h >= 12 ? 'PM' : 'AM'}`;
       }
-
-      const timeSlotCountsDog = {};
-      const timeSlotCountsCat = {};
-      allTimeSlots.forEach(slot => {
-        timeSlotCountsDog[slot] = 0;
-        timeSlotCountsCat[slot] = 0;
-      });
-
-      current.validPets.forEach(pet => {
-        if (pet.time_slot) {
-          const formatted = formatCleanTime(pet.time_slot);
-          if (formatted) {
-            if (timeSlotCountsDog.hasOwnProperty(formatted)) {
-              if (pet.pet_type === 'Dog') {
-                timeSlotCountsDog[formatted]++;
-              } else if (pet.pet_type === 'Cat') {
-                timeSlotCountsCat[formatted]++;
-              }
-            } else {
-              const bookingMinutes = (() => {
-                const m = formatted.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
-                if (!m) return null;
-                let h = parseInt(m[1], 10);
-                const min = parseInt(m[2], 10);
-                const period = m[3].toUpperCase();
-                if (period === 'PM' && h !== 12) h += 12;
-                if (period === 'AM' && h === 12) h = 0;
-                return h * 60 + min;
-              })();
-
-              if (bookingMinutes !== null) {
-                let closestSlot = null;
-                let minDiff = Infinity;
-                allTimeSlots.forEach(slot => {
-                  const m = slot.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
-                  if (m) {
-                    let h = parseInt(m[1], 10);
-                    const min = parseInt(m[2], 10);
-                    const period = m[3].toUpperCase();
-                    if (period === 'PM' && h !== 12) h += 12;
-                    if (period === 'AM' && h === 12) h = 0;
-                    const slotMinutes = h * 60 + min;
-                    const diff = Math.abs(slotMinutes - bookingMinutes);
-                    if (diff < minDiff) {
-                      minDiff = diff;
-                      closestSlot = slot;
-                    }
-                  }
-                });
-                if (closestSlot) {
-                  if (pet.pet_type === 'Dog') {
-                    timeSlotCountsDog[closestSlot]++;
-                  } else if (pet.pet_type === 'Cat') {
-                    timeSlotCountsCat[closestSlot]++;
-                  }
-                }
-              }
-            }
-          }
-        }
-      });
-
-      return {
-        labels: allTimeSlots,
-        valuesDog: allTimeSlots.map(slot => timeSlotCountsDog[slot]),
-        valuesCat: allTimeSlots.map(slot => timeSlotCountsCat[slot])
-      };
+      return null;
     };
 
-    const { labels: sortedHourLabels, valuesDog: hourValuesDog, valuesCat: hourValuesCat } = generateProviderTimeSlots();
+    const generateProviderTimeSlots = () => {
+      if (!providerHours || providerHours.length === 0) return { labels: [], valuesDog: [], valuesCat: [] };
+      const timeToMinutes = (t) => {
+        const [h, m] = t.split(':').map(Number);
+        return h * 60 + m;
+      };
+      let start = Math.min(...providerHours.map(ph => timeToMinutes(ph.start_time)));
+      let end = Math.max(...providerHours.map(ph => timeToMinutes(ph.end_time)));
+      let step = providerHours[0].slot_interval_minutes || 60;
+      const labels = [];
+      for (let i = start; i < end; i += step) {
+        const h = Math.floor(i / 60);
+        labels.push(`${h % 12 || 12}:${(i % 60).toString().padStart(2, '0')} ${h >= 12 ? 'PM' : 'AM'}`);
+      }
+      const vDog = new Array(labels.length).fill(0);
+      const vCat = new Array(labels.length).fill(0);
+      current.validPets.forEach(pet => {
+        const f = formatCleanTime(pet.time_slot);
+        const idx = labels.indexOf(f);
+        if (idx !== -1) {
+          if (pet.pet_type === 'Dog') vDog[idx]++;
+          else vCat[idx]++;
+        }
+      });
+      return { labels, valuesDog: vDog, valuesCat: vCat };
+    };
+
+    const timeSlots = generateProviderTimeSlots();
 
     const filteredServices = serviceStats.filter(s => {
       const b = s.booking_pets?.bookings;
       if (!b) return false;
-      
-      const isComplete = ['completed', 'to_rate', 'rated'].includes(b.status) || 
-                        (['paid', 'confirmed'].includes(b.status) && isFourHoursPast(b.booking_date, b.time_slot));
-      
-      const inDateRange = new Date(b.booking_date) >= currentRange.start;
-      
-      let matchesPetType = true;
-      if (petTypeFilter !== 'both') {
-        matchesPetType = s.booking_pets?.pet_type === petTypeFilter;
-      }
-      
-      return isComplete && inDateRange && matchesPetType;
+      const isComplete = isBookingComplete(b);
+      const inRange = new Date(b.booking_date) >= currentRange.start;
+      const matchesPet = petTypeFilter === 'both' || s.booking_pets?.pet_type === petTypeFilter;
+      return isComplete && inRange && matchesPet;
     });
-    
-    console.log('🔧 Filtered Services:', filteredServices.length);
-    
+
     const serviceNameMap = {};
     filteredServices.forEach(s => { 
-      const serviceName = s.service_name || 'Other';
-      serviceNameMap[serviceName] = (serviceNameMap[serviceName] || 0) + 1; 
+      const name = s.service_name || 'Other';
+      serviceNameMap[name] = (serviceNameMap[name] || 0) + 1; 
     });
     
     const sLabels = Object.keys(serviceNameMap);
     const sValues = Object.values(serviceNameMap);
-    const totalS = sValues.reduce((a, b) => a + b, 0);
-
-    const getBusiestHour = () => {
-      if (sortedHourLabels.length === 0) return "No data";
-      
-      const combinedValues = sortedHourLabels.map((label, idx) => ({
-        label,
-        total: hourValuesDog[idx] + hourValuesCat[idx]
-      }));
-      
-      const maxBooking = combinedValues.reduce((max, curr) => 
-        curr.total > max.total ? curr : max, { label: "No data", total: 0 });
-      
-      return maxBooking.label;
-    };
-
-    const uniqueCancelledBookings = new Set(
-      currentBookings
-        .filter(b => b.status === 'cancelled')
-        .map(b => b.id)
-    );
-
-    const uniqueCustomers = new Set(current.validPets.map(p => p.user_id));
 
     return { 
       revenue: current.rev, 
       validCount: current.count, 
-      cancellations: uniqueCancelledBookings.size, 
-      avg: uniqueCustomers.size > 0 
-        ? Math.round(current.count / uniqueCustomers.size) 
-        : 0, 
+      cancellations: new Set(currentBookings.filter(b => b.status === 'cancelled').map(b => b.id)).size, 
+      avg: new Set(current.validPets.map(p => p.user_id)).size > 0 ? Math.round(current.count / new Set(current.validPets.map(p => p.user_id)).size) : 0, 
       revTrend: getTrend(current.rev, previous.rev), 
       bookTrend: getTrend(current.count, previous.count),
-      dateLabels, 
-      dateValuesDog, 
-      dateValuesCat,
-      peakDaysLabels, 
-      peakDaysValuesDog, 
-      peakDaysValuesCat,
-      sortedHourLabels, 
-      hourValuesDog, 
-      hourValuesCat,
-      sLabels, 
-      sValues, 
-      totalS, 
-      rangeText,
-      busiestHour: getBusiestHour()
+      dateLabels, dateValuesDog, dateValuesCat,
+      peakDaysLabels, peakDaysValuesDog, peakDaysValuesCat,
+      sortedHourLabels: timeSlots.labels, hourValuesDog: timeSlots.valuesDog, hourValuesCat: timeSlots.valuesCat,
+      sLabels, sValues, totalS: sValues.reduce((a, b) => a + b, 0),
+      rangeText, busiestHour: timeSlots.labels[timeSlots.valuesDog.map((v, i) => v + timeSlots.valuesCat[i]).indexOf(Math.max(...timeSlots.valuesDog.map((v, i) => v + timeSlots.valuesCat[i])))] || "No data"
     };
   }, [rawBookings, serviceStats, activeFilter, providerHours, petTypeFilter, customDateStart, customDateEnd]);
 
   const groupedChartOptions = {
-    responsive: true, 
-    maintainAspectRatio: false,
-    layout: {
-      padding: {
-        top: 0,
-        bottom: 0,
-        left: 0,
-        right: 0
-      }
-    },
-    plugins: { 
-      legend: { 
-        display: petTypeFilter === 'both',
-        position: 'top',
-        labels: {
-          boxWidth: 10,
-          padding: 4,
-          font: { size: 8 }
-        }
-      } 
-    },
-    scales: { 
-      y: { 
-        beginAtZero: true, 
-        ticks: { stepSize: 1, font: { size: 8 }, padding: 2 },
-        grid: { display: true, drawBorder: true }
-      }, 
-      x: { 
-        ticks: { font: { size: 8 }, padding: 2 },
-        grid: { display: false }
-      } 
-    }
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: petTypeFilter === 'both', position: 'top', labels: { boxWidth: 10, font: { size: 8 } } } },
+    scales: { y: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 8 } } }, x: { ticks: { font: { size: 8 } } } }
   };
 
   const commonChartOptions = {
-    responsive: true, 
-    maintainAspectRatio: false,
-    layout: {
-      padding: {
-        top: 0,
-        bottom: 0,
-        left: 0,
-        right: 0
-      }
-    },
+    responsive: true, maintainAspectRatio: false,
     plugins: { legend: { display: false } },
-    scales: { 
-      y: { 
-        beginAtZero: true, 
-        ticks: { stepSize: 1, font: { size: 8 }, padding: 2 },
-        grid: { display: true, drawBorder: true }
-      }, 
-      x: { 
-        ticks: { font: { size: 8 }, padding: 2 },
-        grid: { display: false }
-      } 
-    }
+    scales: { y: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 8 } } }, x: { ticks: { font: { size: 8 } } } }
   };
 
   const TrendIndicator = ({ trend }) => (
@@ -733,127 +373,18 @@ export default function SPBusinessDashboard() {
   );
 
   const getAverageBookingsChartData = () => {
+    const base = { labels: analytics.dateLabels };
     if (petTypeFilter === 'both') {
-      return {
-        labels: analytics.dateLabels,
-        datasets: [
-          {
-            label: 'Dog',
-            data: analytics.dateValuesDog,
-            backgroundColor: '#1e3a8a',
-            borderRadius: 4,
-            barThickness: activeFilter === 'yearly' ? 8 : 25
-          },
-          {
-            label: 'Cat',
-            data: analytics.dateValuesCat,
-            backgroundColor: '#facc15',
-            borderRadius: 4,
-            barThickness: activeFilter === 'yearly' ? 8 : 25
-          }
-        ]
-      };
-    } else if (petTypeFilter === 'Dog') {
-      return {
-        labels: analytics.dateLabels,
-        datasets: [{
-          data: analytics.dateValuesDog,
-          backgroundColor: '#1e3a8a',
-          borderRadius: 4,
-          barThickness: activeFilter === 'yearly' ? 12 : 35
-        }]
-      };
-    } else {
-      return {
-        labels: analytics.dateLabels,
-        datasets: [{
-          data: analytics.dateValuesCat,
-          backgroundColor: '#facc15',
-          borderRadius: 4,
-          barThickness: activeFilter === 'yearly' ? 12 : 35
-        }]
-      };
+      return { ...base, datasets: [
+        { label: 'Dog', data: analytics.dateValuesDog, backgroundColor: '#1e3a8a', borderRadius: 4, barThickness: activeFilter === 'yearly' ? 8 : 25 },
+        { label: 'Cat', data: analytics.dateValuesCat, backgroundColor: '#facc15', borderRadius: 4, barThickness: activeFilter === 'yearly' ? 8 : 25 }
+      ]};
     }
-  };
-
-  const getPeakDaysChartData = () => {
-    if (petTypeFilter === 'both') {
-      return {
-        labels: analytics.peakDaysLabels,
-        datasets: [
-          {
-            label: 'Dog',
-            data: analytics.peakDaysValuesDog,
-            backgroundColor: '#1e3a8a',
-            borderRadius: 4
-          },
-          {
-            label: 'Cat',
-            data: analytics.peakDaysValuesCat,
-            backgroundColor: '#facc15',
-            borderRadius: 4
-          }
-        ]
-      };
-    } else if (petTypeFilter === 'Dog') {
-      return {
-        labels: analytics.peakDaysLabels,
-        datasets: [{
-          data: analytics.peakDaysValuesDog,
-          backgroundColor: '#1e3a8a',
-          borderRadius: 4
-        }]
-      };
-    } else {
-      return {
-        labels: analytics.peakDaysLabels,
-        datasets: [{
-          data: analytics.peakDaysValuesCat,
-          backgroundColor: '#facc15',
-          borderRadius: 4
-        }]
-      };
-    }
-  };
-
-  const getBookedHoursChartData = () => {
-    if (petTypeFilter === 'both') {
-      return {
-        labels: analytics.sortedHourLabels,
-        datasets: [
-          {
-            label: 'Dog',
-            data: analytics.hourValuesDog,
-            backgroundColor: '#1e3a8a',
-            borderRadius: 4
-          },
-          {
-            label: 'Cat',
-            data: analytics.hourValuesCat,
-            backgroundColor: '#facc15',
-            borderRadius: 4
-          }
-        ]
-      };
-    } else if (petTypeFilter === 'Dog') {
-      return {
-        labels: analytics.sortedHourLabels,
-        datasets: [{
-          data: analytics.hourValuesDog,
-          backgroundColor: '#1e3a8a',
-          borderRadius: 4
-        }]
-      };
-    } else {
-      return {
-        labels: analytics.sortedHourLabels,
-        datasets: [{
-          data: analytics.hourValuesCat,
-          backgroundColor: '#facc15',
-          borderRadius: 4
-        }]
-      };
-    }
+    return { ...base, datasets: [{
+      data: petTypeFilter === 'Dog' ? analytics.dateValuesDog : analytics.dateValuesCat,
+      backgroundColor: petTypeFilter === 'Dog' ? '#1e3a8a' : '#facc15',
+      borderRadius: 4, barThickness: activeFilter === 'yearly' ? 12 : 35
+    }]};
   };
 
   if (loading) return <div className="loading-state">Loading Dashboard...</div>;
@@ -861,7 +392,6 @@ export default function SPBusinessDashboard() {
   return (
     <div className="sp-biz-page-wrapper">
       <LoggedInNavbar />
-      
       <div className="sp-biz-main-layout">
         <div className="sp-biz-container">
           <aside className="sp-biz-sidebar">
@@ -869,7 +399,6 @@ export default function SPBusinessDashboard() {
               <button className={`sidebar-tab-btn ${activeTab === 'business_performance' ? 'active' : ''}`} onClick={() => navigate('/service/business-dashboard')}>Business Performance</button>
               <button className={`sidebar-tab-btn ${activeTab === 'customer_insights' ? 'active' : ''}`} onClick={() => navigate('/service/customer-insight')}>Customer Insights</button>
             </div>
-            
             <div className="sidebar-section">
               <h3>Timeframe</h3>
               <select className="filter-dropdown" value={activeFilter} onChange={(e) => setActiveFilter(e.target.value)}>
@@ -878,30 +407,15 @@ export default function SPBusinessDashboard() {
                 <option value="yearly">Yearly</option>
                 <option value="custom">Custom Range</option>
               </select>
-              
               {activeFilter === 'custom' && (
                 <div className="custom-date-range">
                   <label className="date-label">From:</label>
-                  <input 
-                    type="date" 
-                    className="date-input" 
-                    value={customDateStart}
-                    onChange={(e) => setCustomDateStart(e.target.value)}
-                    max={customDateEnd || new Date().toISOString().split('T')[0]}
-                  />
+                  <input type="date" className="date-input" value={customDateStart} onChange={(e) => setCustomDateStart(e.target.value)} />
                   <label className="date-label">To:</label>
-                  <input 
-                    type="date" 
-                    className="date-input" 
-                    value={customDateEnd}
-                    onChange={(e) => setCustomDateEnd(e.target.value)}
-                    min={customDateStart}
-                    max={new Date().toISOString().split('T')[0]}
-                  />
+                  <input type="date" className="date-input" value={customDateEnd} onChange={(e) => setCustomDateEnd(e.target.value)} />
                 </div>
               )}
             </div>
-
             <div className="sidebar-section">
               <h3>Pet Type</h3>
               <select className="filter-dropdown" value={petTypeFilter} onChange={(e) => setPetTypeFilter(e.target.value)}>
@@ -910,26 +424,11 @@ export default function SPBusinessDashboard() {
                 <option value="Cat">Cat</option>
               </select>
             </div>
-            
             <div className="sidebar-section doughnut-card">
               <h4 className="chart-title-sm">Booked Services</h4>
               <div className="doughnut-container">
                 <div className="doughnut-wrapper">
-                  <Doughnut 
-                    data={{ 
-                      labels: analytics.sLabels, 
-                      datasets: [{ 
-                        data: analytics.sValues, 
-                        backgroundColor: ['#1e3a8a', '#3b82f6', '#93c5fd', '#60a5fa', '#2563eb'], 
-                        borderWidth: 0 
-                      }] 
-                    }} 
-                    options={{ 
-                      maintainAspectRatio: false, 
-                      plugins: { legend: { display: false } }, 
-                      cutout: '75%' 
-                    }} 
-                  />
+                  <Doughnut data={{ labels: analytics.sLabels, datasets: [{ data: analytics.sValues, backgroundColor: ['#1e3a8a', '#3b82f6', '#93c5fd', '#60a5fa', '#2563eb'], borderWidth: 0 }] }} options={{ maintainAspectRatio: false, plugins: { legend: { display: false } }, cutout: '75%' }} />
                 </div>
                 <div className="doughnut-labels">
                   {analytics.sLabels.slice(0, 3).map((l, i) => (
@@ -942,231 +441,58 @@ export default function SPBusinessDashboard() {
 
           <main className="sp-biz-main-content">
             <div className="report-button-container">
-              <button className="generate-report-btn" onClick={() => setShowReportModal(true)}>
-                <FaFileAlt size={16} />
-                <span>Generate Business Report</span>
-              </button>
+              <button className="generate-report-btn" onClick={() => setShowReportModal(true)}><FaFileAlt size={16} /><span>Generate Business Report</span></button>
             </div>
-
             <div className="sp-biz-kpi-grid">
-              <div className="kpi-card">
-                <span className="kpi-label">Gross Revenue</span>
-                <div className="kpi-row">
-                  <span className="kpi-value">{analytics.revenue >= 1000 ? `₱${(analytics.revenue / 1000).toFixed(1)}K` : `₱${Math.round(analytics.revenue)}`}</span>
-                  <TrendIndicator trend={analytics.revTrend} />
-                </div>
-              </div>
-              <div className="kpi-card">
-                <span className="kpi-label">Total Bookings</span>
-                <div className="kpi-row">
-                  <span className="kpi-value">{analytics.validCount}</span>
-                  <TrendIndicator trend={analytics.bookTrend} />
-                </div>
-              </div>
-              <div className="kpi-card">
-                <span className="kpi-label">Listing Visitors</span>
-                <span className="kpi-value">{listingVisitors.toLocaleString()}</span>
-              </div>
-              <div className="kpi-card">
-                <span className="kpi-label">Avg/Customer</span>
-                <span className="kpi-value">{analytics.avg}</span>
-              </div>
-              <div className="kpi-card">
-                <span className="kpi-label">Cancellations</span>
-                <span className="kpi-value">{analytics.cancellations.toString().padStart(2, '0')}</span>
-              </div>
+              <div className="kpi-card"><span className="kpi-label">Gross Revenue</span><div className="kpi-row"><span className="kpi-value">₱{Math.round(analytics.revenue)}</span><TrendIndicator trend={analytics.revTrend} /></div></div>
+              <div className="kpi-card"><span className="kpi-label">Total Bookings</span><div className="kpi-row"><span className="kpi-value">{analytics.validCount}</span><TrendIndicator trend={analytics.bookTrend} /></div></div>
+              <div className="kpi-card"><span className="kpi-label">Listing Visitors</span><span className="kpi-value">{listingVisitors.toLocaleString()}</span></div>
+              <div className="kpi-card"><span className="kpi-label">Avg/Customer</span><span className="kpi-value">{analytics.avg}</span></div>
+              <div className="kpi-card"><span className="kpi-label">Cancellations</span><span className="kpi-value">{analytics.cancellations}</span></div>
             </div>
 
             <div className="chart-box main-chart">
-              <div className="chart-header">
-                <h3 className="chart-title">Average Bookings ({activeFilter})</h3>
-                <span className="date-range">{analytics.rangeText}</span>
-              </div>
+              <div className="chart-header"><h3 className="chart-title">Average Bookings ({activeFilter})</h3><span className="date-range">{analytics.rangeText}</span></div>
               <div className="chart-container-large">
-                <Bar 
-                  data={getAverageBookingsChartData()} 
-                  options={petTypeFilter === 'both' ? groupedChartOptions : commonChartOptions} 
-                />
+                <Bar data={getAverageBookingsChartData()} options={petTypeFilter === 'both' ? groupedChartOptions : commonChartOptions} />
               </div>
             </div>
-            
+
             <div className="sp-biz-bottom-grid">
-              <div className="chart-box">
-                <h4 className="chart-title-sm">Peak {activeFilter === 'monthly' ? 'Weeks' : 'Days'}</h4>
-                <div className="chart-container-small">
-                  <Bar 
-                    data={getPeakDaysChartData()} 
-                    options={petTypeFilter === 'both' ? groupedChartOptions : commonChartOptions} 
-                  />
-                </div>
-              </div>
-              <div className="chart-box">
-                <h4 className="chart-title-sm">Booked Hours</h4>
-                <div className="chart-container-small">
-                  <Bar 
-                    data={getBookedHoursChartData()} 
-                    options={petTypeFilter === 'both' ? groupedChartOptions : commonChartOptions} 
-                  />
-                </div>
-                <p className="chart-insight-text">{analytics.busiestHour} is usually busy</p>
-              </div>
+              <div className="chart-box"><h4 className="chart-title-sm">Peak Days</h4><div className="chart-container-small"><Bar data={{ labels: analytics.peakDaysLabels, datasets: petTypeFilter === 'both' ? [{ label: 'Dog', data: analytics.peakDaysValuesDog, backgroundColor: '#1e3a8a' }, { label: 'Cat', data: analytics.peakDaysValuesCat, backgroundColor: '#facc15' }] : [{ data: petTypeFilter === 'Dog' ? analytics.peakDaysValuesDog : analytics.peakDaysValuesCat, backgroundColor: '#1e3a8a' }] }} options={petTypeFilter === 'both' ? groupedChartOptions : commonChartOptions} /></div></div>
+              <div className="chart-box"><h4 className="chart-title-sm">Booked Hours</h4><div className="chart-container-small"><Bar data={{ labels: analytics.sortedHourLabels, datasets: petTypeFilter === 'both' ? [{ label: 'Dog', data: analytics.hourValuesDog, backgroundColor: '#1e3a8a' }, { label: 'Cat', data: analytics.hourValuesCat, backgroundColor: '#facc15' }] : [{ data: petTypeFilter === 'Dog' ? analytics.hourValuesDog : analytics.hourValuesCat, backgroundColor: '#1e3a8a' }] }} options={petTypeFilter === 'both' ? groupedChartOptions : commonChartOptions} /></div><p className="chart-insight-text">{analytics.busiestHour} is usually busy</p></div>
             </div>
           </main>
         </div>
       </div>
 
-      {/* Business Report Modal - Keeping same as before */}
+      {/* Report Modal */}
       {showReportModal && (
         <div className="report-modal-overlay" onClick={() => setShowReportModal(false)}>
           <div className="report-modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="report-modal-header">
-              <div className="report-header-title">
-                <FaFileAlt size={20} />
-                <h2>Business Performance Report</h2>
-              </div>
-              <button className="modal-close-btn" onClick={() => setShowReportModal(false)}>
-                <FaTimes />
-              </button>
+              <div className="report-header-title"><FaFileAlt size={20} /><h2>Business Performance Report</h2></div>
+              <button className="modal-close-btn" onClick={() => setShowReportModal(false)}><FaTimes /></button>
             </div>
-
             <div className="report-modal-body">
               <div className="report-info-section">
-                <div className="report-info-row">
-                  <span className="report-label">Report Period:</span>
-                  <span className="report-value">{analytics.rangeText}</span>
-                </div>
-                <div className="report-info-row">
-                  <span className="report-label">Report Type:</span>
-                  <span className="report-value">{activeFilter.charAt(0).toUpperCase() + activeFilter.slice(1)} Summary</span>
-                </div>
-                <div className="report-info-row">
-                  <span className="report-label">Pet Type Filter:</span>
-                  <span className="report-value">{petTypeFilter === 'both' ? 'All Pets (Dog & Cat)' : petTypeFilter}</span>
-                </div>
-                <div className="report-info-row">
-                  <span className="report-label">Generated:</span>
-                  <span className="report-value">{new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</span>
-                </div>
+                <div className="report-info-row"><span className="report-label">Report Period:</span><span className="report-value">{analytics.rangeText}</span></div>
+                <div className="report-info-row"><span className="report-label">Report Type:</span><span className="report-value">{activeFilter} Summary</span></div>
               </div>
-
               <div className="report-section">
                 <h3 className="report-section-title">Executive Summary</h3>
                 <div className="report-kpi-grid">
-                  <div className="report-kpi-item">
-                    <span className="report-kpi-label">Gross Revenue</span>
-                    <span className="report-kpi-value">
-                      {analytics.revenue >= 1000 ? `₱${(analytics.revenue / 1000).toFixed(1)}K` : `₱${Math.round(analytics.revenue)}`}
-                    </span>
-                    <div className="report-trend">
-                      {analytics.revTrend.dir === 'up' ? <FaCaretUp /> : analytics.revTrend.dir === 'down' ? <FaCaretDown /> : <FaMinus />}
-                      <span className={analytics.revTrend.dir}>{analytics.revTrend.val}% vs previous period</span>
-                    </div>
-                  </div>
-                  <div className="report-kpi-item">
-                    <span className="report-kpi-label">Total Bookings</span>
-                    <span className="report-kpi-value">{analytics.validCount}</span>
-                    <div className="report-trend">
-                      {analytics.bookTrend.dir === 'up' ? <FaCaretUp /> : analytics.bookTrend.dir === 'down' ? <FaCaretDown /> : <FaMinus />}
-                      <span className={analytics.bookTrend.dir}>{analytics.bookTrend.val}% vs previous period</span>
-                    </div>
-                  </div>
-                  <div className="report-kpi-item">
-                    <span className="report-kpi-label">Listing Visitors</span>
-                    <span className="report-kpi-value">{listingVisitors.toLocaleString()}</span>
-                  </div>
-                  <div className="report-kpi-item">
-                    <span className="report-kpi-label">Avg Bookings/Customer</span>
-                    <span className="report-kpi-value">{analytics.avg}</span>
-                  </div>
-                  <div className="report-kpi-item">
-                    <span className="report-kpi-label">Cancellations</span>
-                    <span className="report-kpi-value">{analytics.cancellations}</span>
-                  </div>
+                  <div className="report-kpi-item"><span className="report-kpi-label">Gross Revenue</span><span className="report-kpi-value">₱{Math.round(analytics.revenue)}</span></div>
+                  <div className="report-kpi-item"><span className="report-kpi-label">Total Bookings</span><span className="report-kpi-value">{analytics.validCount}</span></div>
                 </div>
               </div>
-
-              <div className="report-section">
-                <h3 className="report-section-title">Performance Analysis</h3>
-                <div className="report-insights">
-                  <div className="insight-item">
-                    <strong>Peak Activity:</strong>
-                    <p>Your busiest time slot is typically <strong>{analytics.busiestHour}</strong>. Consider optimizing staffing during this period.</p>
-                  </div>
-                  <div className="insight-item">
-                    <strong>Revenue Trend:</strong>
-                    <p>
-                      {analytics.revTrend.dir === 'up' 
-                        ? `Revenue has increased by ${analytics.revTrend.val}% compared to the previous ${activeFilter} period. Keep up the good work!`
-                        : analytics.revTrend.dir === 'down'
-                        ? `Revenue has decreased by ${analytics.revTrend.val}% compared to the previous ${activeFilter} period. Consider reviewing your pricing or marketing strategy.`
-                        : 'Revenue has remained stable compared to the previous period.'}
-                    </p>
-                  </div>
-                  <div className="insight-item">
-                    <strong>Booking Trend:</strong>
-                    <p>
-                      {analytics.bookTrend.dir === 'up'
-                        ? `Bookings have increased by ${analytics.bookTrend.val}%, indicating growing demand for your services.`
-                        : analytics.bookTrend.dir === 'down'
-                        ? `Bookings have decreased by ${analytics.bookTrend.val}%. Consider promotional campaigns to boost customer engagement.`
-                        : 'Booking volume has remained consistent with the previous period.'}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {analytics.sLabels.length > 0 && (
-                <div className="report-section">
-                  <h3 className="report-section-title">Top Services</h3>
-                  <div className="report-services-list">
-                    {analytics.sLabels.slice(0, 5).map((service, idx) => (
-                      <div key={service} className="service-item">
-                        <div className="service-info">
-                          <span className="service-rank">#{idx + 1}</span>
-                          <span className="service-name">{service}</span>
-                        </div>
-                        <div className="service-stats">
-                          <span className="service-count">{analytics.sValues[idx]} bookings</span>
-                          <span className="service-percentage">
-                            {analytics.totalS > 0 ? Math.round((analytics.sValues[idx] / analytics.totalS) * 100) : 0}%
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {petTypeFilter === 'both' && (
-                <div className="report-section">
-                  <h3 className="report-section-title">Pet Type Distribution</h3>
-                  <div className="pet-distribution">
-                    <div className="pet-dist-item">
-                      <span className="pet-type">Dogs</span>
-                      <span className="pet-count">{analytics.dateValuesDog.reduce((a, b) => a + b, 0)} bookings</span>
-                    </div>
-                    <div className="pet-dist-item">
-                      <span className="pet-type">Cats</span>
-                      <span className="pet-count">{analytics.dateValuesCat.reduce((a, b) => a + b, 0)} bookings</span>
-                    </div>
-                  </div>
-                </div>
-              )}
             </div>
-
             <div className="report-modal-footer">
-              <button className="btn-download-report" disabled>
-                <FaFileAlt />
-                Download Report (Coming Soon)
-              </button>
-              <button className="btn-close-report" onClick={() => setShowReportModal(false)}>
-                Close
-              </button>
+              <button className="btn-close-report" onClick={() => setShowReportModal(false)}>Close</button>
             </div>
           </div>
         </div>
       )}
-
       <Footer />
     </div>
   );
