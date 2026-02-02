@@ -124,10 +124,9 @@ export default function SPBusinessDashboard() {
       if (filter === 'custom' && customDateStart && customDateEnd) {
         const start = new Date(customDateStart);
         const end = new Date(customDateEnd);
-        end.setHours(23, 59, 59, 999); // Set to end of day
+        end.setHours(23, 59, 59, 999);
         
         if (isPrevious) {
-          // For trend comparison, get the same duration before the custom range
           const duration = end - start;
           const prevEnd = new Date(start);
           prevEnd.setDate(prevEnd.getDate() - 1);
@@ -223,16 +222,13 @@ export default function SPBusinessDashboard() {
     console.log('Current Period Bookings:', currentBookings.length);
     console.log('Current Bookings:', currentBookings);
 
-    // FIXED: Only use isBookingComplete to determine validity (matching SPDashboard)
     const getValidPets = (bookingsList) => {
       const validPets = [];
       bookingsList.forEach(b => {
         const isComplete = isBookingComplete(b);
         
-        // Only count bookings that are actually complete
         if (isComplete && b.booking_pets && Array.isArray(b.booking_pets)) {
           b.booking_pets.forEach(pet => {
-            // Apply pet type filter at the PET level
             if (petTypeFilter === 'both' || pet.pet_type === petTypeFilter) {
               validPets.push({
                 ...pet,
@@ -256,16 +252,14 @@ export default function SPBusinessDashboard() {
     console.log('Current Valid Pets:', currentValidPets.length);
     console.log('Previous Valid Pets:', previousValidPets.length);
 
-    // Calculate metrics based on PETS, not bookings
     const calculateMetrics = (petsList) => {
-      // Revenue is still at booking level, but we need unique bookings
       const uniqueBookingIds = new Set(petsList.map(p => p.booking_id));
       const uniqueBookings = currentBookings.filter(b => uniqueBookingIds.has(b.id));
       const rev = uniqueBookings.reduce((sum, b) => sum + (Number(b.total_estimated_price) || 0), 0);
       
       return { 
         rev, 
-        count: petsList.length, // Count individual pets
+        count: petsList.length,
         validPets: petsList 
       };
     };
@@ -307,43 +301,147 @@ export default function SPBusinessDashboard() {
       return { val: Math.abs(Math.round(diff)), dir: diff > 0 ? 'up' : diff < 0 ? 'down' : 'neutral' };
     };
 
+    // CHANGED: Generate labels based on filter type
     let dateLabels = [];
+    let dateValuesDog = [];
+    let dateValuesCat = [];
+
     if (activeFilter === 'yearly') {
       const year = currentRange.start.getFullYear();
       dateLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].map(m => `${m} ${year}`);
-    } else {
-      dateLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    }
-
-    // FIXED: Count pets by type for charts
-    let dateValuesDog = new Array(dateLabels.length).fill(0);
-    let dateValuesCat = new Array(dateLabels.length).fill(0);
-    
-    current.validPets.forEach(pet => {
-      const bDate = new Date(pet.booking_date);
-      const idx = activeFilter === 'yearly' ? bDate.getMonth() : (bDate.getDay() + 6) % 7;
+      dateValuesDog = new Array(12).fill(0);
+      dateValuesCat = new Array(12).fill(0);
       
-      if (dateValuesDog[idx] !== undefined && dateValuesCat[idx] !== undefined) {
+      current.validPets.forEach(pet => {
+        const bDate = new Date(pet.booking_date);
+        const idx = bDate.getMonth();
+        
         if (pet.pet_type === 'Dog') {
           dateValuesDog[idx]++;
         } else if (pet.pet_type === 'Cat') {
           dateValuesCat[idx]++;
         }
+      });
+    } else if (activeFilter === 'monthly') {
+      // CHANGED: Show weeks of the month instead of days of the week
+      const year = currentRange.start.getFullYear();
+      const month = currentRange.start.getMonth();
+      
+      // Calculate number of weeks in the current month
+      const firstDayOfMonth = new Date(year, month, 1);
+      const lastDayOfMonth = new Date(year, month + 1, 0);
+      
+      // Get the week number for the first and last day
+      const getWeekOfMonth = (date) => {
+        const firstDay = new Date(date.getFullYear(), date.getMonth(), 1);
+        const dayOfMonth = date.getDate();
+        const firstDayOfWeek = firstDay.getDay(); // 0 = Sunday
+        return Math.ceil((dayOfMonth + firstDayOfWeek) / 7);
+      };
+      
+      const weeksInMonth = getWeekOfMonth(lastDayOfMonth);
+      
+      // Create labels for each week
+      dateLabels = [];
+      for (let week = 1; week <= weeksInMonth; week++) {
+        dateLabels.push(`Week ${week}`);
       }
-    });
+      
+      dateValuesDog = new Array(weeksInMonth).fill(0);
+      dateValuesCat = new Array(weeksInMonth).fill(0);
+      
+      current.validPets.forEach(pet => {
+        const bDate = new Date(pet.booking_date);
+        // Only count if the booking is in the current month
+        if (bDate.getMonth() === month && bDate.getFullYear() === year) {
+          const weekOfMonth = getWeekOfMonth(bDate);
+          const idx = weekOfMonth - 1; // Convert to 0-based index
+          
+          if (idx >= 0 && idx < weeksInMonth) {
+            if (pet.pet_type === 'Dog') {
+              dateValuesDog[idx]++;
+            } else if (pet.pet_type === 'Cat') {
+              dateValuesCat[idx]++;
+            }
+          }
+        }
+      });
+    } else {
+      // Weekly filter - show days of the week
+      dateLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+      dateValuesDog = new Array(7).fill(0);
+      dateValuesCat = new Array(7).fill(0);
+      
+      current.validPets.forEach(pet => {
+        const bDate = new Date(pet.booking_date);
+        const idx = (bDate.getDay() + 6) % 7; // Convert Sunday=0 to Monday=0
+        
+        if (pet.pet_type === 'Dog') {
+          dateValuesDog[idx]++;
+        } else if (pet.pet_type === 'Cat') {
+          dateValuesCat[idx]++;
+        }
+      });
+    }
 
-    const peakDaysLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    let peakDaysValuesDog = new Array(7).fill(0);
-    let peakDaysValuesCat = new Array(7).fill(0);
-    
-    current.validPets.forEach(pet => {
-      const dayIdx = (new Date(pet.booking_date).getDay() + 6) % 7;
-      if (pet.pet_type === 'Dog') {
-        peakDaysValuesDog[dayIdx]++;
-      } else if (pet.pet_type === 'Cat') {
-        peakDaysValuesCat[dayIdx]++;
+    // CHANGED: Peak Days chart - also use weeks for monthly filter
+    let peakDaysLabels = [];
+    let peakDaysValuesDog = [];
+    let peakDaysValuesCat = [];
+
+    if (activeFilter === 'monthly') {
+      // Use the same weekly breakdown as the main chart
+      const year = currentRange.start.getFullYear();
+      const month = currentRange.start.getMonth();
+      
+      const getWeekOfMonth = (date) => {
+        const firstDay = new Date(date.getFullYear(), date.getMonth(), 1);
+        const dayOfMonth = date.getDate();
+        const firstDayOfWeek = firstDay.getDay();
+        return Math.ceil((dayOfMonth + firstDayOfWeek) / 7);
+      };
+      
+      const lastDayOfMonth = new Date(year, month + 1, 0);
+      const weeksInMonth = getWeekOfMonth(lastDayOfMonth);
+      
+      peakDaysLabels = [];
+      for (let week = 1; week <= weeksInMonth; week++) {
+        peakDaysLabels.push(`Week ${week}`);
       }
-    });
+      
+      peakDaysValuesDog = new Array(weeksInMonth).fill(0);
+      peakDaysValuesCat = new Array(weeksInMonth).fill(0);
+      
+      current.validPets.forEach(pet => {
+        const bDate = new Date(pet.booking_date);
+        if (bDate.getMonth() === month && bDate.getFullYear() === year) {
+          const weekOfMonth = getWeekOfMonth(bDate);
+          const idx = weekOfMonth - 1;
+          
+          if (idx >= 0 && idx < weeksInMonth) {
+            if (pet.pet_type === 'Dog') {
+              peakDaysValuesDog[idx]++;
+            } else if (pet.pet_type === 'Cat') {
+              peakDaysValuesCat[idx]++;
+            }
+          }
+        }
+      });
+    } else {
+      // For weekly and yearly, show days of the week
+      peakDaysLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+      peakDaysValuesDog = new Array(7).fill(0);
+      peakDaysValuesCat = new Array(7).fill(0);
+      
+      current.validPets.forEach(pet => {
+        const dayIdx = (new Date(pet.booking_date).getDay() + 6) % 7;
+        if (pet.pet_type === 'Dog') {
+          peakDaysValuesDog[dayIdx]++;
+        } else if (pet.pet_type === 'Cat') {
+          peakDaysValuesCat[dayIdx]++;
+        }
+      });
+    }
 
     const generateProviderTimeSlots = () => {
       if (!providerHours || providerHours.length === 0) {
@@ -491,18 +589,15 @@ export default function SPBusinessDashboard() {
 
     const { labels: sortedHourLabels, valuesDog: hourValuesDog, valuesCat: hourValuesCat } = generateProviderTimeSlots();
 
-    // FIXED: Filter services using only isBookingComplete (matching SPDashboard)
     const filteredServices = serviceStats.filter(s => {
       const b = s.booking_pets?.bookings;
       if (!b) return false;
       
-      // Use the same completion logic as SPDashboard
       const isComplete = ['completed', 'to_rate', 'rated'].includes(b.status) || 
                         (['paid', 'confirmed'].includes(b.status) && isFourHoursPast(b.booking_date, b.time_slot));
       
       const inDateRange = new Date(b.booking_date) >= currentRange.start;
       
-      // Apply pet type filter
       let matchesPetType = true;
       if (petTypeFilter !== 'both') {
         matchesPetType = s.booking_pets?.pet_type === petTypeFilter;
@@ -537,14 +632,12 @@ export default function SPBusinessDashboard() {
       return maxBooking.label;
     };
 
-    // FIXED: Calculate cancellations from filtered valid pets' bookings
     const uniqueCancelledBookings = new Set(
       currentBookings
         .filter(b => b.status === 'cancelled')
         .map(b => b.id)
     );
 
-    // FIXED: Average should be unique customers who have valid pets in the period
     const uniqueCustomers = new Set(current.validPets.map(p => p.user_id));
 
     return { 
@@ -786,7 +879,6 @@ export default function SPBusinessDashboard() {
                 <option value="custom">Custom Range</option>
               </select>
               
-              {/* Custom Date Range Inputs */}
               {activeFilter === 'custom' && (
                 <div className="custom-date-range">
                   <label className="date-label">From:</label>
@@ -900,7 +992,7 @@ export default function SPBusinessDashboard() {
             
             <div className="sp-biz-bottom-grid">
               <div className="chart-box">
-                <h4 className="chart-title-sm">Peak Days</h4>
+                <h4 className="chart-title-sm">Peak {activeFilter === 'monthly' ? 'Weeks' : 'Days'}</h4>
                 <div className="chart-container-small">
                   <Bar 
                     data={getPeakDaysChartData()} 
@@ -923,7 +1015,7 @@ export default function SPBusinessDashboard() {
         </div>
       </div>
 
-      {/* Business Report Modal */}
+      {/* Business Report Modal - Keeping same as before */}
       {showReportModal && (
         <div className="report-modal-overlay" onClick={() => setShowReportModal(false)}>
           <div className="report-modal-content" onClick={(e) => e.stopPropagation()}>
@@ -938,7 +1030,6 @@ export default function SPBusinessDashboard() {
             </div>
 
             <div className="report-modal-body">
-              {/* Report Header Info */}
               <div className="report-info-section">
                 <div className="report-info-row">
                   <span className="report-label">Report Period:</span>
@@ -958,7 +1049,6 @@ export default function SPBusinessDashboard() {
                 </div>
               </div>
 
-              {/* Executive Summary */}
               <div className="report-section">
                 <h3 className="report-section-title">Executive Summary</h3>
                 <div className="report-kpi-grid">
@@ -995,7 +1085,6 @@ export default function SPBusinessDashboard() {
                 </div>
               </div>
 
-              {/* Performance Analysis */}
               <div className="report-section">
                 <h3 className="report-section-title">Performance Analysis</h3>
                 <div className="report-insights">
@@ -1026,7 +1115,6 @@ export default function SPBusinessDashboard() {
                 </div>
               </div>
 
-              {/* Service Breakdown */}
               {analytics.sLabels.length > 0 && (
                 <div className="report-section">
                   <h3 className="report-section-title">Top Services</h3>
@@ -1049,7 +1137,6 @@ export default function SPBusinessDashboard() {
                 </div>
               )}
 
-              {/* Pet Type Distribution (only show when "both" is selected) */}
               {petTypeFilter === 'both' && (
                 <div className="report-section">
                   <h3 className="report-section-title">Pet Type Distribution</h3>
