@@ -483,6 +483,12 @@ export default function SPCustomerInsight() {
           <aside className="sp-biz-sidebar">
             <div className="sidebar-tabs-group">
               <button 
+                className={`sidebar-tab-btn ${activeTab === 'sales' ? 'active' : ''}`} 
+                onClick={() => navigate('/service/sales')}
+              >
+                Sales
+              </button>
+              <button 
                 className={`sidebar-tab-btn ${activeTab === 'business_performance' ? 'active' : ''}`}
                 onClick={() => navigate('/service/business-dashboard')}
               >
@@ -732,7 +738,7 @@ export default function SPCustomerInsight() {
                           title: { display: true, text: 'Number of Bookings', font: { size: 11 }, color: '#64748b' }
                         }, 
                         y: { 
-                          grid: { display: false },
+                          grid: { display: false }, 
                           title: { display: true, text: 'Dog Breed', font: { size: 11 }, color: '#64748b' }
                         } 
                       } 
