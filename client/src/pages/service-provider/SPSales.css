@@ -86,21 +86,6 @@
   font-size: 0.75rem; 
 }
 
-.doughnut-wrapper { 
-  width: 70px; 
-  height: 70px; 
-  margin: 0 auto; 
-}
-
-.doughnut-labels { 
-  font-size: 0.58rem; 
-  color: #64748b; 
-  display: flex; 
-  flex-direction: column; 
-  gap: 1px; 
-  margin-top: 3px; 
-}
-
 .chart-title-sm { 
   font-size: 0.7rem; 
   font-weight: bold; 
