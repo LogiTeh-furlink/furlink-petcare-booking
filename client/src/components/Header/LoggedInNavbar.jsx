@@ -19,6 +19,7 @@ import logo from "../../assets/logo.png";
 const LoggedInNavbar = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const [showPromoModal, setShowPromoModal] = useState(false);
   
   // UI Toggles
   const [showNotif, setShowNotif] = useState(false);
@@ -174,6 +175,25 @@ const LoggedInNavbar = () => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  useEffect(() => {
+    // Check if we are on dashboard and role is pet_owner
+    if (location.pathname === '/dashboard' && profile?.role === 'pet_owner') {
+      
+      // Force the modal to show, even if it was previously closed in this session
+      setShowPromoModal(true);
+
+      // Auto-hide after 30 seconds
+      const timer = setTimeout(() => {
+        setShowPromoModal(false);
+      }, 30000);
+
+      return () => clearTimeout(timer);
+    } else {
+      // Immediately hide if they leave the dashboard
+      setShowPromoModal(false);
+    }
+  }, [location.pathname, profile]);
+
   return (
     <>
       <header className="loggedin-header">
@@ -252,6 +272,30 @@ const LoggedInNavbar = () => {
           </div>
         </div>
       </header>
+
+      {/* NEW: PROMOTIONAL MODAL */}
+      {showPromoModal && (
+        <div className="promo-overlay" onClick={() => setShowPromoModal(false)}>
+          <div className="promo-card" onClick={(e) => e.stopPropagation()}>
+            <button className="promo-close" onClick={() => setShowPromoModal(false)}>
+              <FaTimes size={20} />
+            </button>
+            
+            <div className="promo-content" onClick={() => { navigate("/apply-provider"); setShowPromoModal(false); }}>
+              <img 
+                src="https://images.unsplash.com/photo-1516733725897-1aa73b87c8e8?q=80&w=1000&auto=format&fit=crop" 
+                alt="Become a provider" 
+                className="promo-img"
+              />
+              <div className="promo-text-overlay">
+                <h2>Start your Business!</h2>
+                <p>You're already a pet lover. Why not earn from it?</p>
+                <div className="promo-btn">Apply as Provider</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* MODALS REMAIN UNCHANGED */}
       {showPendingModal && (
