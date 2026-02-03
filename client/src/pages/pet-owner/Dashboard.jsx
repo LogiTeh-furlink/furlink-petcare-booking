@@ -57,9 +57,10 @@ const Dashboard = () => {
     const loadData = async () => {
       setLoading(true);
       try {
+        // Fetch User First
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
-          setCurrentUser(user);
+          setCurrentUser(user); // Set the state so handleProviderClick can see it
           const { data: prof } = await supabase.from("profiles").select("first_name, display_name").eq("id", user.id).single();
           if (prof) setProfile(prof);
         }
@@ -94,18 +95,30 @@ const Dashboard = () => {
           }));
           setProviders(detailed);
         }
-      } catch (err) { console.error(err); } 
-      finally { setLoading(false); }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
     };
     loadData();
   }, [navigate]);
 
   const handleProviderClick = async (providerId, providerOwnerId) => {
-    const isOwner = currentUser && currentUser.id === providerOwnerId;
-    if (!isOwner) {
-      supabase.rpc('increment_provider_click', { provider_id: providerId }).catch(console.error);
+    try {
+      // Use the currentUser state we fetched during loadData
+      const isOwner = currentUser && currentUser.id === providerOwnerId;
+
+      if (!isOwner) {
+        // Log the click if it's not the owner
+        await supabase.rpc('increment_provider_click', { provider_id: providerId });
+      }
+    } catch (err) {
+      console.error("Click handler error:", err);
+    } finally {
+      // Redirect happens regardless of whether the RPC call succeeded
+      navigate(`/listing/${providerId}`);
     }
-    navigate(`/listing/${providerId}`);
   };
 
   if (loading) return <div className="loading">Loading...</div>;
