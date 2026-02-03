@@ -280,7 +280,6 @@
   position: absolute;
   width: 100%;
   pointer-events: none;
-  -webkit-appearance: none;
   background: none;
   border: none; /* Removed border */
   outline: none;
@@ -289,7 +288,6 @@
 /* Custom Thumb styling */
 .range-input::-webkit-slider-thumb {
   pointer-events: auto;
-  -webkit-appearance: none;
   width: 16px;
   height: 16px;
   border-radius: 50%;
