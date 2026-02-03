@@ -1,7 +1,7 @@
 // src/pages/auth/Dashboard.jsx
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo, useRef} from "react";
 import { supabase } from "../../config/supabase";
-import { Store } from "lucide-react"; 
+import { Store, Filter, Star, MapPin, Tag } from "lucide-react"; 
 import { useNavigate } from "react-router-dom"; 
 import Header from "../../components/Header/LoggedInNavbar";
 import Footer from "../../components/Footer/Footer";
@@ -9,136 +9,216 @@ import "./Dashboard.css";
 
 const Dashboard = () => {
   const navigate = useNavigate();
+  const filterRef = useRef();
 
-  const [currentUser, setCurrentUser] = useState(null); // 1. Store the full user object
+  // 1. INITIALIZE ALL STATES FIRST (Crucial to prevent ReferenceError)
+  const [currentUser, setCurrentUser] = useState(null);
   const [profile, setProfile] = useState(null);
   const [providers, setProviders] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [showFilterDropdown, setShowFilterDropdown] = useState(false);
+  const [filters, setFilters] = useState({
+    city: "All",
+    exactRating: "Any",
+    minPrice: 0,
+    maxPrice: 5000,
+  });
 
-  // --- UPDATED: Handle Click & Count ---
-  const handleProviderClick = async (providerId, providerOwnerId) => {
-    try {
-        // 2. CHECK: Is the person clicking the owner?
-        const isOwner = currentUser && currentUser.id === providerOwnerId;
-
-        // Only count the view if it is NOT the owner
-        if (!isOwner) {
-            supabase.rpc('increment_provider_click', { provider_id: providerId }).then(({ error }) => {
-                if (error) console.error("Error counting click:", error);
-            });
-        }
-    } catch (err) {
-        console.error("Click handler error:", err);
-    } finally {
-        navigate(`/listing/${providerId}`);
-    }
-  };
-
+  // 2. Click Outside Logic (Now showFilterDropdown is initialized)
   useEffect(() => {
-    const fetchProfile = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (user) {
-        setCurrentUser(user); // Save user for comparison later
-        const { data, error } = await supabase
-          .from("profiles")
-          .select("first_name, display_name")
-          .eq("id", user.id)
-          .single();
-
-        if (!error && data) setProfile(data);
+    const handleClickOutside = (event) => {
+      if (showFilterDropdown && filterRef.current && !filterRef.current.contains(event.target)) {
+        setShowFilterDropdown(false);
       }
     };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [showFilterDropdown]);
 
-    const fetchProviders = async () => {
-  const { data, error } = await supabase
-    .from("service_providers")
-    .select(`
-      id, 
-      business_name, 
-      city, 
-      user_id,
-      provider_rating_analytics(total_combined_avg)
-    `) 
-    .eq("status", "approved")
-    .order("created_at", { ascending: false });
+  // 3. Extraction & Filtering Logic (useMemo)
+  const availableCities = useMemo(() => {
+    const cities = providers.map(p => p.city).filter(Boolean);
+    return ["All", ...new Set(cities)];
+  }, [providers]);
 
-  if (!error && data) {
-    const providersWithDetails = await Promise.all(
-      data.map(async (provider) => {
-        // --- Keep existing Price Logic ---
-        const { data: services } = await supabase
-          .from("services")
-          .select(`service_options (price)`)
-          .eq("provider_id", provider.id);
+  const filteredProviders = useMemo(() => {
+    return providers.filter(p => {
+      const matchCity = filters.city === "All" || p.city === filters.city;
+      const providerRating = Math.floor(parseFloat(p.rating)).toString(); 
+      const matchRating = filters.exactRating === "Any" || providerRating === filters.exactRating;
+      const shopMin = p.numericMinPrice || 0;
+      const matchPrice = shopMin >= filters.minPrice && shopMin <= filters.maxPrice;
+      return matchCity && matchRating && matchPrice;
+    });
+  }, [providers, filters]);
 
-        let minPrice = null, maxPrice = null;
-        if (services?.length > 0) {
-          const prices = services.flatMap(s => s.service_options || []).map(opt => parseFloat(opt.price)).filter(p => !isNaN(p));
-          if (prices.length > 0) {
-            minPrice = Math.min(...prices);
-            maxPrice = Math.max(...prices);
-          }
-        }
-
-        // --- Keep existing Image Logic ---
-        const { data: images } = await supabase
-          .from("service_provider_images")
-          .select("image_url")
-          .eq("provider_id", provider.id)
-          .limit(1);
-
-        // --- DYNAMIC RATING LOGIC ---
-        // This looks into the joined array for the specific provider's data
-        const stats = provider.provider_rating_analytics?.[0];
-        const avgRating = stats ? parseFloat(stats.total_combined_avg).toFixed(1) : "0.0";
-
-        return {
-          ...provider,
-          priceRange: minPrice ? `₱${minPrice} - ₱${maxPrice}` : "Price not available",
-          imageUrl: images?.[0]?.image_url || null,
-          rating: avgRating // This is now unique to EACH shop
-        };
-      })
-    );
-
-    setProviders(providersWithDetails);
-  }
-};
-
+  // 4. Data Loading Logic
+  useEffect(() => {
     const loadData = async () => {
       setLoading(true);
-      await fetchProfile();
-      await fetchProviders();
-      setLoading(false);
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          setCurrentUser(user);
+          const { data: prof } = await supabase.from("profiles").select("first_name, display_name").eq("id", user.id).single();
+          if (prof) setProfile(prof);
+        }
+
+        const { data, error } = await supabase
+          .from("service_providers")
+          .select(`id, business_name, city, user_id, provider_rating_analytics(total_combined_avg)`) 
+          .eq("status", "approved")
+          .order("created_at", { ascending: false });
+
+        if (!error && data) {
+          const detailed = await Promise.all(data.map(async (provider) => {
+            const { data: services } = await supabase.from("services").select(`service_options(price)`).eq("provider_id", provider.id);
+            let min = 0, max = 0;
+            if (services?.length > 0) {
+              const prices = services.flatMap(s => s.service_options || []).map(opt => parseFloat(opt.price)).filter(p => !isNaN(p));
+              if (prices.length > 0) {
+                min = Math.min(...prices);
+                max = Math.max(...prices);
+              }
+            }
+            const { data: images } = await supabase.from("service_provider_images").select("image_url").eq("provider_id", provider.id).limit(1);
+            const stats = provider.provider_rating_analytics?.[0];
+            
+            return {
+              ...provider,
+              numericMinPrice: min,
+              priceRange: min > 0 ? `₱${min} - ₱${max}` : "Price not available",
+              imageUrl: images?.[0]?.image_url || null,
+              rating: stats ? parseFloat(stats.total_combined_avg).toFixed(1) : "0.0"
+            };
+          }));
+          setProviders(detailed);
+        }
+      } catch (err) { console.error(err); } 
+      finally { setLoading(false); }
     };
-
     loadData();
-  }, []);
+  }, [navigate]);
 
-  if (loading) {
-    return (
-      <div className="dashboard-page">
-        <Header />
-        <main className="dashboard-container dashboard-loading">
-          <h2>Loading...</h2>
-        </main>
-        <Footer />
-      </div>
-    );
-  }
+  const handleProviderClick = async (providerId, providerOwnerId) => {
+    const isOwner = currentUser && currentUser.id === providerOwnerId;
+    if (!isOwner) {
+      supabase.rpc('increment_provider_click', { provider_id: providerId }).catch(console.error);
+    }
+    navigate(`/listing/${providerId}`);
+  };
+
+  if (loading) return <div className="loading">Loading...</div>;
 
   return (
     <div className="dashboard-page">
       <Header />
       <main className="dashboard-container">
         <div className="dashboard-content">
-          <h1 className="dashboard-title">Explore Pet Grooming shops</h1>
+          <div className="dashboard-header-flex">
+    <h1 className="dashboard-title">Explore Pet Grooming shops</h1>
+      <div className="filter-wrapper" ref={filterRef}>
+        <button className="filter-toggle-btn" onClick={() => setShowFilterDropdown(!showFilterDropdown)}>
+            <span>Filters</span>
+            {(filters.city !== "All" || filters.exactRating !== "Any" || filters.minPrice > 0 || filters.maxPrice < 5000) && <span className="filter-dot" />}
+        </button>
+
+        {showFilterDropdown && (
+            <div className="filter-dropdown-card">
+                <div className="filter-header">
+                    <h3>Filter Options</h3>
+                    <button 
+                      className="reset-link" 
+                      onClick={() => {
+                        setFilters({ city: "All", exactRating: "Any", minPrice: 0, maxPrice: 5000 });
+                        setShowFilterDropdown(false); // <--- Add this line
+                      }}
+                    >
+                      Reset All
+                    </button>
+                </div>
+
+                <div className="filter-section">
+                    <label><MapPin size={14}/> Location</label>
+                    <select className="filter-select" value={filters.city} onChange={(e) => setFilters({...filters, city: e.target.value})}>
+                        {availableCities.map(city => <option key={city} value={city}>{city}</option>)}
+                    </select>
+                </div>
+
+                <div className="filter-section">
+                    <label><Star size={14}/> Rating (Exact Stars)</label>
+                    <div className="rating-filter-grid">
+                        {["Any", "1", "2", "3", "4"].map(r => (
+                            <button 
+                                key={r} 
+                                className={filters.exactRating === r ? "active" : ""} 
+                                onClick={() => setFilters({...filters, exactRating: r})}
+                            >
+                                {r === "Any" ? "Any" : `${r} ★`}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
+                <div className="filter-section">
+                  <label><Tag size={14}/> Price Range (₱)</label>
+                  
+                  {/* Input container now matches the width of the slider below */}
+                  <div className="price-input-container">
+                      <div className="price-field compact">
+                          <span>Minimum</span>
+                          <input 
+                              type="number" 
+                              value={filters.minPrice} 
+                              onChange={(e) => setFilters({...filters, minPrice: Math.min(parseInt(e.target.value) || 0, filters.maxPrice)})} 
+                          />
+                      </div>
+                      <div className="price-field compact" style={{ textAlign: 'right' }}>
+                          <span>Maximum</span>
+                          <input 
+                              type="number" 
+                              value={filters.maxPrice} 
+                              onChange={(e) => setFilters({...filters, maxPrice: Math.max(parseInt(e.target.value) || 0, filters.minPrice)})} 
+                          />
+                      </div>
+                  </div>
+
+                  <div className="dual-range-slider">
+                      {/* Fill color logic */}
+                      <div 
+                          className="slider-track" 
+                          style={{
+                              background: `linear-gradient(to right, #e2e8f0 ${ (filters.minPrice / 5000) * 100 }%, #0E2679 ${ (filters.minPrice / 5000) * 100 }%, #0E2679 ${ (filters.maxPrice / 5000) * 100 }%, #e2e8f0 ${ (filters.maxPrice / 5000) * 100 }%)`
+                          }}
+                      ></div>
+                      
+                      <input 
+                          type="range" min="0" max="5000" step="100" 
+                          value={filters.minPrice} 
+                          onChange={(e) => {
+                              const val = parseInt(e.target.value);
+                              if (val <= filters.maxPrice) setFilters({...filters, minPrice: val});
+                          }} 
+                          className="range-input"
+                      />
+                      <input 
+                          type="range" min="0" max="5000" step="100" 
+                          value={filters.maxPrice} 
+                          onChange={(e) => {
+                              const val = parseInt(e.target.value);
+                              if (val >= filters.minPrice) setFilters({...filters, maxPrice: val});
+                          }} 
+                          className="range-input"
+                      />
+                  </div>
+              </div>
+            </div>
+        )}
+    </div>
+  </div>
 
           <div className="providers-grid">
-            {providers.map((provider) => (
+            {filteredProviders.map((provider) => (
               <div
                 key={provider.id}
                 className="provider-card"
