@@ -22,7 +22,8 @@ import Payment from "./pages/pet-owner/Payment";
 // Service Provider Pages
 import SPDashboard from "./pages/service-provider/SPDashboard";
 import SPBusinessDashboard from "./pages/service-provider/SPBusinessDashboard"; 
-import SPCustomerInsight from "./pages/service-provider/SPCustomerInsight"; // ⭐ NEW IMPORT
+import SPSales from "./pages/service-provider/SPSales"; // ⭐ NEW IMPORT
+import SPCustomerInsight from "./pages/service-provider/SPCustomerInsight"; 
 import SPManageListing from "./pages/service-provider/SPManageListing";
 import SPEditListing from "./pages/service-provider/SPEditListing";
 import SPEditProfile from "./pages/service-provider/SPEditProfile";
@@ -90,8 +91,9 @@ function App() {
             <Route path="/service/dashboard/:id" element={<SPDashboard />} />
             
             {/* Analytics Dashboards */}
+            <Route path="/service/sales" element={<SPSales />} /> {/* ⭐ NEW ROUTE */}
             <Route path="/service/business-dashboard" element={<SPBusinessDashboard />} />
-            <Route path="/service/customer-insight" element={<SPCustomerInsight />} /> {/* ⭐ NEW ROUTE */}
+            <Route path="/service/customer-insight" element={<SPCustomerInsight />} />
 
             <Route path="/service/booking-details/:id" element={<SPBookingDetails />} />
 
