@@ -119,9 +119,12 @@ const Dashboard = () => {
     <h1 className="dashboard-title">Explore Pet Grooming shops</h1>
       <div className="filter-wrapper" ref={filterRef}>
         <button className="filter-toggle-btn" onClick={() => setShowFilterDropdown(!showFilterDropdown)}>
-            <span>Filters</span>
-            {(filters.city !== "All" || filters.exactRating !== "Any" || filters.minPrice > 0 || filters.maxPrice < 5000) && <span className="filter-dot" />}
-        </button>
+          <Filter size={18} /> {/* Added icon here */}
+          <span>Filters</span>
+          {(filters.city !== "All" || filters.exactRating !== "Any" || filters.minPrice > 0 || filters.maxPrice < 5000) && (
+              <span className="filter-dot" />
+          )}
+      </button>
 
         {showFilterDropdown && (
             <div className="filter-dropdown-card">
