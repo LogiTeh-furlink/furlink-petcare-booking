@@ -30,6 +30,7 @@ export default function SPBusinessDashboard() {
   const [providerHours, setProviderHours] = useState([]);
   const [listingVisitors, setListingVisitors] = useState(0);
   const [showReportModal, setShowReportModal] = useState(false);
+  const [selectedYear, setSelectedYear] = useState(null); // For yearly drill-down
 
   // ============================================
   // DATA FETCHING
@@ -153,6 +154,25 @@ export default function SPBusinessDashboard() {
           start = new Date(now.getFullYear(), now.getMonth(), 1);
           end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
         }
+      } else if (filter === 'yearly') {
+        // For yearly filter: if a specific year is selected, use that year
+        // Otherwise, use all data from 2020 to present
+        if (selectedYear) {
+          start = new Date(selectedYear, 0, 1);
+          end = new Date(selectedYear, 11, 31, 23, 59, 59, 999);
+          if (isPrevious) {
+            start = new Date(selectedYear - 1, 0, 1);
+            end = new Date(selectedYear - 1, 11, 31, 23, 59, 59, 999);
+          }
+        } else {
+          // Show all data from 2020 onwards
+          start = new Date(2020, 0, 1);
+          end = now;
+          if (isPrevious) {
+            start = new Date(2019, 0, 1);
+            end = new Date(2019, 11, 31, 23, 59, 59, 999);
+          }
+        }
       } else {
         if (isPrevious) { 
           start.setFullYear(now.getFullYear() - 1, 0, 1); 
@@ -262,9 +282,19 @@ export default function SPBusinessDashboard() {
     // CHART DATA GENERATION - AVERAGE BOOKINGS
     // ============================================
     let dateLabels = [];
-    if (activeFilter === 'yearly') {
-      const year = currentRange.start.getFullYear();
-      dateLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].map(m => `${m} ${year}`);
+    
+    // For yearly filter with drill-down capability
+    if (activeFilter === 'yearly' && !selectedYear) {
+      // Show years from 2020 to current year
+      const currentYear = new Date().getFullYear();
+      const years = [];
+      for (let y = 2020; y <= currentYear; y++) {
+        years.push(y.toString());
+      }
+      dateLabels = years;
+    } else if (activeFilter === 'yearly' && selectedYear) {
+      // Show months of selected year
+      dateLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].map(m => `${m} ${selectedYear}`);
     } else if (activeFilter === 'monthly') {
       const monthName = currentRange.start.toLocaleString('default', { month: 'short' });
       const lastDay = new Date(currentRange.start.getFullYear(), currentRange.start.getMonth() + 1, 0).getDate();
@@ -284,7 +314,21 @@ export default function SPBusinessDashboard() {
     current.validPets.forEach(pet => {
       const bDate = new Date(pet.booking_date);
       let idx;
-      if (activeFilter === 'yearly') {
+      
+      if (activeFilter === 'yearly' && !selectedYear) {
+        // Group by year (2020-current)
+        const petYear = bDate.getFullYear();
+        idx = petYear - 2020;
+        // Only include if year is within our range (2020 to current year)
+        if (petYear < 2020 || petYear > now.getFullYear()) {
+          return; // Skip this pet
+        }
+      } else if (activeFilter === 'yearly' && selectedYear) {
+        // Group by month of selected year
+        // Only include bookings from the selected year
+        if (bDate.getFullYear() !== selectedYear) {
+          return; // Skip this pet
+        }
         idx = bDate.getMonth();
       } else if (activeFilter === 'monthly') {
         const day = bDate.getDate();
@@ -481,7 +525,7 @@ export default function SPBusinessDashboard() {
       rangeText, 
       busiestHour: getBusiestHour()
     };
-  }, [rawBookings, serviceStats, activeFilter, providerHours, petTypeFilter, customDateStart, customDateEnd]);
+  }, [rawBookings, serviceStats, activeFilter, providerHours, petTypeFilter, customDateStart, customDateEnd, selectedYear]);
 
   // ============================================
   // CHART OPTIONS
@@ -528,6 +572,28 @@ export default function SPBusinessDashboard() {
     }
   };
 
+  // Chart options for Average Bookings with drill-down
+  const getAverageBookingsChartOptions = () => {
+    const baseOptions = petTypeFilter === 'both' ? { ...groupedChartOptions } : { ...commonChartOptions };
+    
+    // Add onClick handler only for yearly view (not drilled down)
+    if (activeFilter === 'yearly' && !selectedYear) {
+      baseOptions.onClick = (event, elements) => {
+        if (elements.length > 0) {
+          const clickedIndex = elements[0].index;
+          const clickedYear = 2020 + clickedIndex;
+          setSelectedYear(clickedYear);
+        }
+      };
+      // Make cursor pointer to indicate clickability
+      baseOptions.onHover = (event, chartElement) => {
+        event.native.target.style.cursor = chartElement.length > 0 ? 'pointer' : 'default';
+      };
+    }
+    
+    return baseOptions;
+  };
+
   // ============================================
   // HELPER COMPONENTS
   // ============================================
@@ -541,6 +607,18 @@ export default function SPBusinessDashboard() {
   // CHART DATA FUNCTIONS
   // ============================================
   const getAverageBookingsChartData = () => {
+    // Determine bar thickness based on view
+    let barThickness;
+    if (activeFilter === 'yearly' && !selectedYear) {
+      barThickness = 20; // Thicker bars for year view
+    } else if (activeFilter === 'yearly' && selectedYear) {
+      barThickness = 8; // Thinner bars for month view
+    } else if (activeFilter === 'monthly') {
+      barThickness = 25;
+    } else {
+      barThickness = 35;
+    }
+    
     if (petTypeFilter === 'both') {
       return {
         labels: analytics.dateLabels,
@@ -550,14 +628,14 @@ export default function SPBusinessDashboard() {
             data: analytics.dateValuesDog, 
             backgroundColor: '#1e3a8a', 
             borderRadius: 4, 
-            barThickness: activeFilter === 'yearly' ? 8 : 25 
+            barThickness: barThickness
           },
           { 
             label: 'Cat', 
             data: analytics.dateValuesCat, 
             backgroundColor: '#facc15', 
             borderRadius: 4, 
-            barThickness: activeFilter === 'yearly' ? 8 : 25 
+            barThickness: barThickness
           }
         ]
       };
@@ -568,7 +646,7 @@ export default function SPBusinessDashboard() {
         data: petTypeFilter === 'Dog' ? analytics.dateValuesDog : analytics.dateValuesCat,
         backgroundColor: petTypeFilter === 'Dog' ? '#1e3a8a' : '#facc15',
         borderRadius: 4, 
-        barThickness: activeFilter === 'yearly' ? 12 : 35
+        barThickness: barThickness
       }]
     };
   };
@@ -650,7 +728,10 @@ export default function SPBusinessDashboard() {
             {/* Timeframe Filter */}
             <div className="sidebar-section">
               <h3>Timeframe</h3>
-              <select className="filter-dropdown" value={activeFilter} onChange={(e) => setActiveFilter(e.target.value)}>
+              <select className="filter-dropdown" value={activeFilter} onChange={(e) => {
+                setActiveFilter(e.target.value);
+                setSelectedYear(null); // Reset year selection when changing filter
+              }}>
                 <option value="weekly">Weekly</option>
                 <option value="monthly">Monthly</option>
                 <option value="yearly">Yearly</option>
@@ -788,13 +869,22 @@ export default function SPBusinessDashboard() {
             {/* Average Bookings Chart (Main Chart) */}
             <div className="chart-box main-chart">
               <div className="chart-header">
-                <h3 className="chart-title">Average Bookings ({activeFilter})</h3>
+                <div className="chart-title-wrapper">
+                  {activeFilter === 'yearly' && selectedYear && (
+                    <button className="back-to-years-btn" onClick={() => setSelectedYear(null)}>
+                      ← Back to Years
+                    </button>
+                  )}
+                  <h3 className="chart-title">
+                    Average Bookings ({activeFilter === 'yearly' && selectedYear ? selectedYear : activeFilter})
+                  </h3>
+                </div>
                 <span className="date-range">{analytics.rangeText}</span>
               </div>
               <div className="chart-container-large">
                 <Bar 
                   data={getAverageBookingsChartData()} 
-                  options={petTypeFilter === 'both' ? groupedChartOptions : commonChartOptions} 
+                  options={getAverageBookingsChartOptions()} 
                 />
               </div>
             </div>

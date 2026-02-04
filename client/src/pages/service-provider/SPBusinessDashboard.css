@@ -207,10 +207,33 @@
   margin-bottom: 2px; 
 }
 
+.chart-title-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.back-to-years-btn {
+  background: var(--accent-yellow);
+  color: var(--primary-blue);
+  border: none;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 0.65rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.back-to-years-btn:hover {
+  background: #fbbf24;
+}
+
 .chart-title { 
   color: var(--primary-blue); 
   font-size: 0.8rem; 
   font-weight: bold; 
+  margin: 0;
 }
 
 .chart-title-sm { 
