@@ -336,7 +336,7 @@ export default function SPDashboard() {
           </div>
           
           {/* Dashboard Button: Navigates to SPBusinessDashboard */}
-          <button className="top-action-btn" onClick={() => navigate('/service/business-dashboard')}>
+          <button className="top-action-btn" onClick={() => navigate('/service/sales')}>
              <FaChartLine size={24} />
              <span>Dashboard</span>
           </button>
