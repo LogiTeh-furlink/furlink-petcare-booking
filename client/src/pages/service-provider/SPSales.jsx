@@ -760,108 +760,111 @@ export default function SPSales() {
             </div>
 
             {/* ============================================ */}
-            {/* CHART 1: OVERALL SALES PERFORMANCE */}
+            {/* TOP CHARTS GRID: OVERALL SALES & REVENUE LOSS */}
             {/* ============================================ */}
-            <div className="chart-box">
-              {activeFilter === 'yearly' && selectedYear && (
-                <button 
-                  className="back-to-years-btn-topleft"
-                  onClick={() => setSelectedYear(null)}
-                  title="Back to years view"
-                >
-                  ← Back to Years
-                </button>
-              )}
-              <div className="chart-header-with-btn">
-                <h3 className="chart-title-centered">Overall Sales Performance</h3>
-                <span className="date-range-topright">
-                  {activeFilter === 'yearly' && selectedYear 
-                    ? `Year ${selectedYear}` 
-                    : analytics.rangeText}
-                </span>
-              </div>
-              <div className="chart-container-large">
-                <Line
-                  data={{
-                    labels: analytics.timeLabels,
-                    datasets: [{
-                      label: 'Total Revenue',
-                      data: analytics.overallSalesData,
-                      borderColor: '#1e3a8a',
-                      backgroundColor: 'rgba(30, 58, 138, 0.1)',
-                      tension: 0.4,
-                      fill: true,
-                      borderWidth: 2,
-                      pointRadius: 4,
-                      pointHoverRadius: 6
-                    }]
-                  }}
-                  options={lineChartOptions}
-                />
-              </div>
-            </div>
-
-            {/* ============================================ */}
-            {/* CHART 4: REVENUE LOSS DUE TO CANCELLATIONS */}
-            {/* ============================================ */}
-            <div className="chart-box">
-              {activeFilter === 'yearly' && selectedYear && (
-                <button 
-                  className="back-to-years-btn-topleft"
-                  onClick={() => setSelectedYear(null)}
-                  title="Back to years view"
-                >
-                  ← Back to Years
-                </button>
-              )}
-              <div className="chart-header-with-btn">
-                <h3 className="chart-title-centered">Revenue Loss from Cancellations</h3>
-                <span className="date-range-topright">
-                  {activeFilter === 'yearly' && selectedYear 
-                    ? `Year ${selectedYear}` 
-                    : analytics.rangeText}
-                </span>
-              </div>
-              <div className="chart-container-large">
-                <Line
-                  data={{
-                    labels: analytics.timeLabels,
-                    datasets: [
-                      {
-                        label: 'Potential Revenue',
-                        data: analytics.potentialRevenue,
-                        borderColor: '#10b981',
-                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                        tension: 0.4,
-                        fill: false,
-                        borderWidth: 2,
-                        borderDash: [5, 5],
-                        pointRadius: 3,
-                        pointHoverRadius: 5
-                      },
-                      {
-                        label: 'Actual Revenue',
-                        data: analytics.actualRevenue,
-                        borderColor: '#ef4444',
-                        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+            <div className="sales-charts-grid">
+              
+              {/* CHART 1: OVERALL SALES PERFORMANCE */}
+              <div className="chart-box">
+                {activeFilter === 'yearly' && selectedYear && (
+                  <button 
+                    className="back-to-years-btn-topleft"
+                    onClick={() => setSelectedYear(null)}
+                    title="Back to years view"
+                  >
+                    ← Back to Years
+                  </button>
+                )}
+                <div className="chart-header-with-btn">
+                  <h3 className="chart-title-centered">Overall Sales Performance</h3>
+                  <span className="date-range-topright">
+                    {activeFilter === 'yearly' && selectedYear 
+                      ? `Year ${selectedYear}` 
+                      : analytics.rangeText}
+                  </span>
+                </div>
+                <div className="chart-container-large">
+                  <Line
+                    data={{
+                      labels: analytics.timeLabels,
+                      datasets: [{
+                        label: 'Total Revenue',
+                        data: analytics.overallSalesData,
+                        borderColor: '#1e3a8a',
+                        backgroundColor: 'rgba(30, 58, 138, 0.1)',
                         tension: 0.4,
                         fill: true,
                         borderWidth: 2,
-                        pointRadius: 3,
-                        pointHoverRadius: 5
-                      }
-                    ]
-                  }}
-                  options={lineChartOptions}
-                />
+                        pointRadius: 4,
+                        pointHoverRadius: 6
+                      }]
+                    }}
+                    options={lineChartOptions}
+                  />
+                </div>
               </div>
-              <p className="chart-insight-text">
-                Total Loss: ₱{analytics.totalLoss.toLocaleString()}
-              </p>
+
+              {/* CHART 4: REVENUE LOSS DUE TO CANCELLATIONS */}
+              <div className="chart-box">
+                {activeFilter === 'yearly' && selectedYear && (
+                  <button 
+                    className="back-to-years-btn-topleft"
+                    onClick={() => setSelectedYear(null)}
+                    title="Back to years view"
+                  >
+                    ← Back to Years
+                  </button>
+                )}
+                <div className="chart-header-with-btn">
+                  <h3 className="chart-title-centered">Revenue Loss from Cancellations</h3>
+                  <span className="date-range-topright">
+                    {activeFilter === 'yearly' && selectedYear 
+                      ? `Year ${selectedYear}` 
+                      : analytics.rangeText}
+                  </span>
+                </div>
+                <div className="chart-container-large">
+                  <Line
+                    data={{
+                      labels: analytics.timeLabels,
+                      datasets: [
+                        {
+                          label: 'Potential Revenue',
+                          data: analytics.potentialRevenue,
+                          borderColor: '#10b981',
+                          backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                          tension: 0.4,
+                          fill: false,
+                          borderWidth: 2,
+                          borderDash: [5, 5],
+                          pointRadius: 3,
+                          pointHoverRadius: 5
+                        },
+                        {
+                          label: 'Actual Revenue',
+                          data: analytics.actualRevenue,
+                          borderColor: '#ef4444',
+                          backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                          tension: 0.4,
+                          fill: true,
+                          borderWidth: 2,
+                          pointRadius: 3,
+                          pointHoverRadius: 5
+                        }
+                      ]
+                    }}
+                    options={lineChartOptions}
+                  />
+                </div>
+                <p className="chart-insight-text">
+                  Total Loss: ₱{analytics.totalLoss.toLocaleString()}
+                </p>
+              </div>
+
             </div>
 
             {/* ============================================ */}
-            {/* CHARTS GRID: NEW/RETURNING & SALES BY SERVICE */}
+            {/* BOTTOM CHARTS GRID: NEW/RETURNING & SALES BY SERVICE */}
             {/* ============================================ */}
             <div className="sales-charts-grid">
               
