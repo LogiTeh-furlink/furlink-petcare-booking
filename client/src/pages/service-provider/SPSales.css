@@ -144,6 +144,12 @@
   margin-bottom: 0.5rem;
 }
 
+.report-modal-body.generating-pdf {
+  overflow: visible !important;
+  max-height: none !important;
+  height: auto !important;
+}
+
 .as-of-date {
   font-size: 0.85rem;
   color: #64748b;

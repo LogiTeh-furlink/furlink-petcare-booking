@@ -34,6 +34,7 @@ ChartJS.register(
 export default function SPSales() {
   const navigate = useNavigate();
   const reportRef = useRef(null);
+  const printableReportRef = useRef(null);
   
   // ============================================
   // STATE MANAGEMENT
@@ -571,7 +572,6 @@ export default function SPSales() {
     setIsGeneratingPDF(true);
     
     try {
-      // Create a temporary container for the report
       const element = reportRef.current;
       
       if (!element) {
@@ -580,36 +580,92 @@ export default function SPSales() {
         return;
       }
 
-      // Capture the element as canvas
-      const canvas = await html2canvas(element, {
-        scale: 2, // Higher quality
+      // Create a clone of the report content for printing
+      const clone = element.cloneNode(true);
+      clone.style.position = 'absolute';
+      clone.style.left = '-9999px';
+      clone.style.top = '0';
+      clone.style.width = '800px'; // Fixed width for consistent rendering
+      clone.style.overflow = 'visible';
+      clone.style.maxHeight = 'none';
+      clone.style.height = 'auto';
+      clone.style.padding = '24px';
+      clone.style.backgroundColor = '#ffffff';
+      
+      // Append to body temporarily
+      document.body.appendChild(clone);
+      
+      // Wait for rendering
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // Capture the cloned element
+      const canvas = await html2canvas(clone, {
+        scale: 2,
         useCORS: true,
         logging: false,
-        backgroundColor: '#ffffff'
+        backgroundColor: '#ffffff',
+        width: clone.scrollWidth,
+        height: clone.scrollHeight
       });
 
-      const imgData = canvas.toDataURL('image/png');
+      // Remove the clone
+      document.body.removeChild(clone);
+
+      console.log('Canvas captured:', { width: canvas.width, height: canvas.height });
+
+      const imgData = canvas.toDataURL('image/png', 1.0);
       
-      // Calculate PDF dimensions
+      // Create PDF with proper dimensions
       const pdf = new jsPDF('p', 'mm', 'a4');
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = pdf.internal.pageSize.getHeight();
-      const imgWidth = pdfWidth;
-      const imgHeight = (canvas.height * pdfWidth) / canvas.width;
       
-      let heightLeft = imgHeight;
-      let position = 0;
+      // Calculate image dimensions with margins
+      const margin = 10;
+      const imgWidth = pdfWidth - (2 * margin);
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      
+      // Calculate how many pages we need
+      const pageHeight = pdfHeight - (2 * margin);
+      const totalPages = Math.ceil(imgHeight / pageHeight);
+      
+      console.log('PDF pages needed:', totalPages);
 
-      // Add first page
-      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-      heightLeft -= pdfHeight;
-
-      // Add additional pages if content is longer than one page
-      while (heightLeft > 0) {
-        position = heightLeft - imgHeight;
-        pdf.addPage();
-        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-        heightLeft -= pdfHeight;
+      // Add content to PDF pages
+      for (let page = 0; page < totalPages; page++) {
+        if (page > 0) {
+          pdf.addPage();
+        }
+        
+        // Calculate the portion of the image for this page
+        const sourceY = page * (pageHeight * canvas.width / imgWidth);
+        const sourceHeight = Math.min(
+          pageHeight * canvas.width / imgWidth,
+          canvas.height - sourceY
+        );
+        
+        // Only add if there's content to add
+        if (sourceHeight > 0) {
+          // Create a temporary canvas for this page slice
+          const pageCanvas = document.createElement('canvas');
+          pageCanvas.width = canvas.width;
+          pageCanvas.height = sourceHeight;
+          const pageCtx = pageCanvas.getContext('2d');
+          
+          // Draw the slice of the full canvas onto the page canvas
+          pageCtx.fillStyle = '#ffffff';
+          pageCtx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
+          pageCtx.drawImage(
+            canvas,
+            0, sourceY, canvas.width, sourceHeight,
+            0, 0, canvas.width, sourceHeight
+          );
+          
+          const pageImgData = pageCanvas.toDataURL('image/png', 1.0);
+          const pageImgHeight = (sourceHeight * imgWidth) / canvas.width;
+          
+          pdf.addImage(pageImgData, 'PNG', margin, margin, imgWidth, pageImgHeight, '', 'FAST');
+        }
       }
 
       // Generate filename with current date
@@ -617,6 +673,8 @@ export default function SPSales() {
       
       // Save the PDF
       pdf.save(fileName);
+      
+      console.log('PDF generated successfully');
       
     } catch (error) {
       console.error('Error generating PDF:', error);
