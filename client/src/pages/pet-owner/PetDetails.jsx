@@ -5,7 +5,7 @@ import {
   Calendar, Weight, Activity, Cat, AlertCircle,
   UploadCloud, FileText, Trash2, Plus, ArrowRight,
   CreditCard, ArrowLeft, ChevronDown, ChevronUp, X, 
-  Maximize2, Minus, Tag, Clock, ShieldCheck // <--- ADD THESE TWO
+  Maximize2, Minus, Tag, Clock, ShieldCheck 
 } from "lucide-react";
 import Header from "../../components/Header/LoggedInNavbar";
 import Footer from "../../components/Footer/Footer";
@@ -586,6 +586,9 @@ const handleAddPet = () => {
                 <div className="main-downpayment">
                     <CreditCard size={18} className="icon-gap" /> 30% Down Payment: <strong>₱{(calculateGrandTotal() * 0.3).toFixed(2)}</strong>
                 </div>
+                {/* NEW: VAT EXCLUSIVE TEXT */}
+                <div className="vat-note-small">* VAT exclusive</div>
+
                 <button 
                   className="btn-proceed-large" 
                   onClick={() => {
