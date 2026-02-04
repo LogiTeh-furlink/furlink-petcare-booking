@@ -474,6 +474,7 @@ export default function SPSales() {
     // ========================================
     const actualRevenue = new Array(timeLabels.length).fill(0);
     const potentialRevenue = new Array(timeLabels.length).fill(0);
+    const cancellationsPerPeriod = new Array(timeLabels.length).fill(0);
     
     currentBookings.forEach(booking => {
       const bDate = new Date(booking.booking_date);
@@ -500,6 +501,11 @@ export default function SPSales() {
       if (idx !== -1 && idx !== undefined) {
         // Add to potential revenue regardless of status
         potentialRevenue[idx] += revenue;
+        
+        // Track cancellations
+        if (booking.status === 'cancelled') {
+          cancellationsPerPeriod[idx] += 1;
+        }
         
         // Only add to actual if booking is complete
         if (isBookingComplete(booking)) {
@@ -531,6 +537,7 @@ export default function SPSales() {
       returningCustomerRevenue,
       actualRevenue,
       potentialRevenue,
+      cancellationsPerPeriod,
       totalLoss
     };
   }, [rawBookings, servicesList, bookingServices, activeFilter, petTypeFilter, customDateStart, customDateEnd, selectedYear]);
@@ -853,7 +860,40 @@ export default function SPSales() {
                         }
                       ]
                     }}
-                    options={lineChartOptions}
+                    options={{
+                      ...lineChartOptions,
+                      plugins: {
+                        ...lineChartOptions.plugins,
+                        tooltip: {
+                          mode: 'index',
+                          intersect: false,
+                          callbacks: {
+                            label: function(context) {
+                              let label = context.dataset.label || '';
+                              if (label) {
+                                label += ': ';
+                              }
+                              if (context.parsed.y !== null) {
+                                label += '₱' + context.parsed.y.toLocaleString();
+                              }
+                              return label;
+                            },
+                            afterLabel: function(context) {
+                              // Show cancellations count only once (on the first dataset)
+                              if (context.datasetIndex === 0) {
+                                const cancellations = analytics.cancellationsPerPeriod[context.dataIndex];
+                                const loss = analytics.potentialRevenue[context.dataIndex] - analytics.actualRevenue[context.dataIndex];
+                                return [
+                                  `Cancellations: ${cancellations}`,
+                                  `Revenue Lost: ₱${loss.toLocaleString()}`
+                                ];
+                              }
+                              return null;
+                            }
+                          }
+                        }
+                      }
+                    }}
                   />
                 </div>
                 <p className="chart-insight-text">
