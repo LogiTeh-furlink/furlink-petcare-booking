@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom'; 
 import { supabase } from "../../config/supabase";
 import LoggedInNavbar from "../../components/Header/LoggedInNavbar";
 import Footer from "../../components/Footer/Footer";
-import { FaCaretUp, FaCaretDown, FaMinus, FaFileAlt, FaTimes } from 'react-icons/fa';
+import { FaCaretUp, FaCaretDown, FaMinus, FaFileAlt, FaTimes, FaDownload } from 'react-icons/fa';
 import {
   Chart as ChartJS, 
   CategoryScale, 
@@ -16,6 +16,8 @@ import {
   Filler
 } from 'chart.js';
 import { Line } from 'react-chartjs-2';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 import './SPSales.css';
 
 ChartJS.register(
@@ -31,6 +33,7 @@ ChartJS.register(
 
 export default function SPSales() {
   const navigate = useNavigate();
+  const reportRef = useRef(null);
   
   // ============================================
   // STATE MANAGEMENT
@@ -46,7 +49,8 @@ export default function SPSales() {
   const [bookingServices, setBookingServices] = useState([]);
   const [listingVisitors, setListingVisitors] = useState(0);
   const [showReportModal, setShowReportModal] = useState(false);
-  const [selectedYear, setSelectedYear] = useState(null); // For year drill-down
+  const [selectedYear, setSelectedYear] = useState(null);
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
 
   // ============================================
   // DATA FETCHING
@@ -561,6 +565,68 @@ export default function SPSales() {
   }, [rawBookings, servicesList, bookingServices, activeFilter, petTypeFilter, customDateStart, customDateEnd, selectedYear]);
 
   // ============================================
+  // PDF DOWNLOAD FUNCTION
+  // ============================================
+  const handleDownloadPDF = async () => {
+    setIsGeneratingPDF(true);
+    
+    try {
+      // Create a temporary container for the report
+      const element = reportRef.current;
+      
+      if (!element) {
+        console.error('Report element not found');
+        setIsGeneratingPDF(false);
+        return;
+      }
+
+      // Capture the element as canvas
+      const canvas = await html2canvas(element, {
+        scale: 2, // Higher quality
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#ffffff'
+      });
+
+      const imgData = canvas.toDataURL('image/png');
+      
+      // Calculate PDF dimensions
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      const imgWidth = pdfWidth;
+      const imgHeight = (canvas.height * pdfWidth) / canvas.width;
+      
+      let heightLeft = imgHeight;
+      let position = 0;
+
+      // Add first page
+      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+      heightLeft -= pdfHeight;
+
+      // Add additional pages if content is longer than one page
+      while (heightLeft > 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+        heightLeft -= pdfHeight;
+      }
+
+      // Generate filename with current date
+      const fileName = `Sales_Report_${new Date().toISOString().split('T')[0]}.pdf`;
+      
+      // Save the PDF
+      pdf.save(fileName);
+      
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      alert('Failed to generate PDF. Please try again.');
+    } finally {
+      setIsGeneratingPDF(false);
+    }
+  };
+
+  // ============================================
   // CHART OPTIONS
   // ============================================
   const lineChartOptions = {
@@ -1057,8 +1123,8 @@ export default function SPSales() {
               </button>
             </div>
 
-            {/* Modal Body */}
-            <div className="report-modal-body">
+            {/* Modal Body - This content will be captured for PDF */}
+            <div className="report-modal-body" ref={reportRef}>
               {/* Report Header Info */}
               <div className="report-info-section">
                 <div className="report-info-row">
@@ -1192,9 +1258,22 @@ export default function SPSales() {
 
             {/* Modal Footer */}
             <div className="report-modal-footer">
-              <button className="btn-download-report" disabled>
-                <FaFileAlt />
-                Download Report (Coming Soon)
+              <button 
+                className="btn-download-report" 
+                onClick={handleDownloadPDF}
+                disabled={isGeneratingPDF}
+              >
+                {isGeneratingPDF ? (
+                  <>
+                    <FaDownload />
+                    Generating PDF...
+                  </>
+                ) : (
+                  <>
+                    <FaDownload />
+                    Download Report
+                  </>
+                )}
               </button>
               <button className="btn-close-report" onClick={() => setShowReportModal(false)}>
                 Close
