@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { FaEye, FaEyeSlash, FaStore, FaQuestionCircle } from "react-icons/fa";
+import { FaEye, FaEyeSlash, FaStore, FaQuestionCircle, FaTimes } from "react-icons/fa";
 import { supabase } from "../../config/supabase";
 import "./LoginPage.css"; 
 import Header from "../../components/Header/Header";
@@ -18,6 +18,34 @@ const LoginPage = () => {
 
   // Modal State for Hybrid Users
   const [showHybridPrompt, setShowHybridPrompt] = useState(false);
+  const [showPromoModal, setShowPromoModal] = useState(false);
+  const [showPetOwnerPromo, setShowPetOwnerPromo] = useState(false);
+  const [showRoleChangeConfirmation, setShowRoleChangeConfirmation] = useState(false);
+
+  const handleBecomeBoth = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      setLoading(true);
+      // Update the profiles table
+      const { error } = await supabase
+        .from("profiles")
+        .update({ role: "both" })
+        .eq("id", user.id);
+
+      if (error) throw error;
+
+      // Hide the promo and show the success confirmation
+      setShowPetOwnerPromo(false);
+      setShowRoleChangeConfirmation(true);
+    } catch (err) {
+      console.error("Error switching role:", err);
+      alert("Failed to update account. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -95,38 +123,45 @@ const LoginPage = () => {
         return navigate(profile.must_change_password ? "/admin-change-password" : "/admin-dashboard");
       }
 
-      // 2. Both (Pet Owner & Service Provider)
+      // 2. Both (Hybrid Logic)
       if (profile.role === "both") {
         if (provider?.status === "approved") {
           return navigate("/service/dashboard");
-        } else if (!provider) {
-          // If no record in service_providers table yet, show the prompt
-          setLoading(false);
-          setShowHybridPrompt(true); // This will now trigger correctly
           return;
         } else {
-          // Application is pending or rejected, default to pet owner view
-          return navigate("/dashboard");
+          // No entry, pending, incomplete, or rejected - show Hybrid Prompt
+          setLoading(false);
+          setShowHybridPrompt(true);
+          return;
         }
       }
 
       // 3. Service Provider Only
       if (profile.role === "service_provider") {
         if (provider?.status === "approved") {
-          return navigate("/service/dashboard");
-        } else {
+          setLoading(false);
+          setShowPetOwnerPromo(true);
+          return;
+        } else if (!provider || provider.status === "incomplete") {
+          // NO ENTRY or INCOMPLETE: Send straight to application
           return navigate("/apply-provider");
+        } else if (provider.status === "pending" || provider.status === "rejected") {
+          // PENDING or REJECTED: Send to dashboard; Navbar handles the status modals
+          return navigate("/dashboard");
         }
       }
 
-      // 4. Default / Pet Owner Only
-      navigate("/dashboard");
+      // 4. Pet Owner Only
+      if (profile.role === "pet_owner") {
+        setLoading(false);
+        setShowPromoModal(true);
+        return;
+      }
 
-    } catch (err) {
-      console.error(err);
-      setErrors({ general: "Something went wrong. Please try again." });
+      // Fallback
+      navigate("/dashboard");
     } finally {
-      if (!showHybridPrompt) setLoading(false);
+      if (!showHybridPrompt && !showPromoModal && !showPetOwnerPromo) setLoading(false);
     }
   };
 
@@ -192,6 +227,83 @@ const LoginPage = () => {
         </div>
       )}
 
+      {/* NEW PROMO MODAL FOR STRICT PET OWNERS */}
+      {showPromoModal && (
+        <div className="promo-overlay">
+          <div className="promo-card">
+            <button className="promo-close-btn" onClick={() => navigate("/dashboard")}>
+              <FaTimes />
+            </button>
+            <div className="promo-image-wrapper" onClick={() => navigate("/apply-provider")}>
+               <img 
+                 src="https://images.unsplash.com/photo-1516733725897-1aa73b87c8e8?q=80&w=1000&auto=format&fit=crop" 
+                 alt="Become a provider" 
+                 className="promo-main-image"
+               />
+               <div className="promo-overlay-text">
+                  <h2>Love Pets?</h2>
+                  <p>Earn by becoming a service provider today!</p>
+                  <span className="promo-badge">Apply Now</span>
+               </div>
+            </div>
+            <div className="promo-footer">
+               <button className="promo-later-btn" onClick={() => navigate("/dashboard")}>Maybe Later</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* PROMO MODAL FOR SERVICE PROVIDERS (Encouraging them to be Pet Owners) */}
+      {showPetOwnerPromo && (
+        <div className="promo-overlay">
+          <div className="promo-card">
+            <button className="promo-close-btn" onClick={() => navigate("/service/dashboard")}>
+              <FaTimes />
+            </button>
+            
+            <div className="promo-image-wrapper" onClick={handleBecomeBoth}> {/* Changed this */}
+                <img 
+                  src="https://images.unsplash.com/photo-1583337130417-3346a1be7dee?q=80&w=1000&auto=format&fit=crop" 
+                  alt="Become a pet owner" 
+                  className="promo-main-image"
+                />
+                <div className="promo-overlay-text">
+                  <h2>Need Grooming?</h2>
+                  <p>Discover and book top-rated pet stylists for your own fur babies!</p>
+                  <span className="promo-badge">Explore Shops</span>
+                </div>
+            </div>
+
+            <div className="promo-footer">
+               <button className="promo-later-btn" onClick={() => navigate("/service/dashboard")}>
+                 Go to My Shop Dashboard
+               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SUCCESS CONFIRMATION MODAL */}
+      {showRoleChangeConfirmation && (
+        <div className="modal-overlay">
+          <div className="modal-content hybrid-modal" style={{ textAlign: 'center' }}>
+            <div className="modal-icon-wrapper success" style={{ background: '#e6fffa', color: '#38a169', margin: '0 auto 20px' }}>
+              <FaStore />
+            </div>
+            <h3>Account Updated!</h3>
+            <p>You are now a <strong>Pet Owner and Service Provider</strong>. You can now browse grooming shops and book appointments while managing your own business.</p>
+            
+            <div className="modal-actions-column">
+              <button 
+                className="btn-primary" 
+                onClick={() => navigate("/dashboard")}
+              >
+                Explore Grooming Shops
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <Footer />
     </div>
   );

@@ -16,6 +16,7 @@ import {
   FaExclamationTriangle,
   FaInfoCircle,
   FaUserShield,
+  FaClock,
   FaPaw,
   FaStore
 } from "react-icons/fa";
@@ -165,35 +166,58 @@ export default function UserProfile() {
   };
 
   // Helper to render the role badge
+  // Helper to render the role badge based on baseRole
   const renderRoleBadge = () => {
-    const isApprovedProvider = userRoleInfo.isProvider && userRoleInfo.providerStatus === 'approved';
-    const isPendingProvider = userRoleInfo.isProvider && userRoleInfo.providerStatus === 'pending';
-    const isRejectedProvider = userRoleInfo.isProvider && userRoleInfo.providerStatus === 'declined';
+    const { baseRole, providerStatus } = userRoleInfo;
 
     return (
       <div className="role-display-container">
         <div className="role-card">
-          <div className="role-item">
-            <div className="role-icon-circle active"><FaPaw /></div>
-            <div className="role-text">
-              <h4>Pet Owner</h4>
-              <p>Standard Access</p>
-            </div>
-            <FaCheckCircle className="status-icon-check" title="Active" />
-          </div>
-
-          {userRoleInfo.isProvider && (
-            <div className={`role-item ${isApprovedProvider ? 'active' : 'inactive'}`}>
-              <div className={`role-icon-circle ${userRoleInfo.providerStatus}`}><FaStore /></div>
+          
+          {/* CASE 1: User is a Pet Owner only */}
+          {baseRole === "pet_owner" && (
+            <div className="role-item active">
+              <div className="role-icon-circle active"><FaPaw /></div>
               <div className="role-text">
-                <h4>Service Provider</h4>
-                <p>Status: <span className={`status-text ${userRoleInfo.providerStatus}`}>{userRoleInfo.providerStatus}</span></p>
+                <h4>Pet Owner</h4>
               </div>
-              {isApprovedProvider && <FaCheckCircle className="status-icon-check" />}
-              {isPendingProvider && <FaClock className="status-icon-pending" />}
-              {isRejectedProvider && <FaExclamationCircle className="status-icon-declined" />}
+              <FaCheckCircle className="status-icon-check" title="Active" />
             </div>
           )}
+
+          {/* CASE 2: User is BOTH */}
+          {baseRole === "both" && (
+            <>
+              <div className="role-item active">
+                <div className="role-icon-circle active"><FaPaw /></div>
+                <div className="role-text">
+                  <h4>Pet Owner</h4>
+                </div>
+                <FaCheckCircle className="status-icon-check" title="Active" />
+              </div>
+              <div className={`role-item ${providerStatus === 'approved' ? 'active' : 'inactive'}`}>
+                <div className={`role-icon-circle ${providerStatus}`}><FaStore /></div>
+                <div className="role-text">
+                  <h4>Service Provider</h4>
+                  <p>Status: <span className={`status-text ${providerStatus}`}>{providerStatus || 'Pending'}</span></p>
+                </div>
+                {providerStatus === 'approved' ? <FaCheckCircle className="status-icon-check" /> : <FaClock className="status-icon-pending" />}
+              </div>
+            </>
+          )}
+
+          {/* CASE 3: User is a Service Provider only */}
+          {baseRole === "service_provider" && (
+            <div className={`role-item ${providerStatus === 'approved' ? 'active' : 'inactive'}`}>
+              <div className={`role-icon-circle ${providerStatus}`}><FaStore /></div>
+              <div className="role-text">
+                <h4>Service Provider</h4>
+                <p>Status: <span className={`status-text ${providerStatus}`}>{providerStatus || 'Pending'}</span></p>
+              </div>
+              {providerStatus === 'approved' ? <FaCheckCircle className="status-icon-check" /> : <FaClock className="status-icon-pending" />}
+            </div>
+          )}
+
         </div>
       </div>
     );

@@ -211,6 +211,12 @@
   color: #718096;
 }
 
+.role-item + .role-item {
+    margin-top: 15px;
+    border-top: 1px solid #eee;
+    padding-top: 15px;
+}
+
 .role-icon-circle.active { background: #3182ce; color: white; }
 .role-icon-circle.pending { background: #ecc94b; color: white; }
 .role-icon-circle.approved { background: #48bb78; color: white; }
