@@ -338,6 +338,12 @@ export default function SPSales() {
     currentBookings.forEach(booking => {
       if (!isBookingComplete(booking)) return;
       
+      // Apply pet type filter - check if booking has pets matching the filter
+      if (petTypeFilter !== 'both') {
+        const hasPetType = booking.booking_pets?.some(pet => pet.pet_type === petTypeFilter);
+        if (!hasPetType) return;
+      }
+      
       const bDate = new Date(booking.booking_date);
       let idx;
       
@@ -437,6 +443,12 @@ export default function SPSales() {
     currentBookings.forEach(booking => {
       if (!isBookingComplete(booking)) return;
       
+      // Apply pet type filter - check if booking has pets matching the filter
+      if (petTypeFilter !== 'both') {
+        const hasPetType = booking.booking_pets?.some(pet => pet.pet_type === petTypeFilter);
+        if (!hasPetType) return;
+      }
+      
       const bDate = new Date(booking.booking_date);
       let idx;
       
@@ -477,6 +489,12 @@ export default function SPSales() {
     const cancellationsPerPeriod = new Array(timeLabels.length).fill(0);
     
     currentBookings.forEach(booking => {
+      // Apply pet type filter - check if booking has pets matching the filter
+      if (petTypeFilter !== 'both') {
+        const hasPetType = booking.booking_pets?.some(pet => pet.pet_type === petTypeFilter);
+        if (!hasPetType) return;
+      }
+      
       const bDate = new Date(booking.booking_date);
       let idx;
       
