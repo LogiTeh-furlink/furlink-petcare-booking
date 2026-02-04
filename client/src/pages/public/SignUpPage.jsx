@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { FaEye, FaEyeSlash, FaExclamationTriangle, FaCheckCircle, FaFileContract, FaTimes } from "react-icons/fa";
+import { FaEye, FaEyeSlash, FaCheckCircle, FaFileContract, FaTimes } from "react-icons/fa";
 import { supabase } from "../../config/supabase";
 
 import Header from "../../components/Header/Header";
@@ -38,7 +38,7 @@ const SignUpPage = () => {
     if (!formData.lastName.trim()) newErrors.lastName = true;
     if (!formData.email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) newErrors.email = true;
     if (!formData.mobile.match(/^9\d{9}$/)) newErrors.mobile = true;
-    if (!formData.roleChoice) newErrors.roleChoice = "Please select a role.";
+    if (!formData.roleChoice) newErrors.roleChoice = "Please select at least one role.";
     if (!formData.dob) {
       newErrors.dob = true;
     } else {
@@ -49,6 +49,26 @@ const SignUpPage = () => {
     if (!formData.password.match(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,12}$/)) newErrors.password = true;
     if (formData.password !== formData.confirmPassword) newErrors.confirmPassword = true;
     return newErrors;
+  };
+
+  // New helper to handle button toggles while keeping backend logic (pet_owner, service_provider, both)
+  const handleRoleToggle = (selectedRole) => {
+    let currentRole = formData.roleChoice;
+    let newRole = "";
+
+    if (selectedRole === "pet_owner") {
+      if (currentRole === "pet_owner") newRole = ""; // Deselect
+      else if (currentRole === "service_provider") newRole = "both"; // Add to existing
+      else if (currentRole === "both") newRole = "service_provider"; // Remove from both
+      else newRole = "pet_owner"; // Select new
+    } else if (selectedRole === "service_provider") {
+      if (currentRole === "service_provider") newRole = "";
+      else if (currentRole === "pet_owner") newRole = "both";
+      else if (currentRole === "both") newRole = "pet_owner";
+      else newRole = "service_provider";
+    }
+
+    setFormData({ ...formData, roleChoice: newRole });
   };
 
   const handleRegisterClick = (e) => {
@@ -62,60 +82,60 @@ const SignUpPage = () => {
   };
 
   const handleFinalSubmit = async () => {
-  if (!agreedToTerms) return;
-  setLoading(true);
-  setShowTermsModal(false);
+    if (!agreedToTerms) return;
+    setLoading(true);
+    setShowTermsModal(false);
 
-  try {
-    // 1. Auth SignUp
-    const { data: signUpData, error: authError } = await supabase.auth.signUp({
-      email: formData.email,
-      password: formData.password,
-    });
+    try {
+      // 1. Auth SignUp
+      const { data: signUpData, error: authError } = await supabase.auth.signUp({
+        email: formData.email,
+        password: formData.password,
+      });
 
-    if (authError) throw authError;
+      if (authError) throw authError;
 
-    const user = signUpData.user;
-    if (user) {
-      // 2. Use UPSERT instead of INSERT to avoid "Duplicate Key" errors
-      // This handles cases where a DB trigger might have already created the row
-      // Inside handleFinalSubmit in SignUpPage.jsx
-      const { error: profileError } = await supabase.from("profiles").upsert([
-        {
-          id: user.id,
-          first_name: formData.firstName,
-          last_name: formData.lastName,
-          display_name: `${formData.firstName} ${formData.lastName}`,
-          mobile_number: formData.mobile,
-          date_of_birth: formData.dob,
-          // FIX: Save the actual choice, including 'both'
-          role: formData.roleChoice 
-        },
-      ], { onConflict: 'id' });
+      const user = signUpData.user;
+      if (user) {
+        // 2. UPSERT Profile
+        const { error: profileError } = await supabase.from("profiles").upsert([
+          {
+            id: user.id,
+            first_name: formData.firstName,
+            last_name: formData.lastName,
+            display_name: `${formData.firstName} ${formData.lastName}`,
+            mobile_number: formData.mobile,
+            date_of_birth: formData.dob,
+            role: formData.roleChoice 
+          },
+        ], { onConflict: 'id' });
 
-      if (profileError) throw profileError;
+        if (profileError) throw profileError;
 
-      // 3. Create Session Record
-      await supabase.from("user_sessions").insert([{ user_id: user.id }]);
+        // 3. Create Session Record
+        await supabase.from("user_sessions").insert([{ user_id: user.id }]);
 
-      // 4. Handle Redirections (Now reachable since errors are caught/resolved)
-      if (formData.roleChoice === "pet_owner") {
-        navigate("/dashboard");
-      } else if (formData.roleChoice === "service_provider") {
-        navigate("/apply-provider");
-      } else if (formData.roleChoice === "both") {
-        // For 'both', redirect to dashboard then show the modal
-        navigate("/dashboard");
-        setTimeout(() => setShowHybridWelcomeModal(true), 500);
+        // 4. Handle Redirections
+        if (formData.roleChoice === "pet_owner") {
+          navigate("/dashboard");
+        } else if (formData.roleChoice === "service_provider") {
+          navigate("/apply-provider");
+        } else if (formData.roleChoice === "both") {
+          navigate("/dashboard");
+          setTimeout(() => setShowHybridWelcomeModal(true), 500);
+        }
       }
+    } catch (err) {
+      console.error("Registration error:", err);
+      setErrors({ general: err.message });
+    } finally {
+      setLoading(false);
     }
-  } catch (err) {
-    console.error("Registration error:", err);
-    setErrors({ general: err.message });
-  } finally {
-    setLoading(false);
-  }
-};
+  };
+
+  // Helper checks for active class
+  const isPetOwner = formData.roleChoice === "pet_owner" || formData.roleChoice === "both";
+  const isProvider = formData.roleChoice === "service_provider" || formData.roleChoice === "both";
 
   return (
     <div className="signup-page">
@@ -147,19 +167,31 @@ const SignUpPage = () => {
              />
           </div>
 
-          <div className="form-group">
+          <div className="form-group" style={{marginTop: '1.25rem'}}>
             <label className="input-label">Date of Birth</label>
             <input type="date" className={submitted && errors.dob ? "input-error" : ""} value={formData.dob} onChange={(e) => setFormData({ ...formData, dob: e.target.value })} />
           </div>
 
+          {/* UPDATED ROLE SELECTION SECTION */}
           <div className="form-group">
             <label className="input-label">I want to join as a:</label>
-            <select className={`role-dropdown ${submitted && errors.roleChoice ? "input-error" : ""}`} value={formData.roleChoice} onChange={(e) => setFormData({...formData, roleChoice: e.target.value})}>
-              <option value="" disabled>Select your primary role</option>
-              <option value="pet_owner">Pet Owner</option>
-              <option value="both">Both (Pet Owner & Provider)</option>
-              <option value="service_provider">Service Provider Only</option>
-            </select>
+            <div className="role-selection-group">
+              <button 
+                type="button" 
+                className={`role-btn ${isPetOwner ? "active" : ""}`}
+                onClick={() => handleRoleToggle("pet_owner")}
+              >
+                Pet Owner
+              </button>
+              <button 
+                type="button" 
+                className={`role-btn ${isProvider ? "active" : ""}`}
+                onClick={() => handleRoleToggle("service_provider")}
+              >
+                Service Provider
+              </button>
+            </div>
+            {submitted && errors.roleChoice && <span className="field-error-msg">{errors.roleChoice}</span>}
           </div>
 
           <div className="password-group">

@@ -19,7 +19,7 @@
 
 .signup-form {
     width: 100%;
-    max-width: 520px; /* Slightly wider for the new fields */
+    max-width: 520px;
     background: #ffffff;
     padding: 2.5rem 2rem;
     border-radius: 16px;
@@ -69,8 +69,7 @@
     font-size: 0.85rem;
 }
 
-.signup-form input:not([type="checkbox"]),
-.role-dropdown {
+.signup-form input:not([type="checkbox"]) {
     width: 100%;
     padding: 0.85rem 1rem;
     font-size: 0.95rem;
@@ -82,8 +81,7 @@
     color: #334155;
 }
 
-.signup-form input:focus,
-.role-dropdown:focus {
+.signup-form input:focus {
     border-color: #0E2679;
     box-shadow: 0 0 0 4px rgba(14, 38, 121, 0.05);
 }
@@ -101,7 +99,7 @@
 }
 
 /* ===========================
-    SPECIAL INPUTS (Phone & Dropdown)
+    SPECIAL INPUTS (Phone & Roles)
 =========================== */
 .phone-input-wrapper {
     display: flex;
@@ -129,13 +127,35 @@
     border-radius: 0 10px 10px 0 !important;
 }
 
-.role-dropdown {
+/* NEW ROLE BUTTON STYLES */
+.role-selection-group {
+    display: flex;
+    gap: 1rem;
+}
+
+.role-btn {
+    flex: 1;
+    padding: 0.85rem;
+    border: 2px solid #e2e8f0;
+    background: white;
+    border-radius: 10px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #64748b;
     cursor: pointer;
-    appearance: none;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%230E2679'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m19 9-7 7-7-7'/%3E%3C/svg%3E");
-    background-repeat: no-repeat;
-    background-position: right 1rem center;
-    background-size: 1.2rem;
+    transition: all 0.2s ease;
+}
+
+.role-btn:hover {
+    border-color: #cbd5e1;
+    background: #f1f5f9;
+}
+
+.role-btn.active {
+    border-color: #0E2679;
+    background: #eff6ff; /* Very light blue background */
+    color: #0E2679;
+    box-shadow: 0 0 0 2px rgba(14, 38, 121, 0.1);
 }
 
 /* ===========================
@@ -317,7 +337,7 @@
 }
 
 .login-link {
-  color: #0E2679; /* Use your primary brand color */
+  color: #0E2679;
   font-weight: 700;
   cursor: pointer;
   text-decoration: underline;
@@ -325,5 +345,5 @@
 }
 
 .login-link:hover {
-  color: #1a3fa0; /* A slightly lighter shade for hover */
+  color: #1a3fa0; 
 }
