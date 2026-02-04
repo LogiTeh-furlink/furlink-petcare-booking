@@ -113,7 +113,8 @@
 
 .report-button-container {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
+  align-items: center;
   margin-bottom: 0;
 }
 
@@ -134,6 +135,14 @@
 
 .generate-report-btn:hover {
   background: #1e40af;
+}
+
+/* "As of Date" Label */
+.as-of-date {
+  font-size: 0.85rem;
+  color: var(--primary-blue);
+  font-weight: 700;
+  text-align: left;
 }
 
 .sp-biz-kpi-grid { 

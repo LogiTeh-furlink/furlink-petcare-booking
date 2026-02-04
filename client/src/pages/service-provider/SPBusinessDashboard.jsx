@@ -15,6 +15,10 @@ ChartJS.register(CategoryScale, LinearScale, BarElement, PointElement, LineEleme
 
 export default function SPBusinessDashboard() {
   const navigate = useNavigate();
+  
+  // ============================================
+  // STATE MANAGEMENT
+  // ============================================
   const [activeTab] = useState('business_performance'); 
   const [activeFilter, setActiveFilter] = useState('monthly');
   const [petTypeFilter, setPetTypeFilter] = useState('both');
@@ -27,6 +31,9 @@ export default function SPBusinessDashboard() {
   const [listingVisitors, setListingVisitors] = useState(0);
   const [showReportModal, setShowReportModal] = useState(false);
 
+  // ============================================
+  // DATA FETCHING
+  // ============================================
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
@@ -44,6 +51,7 @@ export default function SPBusinessDashboard() {
 
         setListingVisitors(provider.click_count || 0);
 
+        // Fetch bookings with related data
         const { data: bookings, error: bError } = await supabase
           .from('bookings')
           .select(`
@@ -63,6 +71,7 @@ export default function SPBusinessDashboard() {
         if (bError) throw bError;
         setRawBookings(bookings || []);
 
+        // Fetch booking services for service breakdown
         const { data: bServices, error: sError } = await supabase
           .from('booking_services')
           .select(`
@@ -87,6 +96,7 @@ export default function SPBusinessDashboard() {
         if (sError) throw sError;
         setServiceStats(bServices || []);
 
+        // Fetch provider hours for time slot generation
         const { data: phours, error: hError } = await supabase
           .from('service_provider_hours')
           .select('start_time, end_time, slot_interval_minutes')
@@ -104,9 +114,13 @@ export default function SPBusinessDashboard() {
     fetchDashboardData();
   }, [navigate]);
 
+  // ============================================
+  // ANALYTICS CALCULATIONS
+  // ============================================
   const analytics = useMemo(() => {
     const now = new Date();
     
+    // Helper function to get date ranges based on filter
     const getRange = (filter, isPrevious = false) => {
       if (filter === 'custom' && customDateStart && customDateEnd) {
         const start = new Date(customDateStart);
@@ -153,10 +167,12 @@ export default function SPBusinessDashboard() {
     const currentRange = getRange(activeFilter);
     const previousRange = getRange(activeFilter, true);
     
+    // Format the date range text
     const rangeText = activeFilter === 'custom' && customDateStart && customDateEnd
       ? `${new Date(customDateStart).toLocaleDateString(undefined, { month: 'short', day: '2-digit' })} - ${new Date(customDateEnd).toLocaleDateString(undefined, { month: 'short', day: '2-digit', year: 'numeric' })}`
       : `${currentRange.start.toLocaleDateString(undefined, { month: 'short', day: '2-digit' })} - ${now.toLocaleDateString(undefined, { month: 'short', day: '2-digit', year: 'numeric' })}`;
 
+    // Helper to convert 12-hour time to 24-hour format
     const convertTo24Hour = (timeStr) => {
       if (!timeStr) return "00:00";
       if (timeStr.includes('M')) {
@@ -169,6 +185,7 @@ export default function SPBusinessDashboard() {
       return timeStr;
     };
 
+    // Check if booking is 4 hours past scheduled time
     const isFourHoursPast = (dateStr, timeStr) => {
       if (!dateStr || !timeStr) return false;
       try {
@@ -179,12 +196,14 @@ export default function SPBusinessDashboard() {
       } catch (e) { return false; }
     };
 
+    // Determine if booking is complete
     const isBookingComplete = (b) => {
       if (['completed', 'to_rate', 'rated'].includes(b.status)) return true;
       if (['paid', 'confirmed'].includes(b.status) && isFourHoursPast(b.booking_date, b.time_slot)) return true;
       return false;
     };
 
+    // Filter bookings by date range
     const filterByRange = (list, range) => {
       return list.filter(b => {
         const d = new Date(b.booking_date);
@@ -195,6 +214,7 @@ export default function SPBusinessDashboard() {
     const currentBookings = filterByRange(rawBookings, currentRange);
     const previousBookings = filterByRange(rawBookings, previousRange);
 
+    // Extract valid pets from complete bookings
     const getValidPets = (bookingsList) => {
       const validPets = [];
       bookingsList.forEach(b => {
@@ -220,6 +240,7 @@ export default function SPBusinessDashboard() {
     const currentValidPets = getValidPets(currentBookings);
     const previousValidPets = getValidPets(previousBookings);
 
+    // Calculate metrics (revenue, count)
     const calculateMetrics = (petsList, originalBookings) => {
       const uniqueBookingIds = new Set(petsList.map(p => p.booking_id));
       const uniqueBookings = originalBookings.filter(b => uniqueBookingIds.has(b.id));
@@ -230,12 +251,16 @@ export default function SPBusinessDashboard() {
     const current = calculateMetrics(currentValidPets, currentBookings);
     const previous = calculateMetrics(previousValidPets, previousBookings);
 
+    // Calculate percentage trend
     const getTrend = (curr, prev) => {
       if (prev === 0) return curr > 0 ? { val: 100, dir: 'up' } : { val: 0, dir: 'neutral' };
       const diff = ((curr - prev) / prev) * 100;
       return { val: Math.abs(Math.round(diff)), dir: diff > 0 ? 'up' : diff < 0 ? 'down' : 'neutral' };
     };
 
+    // ============================================
+    // CHART DATA GENERATION - AVERAGE BOOKINGS
+    // ============================================
     let dateLabels = [];
     if (activeFilter === 'yearly') {
       const year = currentRange.start.getFullYear();
@@ -277,16 +302,81 @@ export default function SPBusinessDashboard() {
       }
     });
 
-    const peakDaysLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    let peakDaysValuesDog = new Array(7).fill(0);
-    let peakDaysValuesCat = new Array(7).fill(0);
-    
-    current.validPets.forEach(pet => {
-      const dayIdx = (new Date(pet.booking_date).getDay() + 6) % 7;
-      if (pet.pet_type === 'Dog') peakDaysValuesDog[dayIdx]++;
-      else if (pet.pet_type === 'Cat') peakDaysValuesCat[dayIdx]++;
-    });
+    // ============================================
+    // CHART DATA GENERATION - PEAK PERIODS (Days/Weeks/Months)
+    // ============================================
+    let peakPeriodLabels = [];
+    let peakPeriodValuesDog = [];
+    let peakPeriodValuesCat = [];
+    let peakPeriodTitle = 'Peak Days';
 
+    if (activeFilter === 'weekly') {
+      // For weekly: show days of the week
+      peakPeriodTitle = 'Peak Days';
+      peakPeriodLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+      peakPeriodValuesDog = new Array(7).fill(0);
+      peakPeriodValuesCat = new Array(7).fill(0);
+      
+      current.validPets.forEach(pet => {
+        const dayIdx = (new Date(pet.booking_date).getDay() + 6) % 7;
+        if (pet.pet_type === 'Dog') peakPeriodValuesDog[dayIdx]++;
+        else if (pet.pet_type === 'Cat') peakPeriodValuesCat[dayIdx]++;
+      });
+    } else if (activeFilter === 'monthly') {
+      // For monthly: show weeks of the month
+      peakPeriodTitle = 'Peak Weeks';
+      const monthName = currentRange.start.toLocaleString('default', { month: 'short' });
+      const lastDay = new Date(currentRange.start.getFullYear(), currentRange.start.getMonth() + 1, 0).getDate();
+      peakPeriodLabels = [
+        `${monthName} 1-7`,
+        `${monthName} 8-14`,
+        `${monthName} 15-21`,
+        `${monthName} 22-${lastDay}`
+      ];
+      peakPeriodValuesDog = new Array(4).fill(0);
+      peakPeriodValuesCat = new Array(4).fill(0);
+      
+      current.validPets.forEach(pet => {
+        const day = new Date(pet.booking_date).getDate();
+        let weekIdx;
+        if (day <= 7) weekIdx = 0;
+        else if (day <= 14) weekIdx = 1;
+        else if (day <= 21) weekIdx = 2;
+        else weekIdx = 3;
+        
+        if (pet.pet_type === 'Dog') peakPeriodValuesDog[weekIdx]++;
+        else if (pet.pet_type === 'Cat') peakPeriodValuesCat[weekIdx]++;
+      });
+    } else if (activeFilter === 'yearly') {
+      // For yearly: show months of the year
+      peakPeriodTitle = 'Peak Months';
+      const year = currentRange.start.getFullYear();
+      peakPeriodLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].map(m => `${m} ${year}`);
+      peakPeriodValuesDog = new Array(12).fill(0);
+      peakPeriodValuesCat = new Array(12).fill(0);
+      
+      current.validPets.forEach(pet => {
+        const monthIdx = new Date(pet.booking_date).getMonth();
+        if (pet.pet_type === 'Dog') peakPeriodValuesDog[monthIdx]++;
+        else if (pet.pet_type === 'Cat') peakPeriodValuesCat[monthIdx]++;
+      });
+    } else {
+      // For custom: default to days
+      peakPeriodTitle = 'Peak Days';
+      peakPeriodLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+      peakPeriodValuesDog = new Array(7).fill(0);
+      peakPeriodValuesCat = new Array(7).fill(0);
+      
+      current.validPets.forEach(pet => {
+        const dayIdx = (new Date(pet.booking_date).getDay() + 6) % 7;
+        if (pet.pet_type === 'Dog') peakPeriodValuesDog[dayIdx]++;
+        else if (pet.pet_type === 'Cat') peakPeriodValuesCat[dayIdx]++;
+      });
+    }
+
+    // ============================================
+    // CHART DATA GENERATION - BOOKED HOURS
+    // ============================================
     const formatCleanTime = (timeStr) => {
       if (!timeStr || typeof timeStr !== 'string') return null;
       const parts = timeStr.trim().split(':');
@@ -333,6 +423,9 @@ export default function SPBusinessDashboard() {
 
     const timeSlots = generateProviderTimeSlots();
 
+    // ============================================
+    // CHART DATA GENERATION - BOOKED SERVICES (Doughnut)
+    // ============================================
     const filteredServices = serviceStats.filter(s => {
       const b = s.booking_pets?.bookings;
       if (!b) return false;
@@ -351,6 +444,7 @@ export default function SPBusinessDashboard() {
     const sLabels = Object.keys(serviceNameMap);
     const sValues = Object.values(serviceNameMap);
 
+    // Get busiest hour
     const getBusiestHour = () => {
       if (timeSlots.labels.length === 0) return "No data";
       const combinedValues = timeSlots.labels.map((label, idx) => ({
@@ -374,9 +468,10 @@ export default function SPBusinessDashboard() {
       dateLabels, 
       dateValuesDog, 
       dateValuesCat,
-      peakDaysLabels, 
-      peakDaysValuesDog, 
-      peakDaysValuesCat,
+      peakPeriodLabels, 
+      peakPeriodValuesDog, 
+      peakPeriodValuesCat,
+      peakPeriodTitle,
       sortedHourLabels: timeSlots.labels, 
       hourValuesDog: timeSlots.valuesDog, 
       hourValuesCat: timeSlots.valuesCat,
@@ -388,6 +483,9 @@ export default function SPBusinessDashboard() {
     };
   }, [rawBookings, serviceStats, activeFilter, providerHours, petTypeFilter, customDateStart, customDateEnd]);
 
+  // ============================================
+  // CHART OPTIONS
+  // ============================================
   const groupedChartOptions = {
     responsive: true, 
     maintainAspectRatio: false,
@@ -430,12 +528,18 @@ export default function SPBusinessDashboard() {
     }
   };
 
+  // ============================================
+  // HELPER COMPONENTS
+  // ============================================
   const TrendIndicator = ({ trend }) => (
     <div className={`kpi-trend ${trend.dir === 'up' ? 'positive' : trend.dir === 'down' ? 'negative' : 'neutral'}`}>
       {trend.dir === 'up' ? <FaCaretUp /> : trend.dir === 'down' ? <FaCaretDown /> : <FaMinus />} {trend.val}%
     </div>
   );
 
+  // ============================================
+  // CHART DATA FUNCTIONS
+  // ============================================
   const getAverageBookingsChartData = () => {
     if (petTypeFilter === 'both') {
       return {
@@ -469,20 +573,20 @@ export default function SPBusinessDashboard() {
     };
   };
 
-  const getPeakDaysChartData = () => {
+  const getPeakPeriodsChartData = () => {
     if (petTypeFilter === 'both') {
       return {
-        labels: analytics.peakDaysLabels,
+        labels: analytics.peakPeriodLabels,
         datasets: [
-          { label: 'Dog', data: analytics.peakDaysValuesDog, backgroundColor: '#1e3a8a', borderRadius: 4 },
-          { label: 'Cat', data: analytics.peakDaysValuesCat, backgroundColor: '#facc15', borderRadius: 4 }
+          { label: 'Dog', data: analytics.peakPeriodValuesDog, backgroundColor: '#1e3a8a', borderRadius: 4 },
+          { label: 'Cat', data: analytics.peakPeriodValuesCat, backgroundColor: '#facc15', borderRadius: 4 }
         ]
       };
     }
     return {
-      labels: analytics.peakDaysLabels,
+      labels: analytics.peakPeriodLabels,
       datasets: [{
-        data: petTypeFilter === 'Dog' ? analytics.peakDaysValuesDog : analytics.peakDaysValuesCat,
+        data: petTypeFilter === 'Dog' ? analytics.peakPeriodValuesDog : analytics.peakPeriodValuesCat,
         backgroundColor: petTypeFilter === 'Dog' ? '#1e3a8a' : '#facc15',
         borderRadius: 4
       }]
@@ -509,22 +613,26 @@ export default function SPBusinessDashboard() {
     };
   };
 
+  // ============================================
+  // LOADING STATE
+  // ============================================
   if (loading) return <div className="loading-state">Loading Dashboard...</div>;
 
+  // ============================================
+  // MAIN RENDER
+  // ============================================
   return (
     <div className="sp-biz-page-wrapper">
       <LoggedInNavbar />
       
       <div className="sp-biz-main-layout">
         <div className="sp-biz-container">
+          {/* ============================================ */}
+          {/* SIDEBAR - Filters and Doughnut Chart */}
+          {/* ============================================ */}
           <aside className="sp-biz-sidebar">
+            {/* Tab Navigation */}
             <div className="sidebar-tabs-group">
-              <button 
-                className={`sidebar-tab-btn ${activeTab === 'sales' ? 'active' : ''}`} 
-                onClick={() => navigate('/service/sales')}
-              >
-                Sales
-              </button>
               <button 
                 className={`sidebar-tab-btn ${activeTab === 'business_performance' ? 'active' : ''}`} 
                 onClick={() => navigate('/service/business-dashboard')}
@@ -539,6 +647,7 @@ export default function SPBusinessDashboard() {
               </button>
             </div>
             
+            {/* Timeframe Filter */}
             <div className="sidebar-section">
               <h3>Timeframe</h3>
               <select className="filter-dropdown" value={activeFilter} onChange={(e) => setActiveFilter(e.target.value)}>
@@ -548,6 +657,7 @@ export default function SPBusinessDashboard() {
                 <option value="custom">Custom Range</option>
               </select>
               
+              {/* Custom Date Range Inputs */}
               {activeFilter === 'custom' && (
                 <div className="custom-date-range">
                   <label className="date-label">From:</label>
@@ -571,6 +681,7 @@ export default function SPBusinessDashboard() {
               )}
             </div>
 
+            {/* Pet Type Filter */}
             <div className="sidebar-section">
               <h3>Pet Type</h3>
               <select className="filter-dropdown" value={petTypeFilter} onChange={(e) => setPetTypeFilter(e.target.value)}>
@@ -580,6 +691,7 @@ export default function SPBusinessDashboard() {
               </select>
             </div>
             
+            {/* Booked Services Doughnut Chart */}
             <div className="sidebar-section doughnut-card">
               <h4 className="chart-title-sm">Booked Services</h4>
               <div className="doughnut-container">
@@ -611,15 +723,28 @@ export default function SPBusinessDashboard() {
             </div>
           </aside>
 
+          {/* ============================================ */}
+          {/* MAIN CONTENT - KPIs and Charts */}
+          {/* ============================================ */}
           <main className="sp-biz-main-content">
+            {/* Generate Report Button and As of Date */}
             <div className="report-button-container">
+              <div className="as-of-date">
+                As of {new Date().toLocaleDateString('en-US', { 
+                  month: 'long', 
+                  day: 'numeric', 
+                  year: 'numeric' 
+                })}
+              </div>
               <button className="generate-report-btn" onClick={() => setShowReportModal(true)}>
                 <FaFileAlt size={16} />
                 <span>Generate Business Report</span>
               </button>
             </div>
 
+            {/* KPI Cards Grid */}
             <div className="sp-biz-kpi-grid">
+              {/* Gross Revenue KPI */}
               <div className="kpi-card">
                 <span className="kpi-label">Gross Revenue</span>
                 <div className="kpi-row">
@@ -631,6 +756,8 @@ export default function SPBusinessDashboard() {
                   <TrendIndicator trend={analytics.revTrend} />
                 </div>
               </div>
+              
+              {/* Total Bookings KPI */}
               <div className="kpi-card">
                 <span className="kpi-label">Total Bookings</span>
                 <div className="kpi-row">
@@ -638,20 +765,27 @@ export default function SPBusinessDashboard() {
                   <TrendIndicator trend={analytics.bookTrend} />
                 </div>
               </div>
+              
+              {/* Listing Visitors KPI */}
               <div className="kpi-card">
                 <span className="kpi-label">Listing Visitors</span>
                 <span className="kpi-value">{listingVisitors.toLocaleString()}</span>
               </div>
+              
+              {/* Average per Customer KPI */}
               <div className="kpi-card">
                 <span className="kpi-label">Avg/Customer</span>
                 <span className="kpi-value">{analytics.avg}</span>
               </div>
+              
+              {/* Cancellations KPI */}
               <div className="kpi-card">
                 <span className="kpi-label">Cancellations</span>
                 <span className="kpi-value">{analytics.cancellations.toString().padStart(2, '0')}</span>
               </div>
             </div>
 
+            {/* Average Bookings Chart (Main Chart) */}
             <div className="chart-box main-chart">
               <div className="chart-header">
                 <h3 className="chart-title">Average Bookings ({activeFilter})</h3>
@@ -665,17 +799,20 @@ export default function SPBusinessDashboard() {
               </div>
             </div>
             
+            {/* Bottom Charts Grid */}
             <div className="sp-biz-bottom-grid">
+              {/* Peak Periods Chart (Days/Weeks/Months based on filter) */}
               <div className="chart-box">
-                <h4 className="chart-title-sm">Peak Days</h4>
+                <h4 className="chart-title-sm">{analytics.peakPeriodTitle}</h4>
                 <div className="chart-container-small">
                   <Bar 
-                    data={getPeakDaysChartData()} 
+                    data={getPeakPeriodsChartData()} 
                     options={petTypeFilter === 'both' ? groupedChartOptions : commonChartOptions} 
                   />
                 </div>
               </div>
               
+              {/* Booked Hours Chart */}
               <div className="chart-box">
                 <h4 className="chart-title-sm">Booked Hours</h4>
                 <div className="chart-container-small">
@@ -691,10 +828,13 @@ export default function SPBusinessDashboard() {
         </div>
       </div>
 
-      {/* Business Report Modal */}
+      {/* ============================================ */}
+      {/* BUSINESS REPORT MODAL */}
+      {/* ============================================ */}
       {showReportModal && (
         <div className="report-modal-overlay" onClick={() => setShowReportModal(false)}>
           <div className="report-modal-content" onClick={(e) => e.stopPropagation()}>
+            {/* Modal Header */}
             <div className="report-modal-header">
               <div className="report-header-title">
                 <FaFileAlt size={20} />
@@ -705,6 +845,7 @@ export default function SPBusinessDashboard() {
               </button>
             </div>
 
+            {/* Modal Body */}
             <div className="report-modal-body">
               {/* Report Header Info */}
               <div className="report-info-section">
@@ -862,6 +1003,7 @@ export default function SPBusinessDashboard() {
               )}
             </div>
 
+            {/* Modal Footer */}
             <div className="report-modal-footer">
               <button className="btn-download-report" disabled>
                 <FaFileAlt />
