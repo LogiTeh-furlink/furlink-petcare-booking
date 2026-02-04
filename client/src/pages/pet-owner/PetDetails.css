@@ -58,7 +58,7 @@
     justify-content: flex-end; 
 }
 
-/* Added Class for VAT Note */
+/* VAT Note Style - Reused for Modal and Main Page */
 .vat-note-small {
     text-align: right;
     font-size: 0.75rem;

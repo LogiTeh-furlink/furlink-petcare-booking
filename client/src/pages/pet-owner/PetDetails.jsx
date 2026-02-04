@@ -586,7 +586,7 @@ const handleAddPet = () => {
                 <div className="main-downpayment">
                     <CreditCard size={18} className="icon-gap" /> 30% Down Payment: <strong>₱{(calculateGrandTotal() * 0.3).toFixed(2)}</strong>
                 </div>
-                {/* NEW: VAT EXCLUSIVE TEXT */}
+                {/* VAT EXCLUSIVE TEXT */}
                 <div className="vat-note-small">* VAT exclusive</div>
 
                 <button 
@@ -1039,6 +1039,8 @@ const handleAddPet = () => {
             <span>30% Down Payment:</span>
             <span>₱{(calculateGrandTotal() * 0.3).toFixed(2)}</span>
           </div>
+          {/* ADDED VAT NOTE IN MODAL */}
+          <div className="vat-note-small">* VAT exclusive</div>
         </div>
       </div>
 
