@@ -220,6 +220,14 @@
   margin-top: 0;
 }
 
+.vat-note {
+  font-size: 0.85rem;
+  color: #8fa3d0; /* Muted blue to match theme */
+  font-style: italic;
+  margin-top: -0.5rem;
+  margin-bottom: 1.5rem;
+}
+
 .shop-description {
   color: #2a5298; /* Primary body blue */
   line-height: 1.8;

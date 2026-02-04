@@ -51,7 +51,6 @@ const TermsModal = ({ isOpen, onClose, onAgree }) => {
 };
 
 // Helper for a Read-Only Map Preview
-// Helper for a Read-Only Map Preview
 const MapPreview = ({ lat, lng, businessName }) => {
   if (!lat || !lng) return (
     <div className="no-map-data">
@@ -62,9 +61,6 @@ const MapPreview = ({ lat, lng, businessName }) => {
 
   return (
     <div className="listing-map-group">
-      {/* FIX: Changed provider.latitude to lat 
-         FIX: Added a key to force re-render when coordinates change
-      */}
       <div style={{ height: "300px", width: "100%", position: "relative" }}>
         <LocationPicker 
           key={`${lat}-${lng}`} 
@@ -196,13 +192,10 @@ const StarRating = ({ rating, size = 14 }) => {
   
   for (let i = 1; i <= 5; i++) {
     if (i <= rating) {
-      // Full star for values like 1.0, 2.0, etc.
       stars.push(<FaStar key={i} size={size} color="#facc15" />);
     } else if (i - 0.5 <= rating) {
-      // Half star for decimals >= .5
       stars.push(<FaStarHalfAlt key={i} size={size} color="#facc15" />);
     } else {
-      // Empty star for the remainder
       stars.push(<FaRegStar key={i} size={size} color="#cbd5e1" />);
     }
   }
@@ -248,7 +241,6 @@ const ListingInfo = () => {
             .select("time_slot, status")
             .eq("provider_id", id)
             .eq("booking_date", dateStr)
-            // We only care about bookings that aren't cancelled or rejected
             .not("status", "in", '("cancelled", "rejected")');
 
         if (!error) setExistingBookings(data || []);
@@ -298,8 +290,7 @@ const ListingInfo = () => {
   }, [id, location.state]);
 
   // 3. AUTO-GENERATE TIME SLOTS
-  // Updated AUTO-GENERATE TIME SLOTS Effect
-useEffect(() => {
+  useEffect(() => {
     setAvailableTimeSlots([]);
     if (!bookingDate || hours.length === 0) return;
 
@@ -317,14 +308,13 @@ useEffect(() => {
             const timeValue = start.toTimeString().split(' ')[0]; // "09:00:00"
             const displayLabel = start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
             
-            // FILTER LOGIC: Count existing bookings for this specific timeValue
             const bookingsAtThisTime = existingBookings.filter(b => b.time_slot === timeValue);
             const confirmedCount = bookingsAtThisTime.filter(b => b.status === 'confirmed' || b.status === 'completed').length;
             const pendingCount = bookingsAtThisTime.filter(b => ['pending', 'payment_verification', 'awaiting_payment'].includes(b.status)).length;
 
             const totalOccupied = confirmedCount + pendingCount;
 
-           let status = "available";
+            let status = "available";
             if (confirmedCount >= capacity) {
                 status = "full"; 
             } else if (totalOccupied >= capacity) {
@@ -347,7 +337,6 @@ useEffect(() => {
     try {
       setLoading(true);
       
-      // Fetch Basic Provider Info
       const { data: providerData } = await supabase.from("service_providers").select("*").eq("id", id).eq("status", "approved").single();
       setProvider(providerData || null);
 
@@ -360,7 +349,6 @@ useEffect(() => {
       const { data: imagesData } = await supabase.from("service_provider_images").select("*").eq("provider_id", id);
       setImages(imagesData || []);
 
-      // Fetch Reviews
       const { data: reviewsData } = await supabase
         .from("reviews")
         .select("*")
@@ -370,14 +358,12 @@ useEffect(() => {
       if (reviewsData && reviewsData.length > 0) {
         setReviews(reviewsData);
         
-        // Calculate Averages
         const total = reviewsData.length;
         const totalService = reviewsData.reduce((acc, r) => acc + r.rating_overall, 0);
         const totalStaff = reviewsData.reduce((acc, r) => acc + r.rating_staff, 0);
         
         const avgService = totalService / total;
         const avgStaff = totalStaff / total;
-        // Overall is average of the two categories
         const avgOverall = (avgService + avgStaff) / 2;
 
         setReviewStats({
@@ -426,10 +412,8 @@ useEffect(() => {
     setBookingTime(""); 
   };
 
-  // Inside ListingInfo component
-  const [showTermsModal, setShowTermsModal] = useState(false); // 1. Add this state
+  const [showTermsModal, setShowTermsModal] = useState(false);
 
-  // 2. Modify handleCompleteBooking
   const handleCompleteBooking = () => {
     setBookingError(null);
 
@@ -443,15 +427,12 @@ useEffect(() => {
       return; 
     }
 
-    // --- NEW: CAPACITY VALIDATION ---
     const selectedSlot = availableTimeSlots.find(s => s.value === bookingTime);
     if (selectedSlot) {
-      // Find the operating hours for the current day to get total capacity
       const dayName = bookingDate.toLocaleDateString('en-US', { weekday: 'long' });
       const workingDay = hours.find(h => h.day_of_week === dayName);
       const maxCapacity = workingDay ? parseInt(workingDay.slot_capacity) : 1;
 
-      // Calculate currently occupied (Confirmed + Pending)
       const bookingsAtThisTime = existingBookings.filter(b => b.time_slot === bookingTime);
       const occupied = bookingsAtThisTime.length; 
       const availableRemaining = maxCapacity - occupied;
@@ -465,7 +446,6 @@ useEffect(() => {
     setShowTermsModal(true);
   };
 
-  // 3. Add the actual redirect function
   const handleAgreeAndNavigate = () => {
       const dateStr = bookingDate.toLocaleDateString('en-CA'); 
       setShowTermsModal(false);
@@ -632,12 +612,19 @@ useEffect(() => {
                   </div>
                   <div className="info-section" style={{marginTop:'3rem', borderTop:'1px solid #dbeafe', paddingTop:'2rem'}}>
                     <h3 className="subsection-title">Service Prices</h3>
+                    <p className="vat-note">* VAT exclusive</p>
                     <ServicesList />
                   </div>
               </div>
             )}
 
-            {activeTab === "prices" && <div className="tab-content"><h2 className="section-title">Service Prices</h2><ServicesList /></div>}
+            {activeTab === "prices" && (
+                <div className="tab-content">
+                    <h2 className="section-title">Service Prices</h2>
+                    <p className="vat-note">* VAT exclusive</p>
+                    <ServicesList />
+                </div>
+            )}
             
             {activeTab === "location" && (
             <div className="tab-content">
