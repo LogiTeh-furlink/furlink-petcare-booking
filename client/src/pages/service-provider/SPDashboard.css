@@ -399,6 +399,14 @@ p{
   font-weight: 400 !important;
 }
 
+/* ADDED: VAT Note in Modal */
+.vat-note-modal {
+  font-size: 0.7rem;
+  font-style: italic;
+  color: var(--text-light);
+  margin-top: -2px;
+}
+
 /* 3. Section Titles */
 .modal-body-scroll h4 {
   color: var(--brand-blue);
@@ -748,7 +756,7 @@ p{
 .header-title-group {
   display: flex;
   align-items: center; /* Vertically centers the icon with the text */
-  gap: 12px;           /* Modern spacing between icon and H3 */
+  gap: 12px;          /* Modern spacing between icon and H3 */
   color: var(--brand-blue);
 }
 

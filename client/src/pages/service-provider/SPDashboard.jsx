@@ -486,6 +486,7 @@ const stats = {
               <div className="info-row">
                 <span>Total Amount:</span>
                 <strong className="text-highlight">{formatCurrency(selectedBooking.total_estimated_price)}</strong>
+                <small className="vat-note-modal">* VAT exclusive</small>
               </div>
             </div>
 
