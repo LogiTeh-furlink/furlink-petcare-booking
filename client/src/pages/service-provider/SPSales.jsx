@@ -4,7 +4,30 @@ import { supabase } from "../../config/supabase";
 import LoggedInNavbar from "../../components/Header/LoggedInNavbar";
 import Footer from "../../components/Footer/Footer";
 import { FaCaretUp, FaCaretDown, FaMinus, FaFileAlt, FaTimes } from 'react-icons/fa';
+import {
+  Chart as ChartJS, 
+  CategoryScale, 
+  LinearScale, 
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip, 
+  Legend,
+  Filler
+} from 'chart.js';
+import { Line } from 'react-chartjs-2';
 import './SPSales.css';
+
+ChartJS.register(
+  CategoryScale, 
+  LinearScale, 
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip, 
+  Legend,
+  Filler
+);
 
 export default function SPSales() {
   const navigate = useNavigate();
@@ -19,8 +42,11 @@ export default function SPSales() {
   const [customDateEnd, setCustomDateEnd] = useState('');
   const [loading, setLoading] = useState(true);
   const [rawBookings, setRawBookings] = useState([]);
+  const [servicesList, setServicesList] = useState([]);
+  const [bookingServices, setBookingServices] = useState([]);
   const [listingVisitors, setListingVisitors] = useState(0);
   const [showReportModal, setShowReportModal] = useState(false);
+  const [selectedYear, setSelectedYear] = useState(null); // For year drill-down
 
   // ============================================
   // DATA FETCHING
@@ -61,6 +87,43 @@ export default function SPSales() {
 
         if (bError) throw bError;
         setRawBookings(bookings || []);
+
+        // Fetch services for this provider
+        const { data: services, error: sError } = await supabase
+          .from('services')
+          .select('id, name, type')
+          .eq('provider_id', provider.id);
+
+        if (sError) throw sError;
+        setServicesList(services || []);
+
+        // Fetch booking_services data
+        const { data: bServices, error: bsError } = await supabase
+          .from('booking_services')
+          .select(`
+            id,
+            service_id,
+            service_name,
+            service_type,
+            price,
+            booking_pet_id,
+            booking_pets!inner (
+              id,
+              pet_type,
+              booking_id,
+              bookings!inner (
+                id,
+                booking_date,
+                status,
+                time_slot,
+                user_id
+              )
+            )
+          `)
+          .in('service_id', services.map(s => s.id));
+
+        if (bsError) throw bsError;
+        setBookingServices(bServices || []);
 
       } catch (err) {
         console.error("Sales Fetch Error:", err);
@@ -109,6 +172,26 @@ export default function SPSales() {
         } else { 
           start = new Date(now.getFullYear(), now.getMonth(), 1);
           end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        }
+      } else if (filter === 'yearly') {
+        // For yearly view, include all data from 2020 to current date
+        if (selectedYear) {
+          // If a specific year is selected, show only that year's data
+          start = new Date(selectedYear, 0, 1);
+          end = new Date(selectedYear, 11, 31, 23, 59, 59, 999);
+          if (isPrevious) {
+            start = new Date(selectedYear - 1, 0, 1);
+            end = new Date(selectedYear - 1, 11, 31, 23, 59, 59, 999);
+          }
+        } else {
+          // Show all years from 2020 to now
+          if (isPrevious) { 
+            start.setFullYear(now.getFullYear() - 1, 0, 1); 
+            end.setFullYear(now.getFullYear() - 1, 11, 31); 
+          } else { 
+            start = new Date(2020, 0, 1); // Start from 2020
+            end = now; // End at current date
+          }
         }
       } else {
         if (isPrevious) { 
@@ -215,6 +298,221 @@ export default function SPSales() {
       return { val: Math.abs(Math.round(diff)), dir: diff > 0 ? 'up' : diff < 0 ? 'down' : 'neutral' };
     };
 
+    // ========================================
+    // GENERATE TIME LABELS (X-AXIS)
+    // ========================================
+    let timeLabels = [];
+    const currentYear = now.getFullYear();
+    
+    if (activeFilter === 'yearly') {
+      if (selectedYear) {
+        // Show months of selected year
+        timeLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].map(m => `${m} ${selectedYear}`);
+      } else {
+        // Show years from 2020 to current
+        const years = [];
+        for (let year = 2020; year <= currentYear; year++) {
+          years.push(year.toString());
+        }
+        timeLabels = years;
+      }
+    } else if (activeFilter === 'monthly') {
+      const monthName = currentRange.start.toLocaleString('default', { month: 'short' });
+      const lastDay = new Date(currentRange.start.getFullYear(), currentRange.start.getMonth() + 1, 0).getDate();
+      timeLabels = [
+        `${monthName} 1 - 7`,
+        `${monthName} 8 - 14`,
+        `${monthName} 15 - 21`,
+        `${monthName} 22 - ${lastDay}`
+      ];
+    } else {
+      timeLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    }
+
+    // ========================================
+    // CHART 1: OVERALL SALES PERFORMANCE
+    // Shows total revenue over time
+    // ========================================
+    const overallSalesData = new Array(timeLabels.length).fill(0);
+    
+    currentBookings.forEach(booking => {
+      if (!isBookingComplete(booking)) return;
+      
+      const bDate = new Date(booking.booking_date);
+      let idx;
+      
+      if (activeFilter === 'yearly') {
+        if (selectedYear) {
+          // Monthly view of selected year
+          idx = bDate.getMonth();
+        } else {
+          // Year list view
+          const bookingYear = bDate.getFullYear();
+          idx = timeLabels.indexOf(bookingYear.toString());
+        }
+      } else if (activeFilter === 'monthly') {
+        const day = bDate.getDate();
+        idx = day <= 7 ? 0 : day <= 14 ? 1 : day <= 21 ? 2 : 3;
+      } else {
+        idx = (bDate.getDay() + 6) % 7;
+      }
+      
+      if (idx !== -1 && overallSalesData[idx] !== undefined) {
+        overallSalesData[idx] += Number(booking.total_estimated_price) || 0;
+      }
+    });
+
+    // ========================================
+    // CHART 2: SALES PERFORMANCE PER SERVICE
+    // Shows revenue for each service type
+    // ========================================
+    const serviceRevenueMap = {};
+    servicesList.forEach(service => {
+      serviceRevenueMap[service.id] = {
+        name: service.name,
+        data: new Array(timeLabels.length).fill(0)
+      };
+    });
+
+    bookingServices.forEach(bs => {
+      const booking = bs.booking_pets?.bookings;
+      if (!booking || !isBookingComplete(booking)) return;
+      
+      // Apply pet type filter
+      if (petTypeFilter !== 'both' && bs.booking_pets?.pet_type !== petTypeFilter) return;
+      
+      const bDate = new Date(booking.booking_date);
+      const bookingYear = bDate.getFullYear();
+      
+      // Filter by selected year when in yearly drill-down mode
+      if (activeFilter === 'yearly' && selectedYear && bookingYear !== selectedYear) return;
+      
+      // Filter by current range (handles all year data when selectedYear is null)
+      if (bDate < currentRange.start || bDate > (currentRange.end || now)) return;
+      
+      let idx;
+      
+      if (activeFilter === 'yearly') {
+        if (selectedYear) {
+          // Monthly view of selected year
+          idx = bDate.getMonth();
+        } else {
+          // Year list view
+          idx = timeLabels.indexOf(bookingYear.toString());
+        }
+      } else if (activeFilter === 'monthly') {
+        const day = bDate.getDate();
+        idx = day <= 7 ? 0 : day <= 14 ? 1 : day <= 21 ? 2 : 3;
+      } else {
+        idx = (bDate.getDay() + 6) % 7;
+      }
+      
+      if (idx !== -1 && serviceRevenueMap[bs.service_id] && serviceRevenueMap[bs.service_id].data[idx] !== undefined) {
+        serviceRevenueMap[bs.service_id].data[idx] += Number(bs.price) || 0;
+      }
+    });
+
+    // ========================================
+    // CHART 3: NEW VS RETURNING CUSTOMERS REVENUE
+    // Two lines: revenue from new customers vs returning customers
+    // ========================================
+    const newCustomerRevenue = new Array(timeLabels.length).fill(0);
+    const returningCustomerRevenue = new Array(timeLabels.length).fill(0);
+    
+    // Track first booking date for each customer
+    const customerFirstBooking = {};
+    
+    // Sort all bookings by date to identify first booking
+    const allCompletedBookings = rawBookings
+      .filter(b => isBookingComplete(b))
+      .sort((a, b) => new Date(a.booking_date) - new Date(b.booking_date));
+    
+    allCompletedBookings.forEach(booking => {
+      if (!customerFirstBooking[booking.user_id]) {
+        customerFirstBooking[booking.user_id] = booking.booking_date;
+      }
+    });
+    
+    // Now categorize current period bookings
+    currentBookings.forEach(booking => {
+      if (!isBookingComplete(booking)) return;
+      
+      const bDate = new Date(booking.booking_date);
+      let idx;
+      
+      if (activeFilter === 'yearly') {
+        if (selectedYear) {
+          // Monthly view of selected year
+          idx = bDate.getMonth();
+        } else {
+          // Year list view
+          const bookingYear = bDate.getFullYear();
+          idx = timeLabels.indexOf(bookingYear.toString());
+        }
+      } else if (activeFilter === 'monthly') {
+        const day = bDate.getDate();
+        idx = day <= 7 ? 0 : day <= 14 ? 1 : day <= 21 ? 2 : 3;
+      } else {
+        idx = (bDate.getDay() + 6) % 7;
+      }
+      
+      const isFirstBooking = customerFirstBooking[booking.user_id] === booking.booking_date;
+      const revenue = Number(booking.total_estimated_price) || 0;
+      
+      if (idx !== -1 && idx !== undefined) {
+        if (isFirstBooking) {
+          newCustomerRevenue[idx] += revenue;
+        } else {
+          returningCustomerRevenue[idx] += revenue;
+        }
+      }
+    });
+
+    // ========================================
+    // CHART 4: REVENUE LOSS DUE TO CANCELLATIONS
+    // Two lines: actual revenue earned vs potential revenue without cancellations
+    // ========================================
+    const actualRevenue = new Array(timeLabels.length).fill(0);
+    const potentialRevenue = new Array(timeLabels.length).fill(0);
+    
+    currentBookings.forEach(booking => {
+      const bDate = new Date(booking.booking_date);
+      let idx;
+      
+      if (activeFilter === 'yearly') {
+        if (selectedYear) {
+          // Monthly view of selected year
+          idx = bDate.getMonth();
+        } else {
+          // Year list view
+          const bookingYear = bDate.getFullYear();
+          idx = timeLabels.indexOf(bookingYear.toString());
+        }
+      } else if (activeFilter === 'monthly') {
+        const day = bDate.getDate();
+        idx = day <= 7 ? 0 : day <= 14 ? 1 : day <= 21 ? 2 : 3;
+      } else {
+        idx = (bDate.getDay() + 6) % 7;
+      }
+      
+      const revenue = Number(booking.total_estimated_price) || 0;
+      
+      if (idx !== -1 && idx !== undefined) {
+        // Add to potential revenue regardless of status
+        potentialRevenue[idx] += revenue;
+        
+        // Only add to actual if booking is complete
+        if (isBookingComplete(booking)) {
+          actualRevenue[idx] += revenue;
+        }
+      }
+    });
+
+    // Calculate total loss from cancellations
+    const totalLoss = potentialRevenue.reduce((sum, val, idx) => 
+      sum + (val - actualRevenue[idx]), 0
+    );
+
     return { 
       revenue: current.rev, 
       validCount: current.count, 
@@ -224,9 +522,88 @@ export default function SPSales() {
         : 0, 
       revTrend: getTrend(current.rev, previous.rev), 
       bookTrend: getTrend(current.count, previous.count),
-      rangeText
+      rangeText,
+      timeLabels,
+      // Chart data
+      overallSalesData,
+      serviceRevenueMap,
+      newCustomerRevenue,
+      returningCustomerRevenue,
+      actualRevenue,
+      potentialRevenue,
+      totalLoss
     };
-  }, [rawBookings, activeFilter, petTypeFilter, customDateStart, customDateEnd]);
+  }, [rawBookings, servicesList, bookingServices, activeFilter, petTypeFilter, customDateStart, customDateEnd, selectedYear]);
+
+  // ============================================
+  // CHART OPTIONS
+  // ============================================
+  const lineChartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        display: true,
+        position: 'top',
+        labels: {
+          boxWidth: 12,
+          padding: 8,
+          font: { size: 10 }
+        }
+      },
+      tooltip: {
+        mode: 'index',
+        intersect: false,
+        callbacks: {
+          label: function(context) {
+            let label = context.dataset.label || '';
+            if (label) {
+              label += ': ';
+            }
+            if (context.parsed.y !== null) {
+              label += '₱' + context.parsed.y.toLocaleString();
+            }
+            return label;
+          }
+        }
+      }
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        ticks: {
+          font: { size: 9 },
+          callback: function(value) {
+            return '₱' + value.toLocaleString();
+          }
+        },
+        grid: {
+          display: true,
+          drawBorder: true
+        }
+      },
+      x: {
+        ticks: {
+          font: { size: 9 }
+        },
+        grid: {
+          display: false
+        }
+      }
+    },
+    interaction: {
+      mode: 'nearest',
+      axis: 'x',
+      intersect: false
+    },
+    onClick: (event, elements) => {
+      if (activeFilter === 'yearly' && !selectedYear && elements.length > 0) {
+        const index = elements[0].index;
+        const clickedYear = parseInt(analytics.timeLabels[index]);
+        setSelectedYear(clickedYear);
+      }
+    }
+  };
 
   // ============================================
   // HELPER COMPONENTS
@@ -321,7 +698,7 @@ export default function SPSales() {
           </aside>
 
           {/* ============================================ */}
-          {/* MAIN CONTENT - KPIs and Report Button */}
+          {/* MAIN CONTENT - KPIs and Charts */}
           {/* ============================================ */}
           <main className="sp-biz-main-content">
             {/* Generate Report Button and As of Date */}
@@ -382,7 +759,222 @@ export default function SPSales() {
               </div>
             </div>
 
-            {/* Additional content can go here */}
+            {/* ============================================ */}
+            {/* CHART 1: OVERALL SALES PERFORMANCE */}
+            {/* ============================================ */}
+            <div className="chart-box">
+              {activeFilter === 'yearly' && selectedYear && (
+                <button 
+                  className="back-to-years-btn-topleft"
+                  onClick={() => setSelectedYear(null)}
+                  title="Back to years view"
+                >
+                  ← Back to Years
+                </button>
+              )}
+              <div className="chart-header-with-btn">
+                <h3 className="chart-title-centered">Overall Sales Performance</h3>
+                <span className="date-range-topright">
+                  {activeFilter === 'yearly' && selectedYear 
+                    ? `Year ${selectedYear}` 
+                    : analytics.rangeText}
+                </span>
+              </div>
+              <div className="chart-container-large">
+                <Line
+                  data={{
+                    labels: analytics.timeLabels,
+                    datasets: [{
+                      label: 'Total Revenue',
+                      data: analytics.overallSalesData,
+                      borderColor: '#1e3a8a',
+                      backgroundColor: 'rgba(30, 58, 138, 0.1)',
+                      tension: 0.4,
+                      fill: true,
+                      borderWidth: 2,
+                      pointRadius: 4,
+                      pointHoverRadius: 6
+                    }]
+                  }}
+                  options={lineChartOptions}
+                />
+              </div>
+            </div>
+
+            {/* ============================================ */}
+            {/* CHART 4: REVENUE LOSS DUE TO CANCELLATIONS */}
+            {/* ============================================ */}
+            <div className="chart-box">
+              {activeFilter === 'yearly' && selectedYear && (
+                <button 
+                  className="back-to-years-btn-topleft"
+                  onClick={() => setSelectedYear(null)}
+                  title="Back to years view"
+                >
+                  ← Back to Years
+                </button>
+              )}
+              <div className="chart-header-with-btn">
+                <h3 className="chart-title-centered">Revenue Loss from Cancellations</h3>
+                <span className="date-range-topright">
+                  {activeFilter === 'yearly' && selectedYear 
+                    ? `Year ${selectedYear}` 
+                    : analytics.rangeText}
+                </span>
+              </div>
+              <div className="chart-container-large">
+                <Line
+                  data={{
+                    labels: analytics.timeLabels,
+                    datasets: [
+                      {
+                        label: 'Potential Revenue',
+                        data: analytics.potentialRevenue,
+                        borderColor: '#10b981',
+                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                        tension: 0.4,
+                        fill: false,
+                        borderWidth: 2,
+                        borderDash: [5, 5],
+                        pointRadius: 3,
+                        pointHoverRadius: 5
+                      },
+                      {
+                        label: 'Actual Revenue',
+                        data: analytics.actualRevenue,
+                        borderColor: '#ef4444',
+                        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                        tension: 0.4,
+                        fill: true,
+                        borderWidth: 2,
+                        pointRadius: 3,
+                        pointHoverRadius: 5
+                      }
+                    ]
+                  }}
+                  options={lineChartOptions}
+                />
+              </div>
+              <p className="chart-insight-text">
+                Total Loss: ₱{analytics.totalLoss.toLocaleString()}
+              </p>
+            </div>
+
+            {/* ============================================ */}
+            {/* CHARTS GRID: NEW/RETURNING & SALES BY SERVICE */}
+            {/* ============================================ */}
+            <div className="sales-charts-grid">
+              
+              {/* CHART 3: NEW VS RETURNING CUSTOMERS */}
+              <div className="chart-box">
+                <h4 className="chart-title-sm">New vs Returning Customer Revenue</h4>
+                <div className="chart-container-medium">
+                  <Line
+                    data={{
+                      labels: analytics.timeLabels,
+                      datasets: [
+                        {
+                          label: 'New Customers',
+                          data: analytics.newCustomerRevenue,
+                          borderColor: '#10b981',
+                          backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                          tension: 0.4,
+                          fill: true,
+                          borderWidth: 2,
+                          pointRadius: 3,
+                          pointHoverRadius: 5
+                        },
+                        {
+                          label: 'Returning Customers',
+                          data: analytics.returningCustomerRevenue,
+                          borderColor: '#3b82f6',
+                          backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                          tension: 0.4,
+                          fill: true,
+                          borderWidth: 2,
+                          pointRadius: 3,
+                          pointHoverRadius: 5
+                        }
+                      ]
+                    }}
+                    options={{
+                      ...lineChartOptions,
+                      scales: {
+                        ...lineChartOptions.scales,
+                        x: {
+                          ...lineChartOptions.scales.x,
+                          ticks: {
+                            ...lineChartOptions.scales.x.ticks,
+                            maxRotation: activeFilter === 'yearly' && selectedYear ? 45 : 0,
+                            minRotation: activeFilter === 'yearly' && selectedYear ? 45 : 0
+                          }
+                        }
+                      }
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* CHART 2: SALES PERFORMANCE PER SERVICE */}
+              <div className="chart-box">
+                {activeFilter === 'yearly' && selectedYear && (
+                  <button 
+                    className="back-to-years-btn-topleft-sm"
+                    onClick={() => setSelectedYear(null)}
+                    title="Back to years view"
+                  >
+                    ← Back
+                  </button>
+                )}
+                <h4 className="chart-title-sm">Sales Performance by Service</h4>
+                <div className="chart-container-medium">
+                  <Line
+                    data={{
+                      labels: analytics.timeLabels,
+                      datasets: Object.values(analytics.serviceRevenueMap).map((service, idx) => {
+                        const colors = [
+                          { border: '#1e3a8a', bg: 'rgba(30, 58, 138, 0.1)' },
+                          { border: '#facc15', bg: 'rgba(250, 204, 21, 0.1)' },
+                          { border: '#3b82f6', bg: 'rgba(59, 130, 246, 0.1)' },
+                          { border: '#10b981', bg: 'rgba(16, 185, 129, 0.1)' },
+                          { border: '#f59e0b', bg: 'rgba(245, 158, 11, 0.1)' },
+                          { border: '#ef4444', bg: 'rgba(239, 68, 68, 0.1)' },
+                          { border: '#8b5cf6', bg: 'rgba(139, 92, 246, 0.1)' }
+                        ];
+                        const color = colors[idx % colors.length];
+                        
+                        return {
+                          label: service.name,
+                          data: service.data,
+                          borderColor: color.border,
+                          backgroundColor: color.bg,
+                          tension: 0.4,
+                          fill: false,
+                          borderWidth: 2,
+                          pointRadius: 3,
+                          pointHoverRadius: 5
+                        };
+                      })
+                    }}
+                    options={{
+                      ...lineChartOptions,
+                      scales: {
+                        ...lineChartOptions.scales,
+                        x: {
+                          ...lineChartOptions.scales.x,
+                          ticks: {
+                            ...lineChartOptions.scales.x.ticks,
+                            maxRotation: activeFilter === 'yearly' && selectedYear ? 45 : 0,
+                            minRotation: activeFilter === 'yearly' && selectedYear ? 45 : 0
+                          }
+                        }
+                      }
+                    }}
+                  />
+                </div>
+              </div>
+
+            </div>
           </main>
         </div>
       </div>
@@ -467,12 +1059,12 @@ export default function SPSales() {
                     </div>
                   </div>
                   <div className="report-kpi-item">
-                    <span className="report-kpi-label">Listing Visitors</span>
-                    <span className="report-kpi-value">{listingVisitors.toLocaleString()}</span>
+                    <span className="report-kpi-label">Revenue Loss</span>
+                    <span className="report-kpi-value">₱{analytics.totalLoss.toLocaleString()}</span>
                   </div>
                   <div className="report-kpi-item">
-                    <span className="report-kpi-label">Avg Bookings/Customer</span>
-                    <span className="report-kpi-value">{analytics.avg}</span>
+                    <span className="report-kpi-label">Listing Visitors</span>
+                    <span className="report-kpi-value">{listingVisitors.toLocaleString()}</span>
                   </div>
                   <div className="report-kpi-item">
                     <span className="report-kpi-label">Cancellations</span>
@@ -481,7 +1073,7 @@ export default function SPSales() {
                 </div>
               </div>
 
-              {/* Performance Analysis */}
+              {/* Sales Analysis */}
               <div className="report-section">
                 <h3 className="report-section-title">Sales Analysis</h3>
                 <div className="report-insights">
@@ -504,6 +1096,34 @@ export default function SPSales() {
                         ? `Bookings have decreased by ${analytics.bookTrend.val}%. Consider promotional campaigns to boost customer engagement.`
                         : 'Booking volume has remained consistent with the previous period.'}
                     </p>
+                  </div>
+                  <div className="insight-item">
+                    <strong>Cancellation Impact:</strong>
+                    <p>
+                      Cancellations resulted in a revenue loss of ₱{analytics.totalLoss.toLocaleString()} during this period. 
+                      {analytics.totalLoss > 0 
+                        ? ' Consider implementing cancellation policies or improving customer communication.'
+                        : ' Excellent! No revenue was lost to cancellations.'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Customer Segmentation */}
+              <div className="report-section">
+                <h3 className="report-section-title">Customer Segmentation</h3>
+                <div className="pet-distribution">
+                  <div className="pet-dist-item">
+                    <span className="pet-type">New Customers</span>
+                    <span className="pet-count">
+                      ₱{analytics.newCustomerRevenue.reduce((a, b) => a + b, 0).toLocaleString()} revenue
+                    </span>
+                  </div>
+                  <div className="pet-dist-item">
+                    <span className="pet-type">Returning Customers</span>
+                    <span className="pet-count">
+                      ₱{analytics.returningCustomerRevenue.reduce((a, b) => a + b, 0).toLocaleString()} revenue
+                    </span>
                   </div>
                 </div>
               </div>
