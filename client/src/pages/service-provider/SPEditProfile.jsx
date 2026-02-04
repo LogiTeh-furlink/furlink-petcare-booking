@@ -388,6 +388,27 @@ export default function SPEditProfile() {
 
   const positionOptions = ["Business Owner", "Pet Stylist", "Staff"];
 
+  const formatCityStandard = (cityStr) => {
+    if (!cityStr) return "";
+    
+    // 1. Remove the word "City" (case insensitive) and extra spaces to get the base name
+    // 2. Fix common typos like "makti" -> "Makati" (optional, but good for UX)
+    let baseName = cityStr.toLowerCase().replace(/\bcity\b/g, "").trim();
+    
+    // Simple autocorrect for common typos if you wish
+    if (baseName === "makti") baseName = "makati";
+    if (baseName === "quezon") baseName = "quezon";
+
+    // 3. Capitalize first letter of each word
+    const capitalized = baseName
+        .split(' ')
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(' ');
+
+    // 4. Return in standard format: "Name City"
+    return `${capitalized} City`;
+};
+
   // --- FETCH DATA ---
   useEffect(() => {
     const fetchData = async () => {
@@ -487,8 +508,7 @@ export default function SPEditProfile() {
     }
 };
 
-  const handleLocationChange = (lat, lng) => {
-    // Generate a clean Google Maps URL for the coordinates
+  const handleLocationChange = async (lat, lng) => {
     const generatedUrl = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
     
     setBusinessInfo(prev => ({
@@ -497,6 +517,36 @@ export default function SPEditProfile() {
         longitude: lng,
         googleMapUrl: generatedUrl
     }));
+
+    try {
+        const response = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&addressdetails=1`
+        );
+        const data = await response.json();
+
+        if (data && data.address) {
+            const addr = data.address;
+            
+            // Get the raw city name from OSM
+            const rawCity = addr.city || addr.town || addr.municipality || "";
+            
+            setBusinessInfo(prev => ({
+                ...prev,
+                houseStreet: addr.road 
+                    ? `${addr.house_number ? addr.house_number + ' ' : ''}${addr.road}`.trim() 
+                    : prev.houseStreet,
+                barangay: addr.suburb || addr.neighbourhood || addr.village || addr.hamlet || prev.barangay,
+                
+                // --- APPLY THE CITY STANDARDIZATION HERE ---
+                city: formatCityStandard(rawCity) || prev.city,
+                
+                province: addr.state || addr.region || prev.province,
+                postalCode: addr.postcode || prev.postalCode,
+            }));
+        }
+    } catch (error) {
+        console.error("Error fetching address details:", error);
+    }
 };
 
   const isDayDisabled = (slotIndex, day) => businessInfo.operatingHours.some((slot, i) => i !== slotIndex && slot.days.includes(day));
@@ -773,7 +823,20 @@ const saveChangesToDB = async () => {
                   <div className="form-grid-2">
                       <div className="form-group"><label>Street *</label><input name="houseStreet" value={businessInfo.houseStreet} onChange={handleInputChange} className={validationErrors.houseStreet ? 'error-input' : ''}/></div>
                       <div className="form-group"><label>Barangay *</label><input name="barangay" value={businessInfo.barangay} onChange={handleInputChange} className={validationErrors.barangay ? 'error-input' : ''}/></div>
-                      <div className="form-group"><label>City *</label><input name="city" value={businessInfo.city} onChange={handleInputChange} className={validationErrors.city ? 'error-input' : ''}/></div>
+                      <div className="form-group">
+                        <label>City *</label>
+                        <input 
+                            name="city" 
+                            value={businessInfo.city} 
+                            onChange={handleInputChange} 
+                            onBlur={(e) => {
+                                // Standardize when user finishes typing
+                                const formatted = formatCityStandard(e.target.value);
+                                setBusinessInfo(prev => ({ ...prev, city: formatted }));
+                            }}
+                            className={validationErrors.city ? 'error-input' : ''}
+                        />
+                    </div>
                       <div className="form-group"><label>Province *</label><input name="province" value={businessInfo.province} onChange={handleInputChange} className={validationErrors.province ? 'error-input' : ''}/></div>
                       <div className="form-group"><label>Postal Code *</label><input name="postalCode" value={businessInfo.postalCode} onChange={handleInputChange} className={validationErrors.postalCode ? 'error-input' : ''}/></div>
                       <div className="form-group"><label>Country</label><input value="Philippines" disabled className="input-disabled"/></div>
