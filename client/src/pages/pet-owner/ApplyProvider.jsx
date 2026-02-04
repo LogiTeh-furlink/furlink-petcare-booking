@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { X, Upload, FileText, CheckCircle, AlertCircle, Trash2, Plus, MapPin, Users, FileCheck } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import LocationPicker from "../../components/Map/LocationPicker";
 import LoggedInNavbar from "../../components/Header/LoggedInNavbar";
 import Footer from "../../components/Footer/Footer";
 import { supabase } from "../../config/supabase";
@@ -96,19 +97,30 @@ const ConfirmationModal = ({ isOpen, onClose, onConfirm, data, files, isSubmitti
 
                 <div className="review-row"><span className="review-label">Hours:</span> <span className="review-value">{hoursDisplay}</span></div>
                 <div className="review-row"><span className="review-label">Social:</span> <span className="review-value">{data.socialMediaUrl || "N/A"}</span></div>
-                <div className="review-row"><span className="review-label">Map Link:</span> <span className="review-value">{data.googleMapUrl || "N/A"}</span></div>
             </div>
 
             {/* SECTION 2: ADDRESS */}
             <div className="review-group">
-                <h4><MapPin size={14}/> Location</h4>
-                <div className="review-row"><span className="review-label">Street:</span> <span className="review-value">{data.houseStreet}</span></div>
-                <div className="review-row"><span className="review-label">Barangay:</span> <span className="review-value">{data.barangay}</span></div>
-                <div className="review-row"><span className="review-label">City:</span> <span className="review-value">{data.city}</span></div>
-                <div className="review-row"><span className="review-label">Province:</span> <span className="review-value">{data.province}</span></div>
-                <div className="review-row"><span className="review-label">Postal:</span> <span className="review-value">{data.postalCode}</span></div>
-                <div className="review-row"><span className="review-label">Country:</span> <span className="review-value">{data.country}</span></div>
-            </div>
+              <h4><MapPin size={14}/> Location</h4>
+              <div className="review-row"><span className="review-label">Street:</span> <span className="review-value">{data.houseStreet}</span></div>
+              <div className="review-row"><span className="review-label">Barangay:</span> <span className="review-value">{data.barangay}</span></div>
+              <div className="review-row"><span className="review-label">City:</span> <span className="review-value">{data.city}</span></div>
+              <div className="review-row"><span className="review-label">Province:</span> <span className="review-value">{data.province}</span></div>
+              <div className="review-row"><span className="review-label">Postal:</span> <span className="review-value">{data.postalCode}</span></div>
+              <div className="review-row"><span className="review-label">Country:</span> <span className="review-value">{data.country}</span></div>
+              
+              {/* ADDED LATITUDE AND LONGITUDE */}
+              <div className="review-row">
+                  <span className="review-label">Latitude:</span> 
+                  <span className="review-value">{data.latitude ? data.latitude.toFixed(6) : "N/A"}</span>
+              </div>
+              <div className="review-row">
+                  <span className="review-label">Longitude:</span> 
+                  <span className="review-value">{data.longitude ? data.longitude.toFixed(6) : "N/A"}</span>
+              </div>
+
+              <div className="review-row"><span className="review-label">Map Link:</span> <span className="review-value">{data.googleMapUrl || "N/A"}</span></div>
+          </div>
 
             {/* SECTION 3: EMPLOYEES */}
             <div className="review-group">
@@ -197,6 +209,14 @@ const ConfirmationModal = ({ isOpen, onClose, onConfirm, data, files, isSubmitti
 export default function ApplyProvider() {
   const navigate = useNavigate();
 
+  const formatCityStandard = (cityStr) => {
+    if (!cityStr) return "";
+    let baseName = cityStr.toLowerCase().replace(/\bcity\b/gi, "").trim();
+    if (baseName === "makti") baseName = "makati"; 
+    const capitalized = baseName.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+    return `${capitalized} City`;
+  };
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [providerId, setProviderId] = useState(null);
@@ -241,6 +261,80 @@ export default function ApplyProvider() {
 
   const [employees, setEmployees] = useState([{ fullName: "", position: "" }]);
   const [validationErrors, setValidationErrors] = useState({});
+
+  const isWithinPhilippines = (lat, lng) => lat >= 4.0 && lat <= 21.5 && lng >= 116.0 && lng <= 127.0;
+
+  // SYNC 1 & 2: Map Click or URL Paste -> Updates Everything
+  const handleLocationChange = async (lat, lng) => {
+    if (!isWithinPhilippines(lat, lng)) {
+      alert("Location must be in the Philippines.");
+      return;
+    }
+
+    // FIX: Standard Google Maps URL format
+    const genUrl = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+    
+    setBusinessInfo(prev => ({ 
+      ...prev, 
+      latitude: lat, 
+      longitude: lng, 
+      googleMapUrl: genUrl 
+    }));
+
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&addressdetails=1`,
+        { headers: { 'User-Agent': 'FurLinkPetCareApp/1.0' } }
+      );
+      const data = await response.json();
+      if (data && data.address) {
+        const addr = data.address;
+        setBusinessInfo(prev => ({
+          ...prev,
+          houseStreet: addr.road ? `${addr.house_number || ''} ${addr.road}`.trim() : prev.houseStreet,
+          barangay: addr.suburb || addr.neighbourhood || addr.village || prev.barangay,
+          city: formatCityStandard(addr.city || addr.town || addr.municipality || ""),
+          province: addr.state || addr.region || prev.province,
+          postalCode: addr.postcode || prev.postalCode
+        }));
+      }
+    } catch (e) { console.error("Reverse geocoding error:", e); }
+  };
+
+ // SYNC: Address Fields -> Updates Map & URL
+  const updatePinFromAddress = async (updatedInfo) => {
+    const { houseStreet, barangay, city, province } = updatedInfo;
+    if (!houseStreet && !barangay && !city) return;
+
+    // We combine the fields into a single search string
+    const query = `${houseStreet}, ${barangay}, ${city}, ${province}, Philippines`;
+    
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`,
+        {
+          headers: { 'User-Agent': 'FurLinkPetCareApp/1.0' }
+        }
+      );
+      
+      const data = await response.json();
+      if (data && data.length > 0) {
+        const nLat = parseFloat(data[0].lat);
+        const nLng = parseFloat(data[0].lon);
+
+        if (isWithinPhilippines(nLat, nLng)) {
+          setBusinessInfo(prev => ({ 
+            ...prev, 
+            latitude: nLat, 
+            longitude: nLng, 
+            googleMapUrl: `https://www.google.com/maps/search/?api=1&query=${nLat},${nLng}` 
+          }));
+        }
+      }
+    } catch (e) {
+      console.error("Manual address geocoding error:", e);
+    }
+  };
 
   const daysOfWeekShort = ["S", "M", "T", "W", "T", "F", "S"];
   const daysOfWeekFull = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -319,34 +413,42 @@ export default function ApplyProvider() {
     loadProviderData();
   }, []);
 
-  const handleBusinessChange = (e) => {
-    const { name, value } = e.target;
-    
-    if (name === "description") {
-        if (value.length <= 500) {
-            setBusinessInfo((prev) => ({ ...prev, [name]: value }));
-        }
-        return;
-    }
+  // Add/Update these inside export default function ApplyProvider()
 
-    if (name === "businessMobile") {
-        const numbersOnly = value.replace(/\D/g, "");
-        if (numbersOnly.length <= 11) {
-            setBusinessInfo((prev) => ({ ...prev, [name]: numbersOnly }));
-        }
-        return;
-    }
-    
-    if (name === "postalCode") {
-        const numbersOnly = value.replace(/\D/g, "");
-        if (numbersOnly.length <= 4) {
-             setBusinessInfo((prev) => ({ ...prev, [name]: numbersOnly }));
-        }
-        return;
-    }
+const handleBusinessChange = (e) => {
+  const { name, value } = e.target;
 
-    setBusinessInfo((prev) => ({ ...prev, [name]: value }));
-  };
+  // 500 Character Limit Logic
+  if (name === "description") {
+    if (value.length <= 500) {
+      setBusinessInfo((prev) => ({ ...prev, [name]: value }));
+    }
+    return;
+  }
+
+  if (name === "googleMapUrl") {
+      setBusinessInfo(prev => ({ ...prev, [name]: value }));
+      // Regex to find coords in a Google URL
+      const regex = /@(-?\d+\.\d+),(-?\d+\.\d+)|q=(-?\d+\.\d+),(-?\d+\.\d+)/;
+      const match = value.match(regex);
+      if (match) {
+        const lat = parseFloat(match[1] || match[3]);
+        const lng = parseFloat(match[2] || match[4]);
+        if (isWithinPhilippines(lat, lng)) handleLocationChange(lat, lng);
+      }
+      return;
+  }
+
+  if (name === "businessMobile" || name === "postalCode") {
+    const nums = value.replace(/\D/g, "");
+    if ((name === "businessMobile" && nums.length <= 11) || (name === "postalCode" && nums.length <= 4)) {
+      setBusinessInfo(prev => ({ ...prev, [name]: nums }));
+    }
+    return;
+  }
+
+  setBusinessInfo((prev) => ({ ...prev, [name]: value }));
+};
 
   const toggleDay = (slotIndex, day) => {
     setBusinessInfo((prev) => {
@@ -432,7 +534,7 @@ export default function ApplyProvider() {
         }
     }
 
-    if (!businessInfo.description.trim()) errors.description = "Business Description is required";
+    if (!businessInfo.description.trim()) errors.description = " ";
     
     if (!businessInfo.businessEmail.trim()) errors.businessEmail = "Email is required";
     if (!/^09\d{9}$/.test(businessInfo.businessMobile)) errors.businessMobile = "Must be a valid PH mobile number";
@@ -699,65 +801,175 @@ export default function ApplyProvider() {
         )}
 
         <form className="apply-provider-form" onSubmit={handleFormSubmit}>
-          
           <section className="form-section">
             <h2>Business Information</h2>
-            <div className="form-grid-3">
+            <div className="form-grid-2">
               <div className="form-group">
                 <label>Business Name*</label>
-                <input type="text" name="businessName" value={businessInfo.businessName} onChange={handleBusinessChange} />
+                <input 
+                  type="text" 
+                  name="businessName" 
+                  value={businessInfo.businessName} 
+                  onChange={handleBusinessChange} 
+                  className={validationErrors.businessName ? "error-input" : ""} 
+                />
                 {validationErrors.businessName && <small className="error">{validationErrors.businessName}</small>}
               </div>
               <div className="form-group">
+                <label>Service Type</label>
+                <input type="text" name="typeOfService" value={businessInfo.typeOfService} disabled className="input-disabled" />
+              </div>
+            </div>
+
+            {/* DESCRIPTION WITH COUNTER */}
+            <div className="form-group-full-width">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <label style={{ margin: 0 }}>Business Description*</label>
+                <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: businessInfo.description.length >= 500 ? '#ef4444' : '#64748b' }}>
+                  {businessInfo.description.length}/500
+                </span>
+              </div>
+              <textarea 
+                name="description" 
+                value={businessInfo.description} 
+                onChange={handleBusinessChange} 
+                placeholder="Describe your business and services..." 
+                className={validationErrors.description ? "error-input" : ""}
+              />
+              {validationErrors.description && <small className="error">{validationErrors.description}</small>}
+            </div>
+
+            <div className="form-grid-2">
+              <div className="form-group">
                 <label>Email*</label>
-                <input type="email" name="businessEmail" value={businessInfo.businessEmail} onChange={handleBusinessChange} />
+                <input 
+                  type="email" 
+                  name="businessEmail" 
+                  value={businessInfo.businessEmail} 
+                  onChange={handleBusinessChange} 
+                  className={validationErrors.businessEmail ? "error-input" : ""}
+                />
                 {validationErrors.businessEmail && <small className="error">{validationErrors.businessEmail}</small>}
               </div>
               <div className="form-group">
                 <label>Mobile Number*</label>
-                <input type="tel" name="businessMobile" value={businessInfo.businessMobile} onChange={handleBusinessChange} placeholder="0912 345 6789" />
+                <input 
+                  type="tel" 
+                  name="businessMobile" 
+                  value={businessInfo.businessMobile} 
+                  onChange={handleBusinessChange} 
+                  placeholder="0912 345 6789" 
+                  className={validationErrors.businessMobile ? "error-input" : ""}
+                />
                 {validationErrors.businessMobile && <small className="error">{validationErrors.businessMobile}</small>}
               </div>
             </div>
 
             <div className="form-grid-2">
-                <div className="form-group">
-                    <label>Service Type</label>
-                    <input type="text" name="typeOfService" value={businessInfo.typeOfService} disabled className="input-disabled" />
-                </div>
-                <div className="form-group">
-                    <label>Social Media URL</label>
-                    <input type="url" name="socialMediaUrl" value={businessInfo.socialMediaUrl} onChange={handleBusinessChange} placeholder="https://facebook.com/..." />
-                    {validationErrors.socialMediaUrl && <small className="error">{validationErrors.socialMediaUrl}</small>}
-                </div>
-                <div className="form-group">
-                    <label>Google Map Link*</label>
-                    <input type="url" name="googleMapUrl" value={businessInfo.googleMapUrl} onChange={handleBusinessChange} placeholder="https://maps.google.com/..." />
-                    {validationErrors.googleMapUrl && <small className="error">{validationErrors.googleMapUrl}</small>}
-                </div>
-            </div>
-
-            <div className="form-group description-container">
-                <div className="description-label-row">
-                    <label>Business Description*</label> 
-                    <span className={`description-char-count ${businessInfo.description.length >= 500 ? 'limit' : 'normal'}`}>
-                        {businessInfo.description.length}/500
-                    </span>
-                </div>
-                <textarea
-                    name="description"
-                    value={businessInfo.description}
-                    onChange={handleBusinessChange}
-                    rows={5}
-                    maxLength={500}
-                    placeholder="Tell us about your business, services, and what makes you unique..."
-                    className={`description-textarea ${validationErrors.description ? 'error' : ''}`}
+              <div className="form-group">
+                <label>Social Media URL</label>
+                <input type="url" name="socialMediaUrl" value={businessInfo.socialMediaUrl} onChange={handleBusinessChange} placeholder="https://facebook.com/..." />
+              </div>
+              <div className="form-group">
+                <label>Google Map URL*</label>
+                <input 
+                  type="url" 
+                  name="googleMapUrl" 
+                  value={businessInfo.googleMapUrl} 
+                  onChange={handleBusinessChange} 
+                  className={validationErrors.googleMapUrl ? "error-input" : ""} 
                 />
-                {validationErrors.description && <small className="error">{validationErrors.description}</small>}
+              </div>
             </div>
 
+            {/* PIN LOCATION - Part of Basic Info */}
+            <div className="form-group" style={{ marginTop: '20px' }}>
+              <label style={{ fontWeight: '600', marginBottom: '10px', display: 'block' }}>Pin Shop Location*</label>
+              <div style={{ height: "400px", borderRadius: "12px", overflow: "hidden", border: validationErrors.latitude ? "2px solid #ef4444" : "1px solid #dbeafe" }}>
+                <LocationPicker lat={businessInfo.latitude} lng={businessInfo.longitude} onLocationChange={handleLocationChange} previewOnly={false} />
+              </div>
+            </div>
+          </section>
+
+          <section className="form-section">
+            <h2>Business Address</h2>
+            <div className="address-helper-note" style={{ background: '#f0f7ff', padding: '12px', borderRadius: '8px', marginBottom: '15px', fontSize: '0.85rem', color: '#003a8c', border: '1px solid #bae0ff', display: 'flex', gap: '8px' }}>
+                <AlertCircle size={16} />
+                <span>Updating address fields will automatically move the map pin once you click out of the box.</span>
+            </div>
+            <div className="form-grid-3">
+              <div className="form-group">
+                <label>Street*</label>
+                <input 
+                  type="text" 
+                  name="houseStreet" 
+                  value={businessInfo.houseStreet} 
+                  onChange={handleBusinessChange} 
+                  onBlur={() => updatePinFromAddress(businessInfo)} 
+                  className={validationErrors.houseStreet ? "error-input" : ""} 
+                />
+              </div>
+              <div className="form-group">
+                <label>Barangay*</label>
+                <input 
+                  type="text" 
+                  name="barangay" 
+                  value={businessInfo.barangay} 
+                  onChange={handleBusinessChange} 
+                  onBlur={() => updatePinFromAddress(businessInfo)} 
+                  className={validationErrors.barangay ? "error-input" : ""} 
+                />
+              </div>
+              <div className="form-group">
+                <label>City*</label>
+                <input 
+                  type="text" 
+                  name="city" 
+                  value={businessInfo.city} 
+                  onChange={handleBusinessChange} 
+                  onBlur={(e) => {
+                    const f = formatCityStandard(e.target.value);
+                    const updated = { ...businessInfo, city: f };
+                    setBusinessInfo(updated);
+                    updatePinFromAddress(updated);
+                  }} 
+                  className={validationErrors.city ? "error-input" : ""} 
+                />
+              </div>
+              <div className="form-group">
+                <label>Province*</label>
+                <input 
+                  type="text" 
+                  name="province" 
+                  value={businessInfo.province} 
+                  onChange={handleBusinessChange} 
+                  onBlur={() => updatePinFromAddress(businessInfo)} 
+                  className={validationErrors.province ? "error-input" : ""}
+                />
+              </div>
+              <div className="form-group">
+                <label>Postal Code*</label>
+                <input 
+                  type="text" 
+                  name="postalCode" 
+                  value={businessInfo.postalCode} 
+                  onChange={handleBusinessChange} 
+                  maxLength={4} 
+                  onBlur={() => updatePinFromAddress(businessInfo)} 
+                  className={validationErrors.postalCode ? "error-input" : ""} 
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Country</label>
+                <input type="text" name="country" value={businessInfo.country} disabled className="input-disabled" />
+              </div>
+            </div>
+          </section>
+
+          <section className="form-section">
+            <h2>Operating Hours & Capacity</h2>
             <div className="form-group operating-hours-container">
-            <label>Operating Hours & Slot Capacity*</label>
             {businessInfo.operatingHours.map((slot, i) => (
               <div key={i} className="operating-slot-enhanced">
                 {/* Day Selection Row */}
@@ -813,15 +1025,17 @@ export default function ApplyProvider() {
           </section>
 
           <section className="form-section">
-            <h2>Business Address</h2>
-            <div className="form-grid-3">
-              <div className="form-group"><label>Street / House No.*</label><input type="text" name="houseStreet" value={businessInfo.houseStreet} onChange={handleBusinessChange} />{validationErrors.houseStreet && <small className="error">{validationErrors.houseStreet}</small>}</div>
-              <div className="form-group"><label>Barangay*</label><input type="text" name="barangay" value={businessInfo.barangay} onChange={handleBusinessChange} />{validationErrors.barangay && <small className="error">{validationErrors.barangay}</small>}</div>
-              <div className="form-group"><label>City / Municipality*</label><input type="text" name="city" value={businessInfo.city} onChange={handleBusinessChange} />{validationErrors.city && <small className="error">{validationErrors.city}</small>}</div>
-              <div className="form-group"><label>Province*</label><input type="text" name="province" value={businessInfo.province} onChange={handleBusinessChange} />{validationErrors.province && <small className="error">{validationErrors.province}</small>}</div>
-              <div className="form-group"><label>Postal Code*</label><input type="text" name="postalCode" value={businessInfo.postalCode} onChange={handleBusinessChange} maxLength={4} />{validationErrors.postalCode && <small className="error">{validationErrors.postalCode}</small>}</div>
-              <div className="form-group"><label>Country</label><input type="text" name="country" value={businessInfo.country} disabled className="input-disabled" /></div>
-            </div>
+            <h2>Employee Information</h2>
+            {employees.map((emp, idx) => (
+              <div className="employee-row" key={idx}>
+                <div className="form-grid-2">
+                  <div className="form-group"><label>Full Name*</label><input type="text" value={emp.fullName} onChange={(e) => handleEmployeeChange(idx, "fullName", e.target.value)} />{validationErrors[`employee_${idx}_name`] && <small className="error">{validationErrors[`employee_${idx}_name`]}</small>}</div>
+                  <div className="form-group"><label>Position*</label><div className="input-with-btn"><select value={emp.position} onChange={(e) => handleEmployeeChange(idx, "position", e.target.value)}><option value="">Select Position</option>{positionOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}</select>{employees.length > 1 && (<button type="button" onClick={() => removeEmployee(idx)} className="remove-btn"><Trash2 size={16} /></button>)}</div>{validationErrors[`employee_${idx}_pos`] && <small className="error">{validationErrors[`employee_${idx}_pos`]}</small>}</div>
+                </div>
+              </div>
+            ))}
+            <button type="button" className="add-btn" onClick={addEmployee}><Plus size={16} /> Add Employee</button>
+            {validationErrors.employees && <small className="error">{validationErrors.employees}</small>}
           </section>
 
           <section className="form-section">
@@ -836,26 +1050,8 @@ export default function ApplyProvider() {
             </div>
           </section>
 
-          <section className="form-section">
-            <h2>Employee Information</h2>
-            {employees.map((emp, idx) => (
-              <div className="employee-row" key={idx}>
-                <div className="form-grid-2">
-                  <div className="form-group"><label>Full Name*</label><input type="text" value={emp.fullName} onChange={(e) => handleEmployeeChange(idx, "fullName", e.target.value)} />{validationErrors[`employee_${idx}_name`] && <small className="error">{validationErrors[`employee_${idx}_name`]}</small>}</div>
-                  <div className="form-group"><label>Position*</label><div className="input-with-btn"><select value={emp.position} onChange={(e) => handleEmployeeChange(idx, "position", e.target.value)}><option value="">Select Position</option>{positionOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}</select>{employees.length > 1 && (<button type="button" onClick={() => removeEmployee(idx)} className="remove-btn"><Trash2 size={16} /></button>)}</div>{validationErrors[`employee_${idx}_pos`] && <small className="error">{validationErrors[`employee_${idx}_pos`]}</small>}</div>
-                </div>
-              </div>
-            ))}
-            <button type="button" className="add-btn" onClick={addEmployee}><Plus size={16} /> Add Employee</button>
-            {validationErrors.employees && <small className="error">{validationErrors.employees}</small>}
-          </section>
-
           <div className="form-actions">
-            <button 
-              type="submit" 
-              className="btn-primary" 
-              disabled={isSubmitting}
-            >
+            <button type="submit" className="btn-primary" disabled={isSubmitting}>
               {isSubmitting ? "Processing..." : "Review Application"}
             </button>
           </div>
