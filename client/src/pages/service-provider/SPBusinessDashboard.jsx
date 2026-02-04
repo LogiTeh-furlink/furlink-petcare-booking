@@ -658,6 +658,12 @@ export default function SPBusinessDashboard() {
             {/* Tab Navigation */}
             <div className="sidebar-tabs-group">
               <button 
+                className={`sidebar-tab-btn ${activeTab === 'sales' ? 'active' : ''}`} 
+                onClick={() => navigate('/service/sales')}
+              >
+                Sales Performance
+              </button>
+              <button 
                 className={`sidebar-tab-btn ${activeTab === 'business_performance' ? 'active' : ''}`} 
                 onClick={() => navigate('/service/business-dashboard')}
               >

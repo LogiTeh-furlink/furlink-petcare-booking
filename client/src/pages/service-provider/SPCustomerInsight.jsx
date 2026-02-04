@@ -486,7 +486,7 @@ export default function SPCustomerInsight() {
                 className={`sidebar-tab-btn ${activeTab === 'sales' ? 'active' : ''}`} 
                 onClick={() => navigate('/service/sales')}
               >
-                Sales
+                Sales Performance
               </button>
               <button 
                 className={`sidebar-tab-btn ${activeTab === 'business_performance' ? 'active' : ''}`}
