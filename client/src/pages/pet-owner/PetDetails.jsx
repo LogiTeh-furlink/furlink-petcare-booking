@@ -42,6 +42,55 @@ const PetDetails = () => {
   const [showCapacityModal, setShowCapacityModal] = useState(false);
   const [remainingSpots, setRemainingSpots] = useState(0);
 
+  // --- NEW: Breed Data State (Full List for Validation) ---
+  const [validationBreeds, setValidationBreeds] = useState({ Dog: [], Cat: [] });
+
+  // --- NEW: Fetch Breeds API ---
+  useEffect(() => {
+    const fetchBreeds = async () => {
+      try {
+        const fullLists = { Dog: [], Cat: [] };
+
+        // 1. Fetch Dogs
+        const dogRes = await fetch('https://dog.ceo/api/breeds/list/all');
+        if (dogRes.ok) {
+          const dogData = await dogRes.json();
+          // Capitalize first letter
+          const dogs = Object.keys(dogData.message).map(b => b.charAt(0).toUpperCase() + b.slice(1));
+          fullLists.Dog = dogs;
+        }
+
+        // 2. Fetch Cats
+        const catRes = await fetch('https://api.thecatapi.com/v1/breeds');
+        if (catRes.ok) {
+          const catData = await catRes.json();
+          const cats = catData.map(c => c.name);
+          fullLists.Cat = cats;
+        }
+
+        setValidationBreeds(fullLists);
+      } catch (error) {
+        console.error("Error fetching breed data:", error);
+      }
+    };
+    fetchBreeds();
+  }, []);
+
+  // Check if breed is valid based on API lists (Case Insensitive)
+  const isValidBreed = (breedInput, type) => {
+    if (!breedInput || !breedInput.trim()) return false;
+    
+    // Always allow these specific overrides
+    const overrides = ["Mixed Breed", "Unknown"];
+    if (overrides.some(o => o.toLowerCase() === breedInput.toLowerCase())) return true;
+
+    // Check against API list
+    const list = validationBreeds[type];
+    if (!list || list.length === 0) return true; // If no list loaded (e.g. Rabbit), accept anything
+    
+    return list.some(b => b.toLowerCase() === breedInput.toLowerCase());
+  };
+
   const formatDOB = (dateStr) => {
     if (!dateStr) return "N/A";
     const options = { year: 'numeric', month: 'long', day: 'numeric' };
@@ -211,7 +260,10 @@ const handleAddPet = () => {
     setAttemptedSubmit(true);
     
     const isAllValid = petsData.every(pet => {
-        const hasRequiredFields = pet.pet_name.trim() && pet.breed.trim() && pet.vaccine_file;
+        // VALIDATION: Check against API list + Overrides
+        const isBreedValid = isValidBreed(pet.breed, pet.pet_type);
+        
+        const hasRequiredFields = pet.pet_name.trim() && isBreedValid && pet.vaccine_file;
         const allServicesMatched = pet.services.every(s => s.id === "" || s.matched !== false);
         
         return hasRequiredFields && allServicesMatched;
@@ -219,9 +271,15 @@ const handleAddPet = () => {
 
     if (!isAllValid) {
         const hasUnmatched = petsData.some(p => p.services.some(s => s.matched === false));
-        triggerError(hasUnmatched 
+        const hasInvalidBreed = petsData.some(p => !isValidBreed(p.breed, p.pet_type));
+        
+        if (hasInvalidBreed) {
+           triggerError("Please enter a valid breed. Check spelling or use 'Mixed Breed'.");
+        } else {
+           triggerError(hasUnmatched 
             ? "One or more selected services do not support your pet's weight. Please check the warnings." 
             : "Please complete all required fields.");
+        }
         return { valid: false };
     }
     return { valid: true };
@@ -357,6 +415,11 @@ const handleAddPet = () => {
             // Re-calculate size label for display
             const numericWeight = parseFloat(currentWeight) || 0;
             targetPet.calculated_size = numericWeight > 20 ? "Large" : numericWeight > 10 ? "Medium" : "Small";
+
+            // If type changed, clear breed to avoid mismatch
+            if (field === "pet_type") {
+               targetPet.breed = "";
+            }
 
             // 3. Update all currently selected services for this pet
             targetPet.services = targetPet.services.map(srv => {
@@ -747,10 +810,23 @@ const handleAddPet = () => {
                         </div>
 
                         <div className="form-row-2">
-                            <div className={`input-group ${attemptedSubmit && !pet.breed.trim() ? 'field-error' : ''}`}>
+                            {/* UPDATED BREED FIELD - FREE TEXT WITH LIMITED DATALIST */}
+                            <div className={`input-group ${attemptedSubmit && (!pet.breed.trim() || !isValidBreed(pet.breed, pet.pet_type)) ? 'field-error' : ''}`}>
                                 <label>Breed <span className="required-star">*</span></label>
-                                <input type="text" placeholder="Breed" value={pet.breed} onChange={(e) => updatePetInfo(index, 'breed', e.target.value)} />
+                                <input 
+                                  list={`breed-suggestions-${index}`} 
+                                  type="text" 
+                                  placeholder={pet.pet_type === "Cat" ? "e.g. Siamese" : "e.g. Beagle"}
+                                  value={pet.breed} 
+                                  onChange={(e) => updatePetInfo(index, 'breed', e.target.value)} 
+                                />
+                                {/* Datalist only shows basic fallbacks to keep UI clean, but validation checks API */}
+                                <datalist id={`breed-suggestions-${index}`}>
+                                  <option value="Mixed Breed" />
+                                  <option value="Unknown" />
+                                </datalist>
                                 {attemptedSubmit && !pet.breed.trim() && <span className="error-text" style={{color: 'red', fontSize: '11px'}}>Breed is required</span>}
+                                {attemptedSubmit && pet.breed.trim() && !isValidBreed(pet.breed, pet.pet_type) && <span className="error-text" style={{color: 'red', fontSize: '11px'}}>Unrecognized breed. Check spelling or use 'Mixed Breed'.</span>}
                             </div>
                             <div className="input-group">
                                 <label>Gender <span className="required-star">*</span></label>
@@ -1039,7 +1115,7 @@ const handleAddPet = () => {
             <span>30% Down Payment:</span>
             <span>₱{(calculateGrandTotal() * 0.3).toFixed(2)}</span>
           </div>
-          {/* ADDED VAT NOTE IN MODAL */}
+          {/* VAT EXCLUSIVE TEXT IN MODAL */}
           <div className="vat-note-small">* VAT exclusive</div>
         </div>
       </div>
