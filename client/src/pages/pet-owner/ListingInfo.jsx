@@ -8,6 +8,7 @@ import {
   Facebook, Instagram, Globe, ExternalLink,
   Calendar as CalendarIcon, Users, User
 } from "lucide-react";
+import LocationPicker from "../../components/Map/LocationPicker";
 import { FaStar, FaStarHalfAlt, FaRegStar } from "react-icons/fa";
 import Header from "../../components/Header/LoggedInNavbar";
 import Footer from "../../components/Footer/Footer";
@@ -44,6 +45,38 @@ const TermsModal = ({ isOpen, onClose, onAgree }) => {
           <button className="btn-modal-cancel" onClick={onClose}>Decline</button>
           <button className="btn-modal-confirm" onClick={onAgree}>I Agree & Continue</button>
         </div>
+      </div>
+    </div>
+  );
+};
+
+// Helper for a Read-Only Map Preview
+// Helper for a Read-Only Map Preview
+const MapPreview = ({ lat, lng, businessName }) => {
+  if (!lat || !lng) return (
+    <div className="no-map-data">
+       <MapPin size={24} style={{marginBottom: '8px', opacity: 0.5}}/>
+       <p>Location coordinates not yet pinned by provider.</p>
+    </div>
+  );
+
+  return (
+    <div className="listing-map-group">
+      {/* FIX: Changed provider.latitude to lat 
+         FIX: Added a key to force re-render when coordinates change
+      */}
+      <div style={{ height: "300px", width: "100%", position: "relative" }}>
+        <LocationPicker 
+          key={`${lat}-${lng}`} 
+          lat={lat} 
+          lng={lng} 
+          onLocationChange={() => {}} 
+          previewOnly={true} 
+        />
+      </div>
+      <div className="coord-badge-row">
+        <span className="coord-tag"><b>Lat:</b> {parseFloat(lat).toFixed(6)}</span>
+        <span className="coord-tag"><b>Long:</b> {parseFloat(lng).toFixed(6)}</span>
       </div>
     </div>
   );
@@ -553,6 +586,18 @@ useEffect(() => {
                         {provider.google_map_url && <ExternalLink size={16} style={{marginLeft:'6px'}}/>}
                       </a>
                     </div>
+                    {/* MAP LOCATION FOR OVERVIEW */}
+                    <div className="info-section">
+                      <h3 className="subsection-title">Shop Location</h3>
+                      <div style={{ height: "300px", width: "100%", borderRadius: "12px", overflow: "hidden", border: "1px solid #dbeafe" }}>
+                        <LocationPicker 
+                          lat={provider.latitude} 
+                          lng={provider.longitude} 
+                          onLocationChange={() => {}} 
+                          previewOnly={true} 
+                        />
+                      </div>
+                    </div>
                   </div>
                   <div className="info-section">
                     <p className="shop-description">{provider.description || <span className="italic-gray">No description provided.</span>}</p>
@@ -594,7 +639,48 @@ useEffect(() => {
 
             {activeTab === "prices" && <div className="tab-content"><h2 className="section-title">Service Prices</h2><ServicesList /></div>}
             
-            {activeTab === "location" && <div className="tab-content"><h2 className="section-title">Location</h2><div className="location-info"><MapPin size={20} /><p>{provider.house_street}, {provider.barangay}, {provider.city}</p></div></div>}
+            {activeTab === "location" && (
+            <div className="tab-content">
+              <h2 className="section-title">Location Details</h2>
+              <div className="location-info-card">
+                <div className="location-address-header" style={{ marginBottom: '15px', display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                  <MapPin size={24} className="text-primary" />
+                  <p style={{ margin: 0 }}>
+                    <strong>{provider.business_name}</strong><br/>
+                    {`${provider.house_street}, ${provider.barangay}, ${provider.city}, ${provider.province}`}
+                  </p>
+                </div>
+
+                {/* THE ACTUAL MAP */}
+                <div style={{ height: "300px", width: "100%", position: "relative" }}>
+                  <LocationPicker 
+                    lat={provider.latitude} 
+                    lng={provider.longitude} 
+                    onLocationChange={() => {}} 
+                    previewOnly={true} 
+                  />
+                </div>
+
+                {/* Lat/Long Labels */}
+                <div className="coord-badge-row" style={{ marginTop: '10px', display: 'flex', gap: '10px' }}>
+                  <span className="coord-tag">Lat: {parseFloat(provider.latitude).toFixed(6)}</span>
+                  <span className="coord-tag">Long: {parseFloat(provider.longitude).toFixed(6)}</span>
+                </div>
+                
+                {provider.google_map_url && (
+                  <a 
+                    href={provider.google_map_url} 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="external-map-btn"
+                    style={{ marginTop: '20px', display: 'inline-block' }}
+                  >
+                    Open in Google Maps <ExternalLink size={14} />
+                  </a>
+                )}
+              </div>
+            </div>
+          )}
             
             {activeTab === "reviews" && (
               <div className="tab-content">

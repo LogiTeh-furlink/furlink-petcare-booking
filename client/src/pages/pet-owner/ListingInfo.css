@@ -795,3 +795,67 @@
   background: #cbd5e1;
   border-radius: 10px;
 }
+
+.listing-map-container {
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    z-index: 1; /* Ensure it doesn't overlap header dropdowns */
+}
+
+.no-map-data {
+    height: 200px;
+    background: #f1f5f9;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #64748b;
+    border-radius: 12px;
+    border: 1px dashed #cbd5e1;
+}
+
+/* Ensure Leaflet controls don't peek through modals */
+/* Ensure the map container has a visible area */
+.leaflet-container {
+    height: 100%;
+    width: 100%;
+    z-index: 1; /* Make sure it's below dropdowns but above background */
+}
+
+.coord-badge-row {
+  display: flex;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.coord-tag {
+  font-size: 0.75rem;
+  background: #f1f5f9;
+  padding: 4px 10px;
+  border-radius: 4px;
+  color: #64748b;
+  border: 1px solid #e2e8f0;
+}
+
+.location-info-card {
+  background: white;
+  padding: 20px;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+}
+
+.external-map-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 15px;
+  padding: 10px 20px;
+  background: #153e75;
+  color: white;
+  border-radius: 8px;
+  text-decoration: none;
+  font-size: 0.9rem;
+  transition: opacity 0.2s;
+}
+
+.external-map-btn:hover {
+  opacity: 0.9;
+}

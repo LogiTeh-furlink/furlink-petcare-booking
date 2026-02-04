@@ -670,7 +670,7 @@ const saveChangesToDB = async () => {
             business_name: businessInfo.businessName, business_email: businessInfo.businessEmail,
             business_mobile: businessInfo.businessMobile, description: businessInfo.description,
             social_media_url: businessInfo.socialMediaUrl, google_map_url: businessInfo.googleMapUrl,
-            house_street: businessInfo.houseStreet, barangay: businessInfo.barangay,
+            house_street: businessInfo.houseStreet, barangay: businessInfo.barangay, latitude: businessInfo.latitude,  longitude: businessInfo.longitude,
             city: businessInfo.city, province: businessInfo.province, postal_code: businessInfo.postalCode,
             updated_at: new Date().toISOString()
         };
@@ -790,28 +790,31 @@ const saveChangesToDB = async () => {
                         </div>
                     </div>
 
-                    {/* 2. UPDATED MAP SELECTION AREA (Full Width) */}
-                    <div className="map-selection-area" style={{ gridColumn: 'span 2', marginTop: '10px' }}>
-                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', fontWeight: '600' }}>
-                            <MapPin size={16} color="var(--primary)"/> 
+                    {/* UPDATED MAP SELECTION AREA */}
+                    <div className="map-selection-area" style={{ gridColumn: 'span 2', marginTop: '20px' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px', fontWeight: '600' }}>
+                            <MapPin size={18} color="var(--primary)"/> 
                             Pin Shop Location *
                         </label>
                         
-                        <LocationPicker 
-                            lat={businessInfo.latitude} 
-                            lng={businessInfo.longitude} 
-                            onLocationChange={handleLocationChange} 
-                        />
+                        {/* INCREASED HEIGHT HERE */}
+                        <div style={{ height: "450px", width: "100%", borderRadius: "12px", overflow: "hidden", border: "1px solid #dbeafe" }}>
+                            <LocationPicker 
+                                lat={businessInfo.latitude} 
+                                lng={businessInfo.longitude} 
+                                onLocationChange={handleLocationChange} 
+                            />
+                        </div>
 
                         {businessInfo.latitude && (
-                            <div style={{ marginTop: '8px', fontSize: '0.75rem', color: '#64748b', display: 'flex', gap: '15px' }}>
-                                <span><strong>Lat:</strong> {businessInfo.latitude.toFixed(6)}</span>
-                                <span><strong>Lng:</strong> {businessInfo.longitude.toFixed(6)}</span>
+                            <div style={{ marginTop: '10px', fontSize: '0.8rem', color: '#64748b', display: 'flex', gap: '20px', background: '#f8fafc', padding: '8px 12px', borderRadius: '6px' }}>
+                                <span><strong>Latitude:</strong> {businessInfo.latitude.toFixed(6)}</span>
+                                <span><strong>Longitude:</strong> {businessInfo.longitude.toFixed(6)}</span>
                             </div>
                         )}
                         
-                        <p className="helper-text" style={{ fontSize: '0.8rem', color: '#6b7280', marginTop: '5px' }}>
-                            Search for your location in the map above or click directly to set your pin. Moving the pin or pasting a URL updates both fields.
+                        <p className="helper-text" style={{ fontSize: '0.85rem', color: '#6b7280', marginTop: '10px' }}>
+                            Search for your location using the map bar or click directly on the map. Standardizing addresses automatically.
                         </p>
                         {validationErrors.latitude && <small className="error-text">Please pin your location on the map.</small>}
                     </div>
