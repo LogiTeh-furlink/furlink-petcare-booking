@@ -39,6 +39,7 @@ const SignUpPage = () => {
     if (!formData.email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) newErrors.email = true;
     if (!formData.mobile.match(/^9\d{9}$/)) newErrors.mobile = true;
     if (!formData.roleChoice) newErrors.roleChoice = "Please select at least one role.";
+    
     if (!formData.dob) {
       newErrors.dob = true;
     } else {
@@ -46,7 +47,12 @@ const SignUpPage = () => {
       const age = new Date().getFullYear() - dobDate.getFullYear();
       if (age < 13) newErrors.dob = "Must be at least 13 years old.";
     }
-    if (!formData.password.match(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,12}$/)) newErrors.password = true;
+
+    // UPDATED PASSWORD VALIDATION MESSAGE
+    if (!formData.password.match(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,12}$/)) {
+      newErrors.password = "Password must be 8-12 chars with upper, lower, number & symbol.";
+    }
+
     if (formData.password !== formData.confirmPassword) newErrors.confirmPassword = true;
     return newErrors;
   };
@@ -189,10 +195,13 @@ const SignUpPage = () => {
             {submitted && errors.roleChoice && <span className="field-error-msg">{errors.roleChoice}</span>}
           </div>
 
+          {/* UPDATED PASSWORD FIELD WITH ERROR MESSAGE */}
           <div className="password-group">
              <input type={showPassword ? "text" : "password"} placeholder="Password" className={submitted && errors.password ? "input-error" : ""} value={formData.password} onChange={(e) => setFormData({...formData, password: e.target.value})} />
              <button type="button" className="toggle-btn" onClick={() => setShowPassword(!showPassword)}>{showPassword ? <FaEyeSlash /> : <FaEye />}</button>
+             {submitted && errors.password && <span className="field-error-msg">{errors.password}</span>}
           </div>
+
           <div className="password-group">
              <input type={showConfirmPassword ? "text" : "password"} placeholder="Confirm Password" className={submitted && errors.confirmPassword ? "input-error" : ""} value={formData.confirmPassword} onChange={(e) => setFormData({...formData, confirmPassword: e.target.value})} />
              <button type="button" className="toggle-btn" onClick={() => setShowConfirmPassword(!showConfirmPassword)}>{showConfirmPassword ? <FaEyeSlash /> : <FaEye />}</button>
