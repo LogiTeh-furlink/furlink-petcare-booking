@@ -51,16 +51,15 @@ const SignUpPage = () => {
     return newErrors;
   };
 
-  // New helper to handle button toggles while keeping backend logic (pet_owner, service_provider, both)
   const handleRoleToggle = (selectedRole) => {
     let currentRole = formData.roleChoice;
     let newRole = "";
 
     if (selectedRole === "pet_owner") {
-      if (currentRole === "pet_owner") newRole = ""; // Deselect
-      else if (currentRole === "service_provider") newRole = "both"; // Add to existing
-      else if (currentRole === "both") newRole = "service_provider"; // Remove from both
-      else newRole = "pet_owner"; // Select new
+      if (currentRole === "pet_owner") newRole = "";
+      else if (currentRole === "service_provider") newRole = "both"; 
+      else if (currentRole === "both") newRole = "service_provider";
+      else newRole = "pet_owner";
     } else if (selectedRole === "service_provider") {
       if (currentRole === "service_provider") newRole = "";
       else if (currentRole === "pet_owner") newRole = "both";
@@ -76,6 +75,7 @@ const SignUpPage = () => {
     setSubmitted(true);
     const validationErrors = validate();
     setErrors(validationErrors);
+    
     if (Object.keys(validationErrors).length === 0) {
       setShowTermsModal(true); 
     }
@@ -87,7 +87,6 @@ const SignUpPage = () => {
     setShowTermsModal(false);
 
     try {
-      // 1. Auth SignUp
       const { data: signUpData, error: authError } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
@@ -97,7 +96,6 @@ const SignUpPage = () => {
 
       const user = signUpData.user;
       if (user) {
-        // 2. UPSERT Profile
         const { error: profileError } = await supabase.from("profiles").upsert([
           {
             id: user.id,
@@ -112,10 +110,8 @@ const SignUpPage = () => {
 
         if (profileError) throw profileError;
 
-        // 3. Create Session Record
         await supabase.from("user_sessions").insert([{ user_id: user.id }]);
 
-        // 4. Handle Redirections
         if (formData.roleChoice === "pet_owner") {
           navigate("/dashboard");
         } else if (formData.roleChoice === "service_provider") {
@@ -133,9 +129,9 @@ const SignUpPage = () => {
     }
   };
 
-  // Helper checks for active class
   const isPetOwner = formData.roleChoice === "pet_owner" || formData.roleChoice === "both";
   const isProvider = formData.roleChoice === "service_provider" || formData.roleChoice === "both";
+  const isBoth = formData.roleChoice === "both";
 
   return (
     <div className="signup-page">
@@ -172,7 +168,6 @@ const SignUpPage = () => {
             <input type="date" className={submitted && errors.dob ? "input-error" : ""} value={formData.dob} onChange={(e) => setFormData({ ...formData, dob: e.target.value })} />
           </div>
 
-          {/* UPDATED ROLE SELECTION SECTION */}
           <div className="form-group">
             <label className="input-label">I want to join as a:</label>
             <div className="role-selection-group">
@@ -217,28 +212,73 @@ const SignUpPage = () => {
 
       {showTermsModal && (
         <div className="modal-overlay">
-          <div className="modal-content terms-modal-container">
-            <div className="modal-header">
-              <FaFileContract className="icon-brand" /> <h3>Terms & Privacy Policy</h3>
-              <button className="close-btn-x" onClick={() => setShowTermsModal(false)}><FaTimes /></button>
-            </div>
-            <div className="modal-body-scrollable">
-              <h4>Terms and Conditions</h4>
-              <p>Sample terms content...</p>
-              <h4>Privacy Policy</h4>
-              <p>Sample privacy content...</p>
-            </div>
-            <div className="modal-footer-sticky">
-              <label className="checkbox-agreement-label">
-                <input type="checkbox" checked={agreedToTerms} onChange={(e) => setAgreedToTerms(e.target.checked)} />
-                <span>I agree to the Terms and Condition and Privacy Policy</span>
-              </label>
-              <div className="modal-action-btns">
-                <button type="button" className="btn-cancel-modal" onClick={() => setShowTermsModal(false)}>Cancel</button>
-                <button type="button" className="btn-continue-modal" onClick={handleFinalSubmit} disabled={!agreedToTerms}>Continue</button>
+          {isBoth ? (
+            <div className="dual-modal-wrapper">
+              <div className="dual-cards-container">
+                <div className="terms-card">
+                  <div className="modal-header">
+                    <FaFileContract className="icon-brand" /> <h3>Pet Owner Agreement</h3>
+                  </div>
+                  <div className="modal-body-scrollable">
+                    <h4>Terms and Conditions</h4>
+                    <p>Welcome to Furlink! These terms apply to all Pet Owners using our platform.</p>
+                    <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit.</p>
+                    <h4>Privacy Policy</h4>
+                    <p>We value your privacy and the safety of your pets.</p>
+                  </div>
+                </div>
+
+                <div className="terms-card">
+                  <div className="modal-header">
+                    <FaFileContract className="icon-brand" /> <h3>Provider Agreement</h3>
+                  </div>
+                  <div className="modal-body-scrollable">
+                    <h4>Service Provider Terms</h4>
+                    <p>Welcome, Partner! These terms apply to all Service Providers.</p>
+                    <p>Ut enim ad minim veniam, quis nostrud exercitation ullamco.</p>
+                    <h4>Commission and Fees</h4>
+                    <p>Details regarding platform fees and payouts.</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="dual-footer-bar">
+                <button className="close-btn-floating" onClick={() => setShowTermsModal(false)}><FaTimes /></button>
+                <label className="checkbox-agreement-label">
+                  <input type="checkbox" checked={agreedToTerms} onChange={(e) => setAgreedToTerms(e.target.checked)} />
+                  <span>I agree to the Terms and Privacy Policies for both roles</span>
+                </label>
+                <div className="modal-action-btns">
+                   <button type="button" className="btn-cancel-modal" onClick={() => setShowTermsModal(false)}>Cancel</button>
+                   <button type="button" className="btn-continue-modal" onClick={handleFinalSubmit} disabled={!agreedToTerms}>Register</button>
+                </div>
               </div>
             </div>
-          </div>
+          ) : (
+            <div className="modal-content terms-modal-container">
+              <div className="modal-header">
+                <FaFileContract className="icon-brand" /> 
+                <h3>{formData.roleChoice === 'service_provider' ? "Provider Terms" : "Terms & Privacy Policy"}</h3>
+                <button className="close-btn-x" onClick={() => setShowTermsModal(false)}><FaTimes /></button>
+              </div>
+              <div className="modal-body-scrollable">
+                <h4>Terms and Conditions</h4>
+                <p>Sample terms content...</p>
+                <h4>Privacy Policy</h4>
+                <p>Sample privacy content...</p>
+              </div>
+              <div className="modal-footer-sticky">
+                <label className="checkbox-agreement-label">
+                  <input type="checkbox" checked={agreedToTerms} onChange={(e) => setAgreedToTerms(e.target.checked)} />
+                  <span>I agree to the Terms and Condition and Privacy Policy</span>
+                </label>
+                <div className="modal-action-btns">
+                  <button type="button" className="btn-cancel-modal" onClick={() => setShowTermsModal(false)}>Cancel</button>
+                  <button type="button" className="btn-continue-modal" onClick={handleFinalSubmit} disabled={!agreedToTerms}>Continue</button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

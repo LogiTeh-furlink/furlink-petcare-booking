@@ -127,7 +127,6 @@
     border-radius: 0 10px 10px 0 !important;
 }
 
-/* NEW ROLE BUTTON STYLES */
 .role-selection-group {
     display: flex;
     gap: 1rem;
@@ -153,7 +152,7 @@
 
 .role-btn.active {
     border-color: #0E2679;
-    background: #eff6ff; /* Very light blue background */
+    background: #eff6ff; 
     color: #0E2679;
     box-shadow: 0 0 0 2px rgba(14, 38, 121, 0.1);
 }
@@ -185,17 +184,20 @@
 }
 
 /* ===========================
-    MODAL SYSTEM (Terms & Hybrid)
+    MODAL SYSTEM
 =========================== */
 .modal-overlay {
     position: fixed;
     top: 0; left: 0; width: 100%; height: 100%;
-    background: rgba(15, 23, 42, 0.7); /* Deep Slate backdrop */
+    background: rgba(15, 23, 42, 0.7); 
     display: flex; align-items: center; justify-content: center;
     z-index: 3000;
     backdrop-filter: blur(6px);
+    overflow-y: auto; 
+    padding: 20px;
 }
 
+/* --- Standard Single Modal --- */
 .terms-modal-container {
     background: white;
     width: 95%;
@@ -206,8 +208,67 @@
     flex-direction: column;
     overflow: hidden;
     box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    transition: max-width 0.3s ease;
 }
 
+/* --- Dual Modal System (For 'Both') --- */
+.dual-modal-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    max-width: 1000px;
+    gap: 20px;
+    position: relative;
+}
+
+.dual-cards-container {
+    display: flex;
+    flex-direction: row;
+    gap: 25px;
+    width: 100%;
+    justify-content: center;
+    align-items: stretch;
+}
+
+.terms-card {
+    background: white;
+    border-radius: 16px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    height: 60vh; 
+    box-shadow: 0 20px 40px -5px rgba(0,0,0,0.2);
+    overflow: hidden;
+}
+
+.dual-footer-bar {
+    background: white;
+    width: 100%;
+    max-width: 700px;
+    padding: 1.2rem 2rem;
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    box-shadow: 0 10px 30px -5px rgba(0,0,0,0.15);
+}
+
+.close-btn-floating {
+    position: absolute;
+    top: -40px;
+    right: 0;
+    background: white;
+    border: none;
+    border-radius: 50%;
+    width: 36px; height: 36px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    font-size: 1.1rem;
+    color: #0E2679; /* Changed to Dark Blue */
+}
+
+/* --- Shared Inner Styles --- */
 .modal-header {
     padding: 1.25rem 1.5rem;
     background: white;
@@ -218,7 +279,7 @@
 }
 
 .modal-header h3 {
-    margin: 0; color: #0E2679; font-weight: 700;
+    margin: 0; color: #0E2679; font-weight: 700; font-size: 1.1rem;
 }
 
 .icon-brand { color: #0E2679; font-size: 1.2rem; }
@@ -230,8 +291,18 @@
     background: #ffffff;
 }
 
-.policy-section h4 { color: #1e293b; margin: 1.5rem 0 0.5rem 0; font-size: 1rem; }
-.policy-section p { color: #64748b; line-height: 1.6; font-size: 0.9rem; margin-bottom: 1rem; }
+/* COLOR UPDATES HERE: Removed black/dark-slate */
+.modal-body-scrollable h4 { 
+    color: #0E2679; /* Brand Dark Blue */
+    margin: 0 0 0.5rem 0; 
+    font-size: 1rem; 
+}
+.modal-body-scrollable p { 
+    color: #334155; /* Slate Blue (Not Black) */
+    line-height: 1.6; 
+    font-size: 0.9rem; 
+    margin-bottom: 1rem; 
+}
 
 .modal-footer-sticky {
     padding: 1.25rem 1.5rem;
@@ -243,11 +314,10 @@
     display: flex;
     gap: 10px;
     align-items: center;
-    margin-bottom: 1.25rem;
     cursor: pointer;
     font-size: 0.85rem;
     font-weight: 600;
-    color: #334155;
+    color: #0E2679; /* Matching Dark Blue */
 }
 
 .modal-action-btns {
@@ -325,10 +395,36 @@
 /* ===========================
     RESPONSIVE
 =========================== */
+@media (max-width: 800px) {
+    /* Stack modals on tablet/mobile */
+    .dual-cards-container {
+        flex-direction: column;
+        height: auto;
+    }
+    .terms-card {
+        height: 300px; 
+        flex: none;
+        width: 100%;
+    }
+    .dual-modal-wrapper {
+        margin-top: 20px;
+        padding-bottom: 20px;
+    }
+    .close-btn-floating {
+        top: -30px;
+        right: 10px;
+    }
+}
+
 @media (max-width: 600px) {
     .form-row { flex-direction: column; gap: 0; }
     .signup-form { padding: 2rem 1.5rem; }
+    
+    .dual-footer-bar {
+        padding: 1rem;
+    }
 }
+
 .login-redirect {
   margin-top: 1.5rem;
   text-align: center;
