@@ -1,20 +1,23 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom'; 
 import { supabase } from "../../config/supabase";
 import LoggedInNavbar from "../../components/Header/LoggedInNavbar";
 import Footer from "../../components/Footer/Footer";
-import { FaCaretUp, FaCaretDown, FaMinus, FaFileAlt, FaTimes } from 'react-icons/fa';
+import { FaCaretUp, FaCaretDown, FaMinus, FaFileAlt, FaTimes, FaDownload } from 'react-icons/fa';
 import {
   Chart as ChartJS, CategoryScale, LinearScale, BarElement,
   PointElement, LineElement, ArcElement, Tooltip, Legend
 } from 'chart.js';
 import { Bar, Line, Doughnut } from 'react-chartjs-2';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 import './SPBusinessDashboard.css';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, PointElement, LineElement, ArcElement, Tooltip, Legend);
 
 export default function SPBusinessDashboard() {
   const navigate = useNavigate();
+  const reportRef = useRef(null);
   
   // ============================================
   // STATE MANAGEMENT
@@ -30,7 +33,8 @@ export default function SPBusinessDashboard() {
   const [providerHours, setProviderHours] = useState([]);
   const [listingVisitors, setListingVisitors] = useState(0);
   const [showReportModal, setShowReportModal] = useState(false);
-  const [selectedYear, setSelectedYear] = useState(null); // For yearly drill-down
+  const [selectedYear, setSelectedYear] = useState(null);
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
 
   // ============================================
   // DATA FETCHING
@@ -114,6 +118,125 @@ export default function SPBusinessDashboard() {
     };
     fetchDashboardData();
   }, [navigate]);
+
+  // ============================================
+  // PDF DOWNLOAD FUNCTION
+  // ============================================
+  const handleDownloadPDF = async () => {
+    setIsGeneratingPDF(true);
+    
+    try {
+      const element = reportRef.current;
+      
+      if (!element) {
+        console.error('Report element not found');
+        setIsGeneratingPDF(false);
+        return;
+      }
+
+      // Create a clone of the report content for printing
+      const clone = element.cloneNode(true);
+      clone.style.position = 'absolute';
+      clone.style.left = '-9999px';
+      clone.style.top = '0';
+      clone.style.width = '800px';
+      clone.style.overflow = 'visible';
+      clone.style.maxHeight = 'none';
+      clone.style.height = 'auto';
+      clone.style.padding = '24px';
+      clone.style.backgroundColor = '#ffffff';
+      
+      // Append to body temporarily
+      document.body.appendChild(clone);
+      
+      // Wait for rendering
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // Capture the cloned element
+      const canvas = await html2canvas(clone, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#ffffff',
+        width: clone.scrollWidth,
+        height: clone.scrollHeight
+      });
+
+      // Remove the clone
+      document.body.removeChild(clone);
+
+      console.log('Canvas captured:', { width: canvas.width, height: canvas.height });
+
+      const imgData = canvas.toDataURL('image/png', 1.0);
+      
+      // Create PDF with proper dimensions
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      
+      // Calculate image dimensions with margins
+      const margin = 10;
+      const imgWidth = pdfWidth - (2 * margin);
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      
+      // Calculate how many pages we need
+      const pageHeight = pdfHeight - (2 * margin);
+      const totalPages = Math.ceil(imgHeight / pageHeight);
+      
+      console.log('PDF pages needed:', totalPages);
+
+      // Add content to PDF pages
+      for (let page = 0; page < totalPages; page++) {
+        if (page > 0) {
+          pdf.addPage();
+        }
+        
+        // Calculate the portion of the image for this page
+        const sourceY = page * (pageHeight * canvas.width / imgWidth);
+        const sourceHeight = Math.min(
+          pageHeight * canvas.width / imgWidth,
+          canvas.height - sourceY
+        );
+        
+        // Only add if there's content to add
+        if (sourceHeight > 0) {
+          // Create a temporary canvas for this page slice
+          const pageCanvas = document.createElement('canvas');
+          pageCanvas.width = canvas.width;
+          pageCanvas.height = sourceHeight;
+          const pageCtx = pageCanvas.getContext('2d');
+          
+          // Draw the slice of the full canvas onto the page canvas
+          pageCtx.fillStyle = '#ffffff';
+          pageCtx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
+          pageCtx.drawImage(
+            canvas,
+            0, sourceY, canvas.width, sourceHeight,
+            0, 0, canvas.width, sourceHeight
+          );
+          
+          const pageImgData = pageCanvas.toDataURL('image/png', 1.0);
+          const pageImgHeight = (sourceHeight * imgWidth) / canvas.width;
+          
+          pdf.addImage(pageImgData, 'PNG', margin, margin, imgWidth, pageImgHeight, '', 'FAST');
+        }
+      }
+
+      // Generate filename with current date
+      const fileName = `Business_Report_${new Date().toISOString().split('T')[0]}.pdf`;
+      
+      // Save the PDF
+      pdf.save(fileName);
+      
+      console.log('PDF generated successfully');
+      
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      alert('Failed to generate PDF. Please try again.');
+    } finally {
+      setIsGeneratingPDF(false);
+    }
+  };
 
   // ============================================
   // ANALYTICS CALCULATIONS
@@ -887,8 +1010,8 @@ export default function SPBusinessDashboard() {
               </button>
             </div>
 
-            {/* Modal Body */}
-            <div className="report-modal-body">
+            {/* Modal Body - This content will be captured for PDF */}
+            <div className="report-modal-body" ref={reportRef}>
               {/* Report Header Info */}
               <div className="report-info-section">
                 <div className="report-info-row">
@@ -1047,9 +1170,22 @@ export default function SPBusinessDashboard() {
 
             {/* Modal Footer */}
             <div className="report-modal-footer">
-              <button className="btn-download-report" disabled>
-                <FaFileAlt />
-                Download Report (Coming Soon)
+              <button 
+                className="btn-download-report" 
+                onClick={handleDownloadPDF}
+                disabled={isGeneratingPDF}
+              >
+                {isGeneratingPDF ? (
+                  <>
+                    <FaDownload />
+                    Generating PDF...
+                  </>
+                ) : (
+                  <>
+                    <FaDownload />
+                    Download Report
+                  </>
+                )}
               </button>
               <button className="btn-close-report" onClick={() => setShowReportModal(false)}>
                 Close
