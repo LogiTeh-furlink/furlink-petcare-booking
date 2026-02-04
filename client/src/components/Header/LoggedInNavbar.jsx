@@ -221,7 +221,7 @@ const LoggedInNavbar = () => {
                 onClick={handleProviderClick}
               >
                 {isApproved 
-                  ? (isServiceProviderPage ? "Switch to Pet Owner" : `Switch to ${providerData.business_name}`) 
+                  ? (isServiceProviderPage ? "Switch to Pet Owner" : `Switch to Service Provider`) 
                   : isIncomplete 
                     ? "Continue Application"
                     : "Become a Service Provider"} 
@@ -246,7 +246,7 @@ const LoggedInNavbar = () => {
                   
                   {!hideProfileOption && (
                     <button className="menu-item-btn" onClick={() => { navigate("/profile"); setShowMenu(false); }}>
-                      <FaUser className="menu-icon" /> Profile
+                      <FaUser className="menu-icon" /> Manage Account
                     </button>
                   )}
 
@@ -259,7 +259,7 @@ const LoggedInNavbar = () => {
 
                   {!isStrictProvider && !hideAppointmentsOption && (
                     <button className="menu-item-btn" onClick={() => { navigate("/appointments"); setShowMenu(false); }}>
-                      <FaCalendarAlt className="menu-icon" /> Appointments
+                      <FaCalendarAlt className="menu-icon" /> Manage Bookings
                     </button>
                   )}
 
