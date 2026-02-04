@@ -859,3 +859,51 @@
 .external-map-btn:hover {
   opacity: 0.9;
 }
+
+.refined-alert {
+    max-width: 400px;
+    padding: 2rem;
+    text-align: center;
+    border-radius: 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.5rem;
+    animation: alertPop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.alert-icon-container {
+    width: 70px;
+    height: 70px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 0.5rem;
+}
+
+.alert-text-content h3 {
+    font-size: 1.25rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+}
+
+.btn-alert-action {
+    width: 100%;
+    padding: 12px;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: filter 0.2s;
+}
+
+.btn-alert-action:hover {
+    filter: brightness(90%);
+}
+
+@keyframes alertPop {
+    from { transform: scale(0.9); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+}

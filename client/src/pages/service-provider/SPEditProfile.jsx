@@ -112,15 +112,71 @@ const GalleryItem = ({ file, onDelete, onExpand }) => {
 
 const SimpleAlertModal = ({ isOpen, onClose, title, message, type = "error" }) => {
     if (!isOpen) return null;
+
+    const alertConfig = {
+        error: { icon: <AlertCircle size={40} />, color: "#ef4444", bg: "#fef2f2" },
+        success: { icon: <CheckCircle size={40} />, color: "#10b981", bg: "#f0fdf4" },
+        warning: { icon: <AlertTriangle size={40} />, color: "#f59e0b", bg: "#fffbeb" },
+        info: { icon: <FileText size={40} />, color: "#3b82f6", bg: "#eff6ff" }
+    };
+
+    const config = alertConfig[type] || alertConfig.error;
+
     return (
       <div className="modal-overlay">
-        <div className="modal-content simple-alert">
-          <div className={`alert-header ${type}`}>
-              {type === 'error' ? <AlertCircle size={24} /> : <CheckCircle size={24}/>}
-              <h3>{title}</h3>
+        {/* Added centering styles to refined-alert */}
+        <div className="modal-content refined-alert" style={{ 
+            borderTop: `6px solid ${config.color}`,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            textAlign: 'center',
+            padding: '2rem'
+        }}>
+          <div className="alert-body-wrapper" style={{ 
+              display: 'flex', 
+              flexDirection: 'column', 
+              alignItems: 'center', 
+              width: '100%' 
+          }}>
+              {/* Icon Container */}
+              <div className="alert-icon-container" style={{ 
+                  color: config.color, 
+                  backgroundColor: config.bg,
+                  width: '80px',
+                  height: '80px',
+                  borderRadius: '50%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginBottom: '1.5rem'
+              }}>
+                  {config.icon}
+              </div>
+
+              {/* Text Content */}
+              <div className="alert-text-content" style={{ marginBottom: '1.5rem' }}>
+                  <h3 style={{ color: '#1f2937', margin: '0 0 0.5rem 0', fontSize: '1.5rem' }}>{title}</h3>
+                  <p style={{ color: '#6b7280', margin: 0, lineHeight: '1.5' }}>{message}</p>
+              </div>
           </div>
-          <p>{message}</p>
-          <button onClick={onClose} className="btn-alert-ok">OK</button>
+
+          <button 
+            onClick={onClose} 
+            className="btn-alert-action" 
+            style={{ 
+                backgroundColor: config.color,
+                width: '100%',
+                padding: '0.75rem',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                fontWeight: 'bold',
+                cursor: 'pointer'
+            }}
+          >
+            Got it
+          </button>
         </div>
       </div>
     );
@@ -388,6 +444,41 @@ export default function SPEditProfile() {
 
   const positionOptions = ["Business Owner", "Pet Stylist", "Staff"];
 
+  const updatePinFromAddress = async (updatedInfo) => {
+    const { houseStreet, barangay, city, province } = updatedInfo;
+    
+    // Explicitly add "Philippines" to the query to help the geocoder
+    const query = `${houseStreet}, ${barangay}, ${city}, ${province}, Philippines`;
+    
+    try {
+        const response = await fetch(
+            `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`
+        );
+        const data = await response.json();
+
+        if (data && data.length > 0) {
+            const newLat = parseFloat(data[0].lat);
+            const newLng = parseFloat(data[0].lon);
+
+            // Use your boundary check
+            if (isWithinPhilippines(newLat, newLng)) {
+                setBusinessInfo(prev => ({
+                    ...prev,
+                    latitude: newLat,
+                    longitude: newLng,
+                    // Fix: Use backticks for template literal
+                    googleMapUrl: `https://www.google.com/maps?q=${newLat},${newLng}`
+                }));
+            }
+        }
+    } catch (error) { console.error("Geocoding error:", error); }
+};
+
+    const isWithinPhilippines = (lat, lng) => {
+    // Approximate bounding box for the Philippines
+    return lat >= 4.0 && lat <= 21.5 && lng >= 116.0 && lng <= 127.0;
+    };
+
   const formatCityStandard = (cityStr) => {
     if (!cityStr) return "";
     
@@ -473,81 +564,77 @@ export default function SPEditProfile() {
   const showAlert = (title, message) => setAlertModal({ isOpen: true, title, message, type: 'error' });
   const confirmDelete = (title, message, action) => setDeleteConfirmModal({ isOpen: true, title, message, onConfirm: () => { action(); setDeleteConfirmModal({isOpen:false}); } });
   
-  const handleInputChange = (e) => {
+  const handleInputChange = async (e) => {
     const { name, value } = e.target;
 
     if (name === "googleMapUrl") {
-        setBusinessInfo(prev => ({ ...prev, [name]: value }));
+      setBusinessInfo(prev => ({ ...prev, [name]: value }));
 
-        // 1. Check for standard @lat,lng (most common in browser URLs)
-        const regexAt = /@(-?\d+\.\d+),(-?\d+\.\d+)/;
-        // 2. Check for query param q=lat,lng (common in search/share links)
-        const regexQuery = /q=(-?\d+\.\d+),(-?\d+\.\d+)/;
+      // Regex to extract Lat/Lng from Google Maps URL (@lat,lng or q=lat,lng)
+      const coordRegex = /@(-?\d+\.\d+),(-?\d+\.\d+)|q=(-?\d+\.\d+),(-?\d+\.\d+)/;
+      const match = value.match(coordRegex);
 
-        const match = value.match(regexAt) || value.match(regexQuery);
+      if (match) {
+        const lat = parseFloat(match[1] || match[3]);
+        const lng = parseFloat(match[2] || match[4]);
 
-        if (match) {
-            const newLat = parseFloat(match[1]);
-            const newLng = parseFloat(match[2]);
-            
-            setBusinessInfo(prev => ({
-                ...prev,
-                latitude: newLat,
-                longitude: newLng
-            }));
-            // Optional: Show a success alert or toast
-            console.log("Coordinates extracted:", newLat, newLng);
+        if (isWithinPhilippines(lat, lng)) {
+          // Trigger the location change logic to update pin AND address fields
+          handleLocationChange(lat, lng);
+        } else {
+          showAlert("Invalid Location", "Coordinates in URL are outside the Philippines.");
         }
+      }
     } else if (name === "businessMobile" || name === "postalCode") {
-        const nums = value.replace(/\D/g, "");
-        if ((name === "businessMobile" && nums.length > 11) || (name === "postalCode" && nums.length > 4)) return;
-        setBusinessInfo(prev => ({ ...prev, [name]: nums }));
+      const nums = value.replace(/\D/g, "");
+      if ((name === "businessMobile" && nums.length > 11) || (name === "postalCode" && nums.length > 4)) return;
+      setBusinessInfo(prev => ({ ...prev, [name]: nums }));
     } else {
-        if (name === "description" && value.length > 500) return;
-        setBusinessInfo(prev => ({ ...prev, [name]: value }));
+      if (name === "description" && value.length > 500) return;
+      setBusinessInfo(prev => ({ ...prev, [name]: value }));
     }
-};
+  };
 
   const handleLocationChange = async (lat, lng) => {
-    const generatedUrl = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
-    
+    if (!isWithinPhilippines(lat, lng)) {
+      showAlert("Invalid Location", "Please select a location within the Philippines.");
+      return;
+    }
+
+    // Fix: Correct template literal with ${}
+    const generatedUrl = `https://www.google.com/maps?q=${lat},${lng}`;
+
     setBusinessInfo(prev => ({
-        ...prev,
-        latitude: lat,
-        longitude: lng,
-        googleMapUrl: generatedUrl
+      ...prev,
+      latitude: lat,
+      longitude: lng,
+      googleMapUrl: generatedUrl
     }));
 
+    // Fetch Address details (Reverse Geocoding)
     try {
-        const response = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&addressdetails=1`
-        );
-        const data = await response.json();
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&addressdetails=1`
+      );
+      const data = await response.json();
 
-        if (data && data.address) {
-            const addr = data.address;
-            
-            // Get the raw city name from OSM
-            const rawCity = addr.city || addr.town || addr.municipality || "";
-            
-            setBusinessInfo(prev => ({
-                ...prev,
-                houseStreet: addr.road 
-                    ? `${addr.house_number ? addr.house_number + ' ' : ''}${addr.road}`.trim() 
-                    : prev.houseStreet,
-                barangay: addr.suburb || addr.neighbourhood || addr.village || addr.hamlet || prev.barangay,
-                
-                // --- APPLY THE CITY STANDARDIZATION HERE ---
-                city: formatCityStandard(rawCity) || prev.city,
-                
-                province: addr.state || addr.region || prev.province,
-                postalCode: addr.postcode || prev.postalCode,
-            }));
-        }
+      if (data && data.address) {
+        const addr = data.address;
+        const rawCity = addr.city || addr.town || addr.municipality || "";
+
+        setBusinessInfo(prev => ({
+          ...prev,
+          houseStreet: addr.road ? `${addr.house_number ? addr.house_number + ' ' : ''}${addr.road}`.trim() : prev.houseStreet,
+          barangay: addr.suburb || addr.neighbourhood || addr.village || addr.hamlet || prev.barangay,
+          city: formatCityStandard(rawCity) || prev.city,
+          province: addr.state || addr.region || prev.province,
+          postalCode: addr.postcode || prev.postalCode,
+        }));
+      }
     } catch (error) {
-        console.error("Error fetching address details:", error);
+      console.error("Address fetch error:", error);
     }
-};
+  };
 
   const isDayDisabled = (slotIndex, day) => businessInfo.operatingHours.some((slot, i) => i !== slotIndex && slot.days.includes(day));
   const toggleDay = (slotIndex, day) => {
@@ -803,6 +890,7 @@ const saveChangesToDB = async () => {
                                 lat={businessInfo.latitude} 
                                 lng={businessInfo.longitude} 
                                 onLocationChange={handleLocationChange} 
+                                previewOnly={false}
                             />
                         </div>
 
@@ -823,25 +911,54 @@ const saveChangesToDB = async () => {
 
               <div className="form-section">
                   <h3><MapPin size={18}/> Address</h3>
+                  <div style={{ 
+                    padding: '10px 15px', 
+                    borderRadius: '8px', 
+                    marginBottom: '20px',
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: '10px'
+                }}>
+                    <AlertCircle size={18} color="#1890ff" style={{ marginTop: '2px' }} />
+                    <p style={{ fontSize: '0.80rem', color: '#003a8c', margin: 0 }}>
+                        Changing any address field (Street, Barangay, City, etc.) will update the map pin and Google Map URL once you click out of the input box.
+                    </p>
+                </div>
                   <div className="form-grid-2">
-                      <div className="form-group"><label>Street *</label><input name="houseStreet" value={businessInfo.houseStreet} onChange={handleInputChange} className={validationErrors.houseStreet ? 'error-input' : ''}/></div>
-                      <div className="form-group"><label>Barangay *</label><input name="barangay" value={businessInfo.barangay} onChange={handleInputChange} className={validationErrors.barangay ? 'error-input' : ''}/></div>
                       <div className="form-group">
-                        <label>City *</label>
-                        <input 
-                            name="city" 
-                            value={businessInfo.city} 
-                            onChange={handleInputChange} 
-                            onBlur={(e) => {
-                                // Standardize when user finishes typing
-                                const formatted = formatCityStandard(e.target.value);
-                                setBusinessInfo(prev => ({ ...prev, city: formatted }));
-                            }}
-                            className={validationErrors.city ? 'error-input' : ''}
-                        />
+                        <label>Street *</label>
+                        <input name="houseStreet" value={businessInfo.houseStreet} onChange={handleInputChange} 
+                            onBlur={() => updatePinFromAddress(businessInfo)} />
                     </div>
-                      <div className="form-group"><label>Province *</label><input name="province" value={businessInfo.province} onChange={handleInputChange} className={validationErrors.province ? 'error-input' : ''}/></div>
-                      <div className="form-group"><label>Postal Code *</label><input name="postalCode" value={businessInfo.postalCode} onChange={handleInputChange} className={validationErrors.postalCode ? 'error-input' : ''}/></div>
+
+                    <div className="form-group">
+                        <label>Barangay *</label>
+                        <input name="barangay" value={businessInfo.barangay} onChange={handleInputChange} 
+                            onBlur={() => updatePinFromAddress(businessInfo)} />
+                    </div>
+
+                    <div className="form-group">
+                        <label>City *</label>
+                        <input name="city" value={businessInfo.city} onChange={handleInputChange} 
+                            onBlur={(e) => {
+                                const f = formatCityStandard(e.target.value);
+                                const updated = { ...businessInfo, city: f };
+                                setBusinessInfo(updated);
+                                updatePinFromAddress(updated);
+                            }} />
+                    </div>
+
+                    <div className="form-group">
+                        <label>Province *</label>
+                        <input name="province" value={businessInfo.province} onChange={handleInputChange} 
+                            onBlur={() => updatePinFromAddress(businessInfo)} />
+                    </div>
+
+                    <div className="form-group">
+                        <label>Postal Code *</label>
+                        <input name="postalCode" value={businessInfo.postalCode} onChange={handleInputChange} 
+                            onBlur={() => updatePinFromAddress(businessInfo)} />
+                    </div>
                       <div className="form-group"><label>Country</label><input value="Philippines" disabled className="input-disabled"/></div>
                   </div>
               </div>
