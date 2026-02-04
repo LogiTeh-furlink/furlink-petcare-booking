@@ -347,76 +347,17 @@ export default function SPBusinessDashboard() {
     });
 
     // ============================================
-    // CHART DATA GENERATION - PEAK PERIODS (Days/Weeks/Months)
+    // CHART DATA GENERATION - PEAK DAYS (Static - always shows days of week)
     // ============================================
-    let peakPeriodLabels = [];
-    let peakPeriodValuesDog = [];
-    let peakPeriodValuesCat = [];
-    let peakPeriodTitle = 'Peak Days';
-
-    if (activeFilter === 'weekly') {
-      // For weekly: show days of the week
-      peakPeriodTitle = 'Peak Days';
-      peakPeriodLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-      peakPeriodValuesDog = new Array(7).fill(0);
-      peakPeriodValuesCat = new Array(7).fill(0);
-      
-      current.validPets.forEach(pet => {
-        const dayIdx = (new Date(pet.booking_date).getDay() + 6) % 7;
-        if (pet.pet_type === 'Dog') peakPeriodValuesDog[dayIdx]++;
-        else if (pet.pet_type === 'Cat') peakPeriodValuesCat[dayIdx]++;
-      });
-    } else if (activeFilter === 'monthly') {
-      // For monthly: show weeks of the month
-      peakPeriodTitle = 'Peak Weeks';
-      const monthName = currentRange.start.toLocaleString('default', { month: 'short' });
-      const lastDay = new Date(currentRange.start.getFullYear(), currentRange.start.getMonth() + 1, 0).getDate();
-      peakPeriodLabels = [
-        `${monthName} 1-7`,
-        `${monthName} 8-14`,
-        `${monthName} 15-21`,
-        `${monthName} 22-${lastDay}`
-      ];
-      peakPeriodValuesDog = new Array(4).fill(0);
-      peakPeriodValuesCat = new Array(4).fill(0);
-      
-      current.validPets.forEach(pet => {
-        const day = new Date(pet.booking_date).getDate();
-        let weekIdx;
-        if (day <= 7) weekIdx = 0;
-        else if (day <= 14) weekIdx = 1;
-        else if (day <= 21) weekIdx = 2;
-        else weekIdx = 3;
-        
-        if (pet.pet_type === 'Dog') peakPeriodValuesDog[weekIdx]++;
-        else if (pet.pet_type === 'Cat') peakPeriodValuesCat[weekIdx]++;
-      });
-    } else if (activeFilter === 'yearly') {
-      // For yearly: show months of the year
-      peakPeriodTitle = 'Peak Months';
-      const year = currentRange.start.getFullYear();
-      peakPeriodLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].map(m => `${m} ${year}`);
-      peakPeriodValuesDog = new Array(12).fill(0);
-      peakPeriodValuesCat = new Array(12).fill(0);
-      
-      current.validPets.forEach(pet => {
-        const monthIdx = new Date(pet.booking_date).getMonth();
-        if (pet.pet_type === 'Dog') peakPeriodValuesDog[monthIdx]++;
-        else if (pet.pet_type === 'Cat') peakPeriodValuesCat[monthIdx]++;
-      });
-    } else {
-      // For custom: default to days
-      peakPeriodTitle = 'Peak Days';
-      peakPeriodLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-      peakPeriodValuesDog = new Array(7).fill(0);
-      peakPeriodValuesCat = new Array(7).fill(0);
-      
-      current.validPets.forEach(pet => {
-        const dayIdx = (new Date(pet.booking_date).getDay() + 6) % 7;
-        if (pet.pet_type === 'Dog') peakPeriodValuesDog[dayIdx]++;
-        else if (pet.pet_type === 'Cat') peakPeriodValuesCat[dayIdx]++;
-      });
-    }
+    const peakDaysLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    let peakDaysValuesDog = new Array(7).fill(0);
+    let peakDaysValuesCat = new Array(7).fill(0);
+    
+    current.validPets.forEach(pet => {
+      const dayIdx = (new Date(pet.booking_date).getDay() + 6) % 7;
+      if (pet.pet_type === 'Dog') peakDaysValuesDog[dayIdx]++;
+      else if (pet.pet_type === 'Cat') peakDaysValuesCat[dayIdx]++;
+    });
 
     // ============================================
     // CHART DATA GENERATION - BOOKED HOURS
@@ -512,10 +453,9 @@ export default function SPBusinessDashboard() {
       dateLabels, 
       dateValuesDog, 
       dateValuesCat,
-      peakPeriodLabels, 
-      peakPeriodValuesDog, 
-      peakPeriodValuesCat,
-      peakPeriodTitle,
+      peakDaysLabels, 
+      peakDaysValuesDog, 
+      peakDaysValuesCat,
       sortedHourLabels: timeSlots.labels, 
       hourValuesDog: timeSlots.valuesDog, 
       hourValuesCat: timeSlots.valuesCat,
@@ -576,7 +516,7 @@ export default function SPBusinessDashboard() {
   const getAverageBookingsChartOptions = () => {
     const baseOptions = petTypeFilter === 'both' ? { ...groupedChartOptions } : { ...commonChartOptions };
     
-    // Add onClick handler only for yearly view (not drilled down)
+    // Add onClick handler ONLY for yearly view (not drilled down into months)
     if (activeFilter === 'yearly' && !selectedYear) {
       baseOptions.onClick = (event, elements) => {
         if (elements.length > 0) {
@@ -588,6 +528,12 @@ export default function SPBusinessDashboard() {
       // Make cursor pointer to indicate clickability
       baseOptions.onHover = (event, chartElement) => {
         event.native.target.style.cursor = chartElement.length > 0 ? 'pointer' : 'default';
+      };
+    } else {
+      // Remove click handler for monthly drill-down view and other filters
+      baseOptions.onClick = null;
+      baseOptions.onHover = (event) => {
+        event.native.target.style.cursor = 'default';
       };
     }
     
@@ -651,20 +597,20 @@ export default function SPBusinessDashboard() {
     };
   };
 
-  const getPeakPeriodsChartData = () => {
+  const getPeakDaysChartData = () => {
     if (petTypeFilter === 'both') {
       return {
-        labels: analytics.peakPeriodLabels,
+        labels: analytics.peakDaysLabels,
         datasets: [
-          { label: 'Dog', data: analytics.peakPeriodValuesDog, backgroundColor: '#1e3a8a', borderRadius: 4 },
-          { label: 'Cat', data: analytics.peakPeriodValuesCat, backgroundColor: '#facc15', borderRadius: 4 }
+          { label: 'Dog', data: analytics.peakDaysValuesDog, backgroundColor: '#1e3a8a', borderRadius: 4 },
+          { label: 'Cat', data: analytics.peakDaysValuesCat, backgroundColor: '#facc15', borderRadius: 4 }
         ]
       };
     }
     return {
-      labels: analytics.peakPeriodLabels,
+      labels: analytics.peakDaysLabels,
       datasets: [{
-        data: petTypeFilter === 'Dog' ? analytics.peakPeriodValuesDog : analytics.peakPeriodValuesCat,
+        data: petTypeFilter === 'Dog' ? analytics.peakDaysValuesDog : analytics.peakDaysValuesCat,
         backgroundColor: petTypeFilter === 'Dog' ? '#1e3a8a' : '#facc15',
         borderRadius: 4
       }]
@@ -891,12 +837,12 @@ export default function SPBusinessDashboard() {
             
             {/* Bottom Charts Grid */}
             <div className="sp-biz-bottom-grid">
-              {/* Peak Periods Chart (Days/Weeks/Months based on filter) */}
+              {/* Peak Days Chart (Static - always shows days of week) */}
               <div className="chart-box">
-                <h4 className="chart-title-sm">{analytics.peakPeriodTitle}</h4>
+                <h4 className="chart-title-sm">Peak Days</h4>
                 <div className="chart-container-small">
                   <Bar 
-                    data={getPeakPeriodsChartData()} 
+                    data={getPeakDaysChartData()} 
                     options={petTypeFilter === 'both' ? groupedChartOptions : commonChartOptions} 
                   />
                 </div>
