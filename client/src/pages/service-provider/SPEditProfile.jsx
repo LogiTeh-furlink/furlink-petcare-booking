@@ -6,6 +6,7 @@ import {
   Trash2, Plus, ArrowLeft, AlertTriangle, MapPin, 
   Users, FileCheck, Eye, Image as ImageIcon, Clock 
 } from "lucide-react";
+import LocationPicker from "../../components/Map/LocationPicker";
 import { useNavigate } from "react-router-dom";
 import LoggedInNavbar from "../../components/Header/LoggedInNavbar";
 import Footer from "../../components/Footer/Footer";
@@ -182,8 +183,7 @@ const FinalConfirmationModal = ({ isOpen, onClose, onConfirm, status, errorMessa
     );
 };
 
-const ReviewChangesModal = ({ isOpen, onClose, onConfirm, data, files, employees, filesToDelete, existingFiles }) => {
-    if (!isOpen) return null;
+const ReviewChangesModal = ({ isOpen, onClose, onConfirm, data, files, employees, filesToDelete, existingFiles }) => {    if (!isOpen) return null;
 
     const getFileName = (fileOrUrl) => {
         if (!fileOrUrl) return "None";
@@ -274,6 +274,13 @@ const ReviewChangesModal = ({ isOpen, onClose, onConfirm, data, files, employees
 
                         <div className="review-row"><span className="review-label">Social Media:</span> <span className="review-value">{data.socialMediaUrl || "N/A"}</span></div>
                         <div className="review-row"><span className="review-label">Google Maps:</span> <span className="review-value">{data.googleMapUrl || "N/A"}</span></div>
+                        {/* ADD COORDINATES TO SUMMARY HERE */}
+                        <div className="review-row">
+                            <span className="review-label">Map Coordinates:</span> 
+                            <span className="review-value">
+                                {data.latitude ? `${data.latitude.toFixed(6)}, ${data.longitude.toFixed(6)}` : "Not Pinned"}
+                            </span>
+                        </div>
                     </div>
 
                     {/* ADDRESS */}
@@ -362,7 +369,7 @@ export default function SPEditProfile() {
     businessName: "", description: "", businessEmail: "", businessMobile: "", 
     socialMediaUrl: "", googleMapUrl: "", typeOfService: "", houseStreet: "", 
     barangay: "", city: "", province: "", postalCode: "", country: "Philippines",
-    operatingHours: []
+    operatingHours: [], latitude: null, longitude: null
   });
 
   const [newFiles, setNewFiles] = useState({ waiver: null, permit: null, facilities: [], payments: [] });
@@ -422,7 +429,8 @@ export default function SPEditProfile() {
                 typeOfService: provider.type_of_service || "", houseStreet: provider.house_street || "",
                 barangay: provider.barangay || "", city: provider.city || "", province: provider.province || "",
                 postalCode: provider.postal_code || "", country: provider.country || "Philippines",
-                operatingHours: groupedHours.length > 0 ? groupedHours : [{ tempId: Date.now(), days: [], startTime: "09:00", endTime: "17:00" }]
+                operatingHours: groupedHours.length > 0 ? groupedHours : [{ tempId: Date.now(), days: [], startTime: "09:00", endTime: "17:00" }],
+                latitude: provider.latitude || null, longitude: provider.longitude || null
             });
 
             setExistingFiles(prev => ({ ...prev, waiverUrl: provider.waiver_url }));
@@ -446,7 +454,30 @@ export default function SPEditProfile() {
   
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    if (name === "businessMobile" || name === "postalCode") {
+
+    if (name === "googleMapUrl") {
+        setBusinessInfo(prev => ({ ...prev, [name]: value }));
+
+        // 1. Check for standard @lat,lng (most common in browser URLs)
+        const regexAt = /@(-?\d+\.\d+),(-?\d+\.\d+)/;
+        // 2. Check for query param q=lat,lng (common in search/share links)
+        const regexQuery = /q=(-?\d+\.\d+),(-?\d+\.\d+)/;
+
+        const match = value.match(regexAt) || value.match(regexQuery);
+
+        if (match) {
+            const newLat = parseFloat(match[1]);
+            const newLng = parseFloat(match[2]);
+            
+            setBusinessInfo(prev => ({
+                ...prev,
+                latitude: newLat,
+                longitude: newLng
+            }));
+            // Optional: Show a success alert or toast
+            console.log("Coordinates extracted:", newLat, newLng);
+        }
+    } else if (name === "businessMobile" || name === "postalCode") {
         const nums = value.replace(/\D/g, "");
         if ((name === "businessMobile" && nums.length > 11) || (name === "postalCode" && nums.length > 4)) return;
         setBusinessInfo(prev => ({ ...prev, [name]: nums }));
@@ -454,7 +485,19 @@ export default function SPEditProfile() {
         if (name === "description" && value.length > 500) return;
         setBusinessInfo(prev => ({ ...prev, [name]: value }));
     }
-  };
+};
+
+  const handleLocationChange = (lat, lng) => {
+    // Generate a clean Google Maps URL for the coordinates
+    const generatedUrl = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+    
+    setBusinessInfo(prev => ({
+        ...prev,
+        latitude: lat,
+        longitude: lng,
+        googleMapUrl: generatedUrl
+    }));
+};
 
   const isDayDisabled = (slotIndex, day) => businessInfo.operatingHours.some((slot, i) => i !== slotIndex && slot.days.includes(day));
   const toggleDay = (slotIndex, day) => {
@@ -651,17 +694,79 @@ const saveChangesToDB = async () => {
 
           <form className="edit-form" onSubmit={(e) => e.preventDefault()}>
               <div className="form-section">
-                  <h3><FileText size={18}/> Basic Information</h3>
-                  <div className="form-grid-2">
-                      <div className="form-group"><label>Business Name *</label><input name="businessName" value={businessInfo.businessName} onChange={handleInputChange} className={validationErrors.businessName ? 'error-input' : ''}/></div>
-                      <div className="form-group"><label>Service Type</label><input value={businessInfo.typeOfService} disabled className="input-disabled"/></div>
-                      <div className="form-group full-width"><label>Description *</label><textarea name="description" value={businessInfo.description} onChange={handleInputChange} rows={4} className={validationErrors.description ? 'error-input' : ''}/></div>
-                      <div className="form-group"><label>Email *</label><input name="businessEmail" value={businessInfo.businessEmail} onChange={handleInputChange} className={validationErrors.businessEmail ? 'error-input' : ''}/></div>
-                      <div className="form-group"><label>Mobile *</label><input name="businessMobile" value={businessInfo.businessMobile} onChange={handleInputChange} className={validationErrors.businessMobile ? 'error-input' : ''}/></div>
-                      <div className="form-group"><label>Social Media URL</label><input name="socialMediaUrl" value={businessInfo.socialMediaUrl} onChange={handleInputChange}/></div>
-                      <div className="form-group"><label>Google Map URL</label><input name="googleMapUrl" value={businessInfo.googleMapUrl} onChange={handleInputChange}/></div>
-                  </div>
-              </div>
+                <h3><FileText size={18}/> Basic Information</h3>
+                <div className="form-grid-2">
+                    <div className="form-group">
+                        <label>Business Name *</label>
+                        <input name="businessName" value={businessInfo.businessName} onChange={handleInputChange} className={validationErrors.businessName ? 'error-input' : ''}/>
+                    </div>
+                    <div className="form-group">
+                        <label>Service Type</label>
+                        <input value={businessInfo.typeOfService} disabled className="input-disabled"/>
+                    </div>
+                    <div className="form-group full-width">
+                        <label>Description *</label>
+                        <textarea name="description" value={businessInfo.description} onChange={handleInputChange} rows={4} className={validationErrors.description ? 'error-input' : ''}/>
+                    </div>
+                    <div className="form-group">
+                        <label>Email *</label>
+                        <input name="businessEmail" value={businessInfo.businessEmail} onChange={handleInputChange} className={validationErrors.businessEmail ? 'error-input' : ''}/>
+                    </div>
+                    <div className="form-group">
+                        <label>Mobile *</label>
+                        <input name="businessMobile" value={businessInfo.businessMobile} onChange={handleInputChange} className={validationErrors.businessMobile ? 'error-input' : ''}/>
+                    </div>
+                    <div className="form-group">
+                        <label>Social Media URL</label>
+                        <input name="socialMediaUrl" value={businessInfo.socialMediaUrl} onChange={handleInputChange}/>
+                    </div>
+
+                    {/* 1. UPDATED GOOGLE MAP URL GROUP */}
+                    <div className="form-group">
+                        <label>Google Map URL</label>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                            <input 
+                                name="googleMapUrl" 
+                                value={businessInfo.googleMapUrl} 
+                                onChange={handleInputChange}
+                                placeholder="Paste link or pin on map"
+                                style={{ flex: 1 }}
+                            />
+                            {businessInfo.latitude && (
+                                <div title="Coordinates Confirmed" style={{ display: 'flex', alignItems: 'center', color: '#10b981' }}>
+                                    <CheckCircle size={20} />
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* 2. UPDATED MAP SELECTION AREA (Full Width) */}
+                    <div className="map-selection-area" style={{ gridColumn: 'span 2', marginTop: '10px' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', fontWeight: '600' }}>
+                            <MapPin size={16} color="var(--primary)"/> 
+                            Pin Shop Location *
+                        </label>
+                        
+                        <LocationPicker 
+                            lat={businessInfo.latitude} 
+                            lng={businessInfo.longitude} 
+                            onLocationChange={handleLocationChange} 
+                        />
+
+                        {businessInfo.latitude && (
+                            <div style={{ marginTop: '8px', fontSize: '0.75rem', color: '#64748b', display: 'flex', gap: '15px' }}>
+                                <span><strong>Lat:</strong> {businessInfo.latitude.toFixed(6)}</span>
+                                <span><strong>Lng:</strong> {businessInfo.longitude.toFixed(6)}</span>
+                            </div>
+                        )}
+                        
+                        <p className="helper-text" style={{ fontSize: '0.8rem', color: '#6b7280', marginTop: '5px' }}>
+                            Search for your location in the map above or click directly to set your pin. Moving the pin or pasting a URL updates both fields.
+                        </p>
+                        {validationErrors.latitude && <small className="error-text">Please pin your location on the map.</small>}
+                    </div>
+                </div>
+            </div>
 
               <div className="form-section">
                   <h3><MapPin size={18}/> Address</h3>
