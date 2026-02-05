@@ -947,7 +947,7 @@ export default function SPBusinessDashboard() {
                 <div className="chart-title-wrapper">
                   {activeFilter === 'yearly' && selectedYear && (
                     <button className="back-to-years-btn" onClick={() => setSelectedYear(null)}>
-                      ← Back to Years
+                      ← Back
                     </button>
                   )}
                   <h3 className="chart-title">

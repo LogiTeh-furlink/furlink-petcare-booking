@@ -921,7 +921,7 @@ export default function SPSales() {
                     onClick={() => setSelectedYear(null)}
                     title="Back to years view"
                   >
-                    ← Back to Years
+                    ← Back
                   </button>
                 )}
                 <div className="chart-header-with-btn">
@@ -961,7 +961,7 @@ export default function SPSales() {
                     onClick={() => setSelectedYear(null)}
                     title="Back to years view"
                   >
-                    ← Back to Years
+                    ← Back
                   </button>
                 )}
                 <div className="chart-header-with-btn">
