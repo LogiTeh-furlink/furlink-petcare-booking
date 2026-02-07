@@ -49,7 +49,11 @@ const PetDetails = () => {
   useEffect(() => {
     const fetchBreeds = async () => {
       try {
-        const fullLists = { Dog: [], Cat: [] };
+        // Initialize with Standard + Local Variations
+        const fullLists = { 
+            Dog: ["Mixed Breed", "Unknown", "Aspin", "Askal"], 
+            Cat: ["Mixed Breed", "Unknown", "Puspin", "Pusakal"] 
+        };
 
         // 1. Fetch Dogs
         const dogRes = await fetch('https://dog.ceo/api/breeds/list/all');
@@ -57,7 +61,8 @@ const PetDetails = () => {
           const dogData = await dogRes.json();
           // Capitalize first letter
           const dogs = Object.keys(dogData.message).map(b => b.charAt(0).toUpperCase() + b.slice(1));
-          fullLists.Dog = dogs;
+          // Merge and deduplicate
+          fullLists.Dog = [...new Set([...fullLists.Dog, ...dogs])];
         }
 
         // 2. Fetch Cats
@@ -65,7 +70,8 @@ const PetDetails = () => {
         if (catRes.ok) {
           const catData = await catRes.json();
           const cats = catData.map(c => c.name);
-          fullLists.Cat = cats;
+          // Merge and deduplicate
+          fullLists.Cat = [...new Set([...fullLists.Cat, ...cats])];
         }
 
         setValidationBreeds(fullLists);
@@ -80,15 +86,11 @@ const PetDetails = () => {
   const isValidBreed = (breedInput, type) => {
     if (!breedInput || !breedInput.trim()) return false;
     
-    // Always allow these specific overrides
-    const overrides = ["Mixed Breed", "Unknown"];
-    if (overrides.some(o => o.toLowerCase() === breedInput.toLowerCase())) return true;
-
-    // Check against API list
+    // Check against API list (which now includes local variants)
     const list = validationBreeds[type];
     if (!list || list.length === 0) return true; // If no list loaded (e.g. Rabbit), accept anything
     
-    return list.some(b => b.toLowerCase() === breedInput.toLowerCase());
+    return list.some(b => b.toLowerCase() === breedInput.trim().toLowerCase());
   };
 
   const formatDOB = (dateStr) => {
@@ -816,7 +818,7 @@ const handleAddPet = () => {
                                 <input 
                                   list={`breed-suggestions-${index}`} 
                                   type="text" 
-                                  placeholder={pet.pet_type === "Cat" ? "e.g. Siamese" : "e.g. Beagle"}
+                                  placeholder={pet.pet_type === "Cat" ? "e.g. Siamese or Puspin" : "e.g. Beagle or Aspin"} 
                                   value={pet.breed} 
                                   onChange={(e) => updatePetInfo(index, 'breed', e.target.value)} 
                                 />
@@ -824,6 +826,17 @@ const handleAddPet = () => {
                                 <datalist id={`breed-suggestions-${index}`}>
                                   <option value="Mixed Breed" />
                                   <option value="Unknown" />
+                                  {pet.pet_type === "Dog" ? (
+                                      <>
+                                          <option value="Aspin" />
+                                          <option value="Askal" />
+                                      </>
+                                  ) : (
+                                      <>
+                                          <option value="Puspin" />
+                                          <option value="Pusakal" />
+                                      </>
+                                  )}
                                 </datalist>
                                 {attemptedSubmit && !pet.breed.trim() && <span className="error-text" style={{color: 'red', fontSize: '11px'}}>Breed is required</span>}
                                 {attemptedSubmit && pet.breed.trim() && !isValidBreed(pet.breed, pet.pet_type) && <span className="error-text" style={{color: 'red', fontSize: '11px'}}>Unrecognized breed. Check spelling or use 'Mixed Breed'.</span>}
