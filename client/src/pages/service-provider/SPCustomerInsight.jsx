@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from "../../config/supabase";
 import LoggedInNavbar from "../../components/Header/LoggedInNavbar";
 import Footer from "../../components/Footer/Footer";
-import { FaCaretUp, FaCaretDown, FaMinus, FaStar, FaFileAlt, FaTimes, FaDownload } from 'react-icons/fa';
+import { FaCaretUp, FaCaretDown, FaMinus, FaStar, FaFileAlt, FaTimes, FaDownload, FaArrowLeft } from 'react-icons/fa';
 import {
   Chart as ChartJS, CategoryScale, LinearScale, BarElement,
   PointElement, LineElement, ArcElement, Tooltip, Legend
@@ -605,6 +605,15 @@ export default function SPCustomerInsight() {
         <div className="sp-biz-container">
           
           <aside className="sp-biz-sidebar">
+            {/* Back to Dashboard Button */}
+            <button 
+              className="back-to-dashboard-btn"
+              onClick={() => navigate('/service/dashboard')}
+              title="Back to Dashboard"
+            >
+              <FaArrowLeft size={18} />
+            </button>
+
             <div className="sidebar-tabs-group">
               <button 
                 className={`sidebar-tab-btn ${activeTab === 'sales' ? 'active' : ''}`} 
