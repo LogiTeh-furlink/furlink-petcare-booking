@@ -58,7 +58,7 @@
 .back-to-dashboard-btn:hover {
   background: #f8fafc;
   border-color: #0E2679;
-  transform: translateX(-3px);
+  transform: translateX(3px);
 }
 
 .sidebar-tabs-group {
