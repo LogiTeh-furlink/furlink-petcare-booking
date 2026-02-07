@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from "../../config/supabase";
 import LoggedInNavbar from "../../components/Header/LoggedInNavbar";
 import Footer from "../../components/Footer/Footer";
-import { FaCaretUp, FaCaretDown, FaMinus, FaFileAlt, FaTimes, FaDownload } from 'react-icons/fa';
+import { FaCaretUp, FaCaretDown, FaMinus, FaFileAlt, FaTimes, FaDownload, FaArrowLeft } from 'react-icons/fa';
 import {
   Chart as ChartJS, 
   CategoryScale, 
@@ -336,9 +336,10 @@ export default function SPSales() {
 
     // ========================================
     // CHART 1: OVERALL SALES PERFORMANCE
-    // Shows total revenue over time
+    // Shows total revenue over time + customer count per period
     // ========================================
     const overallSalesData = new Array(timeLabels.length).fill(0);
+    const overallCustomerCount = new Array(timeLabels.length).fill(0).map(() => new Set());
     
     currentBookings.forEach(booking => {
       if (!isBookingComplete(booking)) return;
@@ -370,19 +371,26 @@ export default function SPSales() {
       
       if (idx !== -1 && overallSalesData[idx] !== undefined) {
         overallSalesData[idx] += Number(booking.total_estimated_price) || 0;
+        overallCustomerCount[idx].add(booking.user_id);
       }
     });
 
+    // Convert Sets to counts
+    const overallCustomerCountArray = overallCustomerCount.map(set => set.size);
+
     // ========================================
     // CHART 2: SALES PERFORMANCE PER SERVICE
-    // Shows revenue for each service type
+    // Shows revenue for each service type + customer count
     // ========================================
     const serviceRevenueMap = {};
+    const serviceCustomerCount = {};
+    
     servicesList.forEach(service => {
       serviceRevenueMap[service.id] = {
         name: service.name,
         data: new Array(timeLabels.length).fill(0)
       };
+      serviceCustomerCount[service.id] = new Array(timeLabels.length).fill(0).map(() => new Set());
     });
 
     bookingServices.forEach(bs => {
@@ -420,15 +428,24 @@ export default function SPSales() {
       
       if (idx !== -1 && serviceRevenueMap[bs.service_id] && serviceRevenueMap[bs.service_id].data[idx] !== undefined) {
         serviceRevenueMap[bs.service_id].data[idx] += Number(bs.price) || 0;
+        serviceCustomerCount[bs.service_id][idx].add(booking.user_id);
       }
+    });
+
+    // Convert customer count Sets to arrays
+    const serviceCustomerCountArrays = {};
+    Object.keys(serviceCustomerCount).forEach(serviceId => {
+      serviceCustomerCountArrays[serviceId] = serviceCustomerCount[serviceId].map(set => set.size);
     });
 
     // ========================================
     // CHART 3: NEW VS RETURNING CUSTOMERS REVENUE
-    // Two lines: revenue from new customers vs returning customers
+    // Two lines: revenue from new customers vs returning customers + customer counts
     // ========================================
     const newCustomerRevenue = new Array(timeLabels.length).fill(0);
     const returningCustomerRevenue = new Array(timeLabels.length).fill(0);
+    const newCustomerCount = new Array(timeLabels.length).fill(0).map(() => new Set());
+    const returningCustomerCount = new Array(timeLabels.length).fill(0).map(() => new Set());
     
     // Track first booking date for each customer
     const customerFirstBooking = {};
@@ -479,11 +496,17 @@ export default function SPSales() {
       if (idx !== -1 && idx !== undefined) {
         if (isFirstBooking) {
           newCustomerRevenue[idx] += revenue;
+          newCustomerCount[idx].add(booking.user_id);
         } else {
           returningCustomerRevenue[idx] += revenue;
+          returningCustomerCount[idx].add(booking.user_id);
         }
       }
     });
+
+    // Convert customer count Sets to arrays
+    const newCustomerCountArray = newCustomerCount.map(set => set.size);
+    const returningCustomerCountArray = returningCustomerCount.map(set => set.size);
 
     // ========================================
     // CHART 4: REVENUE LOSS DUE TO CANCELLATIONS
@@ -555,9 +578,13 @@ export default function SPSales() {
       timeLabels,
       // Chart data
       overallSalesData,
+      overallCustomerCountArray,
       serviceRevenueMap,
+      serviceCustomerCountArrays,
       newCustomerRevenue,
       returningCustomerRevenue,
+      newCustomerCountArray,
+      returningCustomerCountArray,
       actualRevenue,
       potentialRevenue,
       cancellationsPerPeriod,
@@ -779,6 +806,15 @@ export default function SPSales() {
           {/* SIDEBAR - Filters */}
           {/* ============================================ */}
           <aside className="sp-biz-sidebar">
+            {/* Back to Dashboard Button */}
+            <button 
+              className="back-to-dashboard-btn"
+              onClick={() => navigate('/service/dashboard')}
+              title="Back to Dashboard"
+            >
+              <FaArrowLeft size={18} />
+            </button>
+
             {/* Tab Navigation */}
             <div className="sidebar-tabs-group">
               <button 
@@ -917,11 +953,11 @@ export default function SPSales() {
               <div className="chart-box">
                 {activeFilter === 'yearly' && selectedYear && (
                   <button 
-                    className="back-to-years-btn-topleft"
+                    className="back-to-years-btn"
                     onClick={() => setSelectedYear(null)}
                     title="Back to years view"
                   >
-                    ← Back
+                    <FaArrowLeft size={12} />
                   </button>
                 )}
                 <div className="chart-header-with-btn">
@@ -948,7 +984,32 @@ export default function SPSales() {
                         pointHoverRadius: 6
                       }]
                     }}
-                    options={lineChartOptions}
+                    options={{
+                      ...lineChartOptions,
+                      plugins: {
+                        ...lineChartOptions.plugins,
+                        tooltip: {
+                          mode: 'index',
+                          intersect: false,
+                          callbacks: {
+                            label: function(context) {
+                              let label = context.dataset.label || '';
+                              if (label) {
+                                label += ': ';
+                              }
+                              if (context.parsed.y !== null) {
+                                label += '₱' + context.parsed.y.toLocaleString();
+                              }
+                              return label;
+                            },
+                            afterLabel: function(context) {
+                              const customerCount = analytics.overallCustomerCountArray[context.dataIndex];
+                              return `Customers: ${customerCount}`;
+                            }
+                          }
+                        }
+                      }
+                    }}
                   />
                 </div>
               </div>
@@ -957,11 +1018,11 @@ export default function SPSales() {
               <div className="chart-box">
                 {activeFilter === 'yearly' && selectedYear && (
                   <button 
-                    className="back-to-years-btn-topleft"
+                    className="back-to-years-btn"
                     onClick={() => setSelectedYear(null)}
                     title="Back to years view"
                   >
-                    ← Back
+                    <FaArrowLeft size={12} />
                   </button>
                 )}
                 <div className="chart-header-with-btn">
@@ -1084,6 +1145,32 @@ export default function SPSales() {
                     }}
                     options={{
                       ...lineChartOptions,
+                      plugins: {
+                        ...lineChartOptions.plugins,
+                        tooltip: {
+                          mode: 'index',
+                          intersect: false,
+                          callbacks: {
+                            label: function(context) {
+                              let label = context.dataset.label || '';
+                              if (label) {
+                                label += ': ';
+                              }
+                              if (context.parsed.y !== null) {
+                                label += '₱' + context.parsed.y.toLocaleString();
+                              }
+                              return label;
+                            },
+                            afterLabel: function(context) {
+                              const isNew = context.datasetIndex === 0;
+                              const customerCount = isNew 
+                                ? analytics.newCustomerCountArray[context.dataIndex]
+                                : analytics.returningCustomerCountArray[context.dataIndex];
+                              return `Customers: ${customerCount}`;
+                            }
+                          }
+                        }
+                      },
                       scales: {
                         ...lineChartOptions.scales,
                         x: {
@@ -1104,11 +1191,11 @@ export default function SPSales() {
               <div className="chart-box">
                 {activeFilter === 'yearly' && selectedYear && (
                   <button 
-                    className="back-to-years-btn-topleft-sm"
+                    className="back-to-years-btn"
                     onClick={() => setSelectedYear(null)}
                     title="Back to years view"
                   >
-                    ← Back
+                    <FaArrowLeft size={12} />
                   </button>
                 )}
                 <h4 className="chart-title-sm">Sales Performance by Service</h4>
@@ -1116,7 +1203,7 @@ export default function SPSales() {
                   <Line
                     data={{
                       labels: analytics.timeLabels,
-                      datasets: Object.values(analytics.serviceRevenueMap).map((service, idx) => {
+                      datasets: Object.entries(analytics.serviceRevenueMap).map(([serviceId, service], idx) => {
                         const colors = [
                           { border: '#1e3a8a', bg: 'rgba(30, 58, 138, 0.1)' },
                           { border: '#facc15', bg: 'rgba(250, 204, 21, 0.1)' },
@@ -1137,12 +1224,37 @@ export default function SPSales() {
                           fill: false,
                           borderWidth: 2,
                           pointRadius: 3,
-                          pointHoverRadius: 5
+                          pointHoverRadius: 5,
+                          serviceId: serviceId // Store serviceId for tooltip access
                         };
                       })
                     }}
                     options={{
                       ...lineChartOptions,
+                      plugins: {
+                        ...lineChartOptions.plugins,
+                        tooltip: {
+                          mode: 'index',
+                          intersect: false,
+                          callbacks: {
+                            label: function(context) {
+                              let label = context.dataset.label || '';
+                              if (label) {
+                                label += ': ';
+                              }
+                              if (context.parsed.y !== null) {
+                                label += '₱' + context.parsed.y.toLocaleString();
+                              }
+                              return label;
+                            },
+                            afterLabel: function(context) {
+                              const serviceId = context.dataset.serviceId;
+                              const customerCount = analytics.serviceCustomerCountArrays[serviceId]?.[context.dataIndex] || 0;
+                              return `Customers: ${customerCount}`;
+                            }
+                          }
+                        }
+                      },
                       scales: {
                         ...lineChartOptions.scales,
                         x: {

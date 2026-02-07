@@ -38,6 +38,29 @@
   gap: 0.5rem; 
 }
 
+/* Back to Dashboard Button - Icon Only */
+.back-to-dashboard-btn {
+  background: white;
+  border: 1px solid #e2e8f0;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #0E2679;
+  transition: all 0.2s;
+  cursor: pointer;
+  margin-bottom: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.back-to-dashboard-btn:hover {
+  background: #f8fafc;
+  border-color: #0E2679;
+  transform: translateX(-3px);
+}
+
 .sidebar-tabs-group {
   display: flex;
   flex-direction: column;
@@ -292,70 +315,27 @@
   font-weight: 600;
 }
 
+/* Uniform Back to Years Button - Small Icon */
 .back-to-years-btn {
+  position: absolute;
+  top: 8px;
+  left: 8px;
   background: var(--accent-yellow);
   color: var(--primary-blue);
   border: none;
-  padding: 4px 12px;
-  border-radius: 4px;
-  font-size: 0.75rem;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  justify-content: center;
+  z-index: 10;
 }
 
 .back-to-years-btn:hover {
-  background: #fbbf24;
-  transform: translateX(-2px);
-}
-
-.back-to-years-btn-topleft {
-  position: absolute;
-  top: 16px;
-  left: 16px;
-  background: var(--accent-yellow);
-  color: var(--primary-blue);
-  border: none;
-  padding: 6px 12px;
-  border-radius: 4px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  z-index: 10;
-}
-
-.back-to-years-btn-topleft:hover {
-  background: #fbbf24;
-  transform: translateX(-2px);
-}
-
-.back-to-years-btn-topleft-sm {
-  position: absolute;
-  top: 10px;
-  left: 10px;
-  background: var(--accent-yellow);
-  color: var(--primary-blue);
-  border: none;
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 0.65rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  z-index: 10;
-}
-
-.back-to-years-btn-topleft-sm:hover {
   background: #fbbf24;
   transform: translateX(-2px);
 }

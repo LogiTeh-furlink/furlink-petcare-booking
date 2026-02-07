@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from "../../config/supabase";
 import LoggedInNavbar from "../../components/Header/LoggedInNavbar";
 import Footer from "../../components/Footer/Footer";
-import { FaCaretUp, FaCaretDown, FaMinus, FaFileAlt, FaTimes, FaDownload } from 'react-icons/fa';
+import { FaCaretUp, FaCaretDown, FaMinus, FaFileAlt, FaTimes, FaDownload, FaArrowLeft } from 'react-icons/fa';
 import {
   Chart as ChartJS, CategoryScale, LinearScale, BarElement,
   PointElement, LineElement, ArcElement, Tooltip, Legend
@@ -778,6 +778,15 @@ export default function SPBusinessDashboard() {
           {/* SIDEBAR - Filters and Doughnut Chart */}
           {/* ============================================ */}
           <aside className="sp-biz-sidebar">
+            {/* Back to Dashboard Button */}
+            <button 
+              className="back-to-dashboard-btn"
+              onClick={() => navigate('/service/dashboard')}
+              title="Back to Dashboard"
+            >
+              <FaArrowLeft size={18} />
+            </button>
+
             {/* Tab Navigation */}
             <div className="sidebar-tabs-group">
               <button 
@@ -946,8 +955,12 @@ export default function SPBusinessDashboard() {
               <div className="chart-header">
                 <div className="chart-title-wrapper">
                   {activeFilter === 'yearly' && selectedYear && (
-                    <button className="back-to-years-btn" onClick={() => setSelectedYear(null)}>
-                      ← Back
+                    <button 
+                      className="back-to-years-btn" 
+                      onClick={() => setSelectedYear(null)}
+                      title="Back to years view"
+                    >
+                      <FaArrowLeft size={12} />
                     </button>
                   )}
                   <h3 className="chart-title">
