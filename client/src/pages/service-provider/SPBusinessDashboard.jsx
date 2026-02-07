@@ -11,6 +11,7 @@ import {
 import { Bar, Line, Doughnut } from 'react-chartjs-2';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
+import { loadFilters, saveFilters } from '../../utils/filterUtils';
 import './SPBusinessDashboard.css';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, PointElement, LineElement, ArcElement, Tooltip, Legend);
@@ -20,21 +21,35 @@ export default function SPBusinessDashboard() {
   const reportRef = useRef(null);
   
   // ============================================
-  // STATE MANAGEMENT
+  // STATE MANAGEMENT - Load from localStorage
   // ============================================
   const [activeTab] = useState('business_performance'); 
-  const [activeFilter, setActiveFilter] = useState('monthly');
-  const [petTypeFilter, setPetTypeFilter] = useState('both');
-  const [customDateStart, setCustomDateStart] = useState('');
-  const [customDateEnd, setCustomDateEnd] = useState('');
+  const savedFilters = loadFilters();
+  const [activeFilter, setActiveFilter] = useState(savedFilters.activeFilter);
+  const [petTypeFilter, setPetTypeFilter] = useState(savedFilters.petTypeFilter);
+  const [customDateStart, setCustomDateStart] = useState(savedFilters.customDateStart);
+  const [customDateEnd, setCustomDateEnd] = useState(savedFilters.customDateEnd);
   const [loading, setLoading] = useState(true);
   const [rawBookings, setRawBookings] = useState([]);
   const [serviceStats, setServiceStats] = useState([]);
   const [providerHours, setProviderHours] = useState([]);
   const [listingVisitors, setListingVisitors] = useState(0);
   const [showReportModal, setShowReportModal] = useState(false);
-  const [selectedYear, setSelectedYear] = useState(null);
+  const [selectedYear, setSelectedYear] = useState(savedFilters.selectedYear);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+
+  // ============================================
+  // SAVE FILTERS TO LOCALSTORAGE ON CHANGE
+  // ============================================
+  useEffect(() => {
+    saveFilters({
+      activeFilter,
+      petTypeFilter,
+      customDateStart,
+      customDateEnd,
+      selectedYear
+    });
+  }, [activeFilter, petTypeFilter, customDateStart, customDateEnd, selectedYear]);
 
   // ============================================
   // DATA FETCHING
@@ -334,9 +349,10 @@ export default function SPBusinessDashboard() {
       try {
         const bookingDateTime = new Date(`${dateStr}T${convertTo24Hour(timeStr)}`);
         const diffMs = now - bookingDateTime;
-        const diffHours = diffMs / (1000 * 60 * 60);
-        return diffHours >= 4;
-      } catch (e) { return false; }
+        return diffMs / (1000 * 60 * 60) >= 4;
+      } catch (e) {
+        return false;
+      }
     };
 
     // Determine if booking is complete

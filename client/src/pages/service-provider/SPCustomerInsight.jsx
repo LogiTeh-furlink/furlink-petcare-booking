@@ -11,6 +11,7 @@ import {
 import { Bar, Doughnut } from 'react-chartjs-2';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
+import { loadFilters, saveFilters } from '../../utils/filterUtils';
 import './SPCustomerInsight.css';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, PointElement, LineElement, ArcElement, Tooltip, Legend);
@@ -20,11 +21,12 @@ export default function SPCustomerInsight() {
   const reportRef = useRef(null);
   const [activeTab] = useState('customer_insights');
   
-  // Filter states
-  const [activeFilter, setActiveFilter] = useState('monthly');
-  const [petTypeFilter, setPetTypeFilter] = useState('both');
-  const [customDateStart, setCustomDateStart] = useState('');
-  const [customDateEnd, setCustomDateEnd] = useState('');
+  // Filter states - Load from localStorage
+  const savedFilters = loadFilters();
+  const [activeFilter, setActiveFilter] = useState(savedFilters.activeFilter);
+  const [petTypeFilter, setPetTypeFilter] = useState(savedFilters.petTypeFilter);
+  const [customDateStart, setCustomDateStart] = useState(savedFilters.customDateStart);
+  const [customDateEnd, setCustomDateEnd] = useState(savedFilters.customDateEnd);
   
   // Data states
   const [loading, setLoading] = useState(true);
@@ -35,6 +37,17 @@ export default function SPCustomerInsight() {
   const [profilesMap, setProfilesMap] = useState({}); // Stores { userId: profileData }
   const [showReportModal, setShowReportModal] = useState(false);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+
+  // Save filters to localStorage on change
+  useEffect(() => {
+    saveFilters({
+      activeFilter,
+      petTypeFilter,
+      customDateStart,
+      customDateEnd,
+      selectedYear: null // Customer Insights doesn't use selectedYear, but we include it for consistency
+    });
+  }, [activeFilter, petTypeFilter, customDateStart, customDateEnd]);
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -138,7 +151,7 @@ export default function SPCustomerInsight() {
   }, [navigate]);
 
   // ============================================
-  // PDF DOWNLOAD FUNCTION
+  // PDF DOWNLOAD FUNCTION (FIXED)
   // ============================================
   const handleDownloadPDF = async () => {
     setIsGeneratingPDF(true);
@@ -152,16 +165,33 @@ export default function SPCustomerInsight() {
         return;
       }
 
-      // Create a clone of the report content for printing
+      // 1. Clone the element
       const clone = element.cloneNode(true);
+      
+      // 2. MANUALLY COPY CANVAS CONTENT
+      // This is required because cloneNode() does not copy the internal state of <canvas> elements
+      const originalCanvases = element.querySelectorAll('canvas');
+      const clonedCanvases = clone.querySelectorAll('canvas');
+
+      Array.from(originalCanvases).forEach((orig, index) => {
+        const dest = clonedCanvases[index];
+        const ctx = dest.getContext('2d');
+        // Set dimensions to match original to prevent scaling issues
+        dest.width = orig.width;
+        dest.height = orig.height;
+        // Draw the original canvas image onto the cloned canvas
+        ctx.drawImage(orig, 0, 0);
+      });
+
+      // 3. Style the clone for PDF generation
       clone.style.position = 'absolute';
       clone.style.left = '-9999px';
       clone.style.top = '0';
-      clone.style.width = '800px';
+      clone.style.width = '1000px'; // Fixed width for consistent PDF layout
       clone.style.overflow = 'visible';
       clone.style.maxHeight = 'none';
       clone.style.height = 'auto';
-      clone.style.padding = '24px';
+      clone.style.padding = '40px';
       clone.style.backgroundColor = '#ffffff';
       
       // Append to body temporarily
@@ -183,8 +213,6 @@ export default function SPCustomerInsight() {
       // Remove the clone
       document.body.removeChild(clone);
 
-      console.log('Canvas captured:', { width: canvas.width, height: canvas.height });
-
       const imgData = canvas.toDataURL('image/png', 1.0);
       
       // Create PDF with proper dimensions
@@ -201,8 +229,6 @@ export default function SPCustomerInsight() {
       const pageHeight = pdfHeight - (2 * margin);
       const totalPages = Math.ceil(imgHeight / pageHeight);
       
-      console.log('PDF pages needed:', totalPages);
-
       // Add content to PDF pages
       for (let page = 0; page < totalPages; page++) {
         if (page > 0) {
@@ -245,8 +271,6 @@ export default function SPCustomerInsight() {
       
       // Save the PDF
       pdf.save(fileName);
-      
-      console.log('PDF generated successfully');
       
     } catch (error) {
       console.error('Error generating PDF:', error);
