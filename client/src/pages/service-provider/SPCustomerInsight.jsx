@@ -1,20 +1,23 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from "../../config/supabase";
 import LoggedInNavbar from "../../components/Header/LoggedInNavbar";
 import Footer from "../../components/Footer/Footer";
-import { FaCaretUp, FaCaretDown, FaMinus, FaStar } from 'react-icons/fa';
+import { FaCaretUp, FaCaretDown, FaMinus, FaStar, FaFileAlt, FaTimes, FaDownload } from 'react-icons/fa';
 import {
   Chart as ChartJS, CategoryScale, LinearScale, BarElement,
   PointElement, LineElement, ArcElement, Tooltip, Legend
 } from 'chart.js';
 import { Bar, Doughnut } from 'react-chartjs-2';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 import './SPCustomerInsight.css';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, PointElement, LineElement, ArcElement, Tooltip, Legend);
 
 export default function SPCustomerInsight() {
   const navigate = useNavigate();
+  const reportRef = useRef(null);
   const [activeTab] = useState('customer_insights');
   
   // Filter states
@@ -30,6 +33,8 @@ export default function SPCustomerInsight() {
   const [listingVisitors, setListingVisitors] = useState(0);
   const [providerServiceSizes, setProviderServiceSizes] = useState([]); 
   const [profilesMap, setProfilesMap] = useState({}); // Stores { userId: profileData }
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -131,6 +136,125 @@ export default function SPCustomerInsight() {
     };
     fetchDashboardData();
   }, [navigate]);
+
+  // ============================================
+  // PDF DOWNLOAD FUNCTION
+  // ============================================
+  const handleDownloadPDF = async () => {
+    setIsGeneratingPDF(true);
+    
+    try {
+      const element = reportRef.current;
+      
+      if (!element) {
+        console.error('Report element not found');
+        setIsGeneratingPDF(false);
+        return;
+      }
+
+      // Create a clone of the report content for printing
+      const clone = element.cloneNode(true);
+      clone.style.position = 'absolute';
+      clone.style.left = '-9999px';
+      clone.style.top = '0';
+      clone.style.width = '800px';
+      clone.style.overflow = 'visible';
+      clone.style.maxHeight = 'none';
+      clone.style.height = 'auto';
+      clone.style.padding = '24px';
+      clone.style.backgroundColor = '#ffffff';
+      
+      // Append to body temporarily
+      document.body.appendChild(clone);
+      
+      // Wait for rendering
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // Capture the cloned element
+      const canvas = await html2canvas(clone, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#ffffff',
+        width: clone.scrollWidth,
+        height: clone.scrollHeight
+      });
+
+      // Remove the clone
+      document.body.removeChild(clone);
+
+      console.log('Canvas captured:', { width: canvas.width, height: canvas.height });
+
+      const imgData = canvas.toDataURL('image/png', 1.0);
+      
+      // Create PDF with proper dimensions
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      
+      // Calculate image dimensions with margins
+      const margin = 10;
+      const imgWidth = pdfWidth - (2 * margin);
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      
+      // Calculate how many pages we need
+      const pageHeight = pdfHeight - (2 * margin);
+      const totalPages = Math.ceil(imgHeight / pageHeight);
+      
+      console.log('PDF pages needed:', totalPages);
+
+      // Add content to PDF pages
+      for (let page = 0; page < totalPages; page++) {
+        if (page > 0) {
+          pdf.addPage();
+        }
+        
+        // Calculate the portion of the image for this page
+        const sourceY = page * (pageHeight * canvas.width / imgWidth);
+        const sourceHeight = Math.min(
+          pageHeight * canvas.width / imgWidth,
+          canvas.height - sourceY
+        );
+        
+        // Only add if there's content to add
+        if (sourceHeight > 0) {
+          // Create a temporary canvas for this page slice
+          const pageCanvas = document.createElement('canvas');
+          pageCanvas.width = canvas.width;
+          pageCanvas.height = sourceHeight;
+          const pageCtx = pageCanvas.getContext('2d');
+          
+          // Draw the slice of the full canvas onto the page canvas
+          pageCtx.fillStyle = '#ffffff';
+          pageCtx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
+          pageCtx.drawImage(
+            canvas,
+            0, sourceY, canvas.width, sourceHeight,
+            0, 0, canvas.width, sourceHeight
+          );
+          
+          const pageImgData = pageCanvas.toDataURL('image/png', 1.0);
+          const pageImgHeight = (sourceHeight * imgWidth) / canvas.width;
+          
+          pdf.addImage(pageImgData, 'PNG', margin, margin, imgWidth, pageImgHeight, '', 'FAST');
+        }
+      }
+
+      // Generate filename with current date
+      const fileName = `Customer_Insight_Report_${new Date().toISOString().split('T')[0]}.pdf`;
+      
+      // Save the PDF
+      pdf.save(fileName);
+      
+      console.log('PDF generated successfully');
+      
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      alert('Failed to generate PDF. Please try again.');
+    } finally {
+      setIsGeneratingPDF(false);
+    }
+  };
 
   const analytics = useMemo(() => {
     // Utility to normalize strings for comparison 
@@ -554,7 +678,7 @@ export default function SPCustomerInsight() {
                   ))}
                 </div>
 
-                {/* New Comments Section */}
+                {/* Comments Section */}
                 <div style={{ marginTop: '12px', borderTop: '1px solid #e2e8f0', paddingTop: '8px' }}>
                   <h4 style={{ fontSize: '0.65rem', color: '#64748b', marginBottom: '8px', textTransform: 'uppercase', fontWeight: 600 }}>Recent Comments</h4>
                   {analytics.customerReviewData.recentReviews.length === 0 ? (
@@ -588,6 +712,21 @@ export default function SPCustomerInsight() {
           </aside>
 
           <main className="sp-biz-main-content">
+            {/* Generate Report Button and As of Date */}
+            <div className="report-button-container">
+              <div className="as-of-date">
+                As of {new Date().toLocaleDateString('en-US', { 
+                  month: 'long', 
+                  day: 'numeric', 
+                  year: 'numeric' 
+                })}
+              </div>
+              <button className="generate-report-btn" onClick={() => setShowReportModal(true)}>
+                <FaFileAlt size={16} />
+                <span>Generate Customer Insight Report</span>
+              </button>
+            </div>
+
             <div className="sp-biz-kpi-grid">
               <div className="kpi-card">
                 <span className="kpi-label">Gross Revenue</span>
@@ -750,6 +889,192 @@ export default function SPCustomerInsight() {
           </main>
         </div>
       </div>
+
+      {/* ============================================ */}
+      {/* CUSTOMER INSIGHT REPORT MODAL */}
+      {/* ============================================ */}
+      {showReportModal && (
+        <div className="report-modal-overlay" onClick={() => setShowReportModal(false)}>
+          <div className="report-modal-content" onClick={(e) => e.stopPropagation()}>
+            {/* Modal Header */}
+            <div className="report-modal-header">
+              <div className="report-header-title">
+                <FaFileAlt size={20} />
+                <h2>Customer Insight Report</h2>
+              </div>
+              <button className="modal-close-btn" onClick={() => setShowReportModal(false)}>
+                <FaTimes />
+              </button>
+            </div>
+
+            {/* Modal Body - This content will be captured for PDF */}
+            <div className="report-modal-body" ref={reportRef}>
+              {/* Report Header Info */}
+              <div className="report-info-section">
+                <div className="report-info-row">
+                  <span className="report-label">Report Type:</span>
+                  <span className="report-value">
+                    {activeFilter.charAt(0).toUpperCase() + activeFilter.slice(1)} Customer Insight Summary
+                  </span>
+                </div>
+                <div className="report-info-row">
+                  <span className="report-label">Pet Type Filter:</span>
+                  <span className="report-value">
+                    {petTypeFilter === 'both' ? 'All Pets (Dog & Cat)' : petTypeFilter}
+                  </span>
+                </div>
+                <div className="report-info-row">
+                  <span className="report-label">Generated:</span>
+                  <span className="report-value">
+                    {new Date().toLocaleDateString('en-US', { 
+                      month: 'long', 
+                      day: 'numeric', 
+                      year: 'numeric' 
+                    })}
+                  </span>
+                </div>
+              </div>
+
+              {/* Executive Summary */}
+              <div className="report-section">
+                <h3 className="report-section-title">Executive Summary</h3>
+                <div className="report-kpi-grid">
+                  <div className="report-kpi-item">
+                    <span className="report-kpi-label">Gross Revenue</span>
+                    <span className="report-kpi-value">
+                      {analytics.revenue >= 1000 
+                        ? `₱${(analytics.revenue / 1000).toFixed(1)}K` 
+                        : `₱${Math.round(analytics.revenue)}`}
+                    </span>
+                    <div className="report-trend">
+                      {analytics.revTrend.dir === 'up' ? <FaCaretUp /> : 
+                       analytics.revTrend.dir === 'down' ? <FaCaretDown /> : <FaMinus />}
+                      <span className={analytics.revTrend.dir}>
+                        {analytics.revTrend.val}% vs previous period
+                      </span>
+                    </div>
+                  </div>
+                  <div className="report-kpi-item">
+                    <span className="report-kpi-label">Total Bookings</span>
+                    <span className="report-kpi-value">{analytics.validCount}</span>
+                    <div className="report-trend">
+                      {analytics.bookTrend.dir === 'up' ? <FaCaretUp /> : 
+                       analytics.bookTrend.dir === 'down' ? <FaCaretDown /> : <FaMinus />}
+                      <span className={analytics.bookTrend.dir}>
+                        {analytics.bookTrend.val}% vs previous period
+                      </span>
+                    </div>
+                  </div>
+                  <div className="report-kpi-item">
+                    <span className="report-kpi-label">Listing Visitors</span>
+                    <span className="report-kpi-value">{listingVisitors.toLocaleString()}</span>
+                  </div>
+                  <div className="report-kpi-item">
+                    <span className="report-kpi-label">Avg Bookings/Customer</span>
+                    <span className="report-kpi-value">{analytics.avg}</span>
+                  </div>
+                  <div className="report-kpi-item">
+                    <span className="report-kpi-label">Cancellations</span>
+                    <span className="report-kpi-value">{analytics.cancellations}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Customer Demographics */}
+              <div className="report-section">
+                <h3 className="report-section-title">Customer Demographics</h3>
+                <div className="report-insights">
+                  <div className="insight-item">
+                    <strong>Pet Type Preference:</strong>
+                    <p>
+                      {analytics.petTypeData.values[0] > analytics.petTypeData.values[1]
+                        ? `Dogs account for ${Math.round((analytics.petTypeData.values[0] / (analytics.petTypeData.values[0] + analytics.petTypeData.values[1])) * 100)}% of bookings, indicating a strong preference for dog services.`
+                        : analytics.petTypeData.values[1] > analytics.petTypeData.values[0]
+                        ? `Cats account for ${Math.round((analytics.petTypeData.values[1] / (analytics.petTypeData.values[0] + analytics.petTypeData.values[1])) * 100)}% of bookings, indicating a strong preference for cat services.`
+                        : 'Dog and cat bookings are evenly balanced.'}
+                    </p>
+                  </div>
+                  <div className="insight-item">
+                    <strong>Customer Loyalty:</strong>
+                    <p>
+                      {analytics.customerTypeData.values[1] > analytics.customerTypeData.values[0]
+                        ? `Returning customers make up ${Math.round((analytics.customerTypeData.values[1] / (analytics.customerTypeData.values[0] + analytics.customerTypeData.values[1])) * 100)}% of your customer base, showing strong customer retention.`
+                        : `New customers make up ${Math.round((analytics.customerTypeData.values[0] / (analytics.customerTypeData.values[0] + analytics.customerTypeData.values[1])) * 100)}% of your customer base. Focus on retention strategies to convert them into loyal customers.`}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Top Customers */}
+              {analytics.topRebookedCustomers.length > 0 && (
+                <div className="report-section">
+                  <h3 className="report-section-title">Top Customers</h3>
+                  <div className="report-services-list">
+                    {analytics.topRebookedCustomers.map((customer, idx) => (
+                      <div key={idx} className="service-item">
+                        <div className="service-info">
+                          <span className="service-rank">#{idx + 1}</span>
+                          <span className="service-name">{customer.name}</span>
+                        </div>
+                        <div className="service-stats">
+                          <span className="service-count">{customer.count} bookings</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Customer Reviews */}
+              <div className="report-section">
+                <h3 className="report-section-title">Customer Reviews</h3>
+                <div className="pet-distribution">
+                  <div className="pet-dist-item">
+                    <span className="pet-type">Overall Rating</span>
+                    <span className="pet-count">
+                      {analytics.customerReviewData.averageRating.toFixed(1)} / 5.0
+                    </span>
+                    <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '4px' }}>
+                      {analytics.customerReviewData.totalReviews} reviews
+                    </div>
+                  </div>
+                  <div className="pet-dist-item">
+                    <span className="pet-type">Staff Rating</span>
+                    <span className="pet-count">
+                      {analytics.customerReviewData.ratings.staff.toFixed(1)} / 5.0
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="report-modal-footer">
+              <button 
+                className="btn-download-report" 
+                onClick={handleDownloadPDF}
+                disabled={isGeneratingPDF}
+              >
+                {isGeneratingPDF ? (
+                  <>
+                    <FaDownload />
+                    Generating PDF...
+                  </>
+                ) : (
+                  <>
+                    <FaDownload />
+                    Download Report
+                  </>
+                )}
+              </button>
+              <button className="btn-close-report" onClick={() => setShowReportModal(false)}>
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <Footer />
     </div>
   );
