@@ -273,14 +273,17 @@ const handleAddPet = () => {
 
     if (!isAllValid) {
         const hasUnmatched = petsData.some(p => p.services.some(s => s.matched === false));
-        const hasInvalidBreed = petsData.some(p => !isValidBreed(p.breed, p.pet_type));
+        // Check if user filled in a breed but it's invalid
+        const hasInvalidBreedText = petsData.some(p => p.breed.trim() && !isValidBreed(p.breed, p.pet_type));
         
-        if (hasInvalidBreed) {
-           triggerError("Please enter a valid breed. Check spelling or use 'Mixed Breed'.");
+        if (hasUnmatched) {
+           triggerError("One or more selected services do not support your pet's weight. Please check the warnings.");
+        } else if (hasInvalidBreedText) {
+           // Do nothing - The inline error in JSX will show the red text "Unrecognized breed..."
+           // We suppressed the alert here as requested.
         } else {
-           triggerError(hasUnmatched 
-            ? "One or more selected services do not support your pet's weight. Please check the warnings." 
-            : "Please complete all required fields.");
+           // This handles empty fields (Name empty, Breed empty, Vaccine empty)
+           triggerError("Please complete all required fields.");
         }
         return { valid: false };
     }
@@ -659,7 +662,7 @@ const handleAddPet = () => {
                   onClick={() => {
                     const result = validateForm();
                     if (result.valid) setShowSummaryModal(true);
-                    else triggerError(result.msg);
+                    // Inline validation handles breed errors, so this catches only global/non-inline issues
                   }}
                 >
                   Proceed to Summary <ArrowRight size={18}/>
@@ -822,7 +825,7 @@ const handleAddPet = () => {
                                   value={pet.breed} 
                                   onChange={(e) => updatePetInfo(index, 'breed', e.target.value)} 
                                 />
-                                {/* Datalist only shows basic fallbacks to keep UI clean, but validation checks API */}
+                                {/* Datalist only shows basic fallbacks + local options */}
                                 <datalist id={`breed-suggestions-${index}`}>
                                   <option value="Mixed Breed" />
                                   <option value="Unknown" />
