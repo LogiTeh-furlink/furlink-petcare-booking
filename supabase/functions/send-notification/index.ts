@@ -88,50 +88,89 @@ serve(async (req) => {
         private_key: Deno.env.get('EMAILJS_BOOKING_PRIVATE_KEY')!
       };
 
-      // Fetch User (Owner) & Provider (including user_id for notification)
-      const { data: owner } = await supabaseAdmin.from('profiles').select('email, first_name').eq('id', record.user_id).single();
+      const { data: owner } = await supabaseAdmin.from('profiles').select('email, first_name, last_name').eq('id', record.user_id).single();
       const { data: provider } = await supabaseAdmin.from('service_providers').select('business_email, business_name, user_id').eq('id', record.provider_id).single();
 
+      // Initialize base params
       templateParams = {
         first_name: owner?.first_name,
+        last_name: owner?.last_name,
         business_name: provider?.business_name,
         booking_date: record.booking_date,
         time_slot: record.time_slot,
         total_estimated_price: record.total_estimated_price,
+        installation_payment: record.installation_payment,
+        rejection_reason: record.rejection_reason, 
         status: record.status
       };
 
       if (type === 'INSERT') {
+        console.log("Detecting INSERT: New Booking");
         targetTemplateId = Deno.env.get('EMAILJS_NEW_BOOKING_TEMPLATE_ID')!;
         templateParams.to_email = provider?.business_email;
 
-        // --- IN-APP NOTIFICATION: New Booking Request (Sent to Provider) ---
         if (provider?.user_id) {
           await supabaseAdmin.from('notifications').insert({
-            user_id: record.user_id,
-            title: 'Booking Request Sent 📧',
-            message: `A request was sent to ${provider?.business_name}. Check your email for details.`,
-            link: '/appointments'
+            user_id: provider.user_id,
+            title: 'New Booking Request 📅',
+            message: `New request from ${owner?.first_name} for ${record.booking_date}.`,
+            link: '/service/dashboard'
           });
         }
       } 
+      // 2. SCENARIO: STATUS UPDATES
       else if (type === 'UPDATE' && old_record.status !== record.status) {
-        targetTemplateId = Deno.env.get('EMAILJS_STATUS_BOOKING_TEMPLATE_ID')!;
-        templateParams.to_email = owner?.email;
-        templateParams.rejection_reason_section = record.status === 'rejected' 
-          ? `<p><strong>Reason for rejection:</strong> ${record.rejection_reason || 'Not specified.'}</p>` 
-          : "<p>We look forward to seeing you and your pet!</p>";
+        const currentStatus = record.status?.toLowerCase();
+        const previousStatus = old_record.status?.toLowerCase();
+        
+        console.log(`Transition detected: ${previousStatus} -> ${currentStatus}`);
 
-        // --- IN-APP NOTIFICATION: Booking Status (Sent to Owner) ---
-        await supabaseAdmin.from('notifications').insert({
-          user_id: record.user_id,
-          title: `Booking ${record.status.toUpperCase()}`,
-          message: `Your booking for ${record.booking_date} with ${provider?.business_name} has been ${record.status}.`,
-          link: '/appointments'
-        });
+        // Path A: Owner submits payment (Pending -> For Review)
+        if (currentStatus === 'for review') {
+          targetTemplateId = Deno.env.get('EMAILJS_PAYMENT_REQUEST_TEMPLATE_ID')!;
+          templateParams.to_email = provider?.business_email;
+
+          if (provider?.user_id) {
+            await supabaseAdmin.from('notifications').insert({
+              user_id: provider.user_id,
+              title: 'Payment Verification Needed 💳',
+              message: `${owner?.first_name} submitted payment proof for ${record.booking_date}.`,
+              link: '/service/dashboard'
+            });
+          }
+        } 
+        // Path B: Initial Provider Response (Pending -> Approved/Rejected)
+        else if (currentStatus === 'approved' || currentStatus === 'rejected') {
+          targetTemplateId = Deno.env.get('EMAILJS_STATUS_BOOKING_TEMPLATE_ID')!;
+          templateParams.to_email = owner?.email;
+
+          await supabaseAdmin.from('notifications').insert({
+            user_id: record.user_id,
+            title: `Booking ${currentStatus.toUpperCase()} 🐾`,
+            message: `Your booking request with ${provider?.business_name} was ${currentStatus}.`,
+            link: '/appointments'
+          });
+        }
+        // Path C: Final Payment Response (Approved -> Paid or Void)
+        else if (currentStatus === 'paid' || currentStatus === 'void') {
+          console.log("Triggering Path C: Payment Response Notification");
+          
+          targetTemplateId = Deno.env.get('EMAILJS_PAYMENT_RESPONSE_TEMPLATE_ID')!;
+          templateParams.to_email = owner?.email;
+          
+          // Map 'paid' to 'Approved' and 'void' to 'Rejected' for the email template
+          templateParams.status = currentStatus === 'paid' ? 'Approved' : 'Rejected';
+
+          await supabaseAdmin.from('notifications').insert({
+            user_id: record.user_id,
+            title: `Payment Update: ${currentStatus === 'paid' ? 'Successful' : 'Cancelled'} ✨`,
+            message: `Your payment to ${provider?.business_name} has been marked as ${currentStatus}.`,
+            link: '/appointments'
+          });
+        }
       }
     }
-
+    
     // --- SENDING EMAIL LOGIC ---
     if (targetTemplateId && templateParams.to_email) {
       await fetch('https://api.emailjs.com/api/v1.0/email/send', {
