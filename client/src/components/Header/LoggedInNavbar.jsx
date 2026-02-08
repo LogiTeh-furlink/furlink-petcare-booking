@@ -89,6 +89,7 @@ const LoggedInNavbar = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return navigate("/login");
 
+      // 1. Fetch Profile
       const { data: profileData } = await supabase
         .from("profiles")
         .select("first_name, role")
@@ -96,14 +97,22 @@ const LoggedInNavbar = () => {
         .single();
       setProfile(profileData);
 
-      const { data: notifData } = await supabase
+      // 2. Fetch Notifications (CLEANED - NO DUPLICATES)
+      const { data: notifData, error: notifError } = await supabase
         .from("notifications")
         .select("*")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false })
         .limit(10);
-      setNotifications(notifData || []);
+      
+      if (notifError) {
+        console.error("Notification Fetch Error:", notifError.message);
+      } else {
+        console.log("Notifications successfully loaded:", notifData);
+        setNotifications(notifData || []);
+      }
 
+      // 3. Fetch Provider Data
       const { data: provider } = await supabase
         .from("service_providers")
         .select("id, status, business_name, rejection_reasons")
@@ -116,13 +125,42 @@ const LoggedInNavbar = () => {
           .from("services")
           .select("*", { count: 'exact', head: true })
           .eq("provider_id", provider.id);
-        
         setHasServices(count > 0);
       }
     };
 
     fetchData();
   }, [navigate]);
+
+  useEffect(() => {
+    const subscribeNotifications = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const channel = supabase
+        .channel('schema-db-changes')
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'notifications',
+            filter: `user_id=eq.${user.id}`,
+          },
+          (payload) => {
+            // Add new notification to the top of the list
+            setNotifications((prev) => [payload.new, ...prev]);
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    };
+
+    subscribeNotifications();
+  }, []);
 
   const userRole = profile?.role; 
   const providerStatus = providerData?.status;
@@ -151,6 +189,44 @@ const LoggedInNavbar = () => {
     else if (isIncomplete) {
       // Sends both first-timers and resubmitters back to the setup flow
       navigate("/service-setup");
+    }
+  };
+
+  const handleNotifClick = async (notif) => {
+    try {
+      // Mark as read in DB
+      await supabase
+        .from("notifications")
+        .update({ read: true })
+        .eq("id", notif.id);
+
+      // Close dropdown and navigate
+      setShowNotif(false);
+      
+      // Update local state immediately so the dot disappears
+      setNotifications(prev => 
+        prev.map(n => n.id === notif.id ? { ...n, read: true } : n)
+      );
+
+      navigate(notif.link || "/dashboard");
+    } catch (err) {
+      console.error("Error marking notification as read:", err);
+    }
+  };
+
+  const handleMarkAllAsRead = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const { error } = await supabase
+        .from('notifications')
+        .update({ read: true })
+        .eq('user_id', user.id)
+        .eq('read', false);
+
+      if (error) throw error;
+      setNotifications(notifications.map(n => ({ ...n, read: true })));
+    } catch (err) {
+      console.error("Error marking all read:", err);
     }
   };
 
@@ -211,8 +287,54 @@ const LoggedInNavbar = () => {
             <div ref={notifRef} className="notif-wrapper">
               <button className="icon-btn" onClick={() => setShowNotif(!showNotif)}>
                 <FaBell className="icon" />
-                {notifications.filter(n => !n.read).length > 0 && <span className="notif-dot" />}
+                {/* NEW: Numeric Badge instead of just a dot */}
+                {notifications.filter(n => !n.read).length > 0 && (
+                  <span className="notif-badge">
+                    {notifications.filter(n => !n.read).length}
+                  </span>
+                )}
               </button>
+
+              {showNotif && (
+                <div className="dropdown notif-dropdown">
+                  <div className="notif-header">
+                    <h3>Notifications</h3>
+                    {notifications.filter(n => !n.read).length > 0 && (
+                      <button className="mark-all-link" onClick={handleMarkAllAsRead}>
+                        Mark all as read
+                      </button>
+                    )}
+                  </div>
+                  
+                  <div className="notif-list">
+                    {notifications.length > 0 ? (
+                      notifications.map((n, index) => (
+                        <div 
+                          key={n.id} 
+                          className={`notif-item ${!n.read ? "unread" : ""} ${index < 3 ? "recent" : ""}`}
+                          onClick={() => handleNotifClick(n)}
+                        >
+                          <div className="notif-indicator"></div>
+                          <div className="notif-content">
+                            <div className="notif-title-row">
+                              <span className="notif-title">{n.title}</span>
+                              <span className="notif-date">
+                                {new Date(n.created_at).toLocaleDateString([], { month: 'short', day: 'numeric' })}
+                              </span>
+                            </div>
+                            <p className="notif-message">{n.message}</p>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="no-notif-empty">
+                        <FaBell className="empty-bell" />
+                        <p>All caught up!</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
 
             <div ref={menuRef} className="profile-wrapper">

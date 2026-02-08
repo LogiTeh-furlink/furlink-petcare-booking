@@ -251,3 +251,145 @@
   .provider-btn { padding: 0.5rem 1rem; font-size: 0.8rem; }
   .profile-dropdown { right: -10px; }
 }
+
+/* Bell Icon Badge */
+.notif-wrapper {
+  position: relative;
+}
+
+.notif-badge {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  background-color: #ff4d4f;
+  color: white;
+  font-size: 10px;
+  font-weight: bold;
+  height: 16px;
+  min-width: 16px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+  border: 2px solid white;
+}
+
+/* Dropdown Container */
+.notif-dropdown {
+  position: absolute;
+  top: 55px; /* Added a tiny bit more gap from the top */
+  right: -20px; /* Adjust this number: more negative = further right */
+  width: 360px !important;
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
+  z-index: 1000; /* Increased z-index to ensure it stays on top */
+  overflow: hidden;
+  border: 1px solid #f0f0f0;
+}
+
+.notif-header {
+  padding: 16px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #f5f5f5;
+}
+
+.notif-header h3 {
+  margin: 0;
+  font-size: 16px;
+  color: #0E2679;
+}
+
+.mark-all-link {
+  background: none;
+  border: none;
+  color: #2563eb;
+  font-size: 12px;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+/* List Styling */
+.notif-list {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.notif-item {
+  display: flex;
+  padding: 16px 20px;
+  gap: 12px;
+  transition: background 0.2s;
+  cursor: pointer;
+  border-bottom: 1px solid #fafafa;
+}
+
+.notif-item:hover {
+  background-color: #f8faff;
+}
+
+.notif-item.unread {
+  background-color: #f0f7ff;
+}
+
+.notif-item.recent {
+  border-left: 4px solid #0E2679; /* Subtle highlight for top 3 */
+}
+
+/* Internal Content */
+.notif-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-top: 6px;
+  flex-shrink: 0;
+}
+
+.notif-item.unread .notif-indicator {
+  background-color: #2563eb;
+}
+
+.notif-content {
+  flex: 1;
+}
+
+.notif-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 4px;
+}
+
+.notif-title {
+  font-weight: 600;
+  font-size: 14px;
+  color: #1a1a1a;
+}
+
+.notif-date {
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+.notif-message {
+  font-size: 13px;
+  color: #64748b;
+  line-height: 1.5;
+  margin: 0;
+}
+
+/* Empty State */
+.no-notif-empty {
+  padding: 40px 20px;
+  text-align: center;
+  color: #94a3b8;
+}
+
+.empty-bell {
+  font-size: 30px;
+  margin-bottom: 10px;
+  opacity: 0.2;
+}
