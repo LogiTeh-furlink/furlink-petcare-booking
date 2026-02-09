@@ -619,3 +619,27 @@
   border-radius: 6px;
   cursor: pointer;
 }
+
+/* SUCCESS NOTIFICATION TOAST */
+.booking-success-toast {
+    position: fixed;
+    top: 2rem;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: #10b981; /* Emerald green to match other success states */
+    color: white;
+    padding: 1rem 2rem;
+    border-radius: 50px;
+    box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
+    z-index: 9999;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    animation: slideDown 0.4s ease-out;
+}
+
+@keyframes slideDown {
+    from { transform: translate(-50%, -100%); opacity: 0; }
+    to { transform: translate(-50%, 0); opacity: 1; }
+}

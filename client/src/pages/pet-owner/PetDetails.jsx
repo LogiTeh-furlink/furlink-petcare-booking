@@ -39,6 +39,9 @@ const PetDetails = () => {
   const [showSummaryModal, setShowSummaryModal] = useState(false);
   const [attemptedSubmit, setAttemptedSubmit] = useState(false);
 
+  // --- NEW: Success Toast State ---
+  const [showSuccessToast, setShowSuccessToast] = useState(false);
+
   const [showCapacityModal, setShowCapacityModal] = useState(false);
   const [remainingSpots, setRemainingSpots] = useState(0);
 
@@ -394,8 +397,15 @@ const handleAddPet = () => {
       }
     }
 
+    // --- UPDATED SUCCESS LOGIC ---
     setShowSummaryModal(false);
-    navigate("/dashboard", { state: { success: true } });
+    setShowSuccessToast(true); // Trigger Success Toast
+
+    // Delay navigation so user can see the success message
+    setTimeout(() => {
+        navigate("/dashboard", { state: { success: true } });
+    }, 2000);
+
   } catch (error) {
     console.error(error);
     triggerError(error.message);
@@ -1150,6 +1160,14 @@ const handleAddPet = () => {
             onClose={() => setShowCapacityModal(false)} 
             limit={remainingSpots} 
           />
+        
+        {/* NEW: Success Toast Message */}
+        {showSuccessToast && (
+            <div className="booking-success-toast">
+                <ShieldCheck size={20} />
+                Booking requested successfully!
+            </div>
+        )}
 
       </main>
       <Footer />
