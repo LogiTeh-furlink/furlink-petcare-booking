@@ -1489,3 +1489,12 @@ button.close-btn:hover {
     background: var(--brand-yellow);
 }
 
+/* --- Added VAT Exclusive Styling --- */
+.vat-note-small {
+    font-size: 0.65rem; /* Slightly smaller for the table */
+    color: var(--text-muted);
+    font-style: italic;
+    margin-top: 2px;
+    display: block;
+    font-weight: 400;
+}

@@ -451,7 +451,9 @@ export default function Appointments() {
                     <div className="col-date"><strong>{formatDateTime(booking.booking_date, booking.time_slot)}</strong></div>
                     <div className="col-pets">{booking.booking_pets?.length || 0} Pet/s</div>
                     <div className="col-service">{getServiceSummary(booking.booking_pets)}</div>
-                    <div className="col-price">{formatCurrency(booking.total_estimated_price)}</div>
+                    <div className="col-price">
+                        {formatCurrency(booking.total_estimated_price)}
+                    </div>
                     <div className="col-action"><button className="view-app-btn" onClick={() => handleOpenDetails(booking)}>View Details</button></div>
                   </div>
                 ))
@@ -471,10 +473,17 @@ export default function Appointments() {
                 <div className="info-grid">
                    <div className="info-item"><label><FaInfoCircle/> Provider</label><span>{selectedBooking.service_providers?.business_name}</span></div>
                    <div className="info-item"><label><FaClock/> Schedule</label><span>{formatDateTime(selectedBooking.booking_date, selectedBooking.time_slot)}</span></div>
-                   <div className="info-item"><label><FaFileInvoiceDollar/> Total Amount</label><span className="price-tag">{formatCurrency(selectedBooking.total_estimated_price)}</span></div>
+                   <div className="info-item">
+                       <label><FaFileInvoiceDollar/> Total Amount</label>
+                       <span className="price-tag">{formatCurrency(selectedBooking.total_estimated_price)}</span>
+                       {/* --- ADDED VAT NOTE --- */}
+                       <span className="vat-note-small" style={{textAlign: 'left', marginTop: '0'}}>* VAT exclusive</span>
+                   </div>
                    <div className="info-item">
                         <label><FaCreditCard/> Downpayment</label>
                         <span className="price-tag">{formatCurrency(selectedBooking.installation_payment)}</span>
+                        {/* --- ADDED VAT NOTE --- */}
+                        <span className="vat-note-small" style={{textAlign: 'left', marginTop: '0'}}>* VAT exclusive</span>
                     </div>
                    <div className="info-item"><label>Status</label><span className="status-badge">{selectedBooking.status}</span></div>
                 </div>
