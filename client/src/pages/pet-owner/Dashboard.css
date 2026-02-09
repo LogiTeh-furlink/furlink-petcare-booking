@@ -6,11 +6,12 @@
   display: flex;
   flex-direction: column;
   font-family: 'Poppins', sans-serif; /* Global Poppins application */
+  background-color: #f8fafc;
 }
 
 .dashboard-container {
   flex: 1;
-  background-color: #f8fafc; /* Light slate background for better card contrast */
+  background-color: #f8fafc;
   padding: 2rem 1rem;
 }
 
