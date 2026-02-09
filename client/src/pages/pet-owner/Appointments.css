@@ -1498,3 +1498,16 @@ button.close-btn:hover {
     display: block;
     font-weight: 400;
 }
+
+/* --- RESCHEDULE SLOT TEXT --- */
+.slot-availability-text {
+    font-size: 0.8rem;
+    color: #64748b; /* Muted slate */
+    margin-top: 6px;
+    font-weight: 500;
+}
+
+.slot-availability-text strong {
+    color: var(--brand-blue);
+    font-weight: 700;
+}

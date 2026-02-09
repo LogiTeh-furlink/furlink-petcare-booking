@@ -159,9 +159,12 @@ export default function Appointments() {
   const [successMessage, setSuccessMessage] = useState(""); 
   const [successTitle, setSuccessTitle] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
+  
+  // Reschedule Logic States
   const [reschedForm, setReschedForm] = useState({ date: "", time: "" });
   const [availableSlots, setAvailableSlots] = useState([]); 
   const [providerHours, setProviderHours] = useState([]);   
+  const [targetDateBookings, setTargetDateBookings] = useState([]); // Stores bookings for the provider on the selected reschedule date
 
   const [feedbackForm, setFeedbackForm] = useState({
     overallRating: 0,
@@ -169,6 +172,7 @@ export default function Appointments() {
     comment: ""
   });
 
+  // Fetch Provider Hours when Reschedule Modal Opens
   useEffect(() => {
     if (selectedBooking && showRescheduleModal) {
       const fetchProviderHours = async () => {
@@ -182,6 +186,26 @@ export default function Appointments() {
       fetchProviderHours();
     }
   }, [selectedBooking, showRescheduleModal]);
+
+  // Fetch Existing Bookings for Provider when Reschedule DATE changes
+  useEffect(() => {
+    const fetchTargetDateBookings = async () => {
+        if (!reschedForm.date || !selectedBooking) return;
+        
+        const { data, error } = await supabase
+            .from("bookings")
+            .select("time_slot, status")
+            .eq("provider_id", selectedBooking.service_providers.id)
+            .eq("booking_date", reschedForm.date)
+            .not("status", "in", '("cancelled", "rejected")');
+
+        if (!error) setTargetDateBookings(data || []);
+    };
+
+    if (showRescheduleModal) {
+        fetchTargetDateBookings();
+    }
+  }, [reschedForm.date, selectedBooking, showRescheduleModal]);
 
   useEffect(() => {
     fetchBookings();
@@ -255,6 +279,30 @@ export default function Appointments() {
     setAvailableSlots(slots);
   };
 
+  // --- SLOT AVAILABILITY LOGIC ---
+  const getSlotDetails = (timeSlot) => {
+    if (!reschedForm.date || !selectedBooking || providerHours.length === 0) return { remaining: 0, isEnough: false };
+
+    const dayName = new Date(reschedForm.date).toLocaleDateString('en-US', { weekday: 'long' });
+    const workingDay = providerHours.find(h => h.day_of_week === dayName);
+    const maxCapacity = workingDay ? parseInt(workingDay.slot_capacity) : 1;
+    
+    // Count occupied slots for this time on this date
+    // Note: If rescheduling to the SAME date, we technically shouldn't count our own booking against us,
+    // but the logic here assumes we want to move TO a slot. 
+    // Usually rescheduling implies moving to a different time.
+    const bookingsAtTime = targetDateBookings.filter(b => b.time_slot === timeSlot);
+    const occupied = bookingsAtTime.length;
+    
+    const remaining = maxCapacity - occupied;
+    const needed = selectedBooking.booking_pets ? selectedBooking.booking_pets.length : 1;
+    
+    return {
+        remaining: Math.max(0, remaining),
+        isEnough: remaining >= needed
+    };
+  };
+
   const formatDateTime = (dateStr, timeStr) => {
     if (!dateStr || !timeStr) return "TBD";
     const date = new Date(dateStr);
@@ -324,6 +372,7 @@ export default function Appointments() {
     setAvailableSlots([]);
     setReschedForm({ date: "", time: "" });
     setFeedbackForm({ overallRating: 0, staffRating: 0, comment: "" });
+    setTargetDateBookings([]);
   };
 
   const handleOpenRateModal = () => setShowFeedbackModal(true); 
@@ -352,6 +401,11 @@ export default function Appointments() {
   const confirmReschedule = async (e) => {
     e.preventDefault();
     if(!reschedForm.time) return;
+    
+    // Double check logic before submitting
+    const { isEnough } = getSlotDetails(reschedForm.time);
+    if (!isEnough) return; // Prevent submission if logic fails
+
     setActionLoading(true);
     try {
        await supabase.from('bookings').update({
@@ -537,8 +591,28 @@ export default function Appointments() {
                 <label className="input-label">New Time</label>
                 <select className="input-field" required value={reschedForm.time} disabled={!reschedForm.date || availableSlots.length === 0} onChange={(e) => setReschedForm({ ...reschedForm, time: e.target.value })}>
                   <option value="">{!reschedForm.date ? "Select a date first" : availableSlots.length === 0 ? "Closed" : "Select Time"}</option>
-                  {availableSlots.map((slot, index) => <option key={index} value={slot}>{slot}</option>)}
+                  {availableSlots.map((slot, index) => {
+                      const { remaining, isEnough } = getSlotDetails(slot);
+                      return (
+                        <option 
+                            key={index} 
+                            value={slot} 
+                            disabled={!isEnough}
+                            style={!isEnough ? { color: '#999', backgroundColor: '#f0f0f0' } : {}}
+                        >
+                            {slot} {remaining <= 0 ? "(Full)" : `(${remaining} slot${remaining !== 1 ? 's' : ''} left)`}
+                        </option>
+                      );
+                  })}
                 </select>
+                
+                {/* --- DYNAMIC SLOT TEXT DISPLAY --- */}
+                {reschedForm.time && (
+                    <div className="slot-availability-text">
+                         Available slots for this time: <strong>{getSlotDetails(reschedForm.time).remaining}</strong>
+                    </div>
+                )}
+
                 {reschedForm.date && availableSlots.length === 0 && <div className="warning-text-simple" style={{ color: 'var(--brand-red)', fontSize: '0.85rem', marginTop: '5px' }}><FaExclamationTriangle /> Provider is closed on selected day.</div>}
               </div>
               <div className="modal-footer">
@@ -669,7 +743,7 @@ export default function Appointments() {
         <div 
           className="modal-content small-modal" 
           style={{
-            display: 'flex',           // Enable Flexbox
+            display: 'flex',          // Enable Flexbox
             flexDirection: 'column',    // Stack items vertically
             alignItems: 'center',       // Center items horizontally
             justifyContent: 'center',   // Center items vertically
