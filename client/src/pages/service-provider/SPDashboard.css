@@ -13,7 +13,7 @@
   font-family: 'Poppins', sans-serif !important;
 }
 
-p{
+p {
   color: var(--primary-blue);
 }
 
@@ -63,7 +63,8 @@ p{
   color: var(--primary-blue);
 }
 
-.calendar-btn {
+/* Shared Style for Top Buttons (Calendar & Dashboard) */
+.top-action-btn {
   background-color: var(--primary-blue);
   color: var(--white);
   border: none;
@@ -79,7 +80,7 @@ p{
   transition: background 0.2s;
 }
 
-.calendar-btn:hover {
+.top-action-btn:hover {
   background-color: #1e40af;
 }
 
@@ -125,7 +126,7 @@ p{
   color: var(--primary-blue)
 }
 
-/* --- Bookings Table Container (Replicating app-list-section) --- */
+/* --- Bookings Table Container --- */
 .bookings-table-container {
   background: var(--bg-card);
   border-radius: 16px;
@@ -165,9 +166,8 @@ p{
 /* --- Balanced Column Spacing (6 Columns) --- */
 .sp-table tr {
   display: grid;
-  /* Increased Date and Service space slightly to maintain balance with larger gaps */
   grid-template-columns: 2.5fr 1fr 2.2fr 1.2fr 1fr 1.2fr; 
-  gap: 2rem; /* Increased gap from 1rem to 2rem for better breathing room */
+  gap: 2rem; 
   align-items: center;
   color: var(--brand-blue);
 }
@@ -220,7 +220,7 @@ p{
   color: var(--brand-blue);
 }
 
-/* --- View Details Button (Basis replication) --- */
+/* --- View Details Button --- */
 .view-details-btn {
   padding: 0.6rem 1rem;
   border: 1.5px solid var(--brand-blue);
@@ -273,7 +273,7 @@ p{
   font-weight: 700;
   text-transform: uppercase;
   color: var(--brand-blue);
-  background: #eff6ff; /* Default light blue tint background */
+  background: #eff6ff; 
   text-align: center;
   display: inline-block;
   white-space: nowrap;
@@ -289,32 +289,13 @@ p{
 .badge-void { background-color: #fee2e2; color: #b91c1c; }
 .badge-cancelled { background-color: #f3f4f6; color: #4b5563; }
 
-.view-details-btn {
-  padding: 0.6rem 1rem;
-  border: 1.5px solid var(--brand-blue);
-  background-color: transparent;
-  color: var(--brand-blue);
-  border-radius: 8px;
-  font-size: 0.85rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  white-space: nowrap;
-  width: 100%;
-}
-
-.view-details-btn:hover {
-  background-color: var(--brand-blue);
-  color: #ffffff;
-}
-
 /* --- SP DASHBOARD MODAL REFINEMENT --- */
 
 /* 1. Modal Container & Scroll Area */
 .modal-overlay {
   position: fixed;
   top: 0; left: 0; width: 100%; height: 100%;
-  background-color: rgba(15, 23, 42, 0.75); /* Dark blue overlay matching image basis */
+  background-color: rgba(15, 23, 42, 0.75); 
   backdrop-filter: blur(2px);
   display: flex;
   justify-content: center;
@@ -325,7 +306,7 @@ p{
 .modal-content.wide-modal {
   background: white;
   width: 95%;
-  max-width: 900px; /* Wider professional modal */
+  max-width: 900px;
   max-height: 90vh;
   border-radius: 20px;
   box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.4);
@@ -357,10 +338,10 @@ p{
   flex: 1;
 }
 
-/* 2. Top Info Banner (Replacing old modal-summary-section) */
+/* 2. Top Info Banner */
 .modal-summary-section {
   display: grid;
-  grid-template-columns: repeat(3, 1fr); /* 3-column banner matching image_12f83d */
+  grid-template-columns: repeat(3, 1fr);
   gap: 1.5rem;
   margin-bottom: 2rem;
   background-color: #ffffff;
@@ -387,24 +368,16 @@ p{
 }
 
 .info-row strong {
-  font-weight: 400 !important; /* Lighter weight for values matching image basis */
+  font-weight: 400 !important; 
   font-size: 0.85rem !important;
   color: var(--brand-blue) !important;
-  text-transform: capitalize !important; /* Proper case instead of all caps */
+  text-transform: capitalize !important; 
 }
 
 /* Highlighted Price specific style */
 .text-highlight {
   font-size: 0.95rem !important;
   font-weight: 400 !important;
-}
-
-/* ADDED: VAT Note in Modal */
-.vat-note-modal {
-  font-size: 0.7rem;
-  font-style: italic;
-  color: var(--text-light);
-  margin-top: -2px;
 }
 
 /* 3. Section Titles */
@@ -448,7 +421,7 @@ p{
 
 .pet-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr); /* Balanced 3-column specs */
+  grid-template-columns: repeat(3, 1fr); 
   gap: 1rem;
   margin-bottom: 1.25rem;
 }
@@ -466,12 +439,12 @@ p{
   font-weight: 700;
   font-size: 0.75rem;
   color: var(--brand-blue) !important;
-  text-transform: none !important; /* No caps lock as requested */
+  text-transform: none !important; 
   display: block;
   margin-bottom: 2px;
 }
 
-/* 5. Proof Image Attachments (Facebook/Professional Layout) */
+/* 5. Proof Image Attachments */
 .full-image-block, 
 .pet-images-container {
   display: grid;
@@ -499,10 +472,10 @@ p{
 
 .facebook-style-img {
   width: 100%;
-  height: 220px; /* Standardized height */
+  height: 220px; 
   object-fit: contain;
   border-radius: 8px;
-  background-color: #000; /* Dark background for visibility contrast */
+  background-color: #000; 
   display: block;
 }
 
@@ -531,7 +504,6 @@ p{
   background-color: #f1f5f9;
 }
 
-/* Adjust ActionSelect and SP Buttons to match Basis */
 .action-select {
   padding: 0.75rem;
   border: 1px solid var(--border-light);
@@ -594,7 +566,7 @@ p{
   left: 0;
   width: 100vw;
   height: 100vh;
-  background: rgba(15, 23, 42, 0.7); /* Darker backdrop for focus */
+  background: rgba(15, 23, 42, 0.7); 
   display: flex;
   align-items: center;
   justify-content: center;
@@ -606,7 +578,7 @@ p{
 .large-split-modal {
   background: white;
   width: 95%;
-  max-width: 950px; /* Wide enough for the side-by-side view */
+  max-width: 950px; 
   border-radius: 24px;
   display: flex;
   flex-direction: column;
@@ -618,7 +590,7 @@ p{
 /* Split Body Container */
 .calendar-body-split {
   display: grid;
-  grid-template-columns: 1.2fr 1fr; /* Calendar gets slightly more space */
+  grid-template-columns: 1.2fr 1fr; 
   min-height: 550px;
 }
 .calendar-main-column {
@@ -643,7 +615,7 @@ p{
   cursor: pointer;
   position: relative;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  color: #64748b; /* Slate-500 instead of black */
+  color: #64748b; 
   font-weight: 500;
 }
 
@@ -652,7 +624,7 @@ p{
   transform: translateY(-2px);
 }
 
-/* Status Markings (Borders & Backgrounds) */
+/* Status Markings */
 .calendar-day.has-today { border: 2px solid #22c55e; background: #f0fdf4; color: #166534; }
 .calendar-day.has-upcoming { border: 1px solid #dbeafe; background: #eff6ff; color: var(--brand-blue); }
 .calendar-day.has-past { background: #f1f5f9; color: #94a3b8; }
@@ -681,7 +653,7 @@ p{
 }
 
 .cal-details-section {
-  background: #f8fafc; /* Subtle background color to differentiate */
+  background: #f8fafc; 
   padding: 2rem;
   display: flex;
   flex-direction: column;
@@ -693,7 +665,6 @@ p{
   padding-right: 5px;
 }
 
-/* Scrollbar for the list */
 .cal-list::-webkit-scrollbar { width: 6px; }
 .cal-list::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
 
@@ -725,7 +696,7 @@ p{
 }
 
 .cal-list-item-detailed strong {
-  color: #334155; /* Dark Slate instead of black */
+  color: #334155; 
   font-size: 1rem;
 }
 
@@ -751,45 +722,45 @@ p{
 .status-pill.pending { background: #fffbeb; color: #b45309; }
 .status-pill.paid, .status-pill.confirmed { background: #dcfce7; color: #166534; }
 
-
 /* --- Header Title Group --- */
 .header-title-group {
   display: flex;
-  align-items: center; /* Vertically centers the icon with the text */
-  gap: 12px;          /* Modern spacing between icon and H3 */
+  align-items: center; 
+  gap: 12px;           
   color: var(--brand-blue);
 }
 
 .header-title-group h3 {
-  margin: 0;           /* Removes default browser margins that cause misalignment */
+  margin: 0;           
   font-family: 'Poppins', sans-serif;
   font-weight: 800;
   font-size: 1.25rem;
-  color: #1e3a8a;      /* Deep blue */
+  color: #1e3a8a;      
 }
 
 .header-title-group svg {
   color: var(--brand-blue);
-  flex-shrink: 0;      /* Prevents the icon from squishing on small screens */
+  flex-shrink: 0;      
 }
 
 /* --- Calendar Grid Header (Days of the Week) --- */
 .calendar-grid-header {
   display: grid;
-  grid-template-columns: repeat(7, 1fr); /* Creates 7 equal columns */
+  grid-template-columns: repeat(7, 1fr); 
   text-align: center;
   margin-bottom: 1rem;
-  padding: 0 5px;       /* Match this with your .calendar-grid padding */
+  padding: 0 5px;       
 }
 
 .calendar-grid-header div {
   font-size: 0.85rem;
   font-weight: 700;
-  color: #94a3b8;      /* Slate gray */
+  color: #94a3b8;      
   text-transform: uppercase;
   letter-spacing: 0.05em;
   padding-bottom: 10px;
 }
+
 .calendar-header {
   display: flex;
   justify-content: space-between;
@@ -806,36 +777,37 @@ p{
 
 .header-title-group h3 {
   margin: 0;
-  color: #1e3a8a; /* Deep Brand Blue */
+  color: #1e3a8a; 
   font-weight: 800;
   font-size: 1.25rem;
 }
+
 .calendar-nav {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 1.5rem;
-  padding: 0 10px; /* Gives arrows a little room from the edge */
+  padding: 0 10px; 
 }
 
 /* Style the buttons to look like clean icons */
 .calendar-nav button {
-  background: white; /* Removes the grey background */
-  border: 1px solid #e2e8f0; /* Soft border like your appointment calendar */
-  border-radius: 50%; /* Makes it a perfect circle */
+  background: white; 
+  border: 1px solid #e2e8f0; 
+  border-radius: 50%; 
   width: 32px;
   height: 32px;
   display: flex;
   justify-content: center;
   align-items: center;
   cursor: pointer;
-  color: var(--brand-blue, #1e3a8a); /* Use your brand blue */
+  color: var(--brand-blue, #1e3a8a); 
   transition: all 0.2s ease;
-  padding: 0; /* Important: removes default button padding */
+  padding: 0; 
 }
 
 .calendar-nav button:hover {
-  background: #eff6ff; /* Light blue tint on hover */
+  background: #eff6ff; 
   border-color: var(--brand-blue);
   transform: scale(1.1);
 }
@@ -844,5 +816,5 @@ p{
   font-family: 'Poppins', sans-serif;
   font-weight: 700;
   font-size: 1.1rem;
-  color: #1e3a8a; /* Deep blue text */
+  color: #1e3a8a; 
 }
