@@ -433,34 +433,29 @@ const handleAddPet = () => {
     navigate("/dashboard", { state: { success: true } });
  };
   
-  const updatePetInfo = (index, field, value) => {
+const updatePetInfo = (index, field, value) => {
     setPetsData(prev => {
         const newPets = [...prev];
         const targetPet = { ...newPets[index] };
         
-        // 1. Update the field (Weight or Type)
         targetPet[field] = value;
 
-        // 2. Trigger sync if the physical attributes changed
         if (field === "weight_kg" || field === "pet_type") {
             const currentWeight = targetPet.weight_kg; 
             const currentType = targetPet.pet_type;
             
-            // Re-calculate size label for display
-            const numericWeight = parseFloat(currentWeight) || 0;
-            targetPet.calculated_size = numericWeight > 20 ? "Large" : numericWeight > 10 ? "Medium" : "Small";
+            // Set a default placeholder while calculating
+            targetPet.calculated_size = "PENDING";
 
-            // If type changed, clear breed to avoid mismatch
-            if (field === "pet_type") {
-               targetPet.breed = "";
-            }
-
-            // 3. Update all currently selected services for this pet
             targetPet.services = targetPet.services.map(srv => {
                 if (!srv.id) return srv;
                 
-                // FIXED: Passing currentType and currentWeight (the actual variables in scope)
                 const result = getServicePriceAndSize(srv.id, currentType, currentWeight);
+                
+                // SYNC SIZE: If a match is found, convert the provider's 'size' label to ALL CAPS
+                if (result.matched && result.size !== "N/A") {
+                    targetPet.calculated_size = result.size.toUpperCase();
+                }
                 
                 return { 
                     ...srv, 
@@ -469,7 +464,8 @@ const handleAddPet = () => {
                 };
             });
 
-            // 4. Refresh the pet card total
+            if (field === "pet_type") targetPet.breed = "";
+
             targetPet.total_price = targetPet.services.reduce((sum, s) => sum + parseFloat(s.price || 0), 0);
         }
         
@@ -558,34 +554,29 @@ const handleAddPet = () => {
 };
 
 
-  const getServicePriceAndSize = (serviceId, petType, weight) => {
+const getServicePriceAndSize = (serviceId, petType, weight) => {
     const service = providerServices.find(s => s.id === serviceId);
     if (!service || !service.service_options) return { price: 0, size: "N/A", matched: false };
     
     const userType = (petType || "Dog").toLowerCase();
     const w = parseFloat(weight) || 0;
 
-    // Look for a match in the service provider's options
     const match = service.service_options.find(opt => {
         const dbType = (opt.pet_type || "").toLowerCase();
         const dbSize = (opt.size || "").toUpperCase();
         
-        // Match type (handles 'dog', 'cat', or 'dog-cat')
         const isTypeMatch = dbType === userType || dbType === 'dog-cat';
         if (!isTypeMatch) return false;
 
-        // If listing is N/A, CAT, or ALL, it's a flat rate - accept any weight
-        if (dbSize === 'N/A' || dbSize === 'CAT' || dbSize === 'ALL' || dbSize === 'ANY' || dbSize === 'UNIVERSAL') {
-            return true;
-        }
+        if (['N/A', 'CAT', 'ALL', 'ANY', 'UNIVERSAL'].includes(dbSize)) return true;
 
-        // Otherwise, check the weight range
         const range = (opt.weight_range || "").replace(/\s+/g, '').toUpperCase();
         if (range.includes('-')) {
-            const parts = range.split('-');
-            return w >= parseFloat(parts[0]) && w <= parseFloat(parts[1]);
+            const [min, max] = range.split('-').map(parseFloat);
+            return w >= min && w <= max;
         } else if (range.includes('+')) {
-            return w >= parseFloat(range.replace('+', ''));
+            const min = parseFloat(range.replace('+', ''));
+            return w >= min;
         }
         return false;
     });
