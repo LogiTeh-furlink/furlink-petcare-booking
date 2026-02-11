@@ -39,16 +39,16 @@ const PetDetails = () => {
   const [showSummaryModal, setShowSummaryModal] = useState(false);
   const [attemptedSubmit, setAttemptedSubmit] = useState(false);
 
-  // --- CHANGED: Success Modal State ---
+  // --- Success Modal State ---
   const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   const [showCapacityModal, setShowCapacityModal] = useState(false);
   const [remainingSpots, setRemainingSpots] = useState(0);
 
-  // --- NEW: Breed Data State (Full List for Validation) ---
+  // --- Breed Data State (Full List for Validation) ---
   const [validationBreeds, setValidationBreeds] = useState({ Dog: [], Cat: [] });
 
-  // --- NEW: Fetch Breeds API ---
+  // --- Fetch Breeds API ---
   useEffect(() => {
     const fetchBreeds = async () => {
       try {
@@ -128,7 +128,7 @@ const PetDetails = () => {
     );
   };
 
-  // NEW: State for Full View Modal
+  // State for Full View Modal
   const [selectedImage, setSelectedImage] = useState(null);
 
   const initialProviderId = state?.providerId || sessionStorage.getItem('current_provider_id');
@@ -311,6 +311,12 @@ const handleAddPet = () => {
     return data.publicUrl;
   };
 
+  // --- NEW CALCULATION HELPERS FOR VAT TRANSPARENCY ---
+  const calculateSubtotal = () => petsData.reduce((acc, p) => acc + p.total_price, 0);
+  const calculateVAT = () => calculateSubtotal() * 0.12;
+  const calculateGrandTotal = () => calculateSubtotal() + calculateVAT();
+  const calculateDownPayment = () => calculateGrandTotal() * 0.30;
+
   const handleFinalSubmit = async () => {
   setLoading(true);
   try {
@@ -318,6 +324,7 @@ const handleAddPet = () => {
     if (!user) throw new Error("User session not found.");
 
     // 1. Create the main booking record
+    // Note: We are storing the Grand Total (inclusive of VAT) but not the breakdown yet as requested
     const { data: booking, error: bError } = await supabase
       .from('bookings')
       .insert([{
@@ -325,7 +332,7 @@ const handleAddPet = () => {
         provider_id: initialProviderId,
         booking_date: state?.bookingDate,
         time_slot: state?.bookingTime,
-        total_estimated_price: calculateGrandTotal(),
+        total_estimated_price: calculateGrandTotal(), // VAT Inclusive Price
         status: 'pending'
       }])
       .select().single();
@@ -397,7 +404,7 @@ const handleAddPet = () => {
       }
     }
 
-    // --- UPDATED SUCCESS LOGIC: SHOW MODAL INSTEAD OF TOAST ---
+    // --- SUCCESS LOGIC ---
     setShowSummaryModal(false);
     setShowSuccessModal(true);
 
@@ -627,15 +634,13 @@ const handleAddPet = () => {
     });
   };
 
-  // NEW: Remove File Handler
+  // Remove File Handler
   const handleRemoveFile = (index, field) => {
     const previewUrl = petsData[index][`${field}_preview`];
     if (previewUrl) URL.revokeObjectURL(previewUrl); // Clean up memory
     updatePetInfo(index, `${field}_file`, null);
     updatePetInfo(index, `${field}_preview`, null);
   };
-
-  const calculateGrandTotal = () => petsData.reduce((acc, p) => acc + p.total_price, 0);
 
   return (
     <div className="pet-details-page">
@@ -649,35 +654,36 @@ const handleAddPet = () => {
             <div className="spacer-right"></div>
         </div>
 
-        {/* SUMMARY AREA */}
+        {/* SUMMARY AREA (TOP BAR) */}
         <div className="summary-info-grid">
             <div className="info-left">
                 <div className="main-datetime">
                     <Calendar size={18} className="icon-gap" /> {formatLongDate(state?.bookingDate)} at {formatTime12h(state?.bookingTime)}
                 </div>
+                {/* Now showing the Grand Total inclusive of VAT */}
                 <div className="main-total-price">
                     Total Amount: ₱{calculateGrandTotal().toFixed(2)}
                 </div>
             </div>
             <div className="info-right">
                 <div className="main-downpayment">
-                    <CreditCard size={18} className="icon-gap" /> 30% Down Payment: <strong>₱{(calculateGrandTotal() * 0.3).toFixed(2)}</strong>
+                    <CreditCard size={18} className="icon-gap" /> 30% Down Payment: <strong>₱{calculateDownPayment().toFixed(2)}</strong>
                 </div>
-                {/* VAT EXCLUSIVE TEXT */}
-                <div className="vat-note-small">* VAT exclusive</div>
+                
+                <div className="vat-note-small">(VAT Inclusive)</div>
 
                 <button 
                   className="btn-proceed-large" 
                   onClick={() => {
                     const result = validateForm();
                     if (result.valid) setShowSummaryModal(true);
-                    // Inline validation handles breed errors, so this catches only global/non-inline issues
                   }}
                 >
                   Proceed to Summary <ArrowRight size={18}/>
                 </button>
             </div>
         </div>
+
         {/* POLICIES SECTION */}
         <div className="policies-container">
             <button className="policies-toggle-bar" onClick={() => setShowPolicies(!showPolicies)}>
@@ -727,7 +733,6 @@ const handleAddPet = () => {
                             const availableOptions = getFilteredOptions(pet, service.id);
                             
                             // Check if the field should show an error: 
-                            // Either no service selected OR service weight doesn't match SP chart
                             const hasError = attemptedSubmit && (!service.id || service.matched === false);
 
                             return (
@@ -1014,11 +1019,6 @@ const handleAddPet = () => {
                           </div>
                         </div>
 
-                        {/* <div className="specifications-container" style={{ marginTop: '20px' }}>
-                            <label className="sub-label">Grooming Specifications</label>
-                            <textarea className="spec-textarea" maxLength={500} value={pet.grooming_specifications || ""} onChange={(e) => updatePetInfo(index, 'grooming_specifications', e.target.value)} style={{ width: '100%', minHeight: '100px', padding: '12px', borderRadius: '8px', border: '1px solid #ddd' }} />
-                        </div> */}
-
                         <div className="emergency-consent-container" style={{ marginTop: '15px' }}>
                             <label style={{ display: 'flex', gap: '10px', fontSize: '13px' }}>
                                 <input type="checkbox" checked={pet.emergency_consent} onChange={(e) => updatePetInfo(index, 'emergency_consent', e.target.checked)} />
@@ -1130,18 +1130,35 @@ const handleAddPet = () => {
           ))}
         </div>
 
-        {/* Final Financial Breakdown */}
+        {/* UPDATED: VAT TRANSPARENCY BREAKDOWN FOOTER */}
         <div className="summary-footer-totals" style={{ borderTop: '2px solid #f1f5f9', paddingTop: '15px', marginTop: '10px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px', fontSize: '1.1rem' }}>
-            <span>Grand Total:</span>
-            <strong style={{ color: '#0E2679' }}>₱{calculateGrandTotal().toFixed(2)}</strong>
+          
+          {/* Row 1: Subtotal */}
+          <div className="summary-row" style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.95rem', color: '#64748b' }}>
+            <span>Subtotal:</span>
+            <span>₱{calculateSubtotal().toFixed(2)}</span>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', color: '#2563eb', fontWeight: 'bold', fontSize: '1.2rem' }}>
+
+          {/* Row 2: VAT */}
+          <div className="summary-row" style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.95rem', color: '#64748b', marginBottom: '8px' }}>
+            <span>+ VAT (12%):</span>
+            <span>₱{calculateVAT().toFixed(2)}</span>
+          </div>
+
+          <hr style={{ border: 'none', borderTop: '1px dashed #e2e8f0', margin: '8px 0' }} />
+
+          {/* Row 3: Grand Total */}
+          <div className="summary-row final-total" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px', fontSize: '1.2rem', color: '#0E2679' }}>
+            <strong>Total Amount:</strong>
+            <strong>₱{calculateGrandTotal().toFixed(2)}</strong>
+          </div>
+
+          {/* Row 4: Down Payment */}
+          <div className="summary-row highlight-blue" style={{ display: 'flex', justifyContent: 'space-between', color: '#2563eb', fontWeight: 'bold', fontSize: '1.1rem', marginTop: '5px' }}>
             <span>30% Down Payment:</span>
-            <span>₱{(calculateGrandTotal() * 0.3).toFixed(2)}</span>
+            <span>₱{calculateDownPayment().toFixed(2)}</span>
           </div>
-          {/* VAT EXCLUSIVE TEXT IN MODAL */}
-          <div className="vat-note-small">* VAT exclusive</div>
+          
         </div>
       </div>
 
@@ -1160,7 +1177,7 @@ const handleAddPet = () => {
             limit={remainingSpots} 
           />
         
-        {/* NEW: Success Modal (Replaces Toast) */}
+        {/* Success Modal (Matching Payment Page) */}
         {showSuccessModal && (
           <div className="modal-overlay">
             <div className="success-modal">
