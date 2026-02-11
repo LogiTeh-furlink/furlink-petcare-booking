@@ -72,9 +72,10 @@
 }
 
 .back-to-dashboard-btn:hover {
-  background: #f8fafc;
+  background: #ffffff;
+  color: #0E2679;
   border-color: #0E2679;
-  transform: translateX(-3px);
+  transform: translateX(0) !important; 
 }
 
 .sidebar-tabs-group {
