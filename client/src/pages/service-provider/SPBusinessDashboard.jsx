@@ -1206,7 +1206,7 @@ export default function SPBusinessDashboard() {
                   <div className="pet-type-breakdown-grid">
                     <div className="pet-breakdown-card">
                       <div className="pet-breakdown-header">
-                        <span className="pet-type-icon">🐕</span>
+                        <span className="pet-type-icon"></span>
                         <h4>Dog Services</h4>
                       </div>
                       <div className="pet-breakdown-stats">
@@ -1233,7 +1233,7 @@ export default function SPBusinessDashboard() {
                     
                     <div className="pet-breakdown-card">
                       <div className="pet-breakdown-header">
-                        <span className="pet-type-icon">🐈</span>
+                        <span className="pet-type-icon"></span>
                         <h4>Cat Services</h4>
                       </div>
                       <div className="pet-breakdown-stats">
