@@ -311,10 +311,14 @@ const handleAddPet = () => {
     return data.publicUrl;
   };
 
-  // --- NEW CALCULATION HELPERS FOR VAT TRANSPARENCY ---
-  const calculateSubtotal = () => petsData.reduce((acc, p) => acc + p.total_price, 0);
-  const calculateVAT = () => calculateSubtotal() * 0.12;
-  const calculateGrandTotal = () => calculateSubtotal() + calculateVAT();
+  // --- UPDATED CALCULATION LOGIC (VAT INCLUSIVE) ---
+  // Grand Total is simply the sum of all pet service prices (which are inclusive)
+  const calculateGrandTotal = () => petsData.reduce((acc, p) => acc + p.total_price, 0);
+  
+  // VAT is extracted from the inclusive amount: (Total * 12) / 112
+  const calculateVAT = () => (calculateGrandTotal() * 12) / 112;
+  
+  // Down Payment is 30% of the Inclusive Total
   const calculateDownPayment = () => calculateGrandTotal() * 0.30;
 
   const handleFinalSubmit = async () => {
@@ -324,7 +328,6 @@ const handleAddPet = () => {
     if (!user) throw new Error("User session not found.");
 
     // 1. Create the main booking record
-    // Note: We are storing the Grand Total (inclusive of VAT) but not the breakdown yet as requested
     const { data: booking, error: bError } = await supabase
       .from('bookings')
       .insert([{
@@ -332,7 +335,7 @@ const handleAddPet = () => {
         provider_id: initialProviderId,
         booking_date: state?.bookingDate,
         time_slot: state?.bookingTime,
-        total_estimated_price: calculateGrandTotal(), // VAT Inclusive Price
+        total_estimated_price: calculateGrandTotal(), // Storing Inclusive Price
         status: 'pending'
       }])
       .select().single();
@@ -1133,29 +1136,23 @@ const handleAddPet = () => {
         {/* UPDATED: VAT TRANSPARENCY BREAKDOWN FOOTER */}
         <div className="summary-footer-totals" style={{ borderTop: '2px solid #f1f5f9', paddingTop: '15px', marginTop: '10px' }}>
           
-          {/* Row 1: Subtotal */}
-          <div className="summary-row" style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.95rem', color: '#64748b' }}>
-            <span>Subtotal:</span>
-            <span>₱{calculateSubtotal().toFixed(2)}</span>
+          {/* Row 1: Total Service Amount (Inclusive) */}
+          <div className="summary-row final-total" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px', fontSize: '1.2rem', color: '#0E2679' }}>
+            <strong>Total Service Amount (VAT Inclusive):</strong>
+            <strong>₱{calculateGrandTotal().toFixed(2)}</strong>
           </div>
 
-          {/* Row 2: VAT */}
+          {/* Row 2: VAT Extraction */}
           <div className="summary-row" style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.95rem', color: '#64748b', marginBottom: '8px' }}>
-            <span>+ VAT (12%):</span>
+            <span>- VAT (12%) portion:</span>
             <span>₱{calculateVAT().toFixed(2)}</span>
           </div>
 
           <hr style={{ border: 'none', borderTop: '1px dashed #e2e8f0', margin: '8px 0' }} />
 
-          {/* Row 3: Grand Total */}
-          <div className="summary-row final-total" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px', fontSize: '1.2rem', color: '#0E2679' }}>
-            <strong>Total Amount:</strong>
-            <strong>₱{calculateGrandTotal().toFixed(2)}</strong>
-          </div>
-
-          {/* Row 4: Down Payment */}
+          {/* Row 3: Down Payment */}
           <div className="summary-row highlight-blue" style={{ display: 'flex', justifyContent: 'space-between', color: '#2563eb', fontWeight: 'bold', fontSize: '1.1rem', marginTop: '5px' }}>
-            <span>30% Down Payment:</span>
+            <span>To be paid - 30% Down Payment:</span>
             <span>₱{calculateDownPayment().toFixed(2)}</span>
           </div>
           
