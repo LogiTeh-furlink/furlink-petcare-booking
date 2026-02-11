@@ -42,6 +42,9 @@ const PetDetails = () => {
   // --- Success Modal State ---
   const [showSuccessModal, setShowSuccessModal] = useState(false);
 
+  // --- Payment Breakdown Toggle State ---
+  const [showBreakdown, setShowBreakdown] = useState(false);
+
   const [showCapacityModal, setShowCapacityModal] = useState(false);
   const [remainingSpots, setRemainingSpots] = useState(0);
 
@@ -318,6 +321,9 @@ const handleAddPet = () => {
   // VAT is extracted from the inclusive amount: (Total * 12) / 112
   const calculateVAT = () => (calculateGrandTotal() * 12) / 112;
   
+  // Base Price (Total - VAT)
+  const calculateBasePrice = () => calculateGrandTotal() - calculateVAT();
+
   // Down Payment is 30% of the Inclusive Total
   const calculateDownPayment = () => calculateGrandTotal() * 0.30;
 
@@ -1133,24 +1139,51 @@ const handleAddPet = () => {
           ))}
         </div>
 
-        {/* UPDATED: VAT TRANSPARENCY BREAKDOWN FOOTER */}
+        {/* UPDATED: TOGGLE-ABLE BREAKDOWN FOOTER */}
         <div className="summary-footer-totals" style={{ borderTop: '2px solid #f1f5f9', paddingTop: '15px', marginTop: '10px' }}>
           
           {/* Row 1: Total Service Amount (Inclusive) */}
-          <div className="summary-row final-total" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px', fontSize: '1.2rem', color: '#0E2679' }}>
+          <div className="summary-row final-total" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', fontSize: '1.2rem', color: '#0E2679' }}>
             <strong>Total Service Amount (VAT Inclusive):</strong>
             <strong>₱{calculateGrandTotal().toFixed(2)}</strong>
           </div>
 
-          {/* Row 2: VAT Extraction */}
-          <div className="summary-row" style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.95rem', color: '#64748b', marginBottom: '8px' }}>
-            <span>- VAT (12%) portion:</span>
-            <span>₱{calculateVAT().toFixed(2)}</span>
+          {/* TOGGLE BUTTON */}
+          <div style={{ textAlign: 'center', marginBottom: '10px' }}>
+             <button 
+                type="button" 
+                onClick={() => setShowBreakdown(!showBreakdown)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#64748b',
+                  fontSize: '0.85rem',
+                  cursor: 'pointer',
+                  textDecoration: 'underline',
+                  fontWeight: '600'
+                }}
+             >
+                {showBreakdown ? "Hide payment breakdown ▴" : "See payment breakdown ▾"}
+             </button>
           </div>
+
+          {/* HIDDEN VAT BREAKDOWN */}
+          {showBreakdown && (
+            <div className="breakdown-panel" style={{ background: '#f8fafc', padding: '10px', borderRadius: '8px', marginBottom: '10px' }}>
+               <div className="summary-row" style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem', color: '#64748b' }}>
+                  <span>Base Price:</span>
+                  <span>₱{calculateBasePrice().toFixed(2)}</span>
+               </div>
+               <div className="summary-row" style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem', color: '#64748b', marginTop: '4px' }}>
+                  <span>VAT (12%):</span>
+                  <span>₱{calculateVAT().toFixed(2)}</span>
+               </div>
+            </div>
+          )}
 
           <hr style={{ border: 'none', borderTop: '1px dashed #e2e8f0', margin: '8px 0' }} />
 
-          {/* Row 3: Down Payment */}
+          {/* Row 4: Down Payment */}
           <div className="summary-row highlight-blue" style={{ display: 'flex', justifyContent: 'space-between', color: '#2563eb', fontWeight: 'bold', fontSize: '1.1rem', marginTop: '5px' }}>
             <span>To be paid - 30% Down Payment:</span>
             <span>₱{calculateDownPayment().toFixed(2)}</span>

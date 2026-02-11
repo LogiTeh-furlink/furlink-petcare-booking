@@ -692,3 +692,14 @@
     0% { transform: scale(0.9); opacity: 0; }
     100% { transform: scale(1); opacity: 1; }
 }
+
+/* --- BREAKDOWN PANEL ANIMATION --- */
+.breakdown-panel {
+    animation: fadeIn 0.3s ease-in-out;
+    border: 1px solid #e2e8f0;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-5px); }
+    to { opacity: 1; transform: translateY(0); }
+}
