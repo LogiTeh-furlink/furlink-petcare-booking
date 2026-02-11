@@ -3,7 +3,17 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "../../config/supabase";
 import LoggedInNavbar from "../../components/Header/LoggedInNavbar";
 import Footer from "../../components/Footer/Footer";
-import { FaCalendarAlt, FaTimes, FaChevronLeft, FaChevronRight, FaChartLine, FaPaw, FaClock, FaCheckCircle } from "react-icons/fa";
+import { 
+  FaCalendarAlt, 
+  FaTimes, 
+  FaChevronLeft, 
+  FaChevronRight, 
+  FaChartLine, 
+  FaPaw, 
+  FaClock, 
+  FaCheckCircle, 
+  FaSearchPlus // <--- Add this
+} from "react-icons/fa";
 import "./SPDashboard.css";
 
 // ... (Keep existing helper functions convertTo24Hour, isFourHoursPast, BookingCalendar unchanged) ...
@@ -309,19 +319,38 @@ export default function SPDashboard() {
         title = "Booking Declined";
         msg = "The request has been removed and the customer notified.";
         break;
-      case 'accept_payment': newStatus = 'paid'; break;
-      case 'void_payment': newStatus = 'void'; updateData = { rejection_reason: voidReason }; break;
+      case 'accept_payment': 
+        newStatus = 'paid'; 
+        title = "Payment Accepted";
+        msg = "Payment verified. The booking is now moved to Upcoming appointments.";
+        break;
+      case 'void_payment': 
+        newStatus = 'void'; 
+        updateData = { rejection_reason: voidReason }; 
+        title = "Payment Voided";
+        msg = "The payment proof was rejected. The customer will be notified to re-upload.";
+        break;
       default: return;
     }
+
     try {
-      const { error } = await supabase.from('bookings').update({ status: newStatus, ...updateData }).eq('id', selectedBooking.id);
+      const { error } = await supabase
+        .from('bookings')
+        .update({ status: newStatus, ...updateData })
+        .eq('id', selectedBooking.id);
+
       if (error) throw error;
+
+      // Update local state immediately
       setBookings(prev => prev.map(b => b.id === selectedBooking.id ? { ...b, status: newStatus, ...updateData } : b));
-      closeModal();
+      
+      closeModal(); // Close details modal first
+
+      // Trigger Success Modal
       setSuccessTitle(title);
       setSuccessMessage(msg);
       setShowSuccessModal(true);
-      
+
     } catch (err) {
       alert("Action failed: " + err.message);
     }
@@ -340,14 +369,20 @@ export default function SPDashboard() {
     <div className="page-wrapper">
       <LoggedInNavbar />
 
-      {/* --- ADD SUCCESS MODAL HERE --- */}
+      {/* --- SUCCESS MODAL --- */}
       {showSuccessModal && (
         <div className="modal-overlay" style={{ zIndex: 5000 }}>
           <div className="modal-content small-modal success-center" style={{ textAlign: 'center', padding: '2rem' }}>
             <FaCheckCircle size={60} color="#22c55e" style={{ marginBottom: '1rem' }} />
             <h3 style={{ color: 'var(--brand-blue)', fontWeight: '800' }}>{successTitle}</h3>
             <p style={{ color: '#64748b', margin: '10px 0 20px' }}>{successMessage}</p>
-            <button className="btn-approve" style={{ width: '100%' }} onClick={() => setShowSuccessModal(false)}>Done</button>
+            <button 
+              className="btn-approve" 
+              style={{ width: '100%' }} 
+              onClick={() => setShowSuccessModal(false)}
+            >
+              Done
+            </button>
           </div>
         </div>
       )}
@@ -484,13 +519,20 @@ export default function SPDashboard() {
             {selectedBooking.payment_proof_url && (
               <div className="full-image-block">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                    <h4>Payment Proof</h4>
-                    <small style={{ color: 'var(--brand-blue)', fontWeight: 'bold'}}>
-                        Payment Reference Code: {selectedBooking?.rejection_reason}
-                    </small>
+                  <small style={{ color: 'var(--brand-blue)', fontWeight: 'bold'}}>
+                    Payment Reference Code: {selectedBooking?.rejection_reason || "N/A"}
+                  </small>
                 </div>
-                <div className="image-wrapper clickable-img" onClick={() => setPreviewImage(selectedBooking.payment_proof_url)}>
-                    <img src={selectedBooking.payment_proof_url} alt="Payment Proof" className="facebook-style-img" /> 
+                
+                {/* The clickable wrapper that triggers the preview state */}
+                <div 
+                  className="image-wrapper clickable-img" 
+                  onClick={() => setPreviewImage(selectedBooking.payment_proof_url)}
+                >
+                  <p className="img-label" style={{ fontSize: '0.75rem', color: '#64748b', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    Click image to maximize <FaSearchPlus size={12} />
+                  </p>
+                  <img src={selectedBooking.payment_proof_url} alt="Payment Proof" className="facebook-style-img" /> 
                 </div>
               </div>
             )}
@@ -516,20 +558,31 @@ export default function SPDashboard() {
                     </div>
                     <div className="pet-images-container">
                       {pet.vaccine_card_url && (
-                        <div className="image-wrapper">
-                          <p className="img-label">Vaccine Card</p>
+                        <div 
+                          className="image-wrapper clickable-img" 
+                          onClick={() => setPreviewImage(pet.vaccine_card_url)}
+                        >
+                          <p className="img-label">Vaccine Card <FaSearchPlus size={10} /></p>
                           <img src={pet.vaccine_card_url} alt="Vaccine Card" className="facebook-style-img" />
                         </div>
                       )}
+
                       {pet.illness_proof_url && (
-                        <div className="image-wrapper">
-                          <p className="img-label">Proof of Illness</p>
+                        <div 
+                          className="image-wrapper clickable-img" 
+                          onClick={() => setPreviewImage(pet.illness_proof_url)}
+                        >
+                          <p className="img-label">Proof of Illness <FaSearchPlus size={10} /></p>
                           <img src={pet.illness_proof_url} alt="Illness Proof" className="facebook-style-img" />
                         </div>
                       )}
+
                       {pet.ai_generated_url && (
-                        <div className="image-wrapper">
-                          <p className="img-label">AI Generated Preview</p>
+                        <div 
+                          className="image-wrapper clickable-img ai-preview-border" 
+                          onClick={() => setPreviewImage(pet.ai_generated_url)}
+                        >
+                          <p className="img-label">AI Style Preview <FaSearchPlus size={10} /></p>
                           <img src={pet.ai_generated_url} alt="AI Generated Preview" className="facebook-style-img" />
                         </div>
                       )}
@@ -575,6 +628,18 @@ export default function SPDashboard() {
         </div>
       )}
       <Footer />
+
+      {/* --- IMAGE PREVIEW OVERLAY (The "Maximized" View) --- */}
+      {previewImage && (
+        <div className="modal-overlay image-preview-overlay" onClick={() => setPreviewImage(null)}>
+          <div className="image-preview-content" onClick={e => e.stopPropagation()}>
+            <button className="close-preview-btn" onClick={() => setPreviewImage(null)}>
+              <FaTimes />
+            </button>
+            <img src={previewImage} alt="Maximized Preview" className="large-proof-image" />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
