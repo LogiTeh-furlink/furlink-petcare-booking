@@ -979,7 +979,7 @@ const getServicePriceAndSize = (serviceId, petType, weight) => {
                             <p style={{ fontSize: '0.85rem', color: '#991b1b', margin: 0, display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
                               <AlertCircle size={28} /> 
                               <span>
-                                <strong>Style Preview Info:</strong> Direct photo uploading is temporarily disabled. The AI will now generate a high-fidelity preview based <strong>strictly</strong> on your pet's <strong>Type, Breed, Weight</strong>, and <strong>Hairstyle</strong> choice!
+                                <strong>Style Preview Info:</strong> The AI generates a preview based <strong>strictly</strong> on your pet's <strong>Type, Breed, Weight</strong>, and <strong>Hairstyle</strong> choice!
                               </span>
                             </p>
                           </div>
@@ -1189,7 +1189,7 @@ const getServicePriceAndSize = (serviceId, petType, weight) => {
 
           {/* Row 4: Down Payment */}
           <div className="summary-row highlight-blue" style={{ display: 'flex', justifyContent: 'space-between', color: '#2563eb', fontWeight: 'bold', fontSize: '1.1rem', marginTop: '5px' }}>
-            <span>To be paid - 30% Down Payment:</span>
+            <span>To be paid (30% Down Payment):</span>
             <span>₱{calculateDownPayment().toFixed(2)}</span>
           </div>
           
