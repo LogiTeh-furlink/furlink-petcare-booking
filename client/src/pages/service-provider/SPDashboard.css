@@ -907,3 +907,128 @@ p {
     to { opacity: 1; transform: translateY(0); }
 }
 
+/* ====== REVIEW SECTION STYLES ====== */
+.review-section {
+  margin-top: 2rem;
+  padding-top: 2rem;
+  border-top: 2px solid var(--border-light);
+}
+
+.review-card {
+  background-color: #ffffff;
+  border: 1px solid var(--border-light);
+  border-radius: 16px;
+  padding: 1.5rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.03);
+}
+
+.review-header {
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.reviewer-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.reviewer-name {
+  color: var(--brand-blue);
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.review-date {
+  color: #64748b;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.review-ratings {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.rating-item {
+  background: #f8fafc;
+  padding: 1rem;
+  border-radius: 12px;
+}
+
+.rating-label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--brand-blue);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.75rem;
+}
+
+.stars-display {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.star-icon {
+  font-size: 1.25rem;
+}
+
+.star-icon.filled {
+  color: #fbbf24;
+}
+
+.star-icon.empty {
+  color: #e2e8f0;
+}
+
+.rating-number {
+  margin-left: 0.5rem;
+  font-weight: 700;
+  color: var(--brand-blue);
+  font-size: 0.9rem;
+}
+
+.review-comment {
+  background: #f8fafc;
+  padding: 1.25rem;
+  border-radius: 12px;
+  border-left: 4px solid var(--brand-blue);
+}
+
+.comment-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--brand-blue);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0 0 0.75rem 0;
+}
+
+.comment-text {
+  color: #334155;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  margin: 0;
+  font-weight: 400;
+}
+
+.no-review-card {
+  background-color: #f8fafc;
+  border: 1px dashed #cbd5e1;
+  border-radius: 12px;
+  padding: 2rem;
+  text-align: center;
+}
+
+.no-review-card p {
+  color: #64748b;
+  font-size: 0.95rem;
+  margin: 0;
+  font-style: italic;
+}
