@@ -161,7 +161,11 @@ const BookingCalendar = ({ bookings = [], onClose }) => {
                     <div className="item-content-row">
                       <div>
                         <label>Customer</label>
-                        <strong>{b.users?.full_name || 'Pet Owner'}</strong>
+                        <strong>
+                          {b.profiles?.first_name 
+                            ? `${b.profiles.first_name} ${b.profiles.last_name}` 
+                            : 'Pet Owner'}
+                        </strong>
                       </div>
                       <div className="pet-count-info">
                         <label>Pets</label>
@@ -220,6 +224,7 @@ export default function SPDashboard() {
       if (providerError) throw providerError;
       setProviderId(providerData.id);
 
+      // STEP 1: Fetch Bookings without the direct 'profiles' join to prevent errors
       const { data: bookingsData, error: bookingsError } = await supabase
         .from("bookings")
         .select(`
@@ -233,7 +238,31 @@ export default function SPDashboard() {
         .order('booking_date', { ascending: false });
 
       if (bookingsError) throw bookingsError;
-      setBookings(bookingsData || []);
+
+      // STEP 2: Extract User IDs and Fetch Profiles Separately
+      const userIds = [...new Set(bookingsData.map(b => b.user_id).filter(Boolean))];
+      let profilesMap = {};
+
+      if (userIds.length > 0) {
+        const { data: profilesData, error: profilesError } = await supabase
+          .from("profiles")
+          .select("id, first_name, last_name, mobile_number, email")
+          .in("id", userIds);
+
+        if (!profilesError && profilesData) {
+          profilesData.forEach(p => {
+            profilesMap[p.id] = p;
+          });
+        }
+      }
+
+      // STEP 3: Merge Profile Data into Bookings
+      const mergedBookings = bookingsData.map(b => ({
+        ...b,
+        profiles: profilesMap[b.user_id] || null
+      }));
+
+      setBookings(mergedBookings || []);
 
     } catch (err) {
       console.error("Error fetching data:", err);
@@ -562,6 +591,26 @@ export default function SPDashboard() {
                 <span>Status:</span>
                 <strong className="uppercase-status">{selectedBooking.status}</strong>
               </div>
+              
+              {/* --- CUSTOMER DETAILS (Safe Access) --- */}
+              <div className="info-row">
+                <span>Customer:</span>
+                <strong>
+                  {selectedBooking.profiles 
+                    ? `${selectedBooking.profiles.first_name} ${selectedBooking.profiles.last_name}` 
+                    : 'Pet Owner'}
+                </strong>
+              </div>
+              <div className="info-row">
+                <span>Contact:</span>
+                <strong>{selectedBooking.profiles?.mobile_number || 'N/A'}</strong>
+              </div>
+              <div className="info-row">
+                <span>Email:</span>
+                <strong style={{textTransform: 'lowercase'}}>{selectedBooking.profiles?.email || 'N/A'}</strong>
+              </div>
+              {/* ----------------------------- */}
+
               {(selectedBooking.status === 'for review' || selectedBooking.status === 'paid') && (
                 <div className="info-row">
                   <span>Reference No:</span>
@@ -619,8 +668,8 @@ export default function SPDashboard() {
                       <p><strong>Services:</strong> {pet.booking_services?.map(s => s.service_name).join(', ')}</p>
                     </div>
                     <div className="pet-info-row-split">
-                         <div className="pet-specs-full"><span className="label">Grooming Specs:</span> {pet.grooming_specifications || 'None'}</div>
-                         <div className="pet-specs-full"><span className="label">Services:</span> {pet.booking_services?.map(s => s.service_name).join(', ')}</div>
+                          <div className="pet-specs-full"><span className="label">Grooming Specs:</span> {pet.grooming_specifications || 'None'}</div>
+                          <div className="pet-specs-full"><span className="label">Services:</span> {pet.booking_services?.map(s => s.service_name).join(', ')}</div>
                     </div>
                     <div className="pet-images-container">
                       {pet.vaccine_card_url && (
@@ -735,7 +784,7 @@ export default function SPDashboard() {
     }}>
       <FaExclamationTriangle style={{ color: '#e11d48', flexShrink: 0 }} size={12} />
       <p style={{ margin: 0, fontSize: '0.75rem', color: '#be123c', fontWeight: '500', lineHeight: '1.2' }}>
-         Cancellation requires a manual refund of the <strong>{formatCurrency(selectedBooking.installation_payment)}</strong> (30% Down Payment) to the pet owner.
+          Cancellation requires a manual refund of the <strong>{formatCurrency(selectedBooking.installation_payment)}</strong> (30% Down Payment) to the pet owner.
       </p>
     </div>
     
