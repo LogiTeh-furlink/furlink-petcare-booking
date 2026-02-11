@@ -32,6 +32,12 @@ ChartJS.register(
   Filler
 );
 
+// ============================================
+// HELPER: Format currency with 2 decimal places
+// ============================================
+const formatCurrency = (value) =>
+  value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
 export default function SPSales() {
   const navigate = useNavigate();
   const reportRef = useRef(null);
@@ -162,67 +168,99 @@ export default function SPSales() {
     
     // Helper function to get date ranges based on filter
     const getRange = (filter, isPrevious = false) => {
-      if (filter === 'custom' && customDateStart && customDateEnd) {
-        const start = new Date(customDateStart);
-        const end = new Date(customDateEnd);
-        end.setHours(23, 59, 59, 999);
-        if (isPrevious) {
-          const duration = end - start;
-          const prevEnd = new Date(start);
-          prevEnd.setDate(prevEnd.getDate() - 1);
-          const prevStart = new Date(prevEnd - duration);
-          return { start: prevStart, end: prevEnd };
-        }
-        return { start, end };
-      }
+    const today = new Date(); // Freeze 'now' for consistency
+
+    // CUSTOM RANGE (Logic remains mostly the same, ensures fair duration)
+    if (filter === 'custom' && customDateStart && customDateEnd) {
+      const start = new Date(customDateStart);
+      const end = new Date(customDateEnd);
+      end.setHours(23, 59, 59, 999);
       
-      let start = new Date();
-      let end = new Date();
-      if (filter === 'weekly') {
-        if (isPrevious) { 
-          start.setDate(now.getDate() - 14); 
-          end.setDate(now.getDate() - 7); 
-        } else { 
-          start.setDate(now.getDate() - 7); 
-        }
-      } else if (filter === 'monthly') {
-        if (isPrevious) { 
-          start.setMonth(now.getMonth() - 1, 1); 
-          end = new Date(now.getFullYear(), now.getMonth(), 0); 
-        } else { 
-          start = new Date(now.getFullYear(), now.getMonth(), 1);
-          end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-        }
-      } else if (filter === 'yearly') {
-        // For yearly view, include all data from 2020 to current date
-        if (selectedYear) {
-          // If a specific year is selected, show only that year's data
-          start = new Date(selectedYear, 0, 1);
-          end = new Date(selectedYear, 11, 31, 23, 59, 59, 999);
-          if (isPrevious) {
-            start = new Date(selectedYear - 1, 0, 1);
-            end = new Date(selectedYear - 1, 11, 31, 23, 59, 59, 999);
-          }
-        } else {
-          // Show all years from 2020 to now
-          if (isPrevious) { 
-            start.setFullYear(now.getFullYear() - 1, 0, 1); 
-            end.setFullYear(now.getFullYear() - 1, 11, 31); 
-          } else { 
-            start = new Date(2020, 0, 1); // Start from 2020
-            end = now; // End at current date
-          }
-        }
-      } else {
-        if (isPrevious) { 
-          start.setFullYear(now.getFullYear() - 1, 0, 1); 
-          end.setFullYear(now.getFullYear() - 1, 11, 31); 
-        } else { 
-          start = new Date(now.getFullYear(), 0, 1);
-        }
+      if (isPrevious) {
+        const duration = end - start; // Difference in milliseconds
+        const prevEnd = new Date(start);
+        prevEnd.setDate(prevEnd.getDate() - 1);
+        prevEnd.setHours(23, 59, 59, 999);
+        const prevStart = new Date(prevEnd - duration); // Same duration back
+        return { start: prevStart, end: prevEnd };
       }
       return { start, end };
-    };
+    }
+    
+    let start = new Date();
+    let end = new Date();
+
+    if (filter === 'weekly') {
+      // === WEEKLY LOGIC (Rolling 7 Days) ===
+      // This is already fair because it compares 7 days vs 7 days.
+      if (isPrevious) { 
+        start.setDate(today.getDate() - 14); 
+        end.setDate(today.getDate() - 7); 
+        end.setHours(23, 59, 59, 999); // Ensure we get the full last day
+      } else { 
+        start.setDate(today.getDate() - 7); 
+        end = today;
+      }
+
+    } else if (filter === 'monthly') {
+      // === MONTHLY LOGIC (Fixed for Period-to-Date) ===
+      if (isPrevious) { 
+        // Start: 1st of previous month
+        start = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+        
+        // End: The SAME DAY of the previous month (or last day if it doesn't exist)
+        // Example: If today is March 31, previous period ends Feb 28 (or 29)
+        const daysInPrevMonth = new Date(today.getFullYear(), today.getMonth(), 0).getDate();
+        const targetDay = Math.min(today.getDate(), daysInPrevMonth);
+        
+        end = new Date(today.getFullYear(), today.getMonth() - 1, targetDay);
+        end.setHours(23, 59, 59, 999);
+      } else { 
+        // Current: 1st of this month to NOW
+        start = new Date(today.getFullYear(), today.getMonth(), 1);
+        end = today;
+      }
+
+    } else if (filter === 'yearly') {
+      // === YEARLY LOGIC (Fixed for Year-to-Date) ===
+      if (selectedYear) {
+        // If a specific past year is selected (e.g., 2023), compare full 2023 vs full 2022
+        start = new Date(selectedYear, 0, 1);
+        end = new Date(selectedYear, 11, 31, 23, 59, 59, 999);
+        if (isPrevious) {
+          start = new Date(selectedYear - 1, 0, 1);
+          end = new Date(selectedYear - 1, 11, 31, 23, 59, 59, 999);
+        }
+      } else {
+        // Default: This Year (YTD) vs Last Year (YTD)
+        if (isPrevious) { 
+          start = new Date(today.getFullYear() - 1, 0, 1);
+          
+          // End: Same month/day but last year
+          // Handle leap year edge case (Feb 29 -> Feb 28)
+          if (today.getMonth() === 1 && today.getDate() === 29) {
+            end = new Date(today.getFullYear() - 1, 1, 28);
+          } else {
+            end = new Date(today.getFullYear() - 1, today.getMonth(), today.getDate());
+          }
+          end.setHours(23, 59, 59, 999);
+        } else { 
+          start = new Date(today.getFullYear(), 0, 1); // Jan 1st of this year
+          end = today; // To right now
+        }
+      }
+    } else {
+      // Default Fallback
+      if (isPrevious) { 
+        start.setFullYear(today.getFullYear() - 1, 0, 1); 
+        end.setFullYear(today.getFullYear() - 1, 11, 31); 
+      } else { 
+        start = new Date(today.getFullYear(), 0, 1);
+        end = today;
+      }
+    }
+    return { start, end };
+  };
 
     const currentRange = getRange(activeFilter);
     const previousRange = getRange(activeFilter, true);
@@ -580,6 +618,66 @@ export default function SPSales() {
       sum + (val - actualRevenue[idx]), 0
     );
 
+    // Calculate total revenue for overall sales chart
+    const totalRevenue = overallSalesData.reduce((sum, val) => sum + val, 0);
+
+    // ========================================
+    // PET TYPE BREAKDOWN FOR REPORT
+    // Calculate stats broken down by pet type
+    // ========================================
+    const calculatePetTypeBreakdown = () => {
+      const breakdown = {
+        Dog: { revenue: 0, bookings: 0, customers: new Set() },
+        Cat: { revenue: 0, bookings: 0, customers: new Set() }
+      };
+
+      currentBookings.forEach(booking => {
+        if (!isBookingComplete(booking)) return;
+        
+        const bookingRevenue = Number(booking.total_estimated_price) || 0;
+        
+        // Track which pet types are in this booking
+        const petTypes = new Set();
+        booking.booking_pets?.forEach(pet => {
+          petTypes.add(pet.pet_type);
+        });
+
+        // If booking has both pet types, split the revenue
+        if (petTypes.has('Dog') && petTypes.has('Cat')) {
+          const splitRevenue = bookingRevenue / 2;
+          breakdown.Dog.revenue += splitRevenue;
+          breakdown.Cat.revenue += splitRevenue;
+          breakdown.Dog.bookings += 1;
+          breakdown.Cat.bookings += 1;
+          breakdown.Dog.customers.add(booking.user_id);
+          breakdown.Cat.customers.add(booking.user_id);
+        } else if (petTypes.has('Dog')) {
+          breakdown.Dog.revenue += bookingRevenue;
+          breakdown.Dog.bookings += 1;
+          breakdown.Dog.customers.add(booking.user_id);
+        } else if (petTypes.has('Cat')) {
+          breakdown.Cat.revenue += bookingRevenue;
+          breakdown.Cat.bookings += 1;
+          breakdown.Cat.customers.add(booking.user_id);
+        }
+      });
+
+      return {
+        Dog: {
+          revenue: breakdown.Dog.revenue,
+          bookings: breakdown.Dog.bookings,
+          customers: breakdown.Dog.customers.size
+        },
+        Cat: {
+          revenue: breakdown.Cat.revenue,
+          bookings: breakdown.Cat.bookings,
+          customers: breakdown.Cat.customers.size
+        }
+      };
+    };
+
+    const petTypeBreakdown = calculatePetTypeBreakdown();
+
     return { 
       revenue: current.rev, 
       validCount: current.count, 
@@ -594,6 +692,7 @@ export default function SPSales() {
       // Chart data
       overallSalesData,
       overallCustomerCountArray,
+      totalRevenue,
       serviceRevenueMap,
       serviceCustomerCountArrays,
       newCustomerRevenue,
@@ -603,7 +702,8 @@ export default function SPSales() {
       actualRevenue,
       potentialRevenue,
       cancellationsPerPeriod,
-      totalLoss
+      totalLoss,
+      petTypeBreakdown
     };
   }, [rawBookings, servicesList, bookingServices, activeFilter, petTypeFilter, customDateStart, customDateEnd, selectedYear]);
 
@@ -746,13 +846,14 @@ export default function SPSales() {
         mode: 'index',
         intersect: false,
         callbacks: {
+          // CHANGE: Use formatCurrency for 2 decimal places in base tooltip
           label: function(context) {
             let label = context.dataset.label || '';
             if (label) {
               label += ': ';
             }
             if (context.parsed.y !== null) {
-              label += '₱' + context.parsed.y.toLocaleString();
+              label += '₱' + formatCurrency(context.parsed.y);
             }
             return label;
           }
@@ -1007,13 +1108,12 @@ export default function SPSales() {
                           mode: 'index',
                           intersect: false,
                           callbacks: {
+                            // CHANGE: decimals in tooltip
                             label: function(context) {
                               let label = context.dataset.label || '';
-                              if (label) {
-                                label += ': ';
-                              }
+                              if (label) label += ': ';
                               if (context.parsed.y !== null) {
-                                label += '₱' + context.parsed.y.toLocaleString();
+                                label += '₱' + formatCurrency(context.parsed.y);
                               }
                               return label;
                             },
@@ -1027,6 +1127,10 @@ export default function SPSales() {
                     }}
                   />
                 </div>
+                {/* CHANGE: Total Revenue summary below chart, matching Total Loss style */}
+                <p className="chart-insight-text">
+                  Total Revenue: ₱{formatCurrency(analytics.totalRevenue)}
+                </p>
               </div>
 
               {/* CHART 4: REVENUE LOSS DUE TO CANCELLATIONS */}
@@ -1086,13 +1190,12 @@ export default function SPSales() {
                           mode: 'index',
                           intersect: false,
                           callbacks: {
+                            // CHANGE: decimals in tooltip
                             label: function(context) {
                               let label = context.dataset.label || '';
-                              if (label) {
-                                label += ': ';
-                              }
+                              if (label) label += ': ';
                               if (context.parsed.y !== null) {
-                                label += '₱' + context.parsed.y.toLocaleString();
+                                label += '₱' + formatCurrency(context.parsed.y);
                               }
                               return label;
                             },
@@ -1103,7 +1206,8 @@ export default function SPSales() {
                                 const loss = analytics.potentialRevenue[context.dataIndex] - analytics.actualRevenue[context.dataIndex];
                                 return [
                                   `Cancellations: ${cancellations}`,
-                                  `Revenue Lost: ₱${loss.toLocaleString()}`
+                                  // CHANGE: decimals in revenue lost line
+                                  `Revenue Lost: ₱${formatCurrency(loss)}`
                                 ];
                               }
                               return null;
@@ -1114,8 +1218,9 @@ export default function SPSales() {
                     }}
                   />
                 </div>
+                {/* CHANGE: decimals in Total Loss summary */}
                 <p className="chart-insight-text">
-                  Total Loss: ₱{analytics.totalLoss.toLocaleString()}
+                  Total Loss: ₱{formatCurrency(analytics.totalLoss)}
                 </p>
               </div>
 
@@ -1166,13 +1271,12 @@ export default function SPSales() {
                           mode: 'index',
                           intersect: false,
                           callbacks: {
+                            // CHANGE: decimals in tooltip
                             label: function(context) {
                               let label = context.dataset.label || '';
-                              if (label) {
-                                label += ': ';
-                              }
+                              if (label) label += ': ';
                               if (context.parsed.y !== null) {
-                                label += '₱' + context.parsed.y.toLocaleString();
+                                label += '₱' + formatCurrency(context.parsed.y);
                               }
                               return label;
                             },
@@ -1252,13 +1356,12 @@ export default function SPSales() {
                           mode: 'index',
                           intersect: false,
                           callbacks: {
+                            // CHANGE: decimals in tooltip
                             label: function(context) {
                               let label = context.dataset.label || '';
-                              if (label) {
-                                label += ': ';
-                              }
+                              if (label) label += ': ';
                               if (context.parsed.y !== null) {
-                                label += '₱' + context.parsed.y.toLocaleString();
+                                label += '₱' + formatCurrency(context.parsed.y);
                               }
                               return label;
                             },
@@ -1340,7 +1443,7 @@ export default function SPSales() {
                 </div>
               </div>
 
-              {/* Executive Summary */}
+              {/* Executive Summary — KPI values intentionally kept without decimals per requirement */}
               <div className="report-section">
                 <h3 className="report-section-title">Executive Summary</h3>
                 <div className="report-kpi-grid">
@@ -1372,6 +1475,7 @@ export default function SPSales() {
                   </div>
                   <div className="report-kpi-item">
                     <span className="report-kpi-label">Revenue Loss</span>
+                    {/* KPI card — no decimals */}
                     <span className="report-kpi-value">₱{analytics.totalLoss.toLocaleString()}</span>
                   </div>
                   <div className="report-kpi-item">
@@ -1384,6 +1488,91 @@ export default function SPSales() {
                   </div>
                 </div>
               </div>
+
+              {/* Pet Type Breakdown Section - NEW */}
+              {petTypeFilter === 'both' && (
+                <div className="report-section">
+                  <h3 className="report-section-title">Revenue by Pet Type</h3>
+                  <div className="pet-type-breakdown-grid">
+                    <div className="pet-breakdown-card">
+                      <div className="pet-breakdown-header">
+                        <span className="pet-type-icon"></span>
+                        <h4>Dog Services</h4>
+                      </div>
+                      <div className="pet-breakdown-stats">
+                        <div className="pet-stat-item">
+                          <span className="pet-stat-label">Revenue</span>
+                          <span className="pet-stat-value">
+                            ₱{formatCurrency(analytics.petTypeBreakdown.Dog.revenue)}
+                          </span>
+                        </div>
+                        <div className="pet-stat-item">
+                          <span className="pet-stat-label">Bookings</span>
+                          <span className="pet-stat-value">
+                            {analytics.petTypeBreakdown.Dog.bookings}
+                          </span>
+                        </div>
+                        <div className="pet-stat-item">
+                          <span className="pet-stat-label">Customers</span>
+                          <span className="pet-stat-value">
+                            {analytics.petTypeBreakdown.Dog.customers}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="pet-breakdown-card">
+                      <div className="pet-breakdown-header">
+                        <span className="pet-type-icon"></span>
+                        <h4>Cat Services</h4>
+                      </div>
+                      <div className="pet-breakdown-stats">
+                        <div className="pet-stat-item">
+                          <span className="pet-stat-label">Revenue</span>
+                          <span className="pet-stat-value">
+                            ₱{formatCurrency(analytics.petTypeBreakdown.Cat.revenue)}
+                          </span>
+                        </div>
+                        <div className="pet-stat-item">
+                          <span className="pet-stat-label">Bookings</span>
+                          <span className="pet-stat-value">
+                            {analytics.petTypeBreakdown.Cat.bookings}
+                          </span>
+                        </div>
+                        <div className="pet-stat-item">
+                          <span className="pet-stat-label">Customers</span>
+                          <span className="pet-stat-value">
+                            {analytics.petTypeBreakdown.Cat.customers}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Insights */}
+                  <div className="pet-breakdown-insights">
+                    <p>
+                      <strong>Top Performing Pet Type:</strong>{' '}
+                      {analytics.petTypeBreakdown.Dog.revenue > analytics.petTypeBreakdown.Cat.revenue 
+                        ? `Dog services generated ${((analytics.petTypeBreakdown.Dog.revenue / (analytics.petTypeBreakdown.Dog.revenue + analytics.petTypeBreakdown.Cat.revenue)) * 100).toFixed(0)}% of total revenue`
+                        : `Cat services generated ${((analytics.petTypeBreakdown.Cat.revenue / (analytics.petTypeBreakdown.Dog.revenue + analytics.petTypeBreakdown.Cat.revenue)) * 100).toFixed(0)}% of total revenue`}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Show filtered pet type note when specific filter is active */}
+              {petTypeFilter !== 'both' && (
+                <div className="report-section">
+                  <div className="pet-filter-notice">
+                    <h4>📊 Filtered Report</h4>
+                    <p>
+                      This report displays data exclusively for <strong>{petTypeFilter}</strong> services. 
+                      To view complete data across all pet types, change the pet type filter to "Both (Dog & Cat)".
+                    </p>
+                  </div>
+                </div>
+              )}
 
               {/* Sales Analysis */}
               <div className="report-section">
@@ -1411,8 +1600,9 @@ export default function SPSales() {
                   </div>
                   <div className="insight-item">
                     <strong>Cancellation Impact:</strong>
+                    {/* CHANGE: decimals for revenue loss figure in narrative */}
                     <p>
-                      Cancellations resulted in a revenue loss of ₱{analytics.totalLoss.toLocaleString()} during this period. 
+                      Cancellations resulted in a revenue loss of ₱{formatCurrency(analytics.totalLoss)} during this period. 
                       {analytics.totalLoss > 0 
                         ? ' Consider implementing cancellation policies or improving customer communication.'
                         : ' Excellent! No revenue was lost to cancellations.'}
@@ -1427,14 +1617,15 @@ export default function SPSales() {
                 <div className="pet-distribution">
                   <div className="pet-dist-item">
                     <span className="pet-type">New Customers</span>
+                    {/* CHANGE: decimals for segmentation revenue figures */}
                     <span className="pet-count">
-                      ₱{analytics.newCustomerRevenue.reduce((a, b) => a + b, 0).toLocaleString()} revenue
+                      ₱{formatCurrency(analytics.newCustomerRevenue.reduce((a, b) => a + b, 0))} revenue
                     </span>
                   </div>
                   <div className="pet-dist-item">
                     <span className="pet-type">Returning Customers</span>
                     <span className="pet-count">
-                      ₱{analytics.returningCustomerRevenue.reduce((a, b) => a + b, 0).toLocaleString()} revenue
+                      ₱{formatCurrency(analytics.returningCustomerRevenue.reduce((a, b) => a + b, 0))} revenue
                     </span>
                   </div>
                 </div>

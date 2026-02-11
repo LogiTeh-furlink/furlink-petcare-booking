@@ -16,6 +16,10 @@ import './SPBusinessDashboard.css';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, PointElement, LineElement, ArcElement, Tooltip, Legend);
 
+// Helper: Format currency with 2 decimal places
+const formatCurrency = (value) =>
+  value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
 export default function SPBusinessDashboard() {
   const navigate = useNavigate();
   const reportRef = useRef(null);
@@ -259,68 +263,89 @@ export default function SPBusinessDashboard() {
   const analytics = useMemo(() => {
     const now = new Date();
     
-    // Helper function to get date ranges based on filter
-    const getRange = (filter, isPrevious = false) => {
-      if (filter === 'custom' && customDateStart && customDateEnd) {
-        const start = new Date(customDateStart);
-        const end = new Date(customDateEnd);
-        end.setHours(23, 59, 59, 999);
-        if (isPrevious) {
-          const duration = end - start;
-          const prevEnd = new Date(start);
-          prevEnd.setDate(prevEnd.getDate() - 1);
-          const prevStart = new Date(prevEnd - duration);
-          return { start: prevStart, end: prevEnd };
-        }
-        return { start, end };
+// Helper function to get date ranges based on filter
+  const getRange = (filter, isPrevious = false) => {
+    const today = new Date();
+
+    if (filter === 'custom' && customDateStart && customDateEnd) {
+      const start = new Date(customDateStart);
+      const end = new Date(customDateEnd);
+      end.setHours(23, 59, 59, 999);
+      if (isPrevious) {
+        const duration = end - start;
+        const prevEnd = new Date(start);
+        prevEnd.setDate(prevEnd.getDate() - 1);
+        prevEnd.setHours(23, 59, 59, 999);
+        const prevStart = new Date(prevEnd - duration);
+        return { start: prevStart, end: prevEnd };
       }
+      return { start, end };
+    }
+    
+    let start = new Date();
+    let end = new Date();
+
+    if (filter === 'weekly') {
+      if (isPrevious) { 
+        start.setDate(today.getDate() - 14); 
+        end.setDate(today.getDate() - 7); 
+        end.setHours(23, 59, 59, 999);
+      } else { 
+        start.setDate(today.getDate() - 7); 
+        end = today;
+      }
+    } else if (filter === 'monthly') {
       
-      let start = new Date();
-      let end = new Date();
-      if (filter === 'weekly') {
-        if (isPrevious) { 
-          start.setDate(now.getDate() - 14); 
-          end.setDate(now.getDate() - 7); 
-        } else { 
-          start.setDate(now.getDate() - 7); 
-        }
-      } else if (filter === 'monthly') {
-        if (isPrevious) { 
-          start.setMonth(now.getMonth() - 1, 1); 
-          end = new Date(now.getFullYear(), now.getMonth(), 0); 
-        } else { 
-          start = new Date(now.getFullYear(), now.getMonth(), 1);
-          end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-        }
-      } else if (filter === 'yearly') {
-        // For yearly filter: if a specific year is selected, use that year
-        // Otherwise, use all data from 2020 to present
-        if (selectedYear) {
-          start = new Date(selectedYear, 0, 1);
-          end = new Date(selectedYear, 11, 31, 23, 59, 59, 999);
-          if (isPrevious) {
-            start = new Date(selectedYear - 1, 0, 1);
-            end = new Date(selectedYear - 1, 11, 31, 23, 59, 59, 999);
-          }
-        } else {
-          // Show all data from 2020 onwards
-          start = new Date(2020, 0, 1);
-          end = now;
-          if (isPrevious) {
-            start = new Date(2019, 0, 1);
-            end = new Date(2019, 11, 31, 23, 59, 59, 999);
-          }
+      if (isPrevious) { 
+        start.setMonth(today.getMonth() - 1, 1); 
+        
+        // Calculate the fair end date (Period-to-Date)
+        const daysInPrevMonth = new Date(today.getFullYear(), today.getMonth(), 0).getDate();
+        const targetDay = Math.min(today.getDate(), daysInPrevMonth);
+        
+        end = new Date(today.getFullYear(), today.getMonth() - 1, targetDay);
+        end.setHours(23, 59, 59, 999);
+      } else { 
+        start = new Date(today.getFullYear(), today.getMonth(), 1);
+        end = today;
+      }
+    } else if (filter === 'yearly') {
+      // === FIX APPLIED HERE ===
+      if (selectedYear) {
+        start = new Date(selectedYear, 0, 1);
+        end = new Date(selectedYear, 11, 31, 23, 59, 59, 999);
+        if (isPrevious) {
+          start = new Date(selectedYear - 1, 0, 1);
+          end = new Date(selectedYear - 1, 11, 31, 23, 59, 59, 999);
         }
       } else {
         if (isPrevious) { 
-          start.setFullYear(now.getFullYear() - 1, 0, 1); 
-          end.setFullYear(now.getFullYear() - 1, 11, 31); 
+          start = new Date(today.getFullYear() - 1, 0, 1);
+          
+          // Handle Leap Year edge cases
+          if (today.getMonth() === 1 && today.getDate() === 29) {
+             end = new Date(today.getFullYear() - 1, 1, 28);
+          } else {
+             end = new Date(today.getFullYear() - 1, today.getMonth(), today.getDate());
+          }
+          end.setHours(23, 59, 59, 999);
         } else { 
-          start = new Date(now.getFullYear(), 0, 1);
+          start = new Date(today.getFullYear(), 0, 1);
+          end = today;
         }
       }
-      return { start, end };
-    };
+    } else {
+      // Default fallback
+      if (isPrevious) { 
+        start.setFullYear(today.getFullYear() - 1, 0, 1); 
+        end.setFullYear(today.getFullYear() - 1, 11, 31); 
+      } else { 
+        start = new Date(today.getFullYear(), 0, 1);
+        end = today;
+      }
+    }
+    return { start, end };
+  };
 
     const currentRange = getRange(activeFilter);
     const previousRange = getRange(activeFilter, true);
@@ -580,6 +605,63 @@ export default function SPBusinessDashboard() {
       return maxBooking.label;
     };
 
+    // ========================================
+    // PET TYPE BREAKDOWN FOR REPORT
+    // Calculate stats broken down by pet type
+    // ========================================
+    const calculatePetTypeBreakdown = () => {
+      const breakdown = {
+        Dog: { revenue: 0, bookings: 0, customers: new Set() },
+        Cat: { revenue: 0, bookings: 0, customers: new Set() }
+      };
+
+      currentBookings.forEach(booking => {
+        if (!isBookingComplete(booking)) return;
+        
+        const bookingRevenue = Number(booking.total_estimated_price) || 0;
+        
+        // Track which pet types are in this booking
+        const petTypes = new Set();
+        booking.booking_pets?.forEach(pet => {
+          petTypes.add(pet.pet_type);
+        });
+
+        // If booking has both pet types, split the revenue
+        if (petTypes.has('Dog') && petTypes.has('Cat')) {
+          const splitRevenue = bookingRevenue / 2;
+          breakdown.Dog.revenue += splitRevenue;
+          breakdown.Cat.revenue += splitRevenue;
+          breakdown.Dog.bookings += 1;
+          breakdown.Cat.bookings += 1;
+          breakdown.Dog.customers.add(booking.user_id);
+          breakdown.Cat.customers.add(booking.user_id);
+        } else if (petTypes.has('Dog')) {
+          breakdown.Dog.revenue += bookingRevenue;
+          breakdown.Dog.bookings += 1;
+          breakdown.Dog.customers.add(booking.user_id);
+        } else if (petTypes.has('Cat')) {
+          breakdown.Cat.revenue += bookingRevenue;
+          breakdown.Cat.bookings += 1;
+          breakdown.Cat.customers.add(booking.user_id);
+        }
+      });
+
+      return {
+        Dog: {
+          revenue: breakdown.Dog.revenue,
+          bookings: breakdown.Dog.bookings,
+          customers: breakdown.Dog.customers.size
+        },
+        Cat: {
+          revenue: breakdown.Cat.revenue,
+          bookings: breakdown.Cat.bookings,
+          customers: breakdown.Cat.customers.size
+        }
+      };
+    };
+
+    const petTypeBreakdown = calculatePetTypeBreakdown();
+
     return { 
       revenue: current.rev, 
       validCount: current.count, 
@@ -602,7 +684,8 @@ export default function SPBusinessDashboard() {
       sValues, 
       totalS: sValues.reduce((a, b) => a + b, 0),
       rangeText, 
-      busiestHour: getBusiestHour()
+      busiestHour: getBusiestHour(),
+      petTypeBreakdown
     };
   }, [rawBookings, serviceStats, activeFilter, providerHours, petTypeFilter, customDateStart, customDateEnd, selectedYear]);
 
@@ -1116,6 +1199,91 @@ export default function SPBusinessDashboard() {
                 </div>
               </div>
 
+              {/* Pet Type Breakdown Section - NEW */}
+              {petTypeFilter === 'both' && (
+                <div className="report-section">
+                  <h3 className="report-section-title">Performance by Pet Type</h3>
+                  <div className="pet-type-breakdown-grid">
+                    <div className="pet-breakdown-card">
+                      <div className="pet-breakdown-header">
+                        <span className="pet-type-icon">🐕</span>
+                        <h4>Dog Services</h4>
+                      </div>
+                      <div className="pet-breakdown-stats">
+                        <div className="pet-stat-item">
+                          <span className="pet-stat-label">Revenue</span>
+                          <span className="pet-stat-value">
+                            ₱{formatCurrency(analytics.petTypeBreakdown.Dog.revenue)}
+                          </span>
+                        </div>
+                        <div className="pet-stat-item">
+                          <span className="pet-stat-label">Bookings</span>
+                          <span className="pet-stat-value">
+                            {analytics.petTypeBreakdown.Dog.bookings}
+                          </span>
+                        </div>
+                        <div className="pet-stat-item">
+                          <span className="pet-stat-label">Customers</span>
+                          <span className="pet-stat-value">
+                            {analytics.petTypeBreakdown.Dog.customers}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="pet-breakdown-card">
+                      <div className="pet-breakdown-header">
+                        <span className="pet-type-icon">🐈</span>
+                        <h4>Cat Services</h4>
+                      </div>
+                      <div className="pet-breakdown-stats">
+                        <div className="pet-stat-item">
+                          <span className="pet-stat-label">Revenue</span>
+                          <span className="pet-stat-value">
+                            ₱{formatCurrency(analytics.petTypeBreakdown.Cat.revenue)}
+                          </span>
+                        </div>
+                        <div className="pet-stat-item">
+                          <span className="pet-stat-label">Bookings</span>
+                          <span className="pet-stat-value">
+                            {analytics.petTypeBreakdown.Cat.bookings}
+                          </span>
+                        </div>
+                        <div className="pet-stat-item">
+                          <span className="pet-stat-label">Customers</span>
+                          <span className="pet-stat-value">
+                            {analytics.petTypeBreakdown.Cat.customers}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Insights */}
+                  <div className="pet-breakdown-insights">
+                    <p>
+                      <strong>Top Performing Pet Type:</strong>{' '}
+                      {analytics.petTypeBreakdown.Dog.revenue > analytics.petTypeBreakdown.Cat.revenue 
+                        ? `Dog services generated ${((analytics.petTypeBreakdown.Dog.revenue / (analytics.petTypeBreakdown.Dog.revenue + analytics.petTypeBreakdown.Cat.revenue)) * 100).toFixed(0)}% of total revenue`
+                        : `Cat services generated ${((analytics.petTypeBreakdown.Cat.revenue / (analytics.petTypeBreakdown.Dog.revenue + analytics.petTypeBreakdown.Cat.revenue)) * 100).toFixed(0)}% of total revenue`}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Show filtered pet type notice when specific filter is active */}
+              {petTypeFilter !== 'both' && (
+                <div className="report-section">
+                  <div className="pet-filter-notice">
+                    <h4>📊 Filtered Report</h4>
+                    <p>
+                      This report displays data exclusively for <strong>{petTypeFilter}</strong> services. 
+                      To view complete data across all pet types, change the pet type filter to "Both (Dog & Cat)".
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {/* Performance Analysis */}
               <div className="report-section">
                 <h3 className="report-section-title">Performance Analysis</h3>
@@ -1123,7 +1291,7 @@ export default function SPBusinessDashboard() {
                   <div className="insight-item">
                     <strong>Peak Activity:</strong>
                     <p>
-                      Your busiest time slot is typically <strong>{analytics.busiestHour}</strong> 
+                      Your busiest time slot is typically <strong>{analytics.busiestHour}</strong>. 
                       Consider optimizing staffing during this period.
                     </p>
                   </div>
@@ -1175,10 +1343,10 @@ export default function SPBusinessDashboard() {
                 </div>
               )}
 
-              {/* Pet Type Distribution (only show when "both" is selected) */}
+              {/* Pet Type Distribution (only show when "both" is selected) - Keep this for simple counts */}
               {petTypeFilter === 'both' && (
                 <div className="report-section">
-                  <h3 className="report-section-title">Pet Type Distribution</h3>
+                  <h3 className="report-section-title">Booking Volume by Pet Type</h3>
                   <div className="pet-distribution">
                     <div className="pet-dist-item">
                       <span className="pet-type">🐕 Dogs</span>
