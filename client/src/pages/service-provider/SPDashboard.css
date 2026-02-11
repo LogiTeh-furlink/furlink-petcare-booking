@@ -930,8 +930,9 @@ p {
 
 .reviewer-info {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  flex-direction: column;
+  gap: 0.5rem;
+  align-items: flex-start;
 }
 
 .reviewer-name {
