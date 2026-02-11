@@ -39,6 +39,9 @@ const PetDetails = () => {
   const [showSummaryModal, setShowSummaryModal] = useState(false);
   const [attemptedSubmit, setAttemptedSubmit] = useState(false);
 
+  // --- NEW: Global Error State for Validation ---
+  const [globalError, setGlobalError] = useState("");
+
   // --- Success Modal State ---
   const [showSuccessModal, setShowSuccessModal] = useState(false);
 
@@ -136,7 +139,8 @@ const PetDetails = () => {
 
   const initialProviderId = state?.providerId || sessionStorage.getItem('current_provider_id');
 
-  const triggerError = (msg) => alert(msg);
+  // Updated: Set global error text instead of alert
+  const triggerError = (msg) => setGlobalError(msg);
 
   const handleGenerateAIHaircut = async (index) => {
     const pet = petsData[index];
@@ -684,12 +688,21 @@ const handleAddPet = () => {
                 <button 
                   className="btn-proceed-large" 
                   onClick={() => {
+                    setGlobalError(""); // Clear any previous error
                     const result = validateForm();
                     if (result.valid) setShowSummaryModal(true);
                   }}
                 >
                   Proceed to Summary <ArrowRight size={18}/>
                 </button>
+                
+                {/* GLOBAL VALIDATION ERROR TEXT BELOW BUTTON */}
+                {globalError && (
+                  <div className="global-error-text">
+                    <AlertCircle size={16} style={{minWidth: '16px'}}/> 
+                    {globalError}
+                  </div>
+                )}
             </div>
         </div>
 

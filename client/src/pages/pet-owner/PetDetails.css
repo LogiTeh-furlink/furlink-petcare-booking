@@ -86,6 +86,20 @@
 }
 .btn-proceed-large:hover { transform: translateY(-2px); color: #fbbf24;  }
 
+/* NEW: Global Error Text Styling */
+.global-error-text {
+    color: #dc2626;
+    font-size: 0.85rem;
+    margin-top: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end; /* Align right to match button */
+    gap: 6px;
+    font-weight: 500;
+    text-align: right;
+    animation: shake 0.3s ease-in-out;
+}
+
 /* POLICIES - URGENT VISIBILITY */
 .policies-container { 
     border: 2px solid var(--primary-blue); 
@@ -508,10 +522,12 @@
   box-shadow: 0 10px 25px rgba(0,0,0,0.2);
 }
 
+/* UPDATED: White background with Dark Blue Text */
 .modal-header {
   padding: 20px; border-bottom: 1px solid #eee;
   display: flex; justify-content: space-between; align-items: center;
-  background: #0E2679; color: white;
+  background: #ffffff; /* Changed from dark blue to white */
+  color: var(--primary-blue); /* Changed from white to dark blue */
 }
 
 .modal-body {
