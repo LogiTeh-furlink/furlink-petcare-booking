@@ -165,6 +165,20 @@ export default function Appointments() {
   const [availableSlots, setAvailableSlots] = useState([]); 
   const [providerHours, setProviderHours] = useState([]);   
   const [targetDateBookings, setTargetDateBookings] = useState([]); // Stores bookings for the provider on the selected reschedule date
+  const calculateIntervalSlots = (workingDay) => {
+    if (!workingDay) return [];
+    const slots = [];
+    let current = new Date(`2000-01-01T${workingDay.start_time}`);
+    const end = new Date(`2000-01-01T${workingDay.end_time}`);
+    // Use provider's interval or fallback to 90 (1hr 30m)
+    const intervalMinutes = parseInt(workingDay.slot_interval_minutes) || 90;
+
+    while (current < end) {
+      slots.push(current.toTimeString().split(' ')[0]); // Format: "09:00:00"
+      current.setMinutes(current.getMinutes() + intervalMinutes);
+    }
+    return slots;
+  };
 
   const [feedbackForm, setFeedbackForm] = useState({
     overallRating: 0,
@@ -194,10 +208,13 @@ export default function Appointments() {
         
         const { data, error } = await supabase
             .from("bookings")
-            .select("time_slot, status")
+            .select("id, time_slot, status") // Added 'id' to the select
             .eq("provider_id", selectedBooking.service_providers.id)
             .eq("booking_date", reschedForm.date)
-            .not("status", "in", '("cancelled", "rejected")');
+            // EXCLUDEterminal statuses
+            .not("status", "in", '("cancelled", "declined", "rejected", "void", "voided")')
+            // EXCLUDE the current booking itself so it doesn't block the capacity calculation
+            .neq("id", selectedBooking.id); 
 
         if (!error) setTargetDateBookings(data || []);
     };
@@ -242,6 +259,21 @@ export default function Appointments() {
 
       if (error) throw error;
       setBookings(data || []);
+
+      // Requirement: Auto-decline if no response within 24 hours
+      const now = new Date();
+      data?.forEach(async (b) => {
+        const submittedAt = new Date(b.created_at);
+        const hoursDiff = (now - submittedAt) / (1000 * 60 * 60);
+        
+        if (b.status === 'pending' && hoursDiff >= 24) {
+          await supabase.from('bookings').update({ 
+            status: 'declined', 
+            rejection_reason: 'Service Provider did not respond to booking requests' 
+          }).eq('id', b.id);
+        }
+      });
+
     } catch (err) {
       // Errors handled silently as requested
     } finally {
@@ -251,32 +283,59 @@ export default function Appointments() {
 
   const generateTimeSlots = (dateString) => {
     if (!dateString || providerHours.length === 0) return [];
-    const selectedDate = new Date(dateString);
-    const dayName = selectedDate.toLocaleDateString('en-US', { weekday: 'long' });
+    const dayName = new Date(dateString).toLocaleDateString('en-US', { weekday: 'long' });
     const daySchedule = providerHours.find(h => h.day_of_week === dayName);
 
-    if (!daySchedule) return [];
-
-    const slots = [];
-    let current = new Date(`2000-01-01T${daySchedule.start_time}`);
-    const end = new Date(`2000-01-01T${daySchedule.end_time}`);
-
-    while (current < end) {
-      slots.push(current.toLocaleTimeString('en-US', { 
-        hour: 'numeric', 
-        minute: '2-digit', 
-        hour12: true 
-      }));
-      current.setHours(current.getHours() + 1);
-    }
-    return slots;
+    return calculateIntervalSlots(daySchedule).map(time => {
+      const tempDate = new Date(`2000-01-01T${time}`);
+      return tempDate.toLocaleTimeString('en-US', { 
+        hour: 'numeric', minute: '2-digit', hour12: true 
+      });
+    });
   };
 
-  const handleRescheduleDateChange = (e) => {
+const handleRescheduleDateChange = async (e) => {
     const newDate = e.target.value;
-    const slots = generateTimeSlots(newDate);
-    setReschedForm({ ...reschedForm, date: newDate, time: "" });
-    setAvailableSlots(slots);
+    const petCount = selectedBooking.booking_pets?.length || 1;
+    const dayName = new Date(newDate).toLocaleDateString('en-US', { weekday: 'long' });
+    const workingDay = providerHours.find(h => h.day_of_week === dayName);
+    if (!newDate || !selectedBooking) return;
+
+    // Fetch all active bookings for that date
+    const { data: dateBookings } = await supabase
+      .from("bookings")
+      .select("time_slot, status")
+      .eq("provider_id", selectedBooking.service_providers.id)
+      .eq("booking_date", newDate)
+      .not("status", "in", '("cancelled", "declined", "rejected", "void", "voided")');
+
+    const potentialSlots = calculateIntervalSlots(workingDay);
+    
+    // Check if at least one slot in the day can fit ALL pets
+    const hasRoom = potentialSlots.some(time => {
+      const occupied = dateBookings.filter(b => b.time_slot === time).length;
+      const capacity = parseInt(workingDay.slot_capacity) || 1;
+      return (capacity - occupied) >= petCount;
+    });
+
+    if (!hasRoom) {
+      alert(`The shop is fully booked for ${petCount} pet(s) on this date.`);
+      setReschedForm({ ...reschedForm, date: "", time: "" });
+      setAvailableSlots([]);
+    } else {
+      setReschedForm({ ...reschedForm, date: newDate, time: "" });
+      setTargetDateBookings(dateBookings || []);
+      if (newDate === selectedBooking.booking_date) {
+        
+      }
+      // Map 24h slots to 12h for the dropdown
+      const displaySlots = potentialSlots.map(t => {
+          const [h, m] = t.split(':');
+          const hr = parseInt(h);
+          return `${hr % 12 || 12}:${m} ${hr >= 12 ? 'PM' : 'AM'}`;
+      });
+      setAvailableSlots(displaySlots);
+    }
   };
 
   // --- SLOT AVAILABILITY LOGIC ---
@@ -287,19 +346,18 @@ export default function Appointments() {
     const workingDay = providerHours.find(h => h.day_of_week === dayName);
     const maxCapacity = workingDay ? parseInt(workingDay.slot_capacity) : 1;
     
-    // Count occupied slots for this time on this date
-    // Note: If rescheduling to the SAME date, we technically shouldn't count our own booking against us,
-    // but the logic here assumes we want to move TO a slot. 
-    // Usually rescheduling implies moving to a different time.
-    const bookingsAtTime = targetDateBookings.filter(b => b.time_slot === timeSlot);
-    const occupied = bookingsAtTime.length;
+    // Database stores time as HH:mm:ss, but UI uses 12h format
+    const time24 = convertTo24Hour(timeSlot) + ":00";
     
-    const remaining = maxCapacity - occupied;
-    const needed = selectedBooking.booking_pets ? selectedBooking.booking_pets.length : 1;
+    // Filter targetDateBookings (which already excludes the current booking ID)
+    const occupiedByOthers = targetDateBookings.filter(b => b.time_slot === time24).length;
+    
+    const remaining = maxCapacity - occupiedByOthers;
+    const petCount = selectedBooking.booking_pets?.length || 0;
     
     return {
         remaining: Math.max(0, remaining),
-        isEnough: remaining >= needed
+        isEnough: remaining >= petCount
     };
   };
 
@@ -329,18 +387,34 @@ export default function Appointments() {
   };
 
   const isCancellable = (booking) => {
-    if (!booking.booking_date || !booking.time_slot) return false;
-    const bookingDateTime = new Date(`${booking.booking_date}T${convertTo24Hour(booking.time_slot)}`);
-    return bookingDateTime > new Date(); 
+    if (!booking.booking_date) return false;
+    const bookingDate = new Date(booking.booking_date);
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    
+    const diffTime = bookingDate - today;
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    // Requirement: Must be status pending/paid AND not today or a day before
+    return (['pending', 'paid'].includes(booking.status)) && diffDays > 1;
   };
 
   const getFilteredBookings = () => {
     if (!bookings) return [];
+    // Requirement: Display from latest booking request to oldest
+    const sorted = [...bookings].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
     switch (activeTab) {
-      case "awaiting": return bookings.filter(b => b.status === "pending");
-      case "payment": return bookings.filter(b => b.status === "approved");
-      case "upcoming": return bookings.filter(b => (b.status === "paid" || b.status === "confirmed") && !isFourHoursPast(b));
-      case "rate": return bookings.filter(b => b.status !== 'rated' && (b.status === "completed" || b.status === "to_rate" || ((b.status === "paid" || b.status === "confirmed") && isFourHoursPast(b))));
+      case "awaiting": 
+        return sorted.filter(b => b.status === "pending");
+      case "payment": 
+        return sorted.filter(b => b.status === "approved");
+      case "upcoming": 
+        // Requirement: Status must be "paid" and NOT 4 hours past
+        return sorted.filter(b => b.status === "paid" && !isFourHoursPast(b));
+      case "rate": 
+        // Requirement: Status must be "paid" and 4 hours after scheduled time
+        return sorted.filter(b => b.status === "paid" && isFourHoursPast(b));
       default: return [];
     }
   };
@@ -348,8 +422,8 @@ export default function Appointments() {
   const counts = {
     awaiting: bookings.filter(b => b.status === "pending").length,
     payment: bookings.filter(b => b.status === "approved").length,
-    upcoming: bookings.filter(b => (b.status === "paid" || b.status === "confirmed") && !isFourHoursPast(b)).length,
-    rate: bookings.filter(b => b.status !== 'rated' && (b.status === "completed" || b.status === "to_rate" || ((b.status === "paid" || b.status === "confirmed") && isFourHoursPast(b)))).length,
+    upcoming: bookings.filter(b => b.status === "paid" && !isFourHoursPast(b)).length,
+    rate: bookings.filter(b => b.status === "paid" && isFourHoursPast(b)).length,
   };
 
   const getServiceSummary = (pets) => {
@@ -400,42 +474,83 @@ export default function Appointments() {
 
   const confirmReschedule = async (e) => {
     e.preventDefault();
-    if(!reschedForm.time) return;
-    
-    // Double check logic before submitting
+    if(!reschedForm.time || !selectedBooking) return;
+
+    // Final verification check for double booking prevention
     const { isEnough } = getSlotDetails(reschedForm.time);
-    if (!isEnough) return; // Prevent submission if logic fails
+    if (!isEnough) {
+        alert("Sorry, this slot was just taken by another user. Please choose another time.");
+        return;
+    }
 
     setActionLoading(true);
     try {
-       await supabase.from('bookings').update({
-         booking_date: reschedForm.date, time_slot: reschedForm.time
-       }).eq('id', selectedBooking.id);
-       setBookings(prev => prev.map(b => b.id === selectedBooking.id ? {...b, booking_date: reschedForm.date, time_slot: reschedForm.time} : b));
-       handleCloseAll();
-       setSuccessTitle("Reschedule Successful!");
-       setSuccessMessage("Your appointment has been updated.");
-       setShowSuccessModal(true);
-    } catch (err) { } finally { setActionLoading(false); }
+      const time24 = convertTo24Hour(reschedForm.time);
+      const { error } = await supabase
+        .from('bookings')
+        .update({
+          booking_date: reschedForm.date,
+          time_slot: time24,
+          status: 'pending' 
+        })
+        .eq('id', selectedBooking.id);
+
+      if (error) throw error;
+      
+      await fetchBookings(); 
+      handleCloseAll();
+
+      // --- ADD THESE TWO LINES BELOW ---
+      setSuccessTitle("Reschedule Successful!");
+      setSuccessMessage("Your previous slot has been released and your new appointment is now awaiting approval.");
+      
+      setShowSuccessModal(true);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   const confirmCancel = async () => {
-    if(!selectedBooking) return;
+    if (!selectedBooking) return;
+
     setActionLoading(true);
     try {
-      await supabase.from('bookings').update({ status: 'cancelled' }).eq('id', selectedBooking.id);
-      setBookings(prev => prev.map(b => b.id === selectedBooking.id ? {...b, status: 'cancelled'} : b));
+      // Direct update to Supabase
+      const { error } = await supabase
+        .from('bookings')
+        .update({ status: 'cancelled' })
+        .eq('id', selectedBooking.id);
+
+      if (error) throw error;
+
+      // Update local state to reflect change immediately
+      setBookings(prev => prev.map(b => 
+        b.id === selectedBooking.id ? { ...b, status: 'cancelled' } : b
+      ));
+
+      // Close all modals and show success confirmation
       handleCloseAll();
-      setSuccessTitle("Cancelled");
-      setSuccessMessage("Your appointment has been cancelled.");
+      setSuccessTitle("Cancelled Successfully");
+      setSuccessMessage("The appointment has been removed from your active list.");
       setShowSuccessModal(true);
-    } catch(err) { } finally { setActionLoading(false); }
+
+    } catch (err) {
+      console.error("Cancellation Error:", err.message);
+      // Optional: Add a triggerError("Could not cancel booking.") here
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   const getMinDate = () => {
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    return tomorrow.toISOString().split("T")[0];
+    const original = new Date(selectedBooking.booking_date);
+    // Requirement: Do not allow date before original or same day (must be tomorrow at earliest)
+    const minPossible = new Date();
+    minPossible.setDate(minPossible.getDate() + 1);
+    
+    return original > minPossible ? original.toISOString().split("T")[0] : minPossible.toISOString().split("T")[0];
   };
 
   const handlePayNow = () => navigate(`/payment/${selectedBooking.id}`);
@@ -569,12 +684,26 @@ export default function Appointments() {
                 </div>
              </div>
              <div className="modal-footer">
-              {selectedBooking.status === 'pending' && <button className="resched-btn" onClick={() => setShowRescheduleModal(true)}>Reschedule Appointment</button>}
-              {activeTab === 'upcoming' && <><button className="rate-btn" onClick={handleOpenRateModal}>Rate</button>{isCancellable(selectedBooking) && <button className="cancel-btn" onClick={() => setShowCancelModal(true)}>Cancel Appointment</button>}</>}
-              {activeTab === 'rate' && <button className="rate-btn" onClick={handleOpenRateModal}>Rate Service</button>}
-              {activeTab === 'awaiting' && <button className="cancel-btn" onClick={() => setShowCancelModal(true)}>Cancel Appointment</button>}
-              {activeTab === 'payment' && <><button className="pay-btn" onClick={handlePayNow}>Pay Now</button><button className="cancel-btn" onClick={() => setShowCancelModal(true)}>Cancel Appointment</button></>}
-             </div>
+              {/* Requirement: Reschedule allowed for 'pending' requests */}
+              {selectedBooking.status === 'pending' && (
+                <button className="resched-btn" onClick={() => setShowRescheduleModal(true)}>Reschedule</button>
+              )}
+
+              {/* Requirement: Pay Now only if status is 'approved' */}
+              {selectedBooking.status === 'approved' && (
+                <button className="pay-btn" onClick={handlePayNow}>Pay Now</button>
+              )}
+
+              {/* Requirement: Rate only if 'paid' and 4 hours past */}
+              {selectedBooking.status === 'paid' && isFourHoursPast(selectedBooking) && (
+                <button className="rate-btn" onClick={handleOpenRateModal}>Rate Service</button>
+              )}
+
+              {/* Requirement: Cancellation allowed for pending and paid, but not < 24h before */}
+              {isCancellable(selectedBooking) && (
+                <button className="cancel-btn" onClick={() => setShowCancelModal(true)}>Cancel Appointment</button>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -589,20 +718,40 @@ export default function Appointments() {
                 <label className="input-label">New Date</label>
                 <input type="date" className="input-field" required min={getMinDate()} value={reschedForm.date} onChange={handleRescheduleDateChange} />
                 <label className="input-label">New Time</label>
-                <select className="input-field" required value={reschedForm.time} disabled={!reschedForm.date || availableSlots.length === 0} onChange={(e) => setReschedForm({ ...reschedForm, time: e.target.value })}>
-                  <option value="">{!reschedForm.date ? "Select a date first" : availableSlots.length === 0 ? "Closed" : "Select Time"}</option>
+                <select 
+                  className="input-field" 
+                  required 
+                  value={reschedForm.time} 
+                  disabled={!reschedForm.date || availableSlots.length === 0} 
+                  onChange={(e) => setReschedForm({ ...reschedForm, time: e.target.value })}
+                >
+                  <option value="">Select Time Slot</option>
                   {availableSlots.map((slot, index) => {
-                      const { remaining, isEnough } = getSlotDetails(slot);
-                      return (
-                        <option 
-                            key={index} 
-                            value={slot} 
-                            disabled={!isEnough}
-                            style={!isEnough ? { color: '#999', backgroundColor: '#f0f0f0' } : {}}
-                        >
-                            {slot} {remaining <= 0 ? "(Full)" : `(${remaining} slot${remaining !== 1 ? 's' : ''} left)`}
-                        </option>
-                      );
+                    const { remaining, isEnough } = getSlotDetails(slot);
+                    const petCount = selectedBooking.booking_pets?.length || 1;
+                    
+                    // Requirement: Detect if this slot is exactly the same as the current booking
+                    const isOriginalTime = 
+                      reschedForm.date === selectedBooking.booking_date && 
+                      convertTo24Hour(slot) === selectedBooking.time_slot.slice(0, 5); // Slice to match HH:mm
+
+                    return (
+                      <option 
+                        key={index} 
+                        value={slot} 
+                        // Disable if not enough space OR if it's the original time
+                        disabled={!isEnough || isOriginalTime}
+                        style={(!isEnough || isOriginalTime) ? { color: '#999', backgroundColor: '#f3f4f6' } : {}}
+                      >
+                        {slot} 
+                        {isOriginalTime 
+                          ? " (Current Schedule)" 
+                          : isEnough 
+                            ? `(${remaining} left)` 
+                            : `(Full - needs ${petCount} slots)`
+                        }
+                      </option>
+                    );
                   })}
                 </select>
                 
@@ -730,11 +879,51 @@ export default function Appointments() {
 
       {showCancelModal && (
         <div className="modal-overlay">
-           <div className="modal-content small-modal">
-              <div className="modal-header warning-header"><h3>Confirm Cancel</h3></div>
-              <div className="modal-body"><p>Are you sure you want to cancel?</p></div>
-              <div className="modal-footer"><button className="secondary-btn" onClick={() => setShowCancelModal(false)}>No</button><button className="confirm-btn-no" onClick={confirmCancel} disabled={actionLoading}>Yes, Cancel</button></div>
-           </div>
+          <div className="modal-content small-modal">
+            <div className="modal-header warning-header">
+              <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <FaExclamationTriangle color="#ef4444" /> Confirm Cancellation
+              </h3>
+            </div>
+            <div className="modal-body">
+              <p style={{ fontWeight: '600', marginBottom: '10px' }}>
+                Are you sure you want to cancel this appointment?
+              </p>
+              
+              {/* DYNAMIC WARNING MESSAGE */}
+              {selectedBooking?.status === 'paid' && (
+                <div className="refund-warning-box" style={{ 
+                  backgroundColor: '#fef2f2', 
+                  border: '1px solid #fecaca', 
+                  padding: '12px', 
+                  borderRadius: '8px',
+                  color: '#991b1b',
+                  fontSize: '0.85rem'
+                }}>
+                  <strong>Important:</strong> This booking is already <strong>PAID</strong>. 
+                  By cancelling, you acknowledge that the 30% downpayment is 
+                  <strong> non-refundable</strong>.
+                </div>
+              )}
+            </div>
+            <div className="modal-footer">
+              <button 
+                className="secondary-btn" 
+                onClick={() => setShowCancelModal(false)}
+                disabled={actionLoading}
+              >
+                No, Keep Booking
+              </button>
+              <button 
+                className="confirm-btn-no" 
+                onClick={confirmCancel} 
+                disabled={actionLoading}
+                style={{ backgroundColor: '#ef4444' }}
+              >
+                {actionLoading ? "Processing..." : "Yes, Cancel Appointment"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
