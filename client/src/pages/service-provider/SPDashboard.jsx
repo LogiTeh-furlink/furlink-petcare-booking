@@ -12,7 +12,8 @@ import {
   FaPaw, 
   FaClock, 
   FaCheckCircle, 
-  FaSearchPlus // <--- Add this
+  FaSearchPlus,
+  FaExclamationTriangle // <--- ADD THIS LINE
 } from "react-icons/fa";
 import "./SPDashboard.css";
 
@@ -265,6 +266,8 @@ export default function SPDashboard() {
         return bookings.filter(b => b.status === 'paid' && !isBookingComplete(b));
       case 'completed':
         return bookings.filter(b => isBookingComplete(b));
+      case 'cancelled': // ADD THIS
+        return bookings.filter(b => b.status === 'cancelled');
       default:
         return [];
     }
@@ -286,6 +289,7 @@ export default function SPDashboard() {
     }).length,
     upcoming: bookings.filter(b => b.status === 'paid' && !isBookingComplete(b)).length,
     completed: bookings.filter(b => isBookingComplete(b)).length,
+    cancelled: bookings.filter(b => b.status === 'cancelled').length, // ADD THIS
   };
 
   const formatCurrency = (val) => `₱${parseFloat(val || 0).toLocaleString('en-PH', { minimumFractionDigits: 2 })}`;
@@ -330,6 +334,11 @@ export default function SPDashboard() {
         title = "Payment Voided";
         msg = "The payment proof was rejected. The customer will be notified to re-upload.";
         break;
+      case 'cancel': 
+        newStatus = 'cancelled'; 
+        title = "Booking Cancelled";
+        msg = `The booking has been moved to Cancelled. Please ensure you have refunded the 30% Downpayment (${formatCurrency(selectedBooking.installation_payment)}) to the pet owner.`;
+        break;  
       default: return;
     }
 
@@ -433,6 +442,10 @@ export default function SPDashboard() {
              <h3>Completed</h3>
              <p className="status-count">{stats.completed}</p>
            </div>
+           <div className={`status-card ${activeTab === 'cancelled' ? 'active' : ''}`} onClick={() => setActiveTab('cancelled')}>
+            <h3>Cancelled</h3>
+            <p className="status-count" style={{ color: '#ef4444' }}>{stats.cancelled}</p>
+          </div>
         </div>
 
         <div className="bookings-table-container">
@@ -592,6 +605,62 @@ export default function SPDashboard() {
               </div>
             </div>
             <div className="modal-footer">
+              {/* --- SIDE-BY-SIDE CANCEL LOGIC --- */}
+{selectedBooking.status === 'paid' && !isBookingComplete(selectedBooking) && (
+  <div className="cancel-verification-wrapper" style={{ 
+      marginTop: '15px', 
+      borderTop: '1px solid #f1f5f9', 
+      paddingTop: '15px',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'flex-start', // Anchors everything to the left
+      gap: '12px'
+  }}>
+    
+    {/* LEFT SIDE: ALERT (Compact and shifted left) */}
+    <div className="compact-refund-alert" style={{ 
+        display: 'flex', 
+        alignItems: 'center', 
+        gap: '8px', 
+        padding: '6px 10px', // Slightly reduced padding to keep it tight
+        borderRadius: '6px', 
+        background: '#fff1f2', 
+        borderLeft: '4px solid #e11d48',
+        marginRight: 'auto', // This pushes the button to the right while keeping this on the left
+        textAlign: 'left'
+    }}>
+      <FaExclamationTriangle style={{ color: '#e11d48', flexShrink: 0 }} size={12} />
+      <p style={{ margin: 0, fontSize: '0.75rem', color: '#be123c', fontWeight: '500', lineHeight: '1.2' }}>
+         Cancellation requires a manual refund of the <strong>{formatCurrency(selectedBooking.installation_payment)}</strong> (30% Down Payment) to the pet owner.
+      </p>
+    </div>
+    
+    {/* RIGHT SIDE: BUTTON */}
+    <button 
+      className="btn-cancel-action" 
+      style={{ 
+        padding: '8px 16px', 
+        background: '#475569', 
+        color: 'white', 
+        border: 'none', 
+        borderRadius: '6px', 
+        fontWeight: '600', 
+        fontSize: '0.8rem',
+        whiteSpace: 'nowrap',
+        cursor: 'pointer',
+        transition: 'background 0.2s'
+      }} 
+      onClick={() => {
+        if(window.confirm(`Cancel booking? You must manually refund ${formatCurrency(selectedBooking.installation_payment)}.`)) {
+          handleAction('cancel');
+        }
+      }}
+    >
+      Cancel Booking
+    </button>
+  </div>
+)}
+
               {selectedBooking.status === 'pending' && (
                 <div className="action-row">
                    <div className="decline-area">
@@ -619,9 +688,6 @@ export default function SPDashboard() {
                    </div>
                    <button className="btn-approve" onClick={() => handleAction('accept_payment')}>Accept Payment</button>
                 </div>
-              )}
-              {(isBookingComplete(selectedBooking) || ['approved', 'paid', 'decline', 'void', 'cancelled'].includes(selectedBooking.status)) && (
-                 <button className="btn-close-footer" onClick={closeModal}>Close Details</button>
               )}
             </div>
           </div>
