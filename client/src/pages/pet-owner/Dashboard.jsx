@@ -75,20 +75,30 @@ const Dashboard = () => {
           const detailed = await Promise.all(data.map(async (provider) => {
             const { data: services } = await supabase.from("services").select(`service_options(price)`).eq("provider_id", provider.id);
             let min = 0, max = 0;
+            let formattedPriceRange = "Price not available";
+
             if (services?.length > 0) {
               const prices = services.flatMap(s => s.service_options || []).map(opt => parseFloat(opt.price)).filter(p => !isNaN(p));
               if (prices.length > 0) {
                 min = Math.min(...prices);
                 max = Math.max(...prices);
+
+                // Logic for decimal display and range vs single value
+                if (min === max) {
+                  formattedPriceRange = `₱${min.toFixed(2)}`;
+                } else {
+                  formattedPriceRange = `₱${min.toFixed(2)} - ₱${max.toFixed(2)}`;
+                }
               }
             }
+
             const { data: images } = await supabase.from("service_provider_images").select("image_url").eq("provider_id", provider.id).limit(1);
             const stats = provider.provider_rating_analytics?.[0];
-            
+
             return {
               ...provider,
               numericMinPrice: min,
-              priceRange: min > 0 ? `₱${min} - ₱${max}` : "Price not available",
+              priceRange: formattedPriceRange, // Using the new formatted string
               imageUrl: images?.[0]?.image_url || null,
               rating: stats ? parseFloat(stats.total_combined_avg).toFixed(1) : "0.0"
             };
