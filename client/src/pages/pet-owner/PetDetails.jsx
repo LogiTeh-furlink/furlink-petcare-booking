@@ -5,7 +5,7 @@ import {
   Calendar, Weight, Activity, Cat, AlertCircle,
   UploadCloud, FileText, Trash2, Plus, ArrowRight,
   CreditCard, ArrowLeft, ChevronDown, ChevronUp, X, 
-  Maximize2, Minus, Tag, Clock, ShieldCheck 
+  Maximize2, Minus, Tag, Clock, ShieldCheck, CheckCircle
 } from "lucide-react";
 import Header from "../../components/Header/LoggedInNavbar";
 import Footer from "../../components/Footer/Footer";
@@ -39,8 +39,8 @@ const PetDetails = () => {
   const [showSummaryModal, setShowSummaryModal] = useState(false);
   const [attemptedSubmit, setAttemptedSubmit] = useState(false);
 
-  // --- NEW: Success Toast State ---
-  const [showSuccessToast, setShowSuccessToast] = useState(false);
+  // --- CHANGED: Success Modal State ---
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   const [showCapacityModal, setShowCapacityModal] = useState(false);
   const [remainingSpots, setRemainingSpots] = useState(0);
@@ -397,14 +397,9 @@ const handleAddPet = () => {
       }
     }
 
-    // --- UPDATED SUCCESS LOGIC ---
+    // --- UPDATED SUCCESS LOGIC: SHOW MODAL INSTEAD OF TOAST ---
     setShowSummaryModal(false);
-    setShowSuccessToast(true); // Trigger Success Toast
-
-    // Delay navigation so user can see the success message
-    setTimeout(() => {
-        navigate("/dashboard", { state: { success: true } });
-    }, 2000);
+    setShowSuccessModal(true);
 
   } catch (error) {
     console.error(error);
@@ -413,6 +408,10 @@ const handleAddPet = () => {
     setLoading(false);
   }
 };
+
+ const handleFinish = () => {
+    navigate("/dashboard", { state: { success: true } });
+ };
   
   const updatePetInfo = (index, field, value) => {
     setPetsData(prev => {
@@ -1161,12 +1160,16 @@ const handleAddPet = () => {
             limit={remainingSpots} 
           />
         
-        {/* NEW: Success Toast Message */}
-        {showSuccessToast && (
-            <div className="booking-success-toast">
-                <ShieldCheck size={20} />
-                Booking requested successfully!
+        {/* NEW: Success Modal (Replaces Toast) */}
+        {showSuccessModal && (
+          <div className="modal-overlay">
+            <div className="success-modal">
+              <div className="success-icon"><CheckCircle size={64} /></div>
+              <h3>Booking Requested!</h3>
+              <p>Your appointment request has been submitted. Please wait for the provider to confirm your slot.</p>
+              <button className="done-btn" onClick={handleFinish}>Return to Dashboard</button>
             </div>
+          </div>
         )}
 
       </main>
