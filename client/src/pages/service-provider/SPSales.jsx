@@ -32,6 +32,12 @@ ChartJS.register(
   Filler
 );
 
+// ============================================
+// HELPER: Format currency with 2 decimal places
+// ============================================
+const formatCurrency = (value) =>
+  value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
 export default function SPSales() {
   const navigate = useNavigate();
   const reportRef = useRef(null);
@@ -580,6 +586,9 @@ export default function SPSales() {
       sum + (val - actualRevenue[idx]), 0
     );
 
+    // Calculate total revenue for overall sales chart
+    const totalRevenue = overallSalesData.reduce((sum, val) => sum + val, 0);
+
     return { 
       revenue: current.rev, 
       validCount: current.count, 
@@ -594,6 +603,7 @@ export default function SPSales() {
       // Chart data
       overallSalesData,
       overallCustomerCountArray,
+      totalRevenue,
       serviceRevenueMap,
       serviceCustomerCountArrays,
       newCustomerRevenue,
@@ -746,13 +756,14 @@ export default function SPSales() {
         mode: 'index',
         intersect: false,
         callbacks: {
+          // CHANGE: Use formatCurrency for 2 decimal places in base tooltip
           label: function(context) {
             let label = context.dataset.label || '';
             if (label) {
               label += ': ';
             }
             if (context.parsed.y !== null) {
-              label += '₱' + context.parsed.y.toLocaleString();
+              label += '₱' + formatCurrency(context.parsed.y);
             }
             return label;
           }
@@ -1007,13 +1018,12 @@ export default function SPSales() {
                           mode: 'index',
                           intersect: false,
                           callbacks: {
+                            // CHANGE: decimals in tooltip
                             label: function(context) {
                               let label = context.dataset.label || '';
-                              if (label) {
-                                label += ': ';
-                              }
+                              if (label) label += ': ';
                               if (context.parsed.y !== null) {
-                                label += '₱' + context.parsed.y.toLocaleString();
+                                label += '₱' + formatCurrency(context.parsed.y);
                               }
                               return label;
                             },
@@ -1027,6 +1037,10 @@ export default function SPSales() {
                     }}
                   />
                 </div>
+                {/* CHANGE: Total Revenue summary below chart, matching Total Loss style */}
+                <p className="chart-insight-text">
+                  Total Revenue: ₱{formatCurrency(analytics.totalRevenue)}
+                </p>
               </div>
 
               {/* CHART 4: REVENUE LOSS DUE TO CANCELLATIONS */}
@@ -1086,13 +1100,12 @@ export default function SPSales() {
                           mode: 'index',
                           intersect: false,
                           callbacks: {
+                            // CHANGE: decimals in tooltip
                             label: function(context) {
                               let label = context.dataset.label || '';
-                              if (label) {
-                                label += ': ';
-                              }
+                              if (label) label += ': ';
                               if (context.parsed.y !== null) {
-                                label += '₱' + context.parsed.y.toLocaleString();
+                                label += '₱' + formatCurrency(context.parsed.y);
                               }
                               return label;
                             },
@@ -1103,7 +1116,8 @@ export default function SPSales() {
                                 const loss = analytics.potentialRevenue[context.dataIndex] - analytics.actualRevenue[context.dataIndex];
                                 return [
                                   `Cancellations: ${cancellations}`,
-                                  `Revenue Lost: ₱${loss.toLocaleString()}`
+                                  // CHANGE: decimals in revenue lost line
+                                  `Revenue Lost: ₱${formatCurrency(loss)}`
                                 ];
                               }
                               return null;
@@ -1114,8 +1128,9 @@ export default function SPSales() {
                     }}
                   />
                 </div>
+                {/* CHANGE: decimals in Total Loss summary */}
                 <p className="chart-insight-text">
-                  Total Loss: ₱{analytics.totalLoss.toLocaleString()}
+                  Total Loss: ₱{formatCurrency(analytics.totalLoss)}
                 </p>
               </div>
 
@@ -1166,13 +1181,12 @@ export default function SPSales() {
                           mode: 'index',
                           intersect: false,
                           callbacks: {
+                            // CHANGE: decimals in tooltip
                             label: function(context) {
                               let label = context.dataset.label || '';
-                              if (label) {
-                                label += ': ';
-                              }
+                              if (label) label += ': ';
                               if (context.parsed.y !== null) {
-                                label += '₱' + context.parsed.y.toLocaleString();
+                                label += '₱' + formatCurrency(context.parsed.y);
                               }
                               return label;
                             },
@@ -1252,13 +1266,12 @@ export default function SPSales() {
                           mode: 'index',
                           intersect: false,
                           callbacks: {
+                            // CHANGE: decimals in tooltip
                             label: function(context) {
                               let label = context.dataset.label || '';
-                              if (label) {
-                                label += ': ';
-                              }
+                              if (label) label += ': ';
                               if (context.parsed.y !== null) {
-                                label += '₱' + context.parsed.y.toLocaleString();
+                                label += '₱' + formatCurrency(context.parsed.y);
                               }
                               return label;
                             },
@@ -1340,7 +1353,7 @@ export default function SPSales() {
                 </div>
               </div>
 
-              {/* Executive Summary */}
+              {/* Executive Summary — KPI values intentionally kept without decimals per requirement */}
               <div className="report-section">
                 <h3 className="report-section-title">Executive Summary</h3>
                 <div className="report-kpi-grid">
@@ -1372,6 +1385,7 @@ export default function SPSales() {
                   </div>
                   <div className="report-kpi-item">
                     <span className="report-kpi-label">Revenue Loss</span>
+                    {/* KPI card — no decimals */}
                     <span className="report-kpi-value">₱{analytics.totalLoss.toLocaleString()}</span>
                   </div>
                   <div className="report-kpi-item">
@@ -1411,8 +1425,9 @@ export default function SPSales() {
                   </div>
                   <div className="insight-item">
                     <strong>Cancellation Impact:</strong>
+                    {/* CHANGE: decimals for revenue loss figure in narrative */}
                     <p>
-                      Cancellations resulted in a revenue loss of ₱{analytics.totalLoss.toLocaleString()} during this period. 
+                      Cancellations resulted in a revenue loss of ₱{formatCurrency(analytics.totalLoss)} during this period. 
                       {analytics.totalLoss > 0 
                         ? ' Consider implementing cancellation policies or improving customer communication.'
                         : ' Excellent! No revenue was lost to cancellations.'}
@@ -1427,14 +1442,15 @@ export default function SPSales() {
                 <div className="pet-distribution">
                   <div className="pet-dist-item">
                     <span className="pet-type">New Customers</span>
+                    {/* CHANGE: decimals for segmentation revenue figures */}
                     <span className="pet-count">
-                      ₱{analytics.newCustomerRevenue.reduce((a, b) => a + b, 0).toLocaleString()} revenue
+                      ₱{formatCurrency(analytics.newCustomerRevenue.reduce((a, b) => a + b, 0))} revenue
                     </span>
                   </div>
                   <div className="pet-dist-item">
                     <span className="pet-type">Returning Customers</span>
                     <span className="pet-count">
-                      ₱{analytics.returningCustomerRevenue.reduce((a, b) => a + b, 0).toLocaleString()} revenue
+                      ₱{formatCurrency(analytics.returningCustomerRevenue.reduce((a, b) => a + b, 0))} revenue
                     </span>
                   </div>
                 </div>
