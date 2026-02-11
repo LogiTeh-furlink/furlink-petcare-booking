@@ -296,12 +296,21 @@ export default function Appointments() {
 
 const handleRescheduleDateChange = async (e) => {
     const newDate = e.target.value;
-    const petCount = selectedBooking.booking_pets?.length || 1;
-    const dayName = new Date(newDate).toLocaleDateString('en-US', { weekday: 'long' });
-    const workingDay = providerHours.find(h => h.day_of_week === dayName);
     if (!newDate || !selectedBooking) return;
 
-    // Fetch all active bookings for that date
+    // 1. Check if the provider is even open on this day of the week
+    const dayName = new Date(newDate).toLocaleDateString('en-US', { weekday: 'long' });
+    const workingDay = providerHours.find(h => h.day_of_week === dayName);
+
+    if (!workingDay) {
+      alert(`The service provider is closed on ${dayName}s. Please select a different date.`);
+      setReschedForm({ ...reschedForm, date: "", time: "" });
+      setAvailableSlots([]);
+      return;
+    }
+
+    // 2. Proceed with existing capacity check logic
+    const petCount = selectedBooking.booking_pets?.length || 1;
     const { data: dateBookings } = await supabase
       .from("bookings")
       .select("time_slot, status")
@@ -311,7 +320,6 @@ const handleRescheduleDateChange = async (e) => {
 
     const potentialSlots = calculateIntervalSlots(workingDay);
     
-    // Check if at least one slot in the day can fit ALL pets
     const hasRoom = potentialSlots.some(time => {
       const occupied = dateBookings.filter(b => b.time_slot === time).length;
       const capacity = parseInt(workingDay.slot_capacity) || 1;
@@ -319,16 +327,13 @@ const handleRescheduleDateChange = async (e) => {
     });
 
     if (!hasRoom) {
-      alert(`The shop is fully booked for ${petCount} pet(s) on this date.`);
+      alert(`This date is fully booked for ${petCount} pet(s).`);
       setReschedForm({ ...reschedForm, date: "", time: "" });
       setAvailableSlots([]);
     } else {
       setReschedForm({ ...reschedForm, date: newDate, time: "" });
       setTargetDateBookings(dateBookings || []);
-      if (newDate === selectedBooking.booking_date) {
-        
-      }
-      // Map 24h slots to 12h for the dropdown
+      
       const displaySlots = potentialSlots.map(t => {
           const [h, m] = t.split(':');
           const hr = parseInt(h);
@@ -336,7 +341,7 @@ const handleRescheduleDateChange = async (e) => {
       });
       setAvailableSlots(displaySlots);
     }
-  };
+  };;
 
   // --- SLOT AVAILABILITY LOGIC ---
   const getSlotDetails = (timeSlot) => {
@@ -545,12 +550,13 @@ const handleRescheduleDateChange = async (e) => {
   };
 
   const getMinDate = () => {
+    if (!selectedBooking) return "";
     const original = new Date(selectedBooking.booking_date);
-    // Requirement: Do not allow date before original or same day (must be tomorrow at earliest)
-    const minPossible = new Date();
-    minPossible.setDate(minPossible.getDate() + 1);
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
     
-    return original > minPossible ? original.toISOString().split("T")[0] : minPossible.toISOString().split("T")[0];
+    // Return whichever is later: tomorrow or the day after original booking
+    return original > tomorrow ? original.toISOString().split("T")[0] : tomorrow.toISOString().split("T")[0];
   };
 
   const handlePayNow = () => navigate(`/payment/${selectedBooking.id}`);
@@ -715,8 +721,24 @@ const handleRescheduleDateChange = async (e) => {
             <form onSubmit={confirmReschedule}>
               <div className="modal-body">
                 <p className="modal-instruction">Please select a new date and time.</p>
+                
                 <label className="input-label">New Date</label>
-                <input type="date" className="input-field" required min={getMinDate()} value={reschedForm.date} onChange={handleRescheduleDateChange} />
+                <input 
+                  type="date" 
+                  className="input-field" 
+                  required 
+                  min={getMinDate()} 
+                  value={reschedForm.date} 
+                  onChange={handleRescheduleDateChange} 
+                />
+                
+                {/* NEW: Show which days are actually available */}
+                {!reschedForm.date && (
+                  <div style={{fontSize: '0.75rem', color: '#64748b', marginTop: '-8px', marginBottom: '10px'}}>
+                    Available days: {providerHours.map(h => h.day_of_week.slice(0,3)).join(', ')}
+                  </div>
+                )}
+
                 <label className="input-label">New Time</label>
                 <select 
                   className="input-field" 
