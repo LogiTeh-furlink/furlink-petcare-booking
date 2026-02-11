@@ -491,6 +491,12 @@ export default function SPDashboard() {
                           <img src={pet.illness_proof_url} alt="Illness Proof" className="facebook-style-img" />
                         </div>
                       )}
+                      {pet.ai_generated_url && (
+                        <div className="image-wrapper">
+                          <p className="img-label">AI Generated Preview</p>
+                          <img src={pet.ai_generated_url} alt="AI Generated Preview" className="facebook-style-img" />
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}
