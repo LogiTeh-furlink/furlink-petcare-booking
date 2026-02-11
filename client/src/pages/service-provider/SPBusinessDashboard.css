@@ -1,4 +1,695 @@
-/* Add these styles to your existing SPBusinessDashboard.css file */
+:root {
+  --primary-blue: #1e3a8a;
+  --accent-yellow: #facc15;
+  --bg-gray: #f8fafc;
+  --white: #ffffff;
+  --border: #eef2f6;
+}
+
+.sp-biz-page-wrapper {
+  background-color: var(--bg-gray);
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  font-family: 'Segoe UI', sans-serif;
+}
+
+.sp-biz-main-layout {
+  flex: 1;
+  display: flex;
+  padding: 2px 0 1px 0;
+  overflow: hidden;
+  max-height: calc(100vh - 130px);
+}
+
+.sp-biz-container {
+  max-width: 1400px;
+  width: 98%;
+  margin: 0 auto;
+  display: flex;
+  gap: 0.3rem;
+  height: 100%;
+}
+
+/* --- SIDEBAR --- */
+.sp-biz-sidebar { 
+  width: 190px; 
+  flex-shrink: 0; 
+  display: flex; 
+  flex-direction: column; 
+  gap: 0.3rem; 
+  overflow-y: auto;
+  max-height: 100%;
+}
+
+/* Back to Dashboard Button - Icon Only */
+.back-to-dashboard-btn {
+  background: white;
+  border: 1px solid #e2e8f0;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #0E2679;
+  transition: all 0.2s;
+  cursor: pointer;
+  margin-bottom: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.back-to-dashboard-btn:hover {
+  background: #0E2679;
+  color: #0E2679;
+  border-color: #0E2679;
+  transform: translateX(0) !important; 
+}
+
+.sidebar-tab-btn:first-child {
+  margin-bottom: 4px; 
+}
+
+.sidebar-tab-btn {
+  width: 100%; 
+  padding: 5px; 
+  border: 1px solid var(--border); 
+  background: white;
+  border-radius: 6px; 
+  font-weight: bold; 
+  color: var(--primary-blue); 
+  cursor: pointer; 
+  font-size: 0.72rem;
+}
+
+.sidebar-tab-btn.active { 
+  background: var(--accent-yellow); 
+  border-color: var(--accent-yellow); 
+}
+
+.sidebar-section { 
+  background: white; 
+  padding: 6px; 
+  border-radius: 8px; 
+  border: 1px solid var(--border); 
+}
+
+.sidebar-section h3 { 
+  color: var(--primary-blue); 
+  font-size: 0.65rem; 
+  text-transform: uppercase; 
+  margin-bottom: 4px; 
+}
+
+.filter-dropdown { 
+  width: 100%; 
+  padding: 5px; 
+  border-radius: 4px; 
+  border: 1px solid #cbd5e1; 
+  font-size: 0.75rem; 
+}
+
+.doughnut-wrapper { 
+  width: 70px; 
+  height: 70px; 
+  margin: 0 auto; 
+}
+
+.doughnut-labels { 
+  font-size: 0.58rem; 
+  color: #64748b; 
+  display: flex; 
+  flex-direction: column; 
+  gap: 1px; 
+  margin-top: 3px; 
+}
+
+/* --- MAIN CONTENT --- */
+.sp-biz-main-content { 
+  flex: 1; 
+  display: flex; 
+  flex-direction: column; 
+  gap: 0.2rem; 
+  height: 100%; 
+  overflow: hidden;
+}
+
+.report-button-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0;
+}
+
+.generate-report-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  background: var(--primary-blue);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.generate-report-btn:hover {
+  background: #1e40af;
+}
+
+/* "As of Date" Label */
+.as-of-date {
+  font-size: 0.85rem;
+  color: var(--primary-blue);
+  font-weight: 700;
+  text-align: left;
+}
+
+.sp-biz-kpi-grid { 
+  display: grid; 
+  grid-template-columns: repeat(5, 1fr); 
+  gap: 0.2rem; 
+}
+
+.kpi-card { 
+  background: white; 
+  padding: 4px 7px; 
+  border-radius: 8px; 
+  border: 1px solid var(--border); 
+}
+
+.kpi-label { 
+  font-size: 0.58rem; 
+  color: #64748b; 
+  font-weight: 600; 
+  text-transform: uppercase; 
+  display: block; 
+}
+
+.kpi-value { 
+  font-size: 1.05rem; 
+  font-weight: 800; 
+  color: var(--primary-blue); 
+}
+
+.kpi-row { 
+  display: flex; 
+  align-items: baseline; 
+  gap: 8px; 
+}
+
+.kpi-trend { 
+  font-size: 0.65rem; 
+  font-weight: bold; 
+  display: flex; 
+  align-items: center; 
+}
+
+.kpi-trend.positive { 
+  color: #22c55e; 
+}
+
+.kpi-trend.negative { 
+  color: #ef4444; 
+}
+
+.chart-box { 
+  background: white; 
+  padding: 4px 6px 2px 6px; 
+  border-radius: 10px; 
+  border: 1px solid var(--border); 
+  position: relative;
+}
+
+.chart-header { 
+  display: flex; 
+  justify-content: space-between; 
+  align-items: center; 
+  margin-bottom: 2px; 
+}
+
+.chart-title-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Back to Years Button - Small Icon */
+.back-to-years-btn {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  background: var(--accent-yellow);
+  color: var(--primary-blue);
+  border: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+}
+
+.back-to-years-btn:hover {
+  background: #fbbf24;
+  transform: translateX(-2px);
+}
+
+.chart-title { 
+  color: var(--primary-blue); 
+  font-size: 0.8rem; 
+  font-weight: bold; 
+  margin: 0;
+}
+
+.chart-title-sm { 
+  font-size: 0.7rem; 
+  font-weight: bold; 
+  color: var(--primary-blue); 
+  margin-bottom: 2px; 
+}
+
+.date-range { 
+  font-size: 0.58rem; 
+  background: #f1f5f9; 
+  padding: 2px 5px; 
+  border-radius: 4px; 
+  color: #64748b; 
+}
+
+.chart-container-large { 
+  height: 110px;
+  padding-bottom: 0;
+  margin-bottom: 0;
+}
+
+.chart-container-small { 
+  height: 80px;
+  padding-bottom: 0;
+  margin-bottom: 0;
+}
+
+.sp-biz-bottom-grid { 
+  display: grid; 
+  grid-template-columns: 1fr 1.5fr; 
+  gap: 0.2rem;
+  margin-bottom: 0;
+}
+
+.loading-state { 
+  height: 100vh; 
+  display: flex; 
+  justify-content: center; 
+  align-items: center; 
+  color: var(--primary-blue); 
+  font-weight: bold; 
+}
+
+/* Chart insight text */
+.chart-insight-text {
+  font-size: 0.62rem;
+  color: #64748b;
+  font-weight: 500;
+  margin-top: 0;
+  margin-bottom: 0;
+  text-align: center;
+  font-style: italic;
+}
+
+/* Custom Date Range Inputs */
+.custom-date-range {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.date-label {
+  font-size: 0.65rem;
+  color: #64748b;
+  font-weight: 600;
+  margin-top: 4px;
+}
+
+.date-input {
+  width: 100%;
+  padding: 5px;
+  border-radius: 4px;
+  border: 1px solid #cbd5e1;
+  font-size: 0.7rem;
+  color: var(--primary-blue);
+  font-weight: 500;
+}
+
+.date-input:focus {
+  outline: none;
+  border-color: var(--primary-blue);
+}
+
+/* --- BUSINESS REPORT MODAL --- */
+.report-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.report-modal-content {
+  background: white;
+  border-radius: 12px;
+  width: 100%;
+  max-width: 800px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+}
+
+.report-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  border-bottom: 2px solid var(--border);
+}
+
+.report-header-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--primary-blue);
+}
+
+.report-header-title h2 {
+  margin: 0;
+  font-size: 1.4rem;
+  font-weight: 700;
+}
+
+.modal-close-btn {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  color: #64748b;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s;
+}
+
+.modal-close-btn:hover {
+  color: var(--primary-blue);
+}
+
+.report-modal-body {
+  padding: 24px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+/* Report Info Section */
+.report-info-section {
+  background: #f8fafc;
+  padding: 16px;
+  border-radius: 8px;
+  margin-bottom: 24px;
+  border: 1px solid var(--border);
+}
+
+.report-info-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.report-info-row:last-child {
+  border-bottom: none;
+}
+
+.report-label {
+  font-weight: 600;
+  color: #64748b;
+  font-size: 0.9rem;
+}
+
+.report-value {
+  color: var(--primary-blue);
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+/* Report Sections */
+.report-section {
+  margin-bottom: 28px;
+}
+
+.report-section-title {
+  color: var(--primary-blue);
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid var(--accent-yellow);
+}
+
+.report-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.report-kpi-item {
+  background: #f8fafc;
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+
+.report-kpi-label {
+  display: block;
+  font-size: 0.75rem;
+  color: #64748b;
+  font-weight: 600;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+
+.report-kpi-value {
+  display: block;
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: var(--primary-blue);
+  margin-bottom: 4px;
+}
+
+.report-trend {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.report-trend .up {
+  color: #22c55e;
+}
+
+.report-trend .down {
+  color: #ef4444;
+}
+
+.report-trend .neutral {
+  color: #64748b;
+}
+
+/* Insights */
+.report-insights {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.insight-item {
+  background: #f8fafc;
+  padding: 14px;
+  border-radius: 8px;
+  border-left: 4px solid var(--accent-yellow);
+}
+
+.insight-item strong {
+  color: var(--primary-blue);
+  font-size: 0.95rem;
+  display: block;
+  margin-bottom: 6px;
+}
+
+.insight-item p {
+  margin: 0;
+  color: #475569;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+/* Services List */
+.report-services-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.service-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 14px;
+  background: #f8fafc;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+
+.service-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.service-rank {
+  background: var(--primary-blue);
+  color: white;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+
+.service-name {
+  font-weight: 600;
+  color: #334155;
+  font-size: 0.95rem;
+}
+
+.service-stats {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.service-count {
+  color: #64748b;
+  font-size: 0.85rem;
+}
+
+.service-percentage {
+  background: var(--accent-yellow);
+  color: var(--primary-blue);
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 0.85rem;
+}
+
+/* Pet Distribution */
+.pet-distribution {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.pet-dist-item {
+  background: #f8fafc;
+  padding: 16px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+}
+
+.pet-type {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--primary-blue);
+}
+
+.pet-count {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: #334155;
+}
+
+/* Modal Footer */
+.report-modal-footer {
+  padding: 16px 24px;
+  border-top: 2px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.btn-download-report {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  background: var(--primary-blue);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-download-report:hover:not(:disabled) {
+  background: #1e40af;
+}
+
+.btn-download-report:disabled {
+  background: #94a3b8;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.btn-close-report {
+  padding: 10px 20px;
+  background: #e2e8f0;
+  color: #475569;
+  border: none;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-close-report:hover {
+  background: #cbd5e1;
+}
 
 /* Pet Type Breakdown Styles */
 .pet-type-breakdown-grid {
