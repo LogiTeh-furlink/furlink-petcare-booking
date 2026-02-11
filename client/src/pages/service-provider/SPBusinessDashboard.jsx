@@ -259,68 +259,89 @@ export default function SPBusinessDashboard() {
   const analytics = useMemo(() => {
     const now = new Date();
     
-    // Helper function to get date ranges based on filter
-    const getRange = (filter, isPrevious = false) => {
-      if (filter === 'custom' && customDateStart && customDateEnd) {
-        const start = new Date(customDateStart);
-        const end = new Date(customDateEnd);
-        end.setHours(23, 59, 59, 999);
-        if (isPrevious) {
-          const duration = end - start;
-          const prevEnd = new Date(start);
-          prevEnd.setDate(prevEnd.getDate() - 1);
-          const prevStart = new Date(prevEnd - duration);
-          return { start: prevStart, end: prevEnd };
-        }
-        return { start, end };
+// Helper function to get date ranges based on filter
+  const getRange = (filter, isPrevious = false) => {
+    const today = new Date();
+
+    if (filter === 'custom' && customDateStart && customDateEnd) {
+      const start = new Date(customDateStart);
+      const end = new Date(customDateEnd);
+      end.setHours(23, 59, 59, 999);
+      if (isPrevious) {
+        const duration = end - start;
+        const prevEnd = new Date(start);
+        prevEnd.setDate(prevEnd.getDate() - 1);
+        prevEnd.setHours(23, 59, 59, 999);
+        const prevStart = new Date(prevEnd - duration);
+        return { start: prevStart, end: prevEnd };
       }
-      
-      let start = new Date();
-      let end = new Date();
-      if (filter === 'weekly') {
-        if (isPrevious) { 
-          start.setDate(now.getDate() - 14); 
-          end.setDate(now.getDate() - 7); 
-        } else { 
-          start.setDate(now.getDate() - 7); 
-        }
-      } else if (filter === 'monthly') {
-        if (isPrevious) { 
-          start.setMonth(now.getMonth() - 1, 1); 
-          end = new Date(now.getFullYear(), now.getMonth(), 0); 
-        } else { 
-          start = new Date(now.getFullYear(), now.getMonth(), 1);
-          end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-        }
-      } else if (filter === 'yearly') {
-        // For yearly filter: if a specific year is selected, use that year
-        // Otherwise, use all data from 2020 to present
-        if (selectedYear) {
-          start = new Date(selectedYear, 0, 1);
-          end = new Date(selectedYear, 11, 31, 23, 59, 59, 999);
-          if (isPrevious) {
-            start = new Date(selectedYear - 1, 0, 1);
-            end = new Date(selectedYear - 1, 11, 31, 23, 59, 59, 999);
-          }
-        } else {
-          // Show all data from 2020 onwards
-          start = new Date(2020, 0, 1);
-          end = now;
-          if (isPrevious) {
-            start = new Date(2019, 0, 1);
-            end = new Date(2019, 11, 31, 23, 59, 59, 999);
-          }
+      return { start, end };
+    }
+    
+    let start = new Date();
+    let end = new Date();
+
+    if (filter === 'weekly') {
+      if (isPrevious) { 
+        start.setDate(today.getDate() - 14); 
+        end.setDate(today.getDate() - 7); 
+        end.setHours(23, 59, 59, 999);
+      } else { 
+        start.setDate(today.getDate() - 7); 
+        end = today;
+      }
+    } else if (filter === 'monthly') {
+      // === FIX APPLIED HERE ===
+      if (isPrevious) { 
+        start.setMonth(today.getMonth() - 1, 1); 
+        
+        // Calculate the fair end date (Period-to-Date)
+        const daysInPrevMonth = new Date(today.getFullYear(), today.getMonth(), 0).getDate();
+        const targetDay = Math.min(today.getDate(), daysInPrevMonth);
+        
+        end = new Date(today.getFullYear(), today.getMonth() - 1, targetDay);
+        end.setHours(23, 59, 59, 999);
+      } else { 
+        start = new Date(today.getFullYear(), today.getMonth(), 1);
+        end = today;
+      }
+    } else if (filter === 'yearly') {
+      // === FIX APPLIED HERE ===
+      if (selectedYear) {
+        start = new Date(selectedYear, 0, 1);
+        end = new Date(selectedYear, 11, 31, 23, 59, 59, 999);
+        if (isPrevious) {
+          start = new Date(selectedYear - 1, 0, 1);
+          end = new Date(selectedYear - 1, 11, 31, 23, 59, 59, 999);
         }
       } else {
         if (isPrevious) { 
-          start.setFullYear(now.getFullYear() - 1, 0, 1); 
-          end.setFullYear(now.getFullYear() - 1, 11, 31); 
+          start = new Date(today.getFullYear() - 1, 0, 1);
+          
+          // Handle Leap Year edge cases
+          if (today.getMonth() === 1 && today.getDate() === 29) {
+             end = new Date(today.getFullYear() - 1, 1, 28);
+          } else {
+             end = new Date(today.getFullYear() - 1, today.getMonth(), today.getDate());
+          }
+          end.setHours(23, 59, 59, 999);
         } else { 
-          start = new Date(now.getFullYear(), 0, 1);
+          start = new Date(today.getFullYear(), 0, 1);
+          end = today;
         }
       }
-      return { start, end };
-    };
+    } else {
+      // Default fallback
+      if (isPrevious) { 
+        start.setFullYear(today.getFullYear() - 1, 0, 1); 
+        end.setFullYear(today.getFullYear() - 1, 11, 31); 
+      } else { 
+        start = new Date(today.getFullYear(), 0, 1);
+        end = today;
+      }
+    }
+    return { start, end };
+  };
 
     const currentRange = getRange(activeFilter);
     const previousRange = getRange(activeFilter, true);

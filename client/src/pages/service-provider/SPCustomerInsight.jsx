@@ -297,15 +297,20 @@ export default function SPCustomerInsight() {
 
     const now = new Date();
     
-    const getRange = (filter, isPrevious = false) => {
+const getRange = (filter, isPrevious = false) => {
+      const today = new Date(); // Use a fixed 'now'
+
+      // CUSTOM RANGE
       if (filter === 'custom' && customDateStart && customDateEnd) {
         const start = new Date(customDateStart);
         const end = new Date(customDateEnd);
-        end.setHours(23, 59, 59, 999);
+        end.setHours(23, 59, 59, 999); // Ensure end of day
+        
         if (isPrevious) {
           const duration = end - start;
           const prevEnd = new Date(start);
           prevEnd.setDate(prevEnd.getDate() - 1);
+          prevEnd.setHours(23, 59, 59, 999);
           const prevStart = new Date(prevEnd - duration);
           return { start: prevStart, end: prevEnd };
         }
@@ -314,19 +319,48 @@ export default function SPCustomerInsight() {
       
       let start = new Date();
       let end = new Date();
+
       if (filter === 'weekly') {
-        start.setDate(now.getDate() - (isPrevious ? 14 : 7));
-        if (isPrevious) end.setDate(now.getDate() - 7);
+        // WEEKLY: Rolling 7 Days
+        if (isPrevious) {
+          start.setDate(today.getDate() - 14);
+          end.setDate(today.getDate() - 7);
+          end.setHours(23, 59, 59, 999);
+        } else {
+          start.setDate(today.getDate() - 7);
+          end = today;
+        }
       } else if (filter === 'monthly') {
+        // MONTHLY: Period-to-Date (Fair Comparison)
         if (isPrevious) { 
-          start.setMonth(now.getMonth() - 1, 1); 
-          end = new Date(now.getFullYear(), now.getMonth(), 0); 
+          start.setMonth(today.getMonth() - 1, 1); 
+          
+          // Fix: End date is the SAME DAY of previous month
+          const daysInPrevMonth = new Date(today.getFullYear(), today.getMonth(), 0).getDate();
+          const targetDay = Math.min(today.getDate(), daysInPrevMonth);
+          
+          end = new Date(today.getFullYear(), today.getMonth() - 1, targetDay);
+          end.setHours(23, 59, 59, 999);
         } else { 
-          start = new Date(now.getFullYear(), now.getMonth(), 1);
+          start = new Date(today.getFullYear(), today.getMonth(), 1);
+          end = today;
         }
       } else {
-        start.setFullYear(now.getFullYear() - (isPrevious ? 1 : 0), 0, 1);
-        if (isPrevious) end.setFullYear(now.getFullYear() - 1, 11, 31);
+        // YEARLY: Year-to-Date (Fair Comparison)
+        if (isPrevious) { 
+          start = new Date(today.getFullYear() - 1, 0, 1);
+          
+          // Fix: End date is SAME DATE of previous year
+          if (today.getMonth() === 1 && today.getDate() === 29) {
+             end = new Date(today.getFullYear() - 1, 1, 28); // Handle leap year
+          } else {
+             end = new Date(today.getFullYear() - 1, today.getMonth(), today.getDate());
+          }
+          end.setHours(23, 59, 59, 999);
+        } else { 
+          start = new Date(today.getFullYear(), 0, 1);
+          end = today;
+        }
       }
       return { start, end };
     };

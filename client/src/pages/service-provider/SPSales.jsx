@@ -168,67 +168,99 @@ export default function SPSales() {
     
     // Helper function to get date ranges based on filter
     const getRange = (filter, isPrevious = false) => {
-      if (filter === 'custom' && customDateStart && customDateEnd) {
-        const start = new Date(customDateStart);
-        const end = new Date(customDateEnd);
-        end.setHours(23, 59, 59, 999);
-        if (isPrevious) {
-          const duration = end - start;
-          const prevEnd = new Date(start);
-          prevEnd.setDate(prevEnd.getDate() - 1);
-          const prevStart = new Date(prevEnd - duration);
-          return { start: prevStart, end: prevEnd };
-        }
-        return { start, end };
-      }
+    const today = new Date(); // Freeze 'now' for consistency
+
+    // CUSTOM RANGE (Logic remains mostly the same, ensures fair duration)
+    if (filter === 'custom' && customDateStart && customDateEnd) {
+      const start = new Date(customDateStart);
+      const end = new Date(customDateEnd);
+      end.setHours(23, 59, 59, 999);
       
-      let start = new Date();
-      let end = new Date();
-      if (filter === 'weekly') {
-        if (isPrevious) { 
-          start.setDate(now.getDate() - 14); 
-          end.setDate(now.getDate() - 7); 
-        } else { 
-          start.setDate(now.getDate() - 7); 
-        }
-      } else if (filter === 'monthly') {
-        if (isPrevious) { 
-          start.setMonth(now.getMonth() - 1, 1); 
-          end = new Date(now.getFullYear(), now.getMonth(), 0); 
-        } else { 
-          start = new Date(now.getFullYear(), now.getMonth(), 1);
-          end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-        }
-      } else if (filter === 'yearly') {
-        // For yearly view, include all data from 2020 to current date
-        if (selectedYear) {
-          // If a specific year is selected, show only that year's data
-          start = new Date(selectedYear, 0, 1);
-          end = new Date(selectedYear, 11, 31, 23, 59, 59, 999);
-          if (isPrevious) {
-            start = new Date(selectedYear - 1, 0, 1);
-            end = new Date(selectedYear - 1, 11, 31, 23, 59, 59, 999);
-          }
-        } else {
-          // Show all years from 2020 to now
-          if (isPrevious) { 
-            start.setFullYear(now.getFullYear() - 1, 0, 1); 
-            end.setFullYear(now.getFullYear() - 1, 11, 31); 
-          } else { 
-            start = new Date(2020, 0, 1); // Start from 2020
-            end = now; // End at current date
-          }
-        }
-      } else {
-        if (isPrevious) { 
-          start.setFullYear(now.getFullYear() - 1, 0, 1); 
-          end.setFullYear(now.getFullYear() - 1, 11, 31); 
-        } else { 
-          start = new Date(now.getFullYear(), 0, 1);
-        }
+      if (isPrevious) {
+        const duration = end - start; // Difference in milliseconds
+        const prevEnd = new Date(start);
+        prevEnd.setDate(prevEnd.getDate() - 1);
+        prevEnd.setHours(23, 59, 59, 999);
+        const prevStart = new Date(prevEnd - duration); // Same duration back
+        return { start: prevStart, end: prevEnd };
       }
       return { start, end };
-    };
+    }
+    
+    let start = new Date();
+    let end = new Date();
+
+    if (filter === 'weekly') {
+      // === WEEKLY LOGIC (Rolling 7 Days) ===
+      // This is already fair because it compares 7 days vs 7 days.
+      if (isPrevious) { 
+        start.setDate(today.getDate() - 14); 
+        end.setDate(today.getDate() - 7); 
+        end.setHours(23, 59, 59, 999); // Ensure we get the full last day
+      } else { 
+        start.setDate(today.getDate() - 7); 
+        end = today;
+      }
+
+    } else if (filter === 'monthly') {
+      // === MONTHLY LOGIC (Fixed for Period-to-Date) ===
+      if (isPrevious) { 
+        // Start: 1st of previous month
+        start = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+        
+        // End: The SAME DAY of the previous month (or last day if it doesn't exist)
+        // Example: If today is March 31, previous period ends Feb 28 (or 29)
+        const daysInPrevMonth = new Date(today.getFullYear(), today.getMonth(), 0).getDate();
+        const targetDay = Math.min(today.getDate(), daysInPrevMonth);
+        
+        end = new Date(today.getFullYear(), today.getMonth() - 1, targetDay);
+        end.setHours(23, 59, 59, 999);
+      } else { 
+        // Current: 1st of this month to NOW
+        start = new Date(today.getFullYear(), today.getMonth(), 1);
+        end = today;
+      }
+
+    } else if (filter === 'yearly') {
+      // === YEARLY LOGIC (Fixed for Year-to-Date) ===
+      if (selectedYear) {
+        // If a specific past year is selected (e.g., 2023), compare full 2023 vs full 2022
+        start = new Date(selectedYear, 0, 1);
+        end = new Date(selectedYear, 11, 31, 23, 59, 59, 999);
+        if (isPrevious) {
+          start = new Date(selectedYear - 1, 0, 1);
+          end = new Date(selectedYear - 1, 11, 31, 23, 59, 59, 999);
+        }
+      } else {
+        // Default: This Year (YTD) vs Last Year (YTD)
+        if (isPrevious) { 
+          start = new Date(today.getFullYear() - 1, 0, 1);
+          
+          // End: Same month/day but last year
+          // Handle leap year edge case (Feb 29 -> Feb 28)
+          if (today.getMonth() === 1 && today.getDate() === 29) {
+            end = new Date(today.getFullYear() - 1, 1, 28);
+          } else {
+            end = new Date(today.getFullYear() - 1, today.getMonth(), today.getDate());
+          }
+          end.setHours(23, 59, 59, 999);
+        } else { 
+          start = new Date(today.getFullYear(), 0, 1); // Jan 1st of this year
+          end = today; // To right now
+        }
+      }
+    } else {
+      // Default Fallback
+      if (isPrevious) { 
+        start.setFullYear(today.getFullYear() - 1, 0, 1); 
+        end.setFullYear(today.getFullYear() - 1, 11, 31); 
+      } else { 
+        start = new Date(today.getFullYear(), 0, 1);
+        end = today;
+      }
+    }
+    return { start, end };
+  };
 
     const currentRange = getRange(activeFilter);
     const previousRange = getRange(activeFilter, true);
