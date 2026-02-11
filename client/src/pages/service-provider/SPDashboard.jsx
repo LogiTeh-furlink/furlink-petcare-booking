@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "../../config/supabase";
 import LoggedInNavbar from "../../components/Header/LoggedInNavbar";
 import Footer from "../../components/Footer/Footer";
-import { FaCalendarAlt, FaTimes, FaChevronLeft, FaChevronRight, FaChartLine } from "react-icons/fa";
+import { FaCalendarAlt, FaTimes, FaChevronLeft, FaChevronRight, FaChartLine, FaPaw, FaClock, FaCheckCircle } from "react-icons/fa";
 import "./SPDashboard.css";
 
 // ... (Keep existing helper functions convertTo24Hour, isFourHoursPast, BookingCalendar unchanged) ...
@@ -187,6 +187,10 @@ export default function SPDashboard() {
   const [voidReason, setVoidReason] = useState("");
   const [previewImage, setPreviewImage] = useState(null);
 
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [successTitle, setSuccessTitle] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
+
   useEffect(() => {
     fetchData();
   }, [navigate]);
@@ -290,9 +294,21 @@ export default function SPDashboard() {
     if (!selectedBooking) return;
     let newStatus = '';
     let updateData = {};
+    let title = "";
+    let msg = "";
+
     switch(actionType) {
-      case 'approve': newStatus = 'approved'; break;
-      case 'decline': newStatus = 'decline'; updateData = { rejection_reason: declineReason }; break;
+      case 'approve': 
+        newStatus = 'approved'; 
+        title = "Booking Approved";
+        msg = "The customer has been notified to proceed with payment.";
+        break;
+      case 'decline': 
+        newStatus = 'declined'; 
+        updateData = { rejection_reason: declineReason }; 
+        title = "Booking Declined";
+        msg = "The request has been removed and the customer notified.";
+        break;
       case 'accept_payment': newStatus = 'paid'; break;
       case 'void_payment': newStatus = 'void'; updateData = { rejection_reason: voidReason }; break;
       default: return;
@@ -302,6 +318,10 @@ export default function SPDashboard() {
       if (error) throw error;
       setBookings(prev => prev.map(b => b.id === selectedBooking.id ? { ...b, status: newStatus, ...updateData } : b));
       closeModal();
+      setSuccessTitle(title);
+      setSuccessMessage(msg);
+      setShowSuccessModal(true);
+      
     } catch (err) {
       alert("Action failed: " + err.message);
     }
@@ -319,6 +339,18 @@ export default function SPDashboard() {
   return (
     <div className="page-wrapper">
       <LoggedInNavbar />
+
+      {/* --- ADD SUCCESS MODAL HERE --- */}
+      {showSuccessModal && (
+        <div className="modal-overlay" style={{ zIndex: 5000 }}>
+          <div className="modal-content small-modal success-center" style={{ textAlign: 'center', padding: '2rem' }}>
+            <FaCheckCircle size={60} color="#22c55e" style={{ marginBottom: '1rem' }} />
+            <h3 style={{ color: 'var(--brand-blue)', fontWeight: '800' }}>{successTitle}</h3>
+            <p style={{ color: '#64748b', margin: '10px 0 20px' }}>{successMessage}</p>
+            <button className="btn-approve" style={{ width: '100%' }} onClick={() => setShowSuccessModal(false)}>Done</button>
+          </div>
+        </div>
+      )}
       
       {showCalendar && <BookingCalendar bookings={bookings} onClose={() => setShowCalendar(false)} />}
 
@@ -441,7 +473,11 @@ export default function SPDashboard() {
               </div>
               <div className="info-row">
                 <span>Total Amount:</span>
-                <strong className="text-highlight">{formatCurrency(selectedBooking.total_estimated_price)}</strong>
+                <div className="amount-container">
+                  <strong className="text-highlight">{formatCurrency(selectedBooking.total_estimated_price)}</strong>
+                  {/* Added class name here */}
+                  <p className="down-payment-note">30% Down Payment: {formatCurrency(selectedBooking.installation_payment)}</p>
+                </div>
               </div>
             </div>
 
