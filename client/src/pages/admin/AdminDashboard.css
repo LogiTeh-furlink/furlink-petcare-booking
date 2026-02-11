@@ -51,11 +51,19 @@
   box-shadow: 0 10px 15px rgba(0,0,0,0.1);
 }
 
-/* Active Filter State */
+/* Active Filter States */
+/* When a filter is active, highlight border and background */
 .stat-card.active-filter {
-  border-color: #1e40af;
-  background-color: #eff6ff;
+  background-color: #eff6ff; /* Blue tint default */
   box-shadow: 0 0 0 2px #1e40af;
+  border-color: #1e40af;
+}
+
+/* Specific overrides for active Users card (Purple theme) */
+.stat-card:nth-child(5).active-filter {
+  background-color: #faf5ff; /* Purple tint */
+  box-shadow: 0 0 0 2px #9333ea;
+  border-color: #9333ea;
 }
 
 /* Non-Clickable Cards */
@@ -181,6 +189,18 @@
   background-color: #1e40af;
   color: white;
   border-color: #1e40af;
+}
+
+.btn-view-details:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background-color: #f3f4f6;
+}
+
+.btn-view-details:disabled:hover {
+  background-color: #f3f4f6;
+  color: #374151;
+  border-color: #d1d5db;
 }
 
 /* State Messages */

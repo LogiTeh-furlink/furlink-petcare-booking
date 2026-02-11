@@ -1,4 +1,3 @@
-// src/pages/admin/AdminDashboard.jsx
 import React, { useState, useEffect } from "react";
 import { supabase } from "../../config/supabase";
 import LoggedInAdmin from "../../components/Header/LoggedInAdmin";
@@ -19,8 +18,8 @@ export default function AdminDashboard() {
   const [avgApprovalTime, setAvgApprovalTime] = useState("-");
   const [totalUsers, setTotalUsers] = useState(0);
 
-  // List Data
-  const [providers, setProviders] = useState([]);
+  // List Data (Generic state for both Providers and Users)
+  const [tableData, setTableData] = useState([]);
   const [loading, setLoading] = useState(true);
   
   // Filter State (Default: 'pending')
@@ -29,23 +28,37 @@ export default function AdminDashboard() {
   useEffect(() => {
     fetchAdminProfile();
     fetchDashboardCounts();
-    fetchProviders(currentFilter);
+    fetchTableData(currentFilter);
   }, []);
 
   useEffect(() => {
-    fetchProviders(currentFilter);
+    fetchTableData(currentFilter);
   }, [currentFilter]);
 
+  // Real-time updates (Listeners)
   useEffect(() => {
-    const channel = supabase
-      .channel("admin_dashboard_changes")
+    // Listener for Providers
+    const providerChannel = supabase
+      .channel("admin_dashboard_providers")
       .on("postgres_changes", { event: "*", schema: "public", table: "service_providers" }, () => {
         fetchDashboardCounts();
-        fetchProviders(currentFilter);
+        if (currentFilter !== 'users') fetchTableData(currentFilter);
       })
       .subscribe();
 
-    return () => supabase.removeChannel(channel);
+    // Listener for Users (Profiles)
+    const userChannel = supabase
+      .channel("admin_dashboard_users")
+      .on("postgres_changes", { event: "*", schema: "public", table: "profiles" }, () => {
+        fetchDashboardCounts();
+        if (currentFilter === 'users') fetchTableData(currentFilter);
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(providerChannel);
+      supabase.removeChannel(userChannel);
+    };
   }, [currentFilter]);
 
   // --- FETCH FUNCTIONS ---
@@ -61,7 +74,6 @@ export default function AdminDashboard() {
   const fetchDashboardCounts = async () => {
     try {
       // 1. Counts by Status - For Pending, we only count those with services
-      // Inner join in Supabase: select(..., { inner: true })
       const { count: pending } = await supabase
         .from("service_providers")
         .select("id, services!inner(id)", { count: "exact", head: true })
@@ -102,28 +114,41 @@ export default function AdminDashboard() {
     }
   };
 
-  const fetchProviders = async (statusFilter) => {
+  const fetchTableData = async (filter) => {
     setLoading(true);
+    setTableData([]); // Reset to prevent flickering old data
+
     try {
-      const dbStatus = statusFilter === 'active' ? 'approved' : statusFilter;
+      // --- CASE 1: USERS ---
+      if (filter === 'users') {
+        // Mocking for now as requested, ready for Supabase integration
+        // const { data, error } = await supabase.from("profiles").select("*").neq("role", "admin").order("created_at", { ascending: false });
+        
+        // Placeholder empty array until integration is ready
+        setTableData([]); 
+      } 
+      
+      // --- CASE 2: SERVICE PROVIDERS ---
+      else {
+        const dbStatus = filter === 'active' ? 'approved' : filter;
+        let query = supabase.from("service_providers");
 
-      let query = supabase.from("service_providers");
+        // Requirement: If pending, user must have submitted ServiceListing (exists in 'services' table)
+        if (dbStatus === 'pending') {
+          query = query
+            .select("id, business_name, city, province, status, created_at, updated_at, services!inner(id)")
+            .eq("status", "pending")
+            .order("created_at", { ascending: true });
+        } else {
+          query = query
+            .select("id, business_name, city, province, status, created_at, updated_at")
+            .eq("status", dbStatus)
+            .order("updated_at", { ascending: false });
+        }
 
-      // Requirement: If pending, user must have submitted ServiceListing (exists in 'services' table)
-      if (dbStatus === 'pending') {
-        query = query
-          .select("id, business_name, city, province, status, created_at, updated_at, services!inner(id)")
-          .eq("status", "pending")
-          .order("created_at", { ascending: true });
-      } else {
-        query = query
-          .select("id, business_name, city, province, status, created_at, updated_at")
-          .eq("status", dbStatus)
-          .order("updated_at", { ascending: false });
+        const { data, error } = await query;
+        if (!error) setTableData(data || []);
       }
-
-      const { data, error } = await query;
-      if (!error) setProviders(data || []);
 
     } catch (err) {
       console.error(err);
@@ -143,6 +168,7 @@ export default function AdminDashboard() {
       case "pending": return "Pending Approvals (Complete Applications)";
       case "active": return "Active Listings";
       case "rejected": return "Rejected Listings";
+      case "users": return "Total Users";
       default: return "Service Providers";
     }
   };
@@ -164,6 +190,7 @@ export default function AdminDashboard() {
         </div>
 
         <div className="stats-grid">
+          {/* Pending Card */}
           <div className={`stat-card ${currentFilter === 'pending' ? 'active-filter' : ''}`} onClick={() => handleCardClick('pending')}>
             <div className="stat-icon-wrapper pending"><FaStore size={24} /></div>
             <div className="stat-content">
@@ -172,6 +199,7 @@ export default function AdminDashboard() {
             </div>
           </div>
 
+          {/* Active Card */}
           <div className={`stat-card ${currentFilter === 'active' ? 'active-filter' : ''}`} onClick={() => handleCardClick('active')}>
             <div className="stat-icon-wrapper active"><FaCheckCircle size={24} /></div>
             <div className="stat-content">
@@ -180,6 +208,7 @@ export default function AdminDashboard() {
             </div>
           </div>
 
+          {/* Rejected Card */}
           <div className={`stat-card ${currentFilter === 'rejected' ? 'active-filter' : ''}`} onClick={() => handleCardClick('rejected')}>
             <div className="stat-icon-wrapper rejected"><FaTimesCircle size={24} /></div>
             <div className="stat-content">
@@ -188,6 +217,7 @@ export default function AdminDashboard() {
             </div>
           </div>
 
+          {/* Avg Time Card (Non-Clickable) */}
           <div className="stat-card non-clickable">
             <div className="stat-icon-wrapper info"><FaClock size={24} /></div>
             <div className="stat-content">
@@ -196,7 +226,8 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          <div className="stat-card non-clickable">
+          {/* Users Card (Now acts as a Tab) */}
+          <div className={`stat-card ${currentFilter === 'users' ? 'active-filter' : ''}`} onClick={() => handleCardClick('users')}>
             <div className="stat-icon-wrapper users"><FaUsers size={24} /></div>
             <div className="stat-content">
               <h3>{totalUsers}</h3>
@@ -210,40 +241,74 @@ export default function AdminDashboard() {
           <div className="providers-table-wrapper">
             {loading ? (
               <div className="loading-state">Loading data...</div>
-            ) : providers.length === 0 ? (
-              <div className="empty-state">No complete applications found for this category.</div>
+            ) : tableData.length === 0 ? (
+              <div className="empty-state">No records found for this category.</div>
             ) : (
               <table className="providers-table">
+                {/* --- TABLE HEADERS --- */}
                 <thead>
-                  <tr>
-                    <th>Business Name</th>
-                    <th>Location</th>
-                    <th>Date {currentFilter === 'pending' ? 'Submitted' : 'Updated'}</th>
-                    <th>Status</th>
-                    <th>Action</th>
-                  </tr>
+                  {currentFilter === 'users' ? (
+                    /* User Headers */
+                    <tr>
+                      <th>Name</th>
+                      <th>Email</th>
+                      <th>Role</th>
+                      <th>Joined Date</th>
+                      <th>Action</th>
+                    </tr>
+                  ) : (
+                    /* Provider Headers */
+                    <tr>
+                      <th>Business Name</th>
+                      <th>Location</th>
+                      <th>Date {currentFilter === 'pending' ? 'Submitted' : 'Updated'}</th>
+                      <th>Status</th>
+                      <th>Action</th>
+                    </tr>
+                  )}
                 </thead>
+
+                {/* --- TABLE BODY --- */}
                 <tbody>
-                  {providers.map((provider) => (
-                    <tr key={provider.id}>
-                      <td className="fw-bold">{provider.business_name}</td>
-                      <td>{provider.city}, {provider.province}</td>
-                      <td>{formatDate(currentFilter === 'pending' ? provider.created_at : provider.updated_at)}</td>
-                      <td>
-                        <span className={`status-pill ${provider.status}`}>
-                          {provider.status}
-                        </span>
-                      </td>
-                      <td>
-                        <button 
-                          className="btn-view-details"
-                          onClick={() => navigate(`/admin/provider/${provider.id}`, { 
-                            state: { status: provider.status } 
-                          })}
-                        >
-                          View Details <FaArrowRight size={12} style={{marginLeft: 5}} />
-                        </button>
-                      </td>
+                  {tableData.map((item) => (
+                    <tr key={item.id}>
+                      {currentFilter === 'users' ? (
+                        /* User Row Data */
+                        <>
+                          <td className="fw-bold">{item.first_name} {item.last_name}</td>
+                          <td>{item.email}</td>
+                          <td style={{textTransform:'capitalize'}}>{item.role}</td>
+                          <td>{formatDate(item.created_at)}</td>
+                          <td>
+                             {/* Future User Details Link */}
+                             <button className="btn-view-details" disabled>
+                               View Profile
+                             </button>
+                          </td>
+                        </>
+                      ) : (
+                        /* Provider Row Data */
+                        <>
+                          <td className="fw-bold">{item.business_name}</td>
+                          <td>{item.city}, {item.province}</td>
+                          <td>{formatDate(currentFilter === 'pending' ? item.created_at : item.updated_at)}</td>
+                          <td>
+                            <span className={`status-pill ${item.status}`}>
+                              {item.status}
+                            </span>
+                          </td>
+                          <td>
+                            <button 
+                              className="btn-view-details"
+                              onClick={() => navigate(`/admin/provider/${item.id}`, { 
+                                state: { status: item.status } 
+                              })}
+                            >
+                              View Details <FaArrowRight size={12} style={{marginLeft: 5}} />
+                            </button>
+                          </td>
+                        </>
+                      )}
                     </tr>
                   ))}
                 </tbody>
