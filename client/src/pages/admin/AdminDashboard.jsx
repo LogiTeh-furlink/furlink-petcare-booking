@@ -122,7 +122,6 @@ export default function AdminDashboard() {
     try {
       // --- CASE 1: USERS ---
       if (filter === 'users') {
-        // Updated to fetch columns based on new schema
         const { data, error } = await supabase
           .from("profiles")
           .select("id, first_name, last_name, display_name, email, mobile_number, role, created_at")
@@ -252,7 +251,7 @@ export default function AdminDashboard() {
                 {/* --- TABLE HEADERS --- */}
                 <thead>
                   {currentFilter === 'users' ? (
-                    /* User Headers (Updated) */
+                    /* User Headers */
                     <tr>
                       <th>First Name</th>
                       <th>Last Name</th>
@@ -279,17 +278,20 @@ export default function AdminDashboard() {
                   {tableData.map((item) => (
                     <tr key={item.id}>
                       {currentFilter === 'users' ? (
-                        /* User Row Data (Updated) */
+                        /* User Row Data */
                         <>
                           <td className="fw-bold">{item.first_name || "-"}</td>
                           <td className="fw-bold">{item.last_name || "-"}</td>
                           <td>{item.display_name || "N/A"}</td>
                           <td>{item.email || "-"}</td>
                           <td>{item.mobile_number || "-"}</td>
-                          <td style={{textTransform:'capitalize'}}>{item.role}</td>
+                          <td style={{textTransform:'capitalize'}}>
+                            {/* Normalized Role: replaces underscore with space */}
+                            {item.role ? item.role.replace(/_/g, " ") : "-"}
+                          </td>
                           <td>
-                             {/* Static View Details Button */}
-                             <button className="btn-view-details">
+                             {/* Static View Details Button with no-wrap style */}
+                             <button className="btn-view-details" style={{ whiteSpace: "nowrap" }}>
                                View Details <FaArrowRight size={12} style={{marginLeft: 5}} />
                              </button>
                           </td>
