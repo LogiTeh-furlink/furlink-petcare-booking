@@ -402,8 +402,9 @@ const getRange = (filter, isPrevious = false) => {
     };
 
     const isBookingComplete = (b) => {
-      if (['completed', 'to_rate', 'rated'].includes(b.status)) return true;
-      if (['paid', 'confirmed'].includes(b.status) && isFourHoursPast(b.booking_date, b.time_slot)) return true;
+      // Include all statuses that represent completed bookings
+      if (['rated', 'for review'].includes(b.status)) return true;
+      if (['paid'].includes(b.status) && isFourHoursPast(b.booking_date, b.time_slot)) return true;
       return false;
     };
 
