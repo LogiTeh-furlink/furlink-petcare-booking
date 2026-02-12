@@ -6,6 +6,8 @@ import LandingPage from "./pages/public/LandingPage";
 import AboutPage from "./pages/public/AboutPage";
 import LoginPage from "./pages/public/LoginPage";
 import SignUpPage from "./pages/public/SignUpPage";
+import TandC from "./pages/public/TandC"; // ⭐ NEW IMPORT
+import PrivacyPolicy from "./pages/public/PrivacyPolicy"; // ⭐ NEW IMPORT
 
 // Pet Owner Pages
 import Dashboard from "./pages/pet-owner/Dashboard";
@@ -33,7 +35,7 @@ import SPBookingDetails from "./pages/service-provider/SPBookingDetails";
 import AdminChangePassword from "./pages/admin/AdminChangePassword";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminViewProvider from "./pages/admin/AdminViewProvider";
-import AdminViewBooking from "./pages/admin/AdminViewBooking"; // ⭐ NEW IMPORT
+import AdminViewBooking from "./pages/admin/AdminViewBooking"; 
 
 // Route Guards
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -54,6 +56,8 @@ function App() {
         <Route path="/about" element={<AboutPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignUpPage />} />
+        <Route path="/terms" element={<TandC />} /> {/* ⭐ NEW ROUTE */}
+        <Route path="/privacy" element={<PrivacyPolicy />} /> {/* ⭐ NEW ROUTE */}
 
         {/* ==========================
             PROTECTED ROUTES (Logged In)
@@ -110,8 +114,7 @@ function App() {
           <Route path="/admin-change-password" element={<AdminChangePassword />} />
           <Route path="/admin-dashboard" element={<AdminDashboard />} />
           <Route path="/admin/provider/:id" element={<AdminViewProvider />} /> 
-          <Route path="/admin/user-bookings/:id" element={<AdminViewBooking />} /> {/* ⭐ NEW ROUTE */}
-
+          <Route path="/admin/user-bookings/:id" element={<AdminViewBooking />} /> 
 
         </Route>
       </Routes>
