@@ -8,7 +8,7 @@ const Footer = () => {
     <footer className="main-footer">
       <div className="footer-container">
         <div className="footer-left">
-          <span>© 2025 furlink</span>
+          <span>© 2026 furlink</span>
           <a href="/terms">Terms and Conditions</a>
           <a href="/privacy">Privacy Policy</a>
         </div>
