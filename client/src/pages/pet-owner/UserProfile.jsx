@@ -30,7 +30,7 @@ export default function UserProfile() {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showNoChangesModal, setShowNoChangesModal] = useState(false);
-  
+
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
@@ -55,6 +55,11 @@ export default function UserProfile() {
   });
 
   const [errors, setErrors] = useState({});
+
+  // ADD THESE HERE
+  const [showDeactivateConfirm, setShowDeactivateConfirm] = useState(false);
+  const [showDeactivateSuccess, setShowDeactivateSuccess] = useState(false);
+  const [deactivating, setDeactivating] = useState(false)
 
   useEffect(() => {
     fetchProfile();
@@ -94,6 +99,43 @@ export default function UserProfile() {
       console.error("Error fetching profile:", err);
     } finally {
       setLoading(false);
+    }
+  };
+
+const handleDeactivateAccount = async () => {
+    setDeactivating(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+
+      const updates = [
+        supabase.from("profiles").update({ 
+          is_active: false, 
+          deactivated_at: new Date().toISOString() // Use toISOString() for Supabase compatibility
+        }).eq("id", user.id)
+      ];
+
+      if (userRoleInfo.isProvider) {
+        updates.push(
+          supabase.from("service_providers")
+            .update({ status: 'deactivated' }) 
+            .eq("user_id", user.id)
+        );
+      }
+
+      const results = await Promise.all(updates);
+      const failed = results.find(r => r.error);
+      if (failed) throw failed.error;
+
+      // DO NOT navigate here. Show the modal first.
+      setShowDeactivateConfirm(false);
+      setShowDeactivateSuccess(true);
+      
+      // Logout happens here
+      await supabase.auth.signOut();
+    } catch (err) {
+      alert("Deactivation failed: " + err.message);
+    } finally {
+      setDeactivating(false);
     }
   };
 
@@ -270,12 +312,27 @@ export default function UserProfile() {
                     </div>
                   </div>
                   <div className="input-group">
-                    <label><FaPhone className="input-icon"/> Mobile Number</label>
-                    <input type="text" name="mobile_number" value={formData.mobile_number} onChange={handleProfileChange} placeholder="09XXXXXXXXX" className={errors.mobile_number ? "input-error" : ""}/>
-                    {errors.mobile_number && <span className="field-error-msg">{errors.mobile_number}</span>}
+                      <label><FaPhone className="input-icon"/> Mobile Number</label>
+                      <input type="text" name="mobile_number" value={formData.mobile_number} onChange={handleProfileChange} placeholder="09XXXXXXXXX" className={errors.mobile_number ? "input-error" : ""}/>
+                      {errors.mobile_number && <span className="field-error-msg">{errors.mobile_number}</span>}
+                    </div>
+                  </div> {/* End of Personal Details form-section */}
+
+                  {/* ADD THE BUTTON SECTION HERE */}
+                  <div className="form-section deactivation-section">
+                    <h3>Account Security</h3>
+                    <p className="section-subtitle" style={{ fontSize: '0.8rem', color: '#64748b' }}>
+                      No longer need your account? Deactivate it here.
+                    </p>
+                    <button 
+                      type="button" 
+                      onClick={() => setShowDeactivateConfirm(true)}
+                      style={{ marginTop: '10px', border: '1px solid #ef4444', color: '#ef4444', background: 'none', padding: '10px', borderRadius: '8px', width: '100%', cursor: 'pointer', fontWeight: '600' }}
+                    >
+                      Deactivate My Account
+                    </button>
                   </div>
                 </div>
-              </div>
 
               {/* RIGHT COLUMN: Password & Role */}
               <div className="profile-column">
@@ -337,6 +394,39 @@ export default function UserProfile() {
           </div>
         </div>
       )}
+
+      {/* ADD THE MODALS HERE */}
+      {showDeactivateConfirm && (
+        <div className="modal-overlay">
+          <div className="modal-content small-modal">
+            <div className="modal-header"><h3>Confirm Deactivation</h3></div>
+            <div className="modal-body" style={{ textAlign: 'center', padding: '20px' }}>
+              <FaExclamationTriangle size={40} color="#ef4444" />
+              <p style={{ marginTop: '15px', color: '#475569' }}>
+                Your profile and listings will be hidden immediately. You have 30 days to reactivate before permanent deletion.
+              </p>
+              <div className="modal-actions-row" style={{ marginTop: '20px' }}>
+                <button className="modal-btn-cancel" onClick={() => setShowDeactivateConfirm(false)}>Cancel</button>
+                <button className="modal-btn-confirm" style={{ background: '#ef4444' }} onClick={handleDeactivateAccount} disabled={deactivating}>
+                  {deactivating ? "Processing..." : "Yes, Deactivate"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showDeactivateSuccess && (
+        <div className="modal-overlay" style={{ zIndex: 9999 }}>
+          <div className="modal-content small-modal success-center" style={{ textAlign: 'center', padding: '30px' }}>
+            <FaCheckCircle size={50} color="#22c55e" />
+            <h3>Account Deactivated</h3>
+            <p style={{ color: '#64748b' }}>You have been logged out. Log back in within 30 days to restore your data.</p>
+            <button className="save-btn" style={{ width: '100%' }} onClick={() => navigate("/login")}>Return to Login</button>
+          </div>
+        </div>
+      )}
+
       <Footer />
     </>
   );
