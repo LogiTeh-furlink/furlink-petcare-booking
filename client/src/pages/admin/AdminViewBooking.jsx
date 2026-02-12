@@ -4,44 +4,33 @@ import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "../../config/supabase";
 import LoggedInAdmin from "../../components/Header/LoggedInAdmin";
 import { 
-  FaArrowLeft, FaUser, FaHistory, FaTimes, FaImage, FaSearchPlus 
+  FaArrowLeft, 
+  FaUser, 
+  FaHistory, 
+  FaTimes, 
+  FaSearchPlus,
+  FaCalendarAlt, 
+  FaClock, 
+  FaCreditCard, 
+  FaFileInvoiceDollar,
+  FaInfoCircle,
+  FaStar,
+  FaCommentDots
 } from "react-icons/fa";
 import "./AdminViewBooking.css";
 
-/* --- MODAL FOR PROOFS --- */
-const FileModal = ({ content, onClose }) => {
-  if (!content) return null;
-  return (
-    <div className="admin-file-modal-overlay" onClick={onClose}>
-      <div className="admin-file-modal-container" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-view-header">
-          <div className="header-left">
-            <FaImage className="type-icon img" style={{marginRight: '10px'}}/>
-            <span>{content.title}</span>
-          </div>
-          <button className="close-modal-btn" onClick={onClose}><FaTimes /></button>
-        </div>
-        <div className="modal-view-body">
-          <img 
-            src={content.url} 
-            alt={content.title} 
-            className="modal-main-img" 
-          />
-        </div>
-      </div>
-    </div>
-  );
-};
-
 export default function AdminViewBooking() {
-  const { id } = useParams(); // This is the User (Profile) ID
+  const { id } = useParams(); // User Profile ID
   const navigate = useNavigate();
   
   // --- STATE ---
   const [userProfile, setUserProfile] = useState(null);
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [modalContent, setModalContent] = useState(null);
+  
+  // Modal States
+  const [selectedBooking, setSelectedBooking] = useState(null); 
+  const [previewImage, setPreviewImage] = useState(null);
 
   useEffect(() => {
     fetchUserData();
@@ -61,25 +50,38 @@ export default function AdminViewBooking() {
       if (profileError) throw profileError;
       setUserProfile(profileData);
 
-      // 2. Fetch Deeply Nested Booking Data based on new Schema
+      // 2. Fetch ALL Bookings (Removed status filter)
       const { data: bookingData, error: bookingError } = await supabase
         .from("bookings")
         .select(`
           *,
-          service_providers (business_name),
+          service_providers (id, business_name, business_mobile),
           booking_pets (
             id,
             pet_name,
             pet_type,
+            breed,
+            gender,
             weight_kg,
-            booking_services (
-              service_name,
-              price
-            )
+            calculated_size,
+            behavior,
+            emergency_consent,
+            grooming_specifications,
+            vaccine_card_url,
+            illness_proof_url,
+            ai_generated_url,
+            booking_services (service_name, price)
+          ),
+          reviews (
+            rating_overall,
+            rating_staff,
+            comment,
+            created_at
           )
         `)
         .eq("user_id", id)
-        .order("created_at", { ascending: false });
+        // .eq("status", "rated") <--- REMOVED THIS LINE TO SHOW ALL STATUSES
+        .order("booking_date", { ascending: false });
         
       if (bookingError) console.error("Error fetching bookings:", bookingError);
       setBookings(bookingData || []);
@@ -91,11 +93,38 @@ export default function AdminViewBooking() {
     }
   };
 
-  const formatDate = (dateString) => {
-    if (!dateString) return "-";
-    return new Date(dateString).toLocaleDateString("en-US", {
-      month: "short", day: "numeric", year: "numeric"
-    });
+  /* --- HELPERS --- */
+  const formatDateTime = (dateStr, timeStr) => {
+    if (!dateStr || !timeStr) return "TBD";
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return "Invalid Date"; 
+    const formattedDate = date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+    
+    const tempTime = new Date(`2000-01-01T${timeStr}`);
+    const formattedTime = isNaN(tempTime.getTime()) ? timeStr : tempTime.toLocaleTimeString("en-US", { hour: 'numeric', minute: '2-digit', hour12: true });
+    
+    return `${formattedDate} at ${formattedTime}`;
+  };
+
+  const formatCurrency = (amount) => `₱ ${parseFloat(amount || 0).toLocaleString('en-PH', {minimumFractionDigits: 2})}`;
+
+  const getServiceSummary = (pets) => {
+    if (!pets || pets.length === 0) return "No services";
+    const services = pets.flatMap(p => p.booking_services?.map(s => s.service_name) || []);
+    return [...new Set(services)].join(", ");
+  };
+
+  const renderStars = (count) => {
+    return [...Array(5)].map((_, i) => (
+      <FaStar key={i} color={i < count ? "#fbbf24" : "#e2e8f0"} size={14} style={{marginRight: '2px'}}/>
+    ));
+  };
+
+  const handleOpenDetails = (booking) => setSelectedBooking(booking);
+  
+  const handleCloseAll = () => {
+    setSelectedBooking(null);
+    setPreviewImage(null);
   };
 
   if (loading) return <div className="loading-screen">Loading User Details...</div>;
@@ -120,10 +149,8 @@ export default function AdminViewBooking() {
         </div>
 
         <div className="view-grid">
-          {/* --- LEFT COLUMN --- */}
+          {/* --- LEFT COLUMN: Personal Info --- */}
           <div className="view-column">
-            
-            {/* USER INFORMATION */}
             <section className="provider-card">
               <h2><FaUser /> Personal Information</h2>
               <div className="info-item">
@@ -133,122 +160,193 @@ export default function AdminViewBooking() {
                 <strong>Mobile:</strong> {userProfile?.mobile_number || "N/A"}
               </div>
               <div className="info-item">
-                <strong>Date of Birth:</strong> {formatDate(userProfile?.date_of_birth)}
+                <strong>Date of Birth:</strong> {userProfile?.date_of_birth ? new Date(userProfile.date_of_birth).toLocaleDateString() : "-"}
               </div>
               <div className="info-item">
-                <strong>Member Since:</strong> {formatDate(userProfile?.created_at)}
+                <strong>Member Since:</strong> {userProfile?.created_at ? new Date(userProfile.created_at).toLocaleDateString() : "-"}
               </div>
             </section>
           </div>
 
-          {/* --- RIGHT COLUMN --- */}
+          {/* --- RIGHT COLUMN: ALL BOOKING HISTORY --- */}
           <div className="view-column">
-            
-            {/* BOOKING HISTORY (Updated for Multi-Pet/Multi-Service) */}
-            <section className="provider-card">
-              <h2><FaHistory /> Booking History</h2>
+            <section className="provider-card" style={{padding: '0', overflow: 'hidden'}}>
+              <div style={{padding: '20px 20px 0'}}>
+                <h2><FaHistory /> Full Booking History</h2>
+                <p style={{fontSize: '0.85rem', color: '#64748b', marginBottom: '15px'}}>
+                   Showing all appointments (Pending, Paid, Cancelled, Rated, etc.)
+                </p>
+              </div>
               
-              {bookings.length > 0 ? (
-                <div style={{display: 'flex', flexDirection: 'column', gap: '20px'}}>
-                  {bookings.map((booking) => (
-                    <div key={booking.id} className="service-details-box">
-                       {/* Booking Header */}
-                       <div className="service-header-row" style={{borderBottom: '1px solid #f1f5f9', paddingBottom:'10px', marginBottom:'10px'}}>
-                          <div>
-                            <div style={{fontWeight:'700', fontSize:'1rem', color:'#0E2679'}}>
-                              {formatDate(booking.booking_date)}
+              <div className="app-list-section">
+                <div className="bookings-grid">
+                  <div className="list-table-header">
+                    <div className="col-date">Date</div>
+                    <div className="col-pets">Pets</div>
+                    <div className="col-service">Service</div>
+                    <div className="col-price">Total</div>
+                    <div className="col-action">Action</div>
+                  </div>
+                  
+                  {bookings.length === 0 ? (
+                    <div className="no-app-state">
+                      <FaCalendarAlt className="empty-icon" />
+                      <h3>No booking history found.</h3>
+                      <p style={{fontSize: '0.8rem', marginTop: '5px'}}>This user has not made any appointments yet.</p>
+                    </div>
+                  ) : (
+                    bookings.map((booking) => (
+                      <div key={booking.id} className="app-row">
+                        <div className="col-date">
+                            <strong>{formatDateTime(booking.booking_date, booking.time_slot)}</strong>
+                            <div style={{fontSize:'0.7rem', color: '#64748b', marginTop: '4px'}}>
+                                Status: <span className={`status-pill ${booking.status}`} style={{
+                                    fontWeight: 700, 
+                                    color: booking.status === 'cancelled' || booking.status === 'declined' ? '#b91c1c' : '#0E2679', 
+                                    textTransform: 'capitalize'
+                                }}>{booking.status}</span>
                             </div>
-                            <div style={{fontSize:'0.85rem', color:'#64748b'}}>
-                              {booking.time_slot} • {booking.service_providers?.business_name || "Unknown Provider"}
-                            </div>
-                          </div>
-                          <div style={{textAlign:'right'}}>
-                             <span className={`status-pill ${booking.status}`} style={{marginBottom:'5px', display:'inline-block'}}>
-                               {booking.status}
-                             </span>
-                             <div style={{fontSize:'0.9rem', fontWeight:'600'}}>Total: ₱{booking.total_estimated_price}</div>
-                          </div>
+                        </div>
+                        <div className="col-pets">{booking.booking_pets?.length || 0} Pet/s</div>
+                        <div className="col-service">{getServiceSummary(booking.booking_pets)}</div>
+                        <div className="col-price">
+                            {formatCurrency(booking.total_estimated_price)}
+                        </div>
+                        <div className="col-action">
+                          <button className="view-app-btn" onClick={() => handleOpenDetails(booking)}>View Details</button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </section>
+          </div>
+        </div>
+      </div>
+
+      {/* --- DETAILED MODAL --- */}
+      {selectedBooking && (
+        <div className="modal-overlay" onClick={handleCloseAll}>
+          <div className="modal-content large-modal" onClick={e => e.stopPropagation()}>
+             <div className="modal-header">
+               <h3>Appointment Details</h3>
+               <button className="close-btn" onClick={handleCloseAll}><FaTimes/></button>
+             </div>
+             <div className="modal-body-scroll">
+                
+                {/* --- CLIENT FEEDBACK SECTION (Only if reviews exist) --- */}
+                {selectedBooking.reviews && selectedBooking.reviews.length > 0 && (
+                  <div className="review-highlight-box" style={{
+                      backgroundColor: '#f0f9ff', 
+                      border: '1px solid #bae6fd', 
+                      borderRadius: '12px', 
+                      padding: '15px',
+                      marginBottom: '20px'
+                  }}>
+                    <h4 style={{marginTop: 0, color: '#0369a1', display:'flex', alignItems:'center', gap:'8px'}}>
+                       <FaCommentDots /> Client Feedback
+                    </h4>
+                    
+                    {selectedBooking.reviews.map((review, idx) => (
+                      <div key={idx}>
+                         <div style={{display:'flex', gap:'20px', marginBottom:'10px'}}>
+                           <div>
+                             <span style={{fontSize:'0.75rem', fontWeight:'600', color:'#64748b', display:'block'}}>Overall</span>
+                             {renderStars(review.rating_overall)}
+                           </div>
+                           <div>
+                             <span style={{fontSize:'0.75rem', fontWeight:'600', color:'#64748b', display:'block'}}>Staff</span>
+                             {renderStars(review.rating_staff)}
+                           </div>
+                         </div>
+                         <div style={{fontSize: '0.9rem', color: '#334155', fontStyle: 'italic'}}>
+                           "{review.comment || "No comment provided."}"
+                         </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="info-grid">
+                   <div className="info-item">
+                     <label><FaInfoCircle/> Provider</label>
+                     <span>{selectedBooking.service_providers?.business_name}</span>
+                   </div>
+                   <div className="info-item">
+                     <label><FaClock/> Schedule</label>
+                     <span>{formatDateTime(selectedBooking.booking_date, selectedBooking.time_slot)}</span>
+                   </div>
+                   <div className="info-item">
+                       <label><FaFileInvoiceDollar/> Total Amount</label>
+                       <span className="price-tag">{formatCurrency(selectedBooking.total_estimated_price)}</span>
+                       <span className="vat-note-small" style={{textAlign: 'left', marginTop: '0'}}>* VAT exclusive</span>
+                   </div>
+                   <div className="info-item">
+                        <label><FaCreditCard/> Downpayment</label>
+                        <span className="price-tag">{formatCurrency(selectedBooking.installation_payment)}</span>
+                        <span className="vat-note-small" style={{textAlign: 'left', marginTop: '0'}}>* VAT exclusive</span>
+                    </div>
+                   <div className="info-item">
+                     <label>Status</label>
+                     <span className={`status-pill ${selectedBooking.status}`} style={{display: 'inline-block', width: 'fit-content'}}>
+                        {selectedBooking.status}
+                     </span>
+                   </div>
+                   
+                   {selectedBooking.payment_proof_url && (
+                     <div className="info-item">
+                       <label>Payment Proof</label>
+                       <div className="image-wrapper clickable-img" onClick={() => setPreviewImage(selectedBooking.payment_proof_url)}>
+                          <div className="img-label">View Proof <FaSearchPlus size={12} /></div>
+                          <img src={selectedBooking.payment_proof_url} className="proof-image" alt="Payment Proof"/>
                        </div>
-
-                       {/* Inner Table for Pets & Services */}
-                       <table className="admin-service-table" style={{marginTop:'0'}}>
-                          <thead>
-                             <tr>
-                               <th>Pet</th>
-                               <th>Service</th>
-                               <th>Price</th>
-                             </tr>
-                          </thead>
-                          <tbody>
-                             {booking.booking_pets?.map((pet) => (
-                               <React.Fragment key={pet.id}>
-                                  {/* If a pet has multiple services, map them. If no services, show row with dash */}
-                                  {pet.booking_services && pet.booking_services.length > 0 ? (
-                                    pet.booking_services.map((svc, idx) => (
-                                      <tr key={`${pet.id}-${idx}`}>
-                                        {/* Only show Pet Name on the first row for that pet */}
-                                        <td style={{borderBottom: idx === pet.booking_services.length - 1 ? '1px solid #f1f5f9' : 'none'}}>
-                                          {idx === 0 && (
-                                            <>
-                                              <strong>{pet.pet_name}</strong>
-                                              <div style={{fontSize:'0.75rem', color:'#94a3b8'}}>{pet.pet_type} ({pet.weight_kg}kg)</div>
-                                            </>
-                                          )}
-                                        </td>
-                                        <td>{svc.service_name}</td>
-                                        <td>₱{svc.price}</td>
-                                      </tr>
-                                    ))
-                                  ) : (
-                                    <tr>
-                                      <td>
-                                        <strong>{pet.pet_name}</strong>
-                                        <div style={{fontSize:'0.75rem', color:'#94a3b8'}}>{pet.pet_type} ({pet.weight_kg}kg)</div>
-                                      </td>
-                                      <td colSpan="2" style={{fontStyle:'italic', color:'#cbd5e1'}}>No services recorded</td>
-                                    </tr>
-                                  )}
-                               </React.Fragment>
-                             ))}
-                          </tbody>
-                       </table>
-
-                       {/* Payment / Installation Info */}
-                       <div style={{marginTop:'15px', paddingTop:'10px', borderTop:'1px solid #f1f5f9', display:'flex', justifyContent:'space-between', alignItems:'center'}}>
-                          <div style={{fontSize:'0.85rem'}}>
-                             <strong>30% Downpayment:</strong> ₱{booking.installation_payment}
-                             {booking.rejection_reason && (
-                               <div style={{color:'#ef4444', marginTop:'4px'}}>
-                                 <strong>Reason for Rejection:</strong> {booking.rejection_reason}
-                               </div>
-                             )}
-                          </div>
-                          
-                          {booking.payment_proof_url && (
-                             <button 
-                               className="btn-back-nav" 
-                               style={{fontSize:'0.75rem', padding:'6px 12px', margin:'0', background:'#fff', color:'#0E2679', border:'1px solid #0E2679'}}
-                               onClick={() => setModalContent({ url: booking.payment_proof_url, title: `Payment Proof - ${formatDate(booking.booking_date)}` })}
-                             >
-                               <FaSearchPlus /> View Payment
-                             </button>
-                          )}
+                     </div>
+                   )}
+                </div>
+                <hr className="divider"/>
+                <h4>Pets & Grooming Details</h4>
+                <div className="pets-list">
+                  {selectedBooking.booking_pets?.map((pet, idx) => (
+                    <div key={pet.id || idx} className="pet-full-card">
+                       <h5 className="pet-name-header">Pet {idx+1}: {pet.pet_name} ({pet.pet_type})</h5>
+                       <div className="pet-specs-grid">
+                         <div><span className="label">Breed</span> {pet.breed || 'N/A'}</div>
+                         <div><span className="label">Gender</span> {pet.gender || 'N/A'}</div>
+                         <div><span className="label">Weight</span> {pet.weight_kg} kg</div>
+                         <div><span className="label">Size</span> {pet.calculated_size || 'N/A'}</div>
+                         <div><span className="label">Behavior</span> {pet.behavior || 'N/A'}</div>
+                         <div><span className="label">Consent</span> {pet.emergency_consent ? 'Yes' : 'No'}</div>
+                       </div>
+                       <div className="pet-info-row-split">
+                         <div className="pet-specs-full"><span className="label">Grooming Specs:</span> {pet.grooming_specifications || 'None'}</div>
+                         <div className="pet-specs-full"><span className="label">Services:</span> {pet.booking_services?.map(s => s.service_name).join(', ')}</div>
+                       </div>
+                       <div className="pet-images-row">
+                         {pet.vaccine_card_url && <div className="image-wrapper clickable-img" onClick={() => setPreviewImage(pet.vaccine_card_url)}><div className="img-label">Vaccine Card <FaSearchPlus size={12} /></div><img src={pet.vaccine_card_url} className="proof-image" alt="Vaccine Card"/></div>}
+                         {pet.illness_proof_url && <div className="image-wrapper clickable-img" onClick={() => setPreviewImage(pet.illness_proof_url)}><div className="img-label">Proof of Illness <FaSearchPlus size={12} /></div><img src={pet.illness_proof_url} className="proof-image" alt="Illness Proof"/></div>}
+                         {pet.ai_generated_url && <div className="image-wrapper clickable-img" onClick={() => setPreviewImage(pet.ai_generated_url)}><div className="img-label">AI Style Preview <FaSearchPlus size={12} /></div><img src={pet.ai_generated_url} className="proof-image" alt="AI Preview"/></div>}
                        </div>
                     </div>
                   ))}
                 </div>
-              ) : (
-                <p className="no-data">No bookings found for this user.</p>
-              )}
-            </section>
-
+             </div>
+             <div className="modal-footer">
+               <button className="secondary-btn" onClick={handleCloseAll}>Close</button>
+             </div>
           </div>
         </div>
+      )}
 
-      </div>
-
-      {/* Modal for Proof Images */}
-      <FileModal content={modalContent} onClose={() => setModalContent(null)} />
+      {/* Image Preview Modal */}
+      {previewImage && (
+        <div className="modal-overlay image-preview-overlay" onClick={() => setPreviewImage(null)}>
+          <div className="image-preview-content" onClick={e => e.stopPropagation()}>
+            <button className="close-preview-btn" onClick={() => setPreviewImage(null)}><FaTimes /></button>
+            <img src={previewImage} className="large-proof-image" alt="Preview" />
+          </div>
+        </div>
+      )}
     </>
   );
 }
