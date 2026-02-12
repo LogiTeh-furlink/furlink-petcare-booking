@@ -18,7 +18,8 @@ import {
   FaCommentDots,
   FaExclamationTriangle,
   FaUserSlash,
-  FaPaperPlane
+  FaPaperPlane,
+  FaCheckCircle
 } from "react-icons/fa";
 import "./AdminViewBooking.css";
 
@@ -34,7 +35,10 @@ export default function AdminViewBooking() {
   // Action States
   const [warningMessage, setWarningMessage] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
-  
+  const [showSuspendModal, setShowSuspendModal] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
+
   // Modal States
   const [selectedBooking, setSelectedBooking] = useState(null); 
   const [previewImage, setPreviewImage] = useState(null);
@@ -118,19 +122,24 @@ export default function AdminViewBooking() {
 
       if (error) throw error;
 
-      alert("Warning sent to user successfully.");
+      setSuccessMessage("Warning notification sent successfully.");
+      setShowSuccessModal(true);
       setWarningMessage(""); // Clear input
     } catch (err) {
       console.error("Error sending warning:", err);
-      alert("Failed to send warning. Check console for details.");
+      alert("Failed to send warning.");
     } finally {
       setActionLoading(false);
     }
   };
 
-  const handleSuspendUser = async () => {
-    if (!window.confirm("Are you sure you want to suspend this user for 7 days? They will not be able to log in.")) return;
+  // 1. Trigger Modal Logic
+  const initiateSuspension = () => {
+      setShowSuspendModal(true);
+  };
 
+  // 2. Execute Suspension (Called from Modal)
+  const confirmSuspension = async () => {
     setActionLoading(true);
     try {
         // Calculate suspension end date (7 days from now)
@@ -148,10 +157,11 @@ export default function AdminViewBooking() {
 
         if (error) throw error;
 
-        alert(`User ${userProfile.first_name} has been suspended until ${suspensionEnd.toLocaleDateString()}.`);
+        setShowSuspendModal(false); // Close Confirmation
+        setSuccessMessage(`User has been suspended until ${suspensionEnd.toLocaleDateString()}.`);
+        setShowSuccessModal(true); // Show Success
         
-        // Refresh local profile data to reflect status change
-        fetchUserData(); 
+        fetchUserData(); // Refresh UI
 
     } catch (err) {
         console.error("Error suspending user:", err);
@@ -193,6 +203,8 @@ export default function AdminViewBooking() {
   const handleCloseAll = () => {
     setSelectedBooking(null);
     setPreviewImage(null);
+    setShowSuspendModal(false);
+    setShowSuccessModal(false);
   };
 
   if (loading) return <div className="loading-screen">Loading User Details...</div>;
@@ -237,7 +249,7 @@ export default function AdminViewBooking() {
               </div>
             </section>
 
-            {/* 2. User Action Card (New) */}
+            {/* 2. User Action Card */}
             <section className="provider-card action-card">
               <h2 style={{color: '#b91c1c', borderBottomColor: '#fecaca'}}>
                  <FaExclamationTriangle /> Admin Actions
@@ -269,7 +281,7 @@ export default function AdminViewBooking() {
                 </p>
                 <button 
                     className="btn-action-suspend" 
-                    onClick={handleSuspendUser}
+                    onClick={initiateSuspension}
                     disabled={actionLoading || userProfile?.status === 'suspended'}
                 >
                     <FaUserSlash /> {userProfile?.status === 'suspended' ? 'User Suspended' : 'Suspend for 1 Week'}
@@ -336,7 +348,7 @@ export default function AdminViewBooking() {
         </div>
       </div>
 
-      {/* --- DETAILED MODAL --- */}
+      {/* --- BOOKING DETAILS MODAL --- */}
       {selectedBooking && (
         <div className="modal-overlay" onClick={handleCloseAll}>
           <div className="modal-content large-modal" onClick={e => e.stopPropagation()}>
@@ -444,6 +456,71 @@ export default function AdminViewBooking() {
              </div>
              <div className="modal-footer">
                <button className="secondary-btn" onClick={handleCloseAll}>Close</button>
+             </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- SUSPENSION CONFIRMATION MODAL (NEW) --- */}
+      {showSuspendModal && (
+        <div className="modal-overlay">
+          <div className="modal-content small-modal" style={{maxWidth: '400px'}}>
+            <div className="modal-header" style={{backgroundColor: '#fef2f2', borderBottom: '1px solid #fecaca'}}>
+              <h3 style={{color: '#b91c1c', display: 'flex', alignItems: 'center', gap: '8px'}}>
+                 <FaExclamationTriangle /> Suspend User?
+              </h3>
+              <button className="close-btn" onClick={() => setShowSuspendModal(false)}><FaTimes/></button>
+            </div>
+            <div className="modal-body" style={{padding: '20px', textAlign: 'center'}}>
+               <div style={{
+                   backgroundColor: '#fee2e2', 
+                   width: '60px', 
+                   height: '60px', 
+                   borderRadius: '50%', 
+                   display: 'flex', 
+                   alignItems: 'center', 
+                   justifyContent: 'center',
+                   margin: '0 auto 15px auto'
+               }}>
+                  <FaUserSlash size={24} color="#b91c1c" />
+               </div>
+               <p style={{fontSize: '1rem', fontWeight: '600', color: '#1e293b', marginBottom: '8px'}}>
+                 Are you sure you want to suspend {userProfile?.first_name}?
+               </p>
+               <p style={{fontSize: '0.9rem', color: '#64748b', marginBottom: '10px'}}>
+                 This action will block their access to the platform for <strong>7 days</strong>.
+               </p>
+            </div>
+            <div className="modal-footer" style={{justifyContent: 'center', gap: '12px'}}>
+              <button className="secondary-btn" onClick={() => setShowSuspendModal(false)}>Cancel</button>
+              <button 
+                className="btn-action-suspend" 
+                style={{backgroundColor: '#ef4444', color: 'white', border: 'none', padding: '10px 20px'}}
+                onClick={confirmSuspension}
+                disabled={actionLoading}
+              >
+                {actionLoading ? "Suspending..." : "Confirm Suspension"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- SUCCESS MODAL --- */}
+      {showSuccessModal && (
+        <div className="modal-overlay">
+          <div className="modal-content small-modal" style={{maxWidth: '350px', textAlign: 'center'}}>
+             <div style={{padding: '30px 20px'}}>
+                <FaCheckCircle size={50} color="#16a34a" style={{marginBottom: '15px'}} />
+                <h3 style={{color: '#16a34a', margin: '0 0 10px 0'}}>Success</h3>
+                <p style={{color: '#475569'}}>{successMessage}</p>
+                <button 
+                  className="secondary-btn" 
+                  style={{marginTop: '20px', backgroundColor: '#16a34a', color: 'white', border: 'none', width: '100%'}} 
+                  onClick={() => setShowSuccessModal(false)}
+                >
+                  OK
+                </button>
              </div>
           </div>
         </div>
