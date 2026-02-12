@@ -25,14 +25,8 @@ const Header = () => {
               About furlink
             </button>
           )}
-          <button
-            onClick={() => navigate("/login")}
-            className="nav-link"
-          >
-            Become a Service Provider
-          </button>
-          <button onClick={() => navigate("/signup")} className="signup-btn">
-            Sign Up
+          <button onClick={() => navigate("/login")} className="signup-btn">
+            Log in or Sign Up
           </button>
         </nav>
       </div>
