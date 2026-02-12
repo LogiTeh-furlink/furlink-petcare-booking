@@ -155,7 +155,7 @@ export default function AdminViewBooking() {
 
         if (profileError) throw profileError;
 
-        // 2. Insert Notification about suspension (So they see it if they ever log back in or check email)
+        // 2. Insert Notification about suspension
         await supabase.from('notifications').insert({
             user_id: id,
             title: 'Account Suspended',
@@ -214,7 +214,7 @@ export default function AdminViewBooking() {
     setShowSuccessModal(false);
   };
 
-  if (loading) return <div className="loading-screen">Loading User Details...</div>;
+  if (loading) return <div className="admin-view-booking-loading-screen">Loading User Details...</div>;
 
   return (
     <>
@@ -357,13 +357,13 @@ export default function AdminViewBooking() {
 
       {/* --- BOOKING DETAILS MODAL --- */}
       {selectedBooking && (
-        <div className="modal-overlay" onClick={handleCloseAll}>
-          <div className="modal-content large-modal" onClick={e => e.stopPropagation()}>
-             <div className="modal-header">
+        <div className="admin-view-booking-modal-overlay" onClick={handleCloseAll}>
+          <div className="admin-view-booking-modal-content admin-view-booking-large-modal" onClick={e => e.stopPropagation()}>
+             <div className="admin-view-booking-modal-header">
                <h3>Appointment Details</h3>
-               <button className="close-btn" onClick={handleCloseAll}><FaTimes/></button>
+               <button className="admin-view-booking-close-btn" onClick={handleCloseAll}><FaTimes/></button>
              </div>
-             <div className="modal-body-scroll">
+             <div className="admin-view-booking-modal-body-scroll">
                 
                 {/* --- CLIENT FEEDBACK SECTION --- */}
                 {selectedBooking.reviews && selectedBooking.reviews.length > 0 && (
@@ -398,26 +398,26 @@ export default function AdminViewBooking() {
                   </div>
                 )}
 
-                <div className="info-grid">
-                   <div className="info-item">
+                <div className="admin-view-booking-info-grid">
+                   <div className="admin-view-booking-info-item">
                      <label><FaInfoCircle/> Provider</label>
                      <span>{selectedBooking.service_providers?.business_name}</span>
                    </div>
-                   <div className="info-item">
+                   <div className="admin-view-booking-info-item">
                      <label><FaClock/> Schedule</label>
                      <span>{formatDateTime(selectedBooking.booking_date, selectedBooking.time_slot)}</span>
                    </div>
-                   <div className="info-item">
+                   <div className="admin-view-booking-info-item">
                        <label><FaFileInvoiceDollar/> Total Amount</label>
-                       <span className="price-tag">{formatCurrency(selectedBooking.total_estimated_price)}</span>
-                       <span className="vat-note-small" style={{textAlign: 'left', marginTop: '0'}}>* VAT exclusive</span>
+                       <span className="admin-view-booking-price-tag">{formatCurrency(selectedBooking.total_estimated_price)}</span>
+                       <span className="admin-view-booking-vat-note-small" style={{textAlign: 'left', marginTop: '0'}}>* VAT exclusive</span>
                    </div>
-                   <div className="info-item">
+                   <div className="admin-view-booking-info-item">
                         <label><FaCreditCard/> Downpayment</label>
-                        <span className="price-tag">{formatCurrency(selectedBooking.installation_payment)}</span>
-                        <span className="vat-note-small" style={{textAlign: 'left', marginTop: '0'}}>* VAT exclusive</span>
+                        <span className="admin-view-booking-price-tag">{formatCurrency(selectedBooking.installation_payment)}</span>
+                        <span className="admin-view-booking-vat-note-small" style={{textAlign: 'left', marginTop: '0'}}>* VAT exclusive</span>
                     </div>
-                   <div className="info-item">
+                   <div className="admin-view-booking-info-item">
                      <label>Status</label>
                      <span className={`status-pill ${selectedBooking.status}`} style={{display: 'inline-block', width: 'fit-content'}}>
                         {selectedBooking.status}
@@ -425,44 +425,44 @@ export default function AdminViewBooking() {
                    </div>
                    
                    {selectedBooking.payment_proof_url && (
-                     <div className="info-item">
+                     <div className="admin-view-booking-info-item">
                        <label>Payment Proof</label>
-                       <div className="image-wrapper clickable-img" onClick={() => setPreviewImage(selectedBooking.payment_proof_url)}>
-                          <div className="img-label">View Proof <FaSearchPlus size={12} /></div>
-                          <img src={selectedBooking.payment_proof_url} className="proof-image" alt="Payment Proof"/>
+                       <div className="admin-view-booking-image-wrapper admin-view-booking-clickable-img" onClick={() => setPreviewImage(selectedBooking.payment_proof_url)}>
+                          <div className="admin-view-booking-img-label">View Proof <FaSearchPlus size={12} /></div>
+                          <img src={selectedBooking.payment_proof_url} className="admin-view-booking-proof-image" alt="Payment Proof"/>
                        </div>
                      </div>
                    )}
                 </div>
-                <hr className="divider"/>
+                <hr className="admin-view-booking-divider"/>
                 <h4>Pets & Grooming Details</h4>
-                <div className="pets-list">
+                <div className="admin-view-booking-pets-list">
                   {selectedBooking.booking_pets?.map((pet, idx) => (
-                    <div key={pet.id || idx} className="pet-full-card">
-                       <h5 className="pet-name-header">Pet {idx+1}: {pet.pet_name} ({pet.pet_type})</h5>
-                       <div className="pet-specs-grid">
-                         <div><span className="label">Breed</span> {pet.breed || 'N/A'}</div>
-                         <div><span className="label">Gender</span> {pet.gender || 'N/A'}</div>
-                         <div><span className="label">Weight</span> {pet.weight_kg} kg</div>
-                         <div><span className="label">Size</span> {pet.calculated_size || 'N/A'}</div>
-                         <div><span className="label">Behavior</span> {pet.behavior || 'N/A'}</div>
-                         <div><span className="label">Consent</span> {pet.emergency_consent ? 'Yes' : 'No'}</div>
+                    <div key={pet.id || idx} className="admin-view-booking-pet-full-card">
+                       <h5 className="admin-view-booking-pet-name-header">Pet {idx+1}: {pet.pet_name} ({pet.pet_type})</h5>
+                       <div className="admin-view-booking-pet-specs-grid">
+                         <div><span className="admin-view-booking-label">Breed</span> {pet.breed || 'N/A'}</div>
+                         <div><span className="admin-view-booking-label">Gender</span> {pet.gender || 'N/A'}</div>
+                         <div><span className="admin-view-booking-label">Weight</span> {pet.weight_kg} kg</div>
+                         <div><span className="admin-view-booking-label">Size</span> {pet.calculated_size || 'N/A'}</div>
+                         <div><span className="admin-view-booking-label">Behavior</span> {pet.behavior || 'N/A'}</div>
+                         <div><span className="admin-view-booking-label">Consent</span> {pet.emergency_consent ? 'Yes' : 'No'}</div>
                        </div>
-                       <div className="pet-info-row-split">
-                         <div className="pet-specs-full"><span className="label">Grooming Specs:</span> {pet.grooming_specifications || 'None'}</div>
-                         <div className="pet-specs-full"><span className="label">Services:</span> {pet.booking_services?.map(s => s.service_name).join(', ')}</div>
+                       <div className="admin-view-booking-pet-info-row-split" style={{display:'flex', gap:'15px', marginTop:'10px'}}>
+                         <div className="admin-view-booking-pet-specs-full" style={{flex:1}}><span className="admin-view-booking-label">Grooming Specs:</span> {pet.grooming_specifications || 'None'}</div>
+                         <div className="admin-view-booking-pet-specs-full" style={{flex:1}}><span className="admin-view-booking-label">Services:</span> {pet.booking_services?.map(s => s.service_name).join(', ')}</div>
                        </div>
-                       <div className="pet-images-row">
-                         {pet.vaccine_card_url && <div className="image-wrapper clickable-img" onClick={() => setPreviewImage(pet.vaccine_card_url)}><div className="img-label">Vaccine Card <FaSearchPlus size={12} /></div><img src={pet.vaccine_card_url} className="proof-image" alt="Vaccine Card"/></div>}
-                         {pet.illness_proof_url && <div className="image-wrapper clickable-img" onClick={() => setPreviewImage(pet.illness_proof_url)}><div className="img-label">Proof of Illness <FaSearchPlus size={12} /></div><img src={pet.illness_proof_url} className="proof-image" alt="Illness Proof"/></div>}
-                         {pet.ai_generated_url && <div className="image-wrapper clickable-img" onClick={() => setPreviewImage(pet.ai_generated_url)}><div className="img-label">AI Style Preview <FaSearchPlus size={12} /></div><img src={pet.ai_generated_url} className="proof-image" alt="AI Preview"/></div>}
+                       <div className="admin-view-booking-pet-images-row">
+                         {pet.vaccine_card_url && <div className="admin-view-booking-image-wrapper admin-view-booking-clickable-img" onClick={() => setPreviewImage(pet.vaccine_card_url)}><div className="admin-view-booking-img-label">Vaccine Card <FaSearchPlus size={12} /></div><img src={pet.vaccine_card_url} className="admin-view-booking-proof-image" alt="Vaccine Card"/></div>}
+                         {pet.illness_proof_url && <div className="admin-view-booking-image-wrapper admin-view-booking-clickable-img" onClick={() => setPreviewImage(pet.illness_proof_url)}><div className="admin-view-booking-img-label">Proof of Illness <FaSearchPlus size={12} /></div><img src={pet.illness_proof_url} className="admin-view-booking-proof-image" alt="Illness Proof"/></div>}
+                         {pet.ai_generated_url && <div className="admin-view-booking-image-wrapper admin-view-booking-clickable-img" onClick={() => setPreviewImage(pet.ai_generated_url)}><div className="admin-view-booking-img-label">AI Style Preview <FaSearchPlus size={12} /></div><img src={pet.ai_generated_url} className="admin-view-booking-proof-image" alt="AI Preview"/></div>}
                        </div>
                     </div>
                   ))}
                 </div>
              </div>
-             <div className="modal-footer">
-               <button className="secondary-btn" onClick={handleCloseAll}>Close</button>
+             <div className="admin-view-booking-modal-footer">
+               <button className="admin-view-booking-secondary-btn" onClick={handleCloseAll}>Close</button>
              </div>
           </div>
         </div>
@@ -470,15 +470,15 @@ export default function AdminViewBooking() {
 
       {/* --- SUSPENSION CONFIRMATION MODAL --- */}
       {showSuspendModal && (
-        <div className="modal-overlay">
-          <div className="modal-content small-modal" style={{maxWidth: '400px'}}>
-            <div className="modal-header" style={{backgroundColor: '#fef2f2', borderBottom: '1px solid #fecaca'}}>
+        <div className="admin-view-booking-modal-overlay">
+          <div className="admin-view-booking-modal-content admin-view-booking-small-modal">
+            <div className="admin-view-booking-modal-header" style={{backgroundColor: '#fef2f2', borderBottom: '1px solid #fecaca'}}>
               <h3 style={{color: '#b91c1c', display: 'flex', alignItems: 'center', gap: '8px'}}>
                  <FaExclamationTriangle /> Suspend User?
               </h3>
-              <button className="close-btn" onClick={() => setShowSuspendModal(false)}><FaTimes/></button>
+              <button className="admin-view-booking-close-btn" onClick={() => setShowSuspendModal(false)}><FaTimes/></button>
             </div>
-            <div className="modal-body" style={{padding: '20px', textAlign: 'center'}}>
+            <div className="admin-view-booking-modal-body-scroll" style={{textAlign: 'center', overflow: 'hidden'}}>
                <div style={{
                    backgroundColor: '#fee2e2', 
                    width: '60px', 
@@ -498,8 +498,8 @@ export default function AdminViewBooking() {
                  This action will block their access to the platform for <strong>7 days</strong>.
                </p>
             </div>
-            <div className="modal-footer" style={{justifyContent: 'center', gap: '12px'}}>
-              <button className="secondary-btn" onClick={() => setShowSuspendModal(false)}>Cancel</button>
+            <div className="admin-view-booking-modal-footer" style={{justifyContent: 'center', gap: '12px'}}>
+              <button className="admin-view-booking-secondary-btn" onClick={() => setShowSuspendModal(false)}>Cancel</button>
               <button 
                 className="btn-action-suspend" 
                 style={{backgroundColor: '#ef4444', color: 'white', border: 'none', padding: '10px 20px'}}
@@ -515,14 +515,14 @@ export default function AdminViewBooking() {
 
       {/* --- SUCCESS MODAL --- */}
       {showSuccessModal && (
-        <div className="modal-overlay">
-          <div className="modal-content small-modal" style={{maxWidth: '350px', textAlign: 'center'}}>
+        <div className="admin-view-booking-modal-overlay">
+          <div className="admin-view-booking-modal-content admin-view-booking-small-modal" style={{maxWidth: '350px', textAlign: 'center'}}>
              <div style={{padding: '30px 20px'}}>
                 <FaCheckCircle size={50} color="#16a34a" style={{marginBottom: '15px'}} />
                 <h3 style={{color: '#16a34a', margin: '0 0 10px 0'}}>Success</h3>
                 <p style={{color: '#475569'}}>{successMessage}</p>
                 <button 
-                  className="secondary-btn" 
+                  className="admin-view-booking-secondary-btn" 
                   style={{marginTop: '20px', backgroundColor: '#16a34a', color: 'white', border: 'none', width: '100%'}} 
                   onClick={() => setShowSuccessModal(false)}
                 >
@@ -535,10 +535,10 @@ export default function AdminViewBooking() {
 
       {/* Image Preview Modal */}
       {previewImage && (
-        <div className="modal-overlay image-preview-overlay" onClick={() => setPreviewImage(null)}>
-          <div className="image-preview-content" onClick={e => e.stopPropagation()}>
-            <button className="close-preview-btn" onClick={() => setPreviewImage(null)}><FaTimes /></button>
-            <img src={previewImage} className="large-proof-image" alt="Preview" />
+        <div className="admin-view-booking-modal-overlay admin-view-booking-image-preview-overlay" onClick={() => setPreviewImage(null)}>
+          <div className="admin-view-booking-image-preview-content" onClick={e => e.stopPropagation()}>
+            <button className="admin-view-booking-close-preview-btn" onClick={() => setPreviewImage(null)}><FaTimes /></button>
+            <img src={previewImage} className="admin-view-booking-large-proof-image" alt="Preview" />
           </div>
         </div>
       )}
