@@ -538,6 +538,23 @@ export default function BookingHistory() {
                         <span className="price-tag">{formatCurrency(selectedBooking.installation_payment)}</span>
                         <span className="vat-note-small" style={{textAlign: 'left', marginTop: '0'}}>* VAT exclusive</span>
                     </div>
+
+                    {/* ⭐ NEW: Balance Row for Paid Bookings (Upcoming/Today) */}
+                    {(selectedBooking.status === 'paid' && (activeTab === 'upcoming' || activeTab === 'today')) && (
+                        <div className="info-item">
+                            <label>
+                                <FaMoneyBillWave/> Balance to Pay
+                            </label>
+                            <span className="price-tag" style={{ color: 'var(--brand-blue)' }}>
+                                {formatCurrency(
+                                    (selectedBooking.total_estimated_price || 0) - (selectedBooking.installation_payment || 0)
+                                )}
+                            </span>
+                            <p style={{ fontSize: '0.7rem', color: '#64748b', margin: '2px 0 0 0' }}>
+                                Payable at the shop on {new Date(selectedBooking.booking_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                            </p>
+                        </div>
+                    )}
                    <div className="info-item">
                      <label>Status</label>
                      <span className="status-badge">{selectedBooking.status}</span>
