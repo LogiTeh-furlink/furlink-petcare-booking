@@ -1202,91 +1202,6 @@ export default function SPBusinessDashboard() {
                 </div>
               </div>
 
-              {/* Pet Type Breakdown Section - NEW */}
-              {petTypeFilter === 'both' && (
-                <div className="report-section">
-                  <h3 className="report-section-title">Performance by Pet Type</h3>
-                  <div className="pet-type-breakdown-grid">
-                    <div className="pet-breakdown-card">
-                      <div className="pet-breakdown-header">
-                        <span className="pet-type-icon">🐕</span>
-                        <h4>Dog Services</h4>
-                      </div>
-                      <div className="pet-breakdown-stats">
-                        <div className="pet-stat-item">
-                          <span className="pet-stat-label">Revenue</span>
-                          <span className="pet-stat-value">
-                            ₱{formatCurrency(analytics.petTypeBreakdown.Dog.revenue)}
-                          </span>
-                        </div>
-                        <div className="pet-stat-item">
-                          <span className="pet-stat-label">Bookings</span>
-                          <span className="pet-stat-value">
-                            {analytics.petTypeBreakdown.Dog.bookings}
-                          </span>
-                        </div>
-                        <div className="pet-stat-item">
-                          <span className="pet-stat-label">Customers</span>
-                          <span className="pet-stat-value">
-                            {analytics.petTypeBreakdown.Dog.customers}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="pet-breakdown-card">
-                      <div className="pet-breakdown-header">
-                        <span className="pet-type-icon">🐈</span>
-                        <h4>Cat Services</h4>
-                      </div>
-                      <div className="pet-breakdown-stats">
-                        <div className="pet-stat-item">
-                          <span className="pet-stat-label">Revenue</span>
-                          <span className="pet-stat-value">
-                            ₱{formatCurrency(analytics.petTypeBreakdown.Cat.revenue)}
-                          </span>
-                        </div>
-                        <div className="pet-stat-item">
-                          <span className="pet-stat-label">Bookings</span>
-                          <span className="pet-stat-value">
-                            {analytics.petTypeBreakdown.Cat.bookings}
-                          </span>
-                        </div>
-                        <div className="pet-stat-item">
-                          <span className="pet-stat-label">Customers</span>
-                          <span className="pet-stat-value">
-                            {analytics.petTypeBreakdown.Cat.customers}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* Insights */}
-                  <div className="pet-breakdown-insights">
-                    <p>
-                      <strong>Top Performing Pet Type:</strong>{' '}
-                      {analytics.petTypeBreakdown.Dog.revenue > analytics.petTypeBreakdown.Cat.revenue 
-                        ? `Dog services generated ${((analytics.petTypeBreakdown.Dog.revenue / (analytics.petTypeBreakdown.Dog.revenue + analytics.petTypeBreakdown.Cat.revenue)) * 100).toFixed(0)}% of total revenue`
-                        : `Cat services generated ${((analytics.petTypeBreakdown.Cat.revenue / (analytics.petTypeBreakdown.Dog.revenue + analytics.petTypeBreakdown.Cat.revenue)) * 100).toFixed(0)}% of total revenue`}
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {/* Show filtered pet type notice when specific filter is active */}
-              {petTypeFilter !== 'both' && (
-                <div className="report-section">
-                  <div className="pet-filter-notice">
-                    <h4>📊 Filtered Report</h4>
-                    <p>
-                      This report displays data exclusively for <strong>{petTypeFilter}</strong> services. 
-                      To view complete data across all pet types, change the pet type filter to "Both (Dog & Cat)".
-                    </p>
-                  </div>
-                </div>
-              )}
-
               {/* Performance Analysis */}
               <div className="report-section">
                 <h3 className="report-section-title">Performance Analysis</h3>
@@ -1316,6 +1231,14 @@ export default function SPBusinessDashboard() {
                         : analytics.bookTrend.dir === 'down'
                         ? `Bookings have decreased by ${analytics.bookTrend.val}%. Consider promotional campaigns to boost customer engagement.`
                         : 'Booking volume has remained consistent with the previous period.'}
+                    </p>
+                  </div>
+                  <div className="insight-item">
+                    <strong>Top Performing Pet Type:</strong>
+                    <p>
+                      {analytics.petTypeBreakdown.Dog.revenue > analytics.petTypeBreakdown.Cat.revenue 
+                        ? `Dog services generated ${((analytics.petTypeBreakdown.Dog.revenue / (analytics.petTypeBreakdown.Dog.revenue + analytics.petTypeBreakdown.Cat.revenue)) * 100).toFixed(0)}% of total revenue`
+                        : `Cat services generated ${((analytics.petTypeBreakdown.Cat.revenue / (analytics.petTypeBreakdown.Dog.revenue + analytics.petTypeBreakdown.Cat.revenue)) * 100).toFixed(0)}% of total revenue`}
                     </p>
                   </div>
                 </div>

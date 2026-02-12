@@ -49,7 +49,7 @@ export default function SPCustomerInsight() {
       petTypeFilter,
       customDateStart,
       customDateEnd,
-      selectedYear: null // Customer Insights doesn't use selectedYear, but we include it for consistency
+      selectedYear: null 
     });
   }, [activeFilter, petTypeFilter, customDateStart, customDateEnd]);
 
@@ -1109,91 +1109,6 @@ const getRange = (filter, isPrevious = false) => {
                   </div>
                 </div>
               </div>
-
-              {/* Pet Type Breakdown Section - NEW */}
-              {petTypeFilter === 'both' && (
-                <div className="report-section">
-                  <h3 className="report-section-title">Customer Insights by Pet Type</h3>
-                  <div className="pet-type-breakdown-grid">
-                    <div className="pet-breakdown-card">
-                      <div className="pet-breakdown-header">
-                        <span className="pet-type-icon"></span>
-                        <h4>Dog Customers</h4>
-                      </div>
-                      <div className="pet-breakdown-stats">
-                        <div className="pet-stat-item">
-                          <span className="pet-stat-label">Revenue</span>
-                          <span className="pet-stat-value">
-                            ₱{formatCurrency(analytics.petTypeBreakdown.Dog.revenue)}
-                          </span>
-                        </div>
-                        <div className="pet-stat-item">
-                          <span className="pet-stat-label">Bookings</span>
-                          <span className="pet-stat-value">
-                            {analytics.petTypeBreakdown.Dog.bookings}
-                          </span>
-                        </div>
-                        <div className="pet-stat-item">
-                          <span className="pet-stat-label">Customers</span>
-                          <span className="pet-stat-value">
-                            {analytics.petTypeBreakdown.Dog.customers}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="pet-breakdown-card">
-                      <div className="pet-breakdown-header">
-                        <span className="pet-type-icon"></span>
-                        <h4>Cat Customers</h4>
-                      </div>
-                      <div className="pet-breakdown-stats">
-                        <div className="pet-stat-item">
-                          <span className="pet-stat-label">Revenue</span>
-                          <span className="pet-stat-value">
-                            ₱{formatCurrency(analytics.petTypeBreakdown.Cat.revenue)}
-                          </span>
-                        </div>
-                        <div className="pet-stat-item">
-                          <span className="pet-stat-label">Bookings</span>
-                          <span className="pet-stat-value">
-                            {analytics.petTypeBreakdown.Cat.bookings}
-                          </span>
-                        </div>
-                        <div className="pet-stat-item">
-                          <span className="pet-stat-label">Customers</span>
-                          <span className="pet-stat-value">
-                            {analytics.petTypeBreakdown.Cat.customers}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* Insights */}
-                  <div className="pet-breakdown-insights">
-                    <p>
-                      <strong>Primary Customer Base:</strong>{' '}
-                      {analytics.petTypeBreakdown.Dog.customers > analytics.petTypeBreakdown.Cat.customers 
-                        ? `Dog owners make up ${((analytics.petTypeBreakdown.Dog.customers / (analytics.petTypeBreakdown.Dog.customers + analytics.petTypeBreakdown.Cat.customers)) * 100).toFixed(0)}% of your customer base`
-                        : `Cat owners make up ${((analytics.petTypeBreakdown.Cat.customers / (analytics.petTypeBreakdown.Dog.customers + analytics.petTypeBreakdown.Cat.customers)) * 100).toFixed(0)}% of your customer base`}
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {/* Show filtered pet type notice when specific filter is active */}
-              {petTypeFilter !== 'both' && (
-                <div className="report-section">
-                  <div className="pet-filter-notice">
-                    <h4>📊 Filtered Report</h4>
-                    <p>
-                      This report displays customer insights exclusively for <strong>{petTypeFilter}</strong> owners. 
-                      To view complete customer data across all pet types, change the pet type filter to "Both (Dog & Cat)".
-                    </p>
-                  </div>
-                </div>
-              )}
 
               {/* Customer Demographics */}
               <div className="report-section">
