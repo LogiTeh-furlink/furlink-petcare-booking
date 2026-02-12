@@ -109,15 +109,15 @@ export default function AdminViewBooking() {
     
     setActionLoading(true);
     try {
-      // Create notification entry
+      // Create notification entry MATCHING YOUR SCHEMA
       const { error } = await supabase
         .from('notifications')
         .insert({
-          user_id: id,
-          title: 'Admin Warning',
-          message: warningMessage,
-          type: 'warning',
-          is_read: false
+          user_id: id,                  // Target User
+          title: 'Admin Warning',       // Title
+          message: warningMessage,      // The text from input
+          read: false,                  // Default unread (schema: read)
+          link: '/notifications'        // Optional: Link to a view
         });
 
       if (error) throw error;
@@ -127,18 +127,16 @@ export default function AdminViewBooking() {
       setWarningMessage(""); // Clear input
     } catch (err) {
       console.error("Error sending warning:", err);
-      alert("Failed to send warning.");
+      alert("Failed to send warning. Check console/RLS.");
     } finally {
       setActionLoading(false);
     }
   };
 
-  // 1. Trigger Modal Logic
   const initiateSuspension = () => {
       setShowSuspendModal(true);
   };
 
-  // 2. Execute Suspension (Called from Modal)
   const confirmSuspension = async () => {
     setActionLoading(true);
     try {
@@ -146,8 +144,8 @@ export default function AdminViewBooking() {
         const suspensionEnd = new Date();
         suspensionEnd.setDate(suspensionEnd.getDate() + 7);
 
-        // Update profile status
-        const { error } = await supabase
+        // 1. Update profile status
+        const { error: profileError } = await supabase
             .from('profiles')
             .update({ 
                 status: 'suspended',
@@ -155,11 +153,20 @@ export default function AdminViewBooking() {
             })
             .eq('id', id);
 
-        if (error) throw error;
+        if (profileError) throw profileError;
 
-        setShowSuspendModal(false); // Close Confirmation
+        // 2. Insert Notification about suspension (So they see it if they ever log back in or check email)
+        await supabase.from('notifications').insert({
+            user_id: id,
+            title: 'Account Suspended',
+            message: `Your account has been suspended for 7 days until ${suspensionEnd.toLocaleDateString()} due to policy violations.`,
+            read: false,
+            link: '/support'
+        });
+
+        setShowSuspendModal(false); 
         setSuccessMessage(`User has been suspended until ${suspensionEnd.toLocaleDateString()}.`);
-        setShowSuccessModal(true); // Show Success
+        setShowSuccessModal(true); 
         
         fetchUserData(); // Refresh UI
 
@@ -461,7 +468,7 @@ export default function AdminViewBooking() {
         </div>
       )}
 
-      {/* --- SUSPENSION CONFIRMATION MODAL (NEW) --- */}
+      {/* --- SUSPENSION CONFIRMATION MODAL --- */}
       {showSuspendModal && (
         <div className="modal-overlay">
           <div className="modal-content small-modal" style={{maxWidth: '400px'}}>
