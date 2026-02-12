@@ -125,7 +125,7 @@ export default function AdminDashboard() {
         // Updated to fetch columns based on new schema
         const { data, error } = await supabase
           .from("profiles")
-          .select("id, display_name, email, mobile_number, role, created_at")
+          .select("id, first_name, last_name, display_name, email, mobile_number, role, created_at")
           .neq("role", "admin")
           .order("created_at", { ascending: false });
         
@@ -254,6 +254,8 @@ export default function AdminDashboard() {
                   {currentFilter === 'users' ? (
                     /* User Headers (Updated) */
                     <tr>
+                      <th>First Name</th>
+                      <th>Last Name</th>
                       <th>Display Name</th>
                       <th>Email</th>
                       <th>Contact Number</th>
@@ -279,7 +281,9 @@ export default function AdminDashboard() {
                       {currentFilter === 'users' ? (
                         /* User Row Data (Updated) */
                         <>
-                          <td className="fw-bold">{item.display_name || "N/A"}</td>
+                          <td className="fw-bold">{item.first_name || "-"}</td>
+                          <td className="fw-bold">{item.last_name || "-"}</td>
+                          <td>{item.display_name || "N/A"}</td>
                           <td>{item.email || "-"}</td>
                           <td>{item.mobile_number || "-"}</td>
                           <td style={{textTransform:'capitalize'}}>{item.role}</td>
