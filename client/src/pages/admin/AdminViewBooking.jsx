@@ -15,7 +15,10 @@ import {
   FaFileInvoiceDollar,
   FaInfoCircle,
   FaStar,
-  FaCommentDots
+  FaCommentDots,
+  FaExclamationTriangle,
+  FaUserSlash,
+  FaPaperPlane
 } from "react-icons/fa";
 import "./AdminViewBooking.css";
 
@@ -27,6 +30,10 @@ export default function AdminViewBooking() {
   const [userProfile, setUserProfile] = useState(null);
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
+  
+  // Action States
+  const [warningMessage, setWarningMessage] = useState("");
+  const [actionLoading, setActionLoading] = useState(false);
   
   // Modal States
   const [selectedBooking, setSelectedBooking] = useState(null); 
@@ -50,7 +57,7 @@ export default function AdminViewBooking() {
       if (profileError) throw profileError;
       setUserProfile(profileData);
 
-      // 2. Fetch ALL Bookings (Removed status filter)
+      // 2. Fetch ALL Bookings
       const { data: bookingData, error: bookingError } = await supabase
         .from("bookings")
         .select(`
@@ -80,7 +87,6 @@ export default function AdminViewBooking() {
           )
         `)
         .eq("user_id", id)
-        // .eq("status", "rated") <--- REMOVED THIS LINE TO SHOW ALL STATUSES
         .order("booking_date", { ascending: false });
         
       if (bookingError) console.error("Error fetching bookings:", bookingError);
@@ -90,6 +96,68 @@ export default function AdminViewBooking() {
       console.error("Error fetching user data:", err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  /* --- ACTIONS --- */
+  const handleSendWarning = async () => {
+    if (!warningMessage.trim()) return alert("Please enter a warning message.");
+    
+    setActionLoading(true);
+    try {
+      // Create notification entry
+      const { error } = await supabase
+        .from('notifications')
+        .insert({
+          user_id: id,
+          title: 'Admin Warning',
+          message: warningMessage,
+          type: 'warning',
+          is_read: false
+        });
+
+      if (error) throw error;
+
+      alert("Warning sent to user successfully.");
+      setWarningMessage(""); // Clear input
+    } catch (err) {
+      console.error("Error sending warning:", err);
+      alert("Failed to send warning. Check console for details.");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleSuspendUser = async () => {
+    if (!window.confirm("Are you sure you want to suspend this user for 7 days? They will not be able to log in.")) return;
+
+    setActionLoading(true);
+    try {
+        // Calculate suspension end date (7 days from now)
+        const suspensionEnd = new Date();
+        suspensionEnd.setDate(suspensionEnd.getDate() + 7);
+
+        // Update profile status
+        const { error } = await supabase
+            .from('profiles')
+            .update({ 
+                status: 'suspended',
+                suspension_end_date: suspensionEnd.toISOString()
+            })
+            .eq('id', id);
+
+        if (error) throw error;
+
+        alert(`User ${userProfile.first_name} has been suspended until ${suspensionEnd.toLocaleDateString()}.`);
+        
+        // Refresh local profile data to reflect status change
+        fetchUserData(); 
+
+    } catch (err) {
+        console.error("Error suspending user:", err);
+        alert("Failed to suspend user.");
+    } finally {
+        setActionLoading(false);
     }
   };
 
@@ -143,14 +211,16 @@ export default function AdminViewBooking() {
             {userProfile?.first_name} {userProfile?.last_name}
             {userProfile?.display_name && <span style={{fontSize: '1rem', color:'#64748b', marginLeft:'10px'}}>({userProfile.display_name})</span>}
           </h1>
-          <span className={`badge-status ${userProfile?.role}`}>
-            {userProfile?.role?.replace(/_/g, " ")}
+          <span className={`badge-status ${userProfile?.status === 'suspended' ? 'suspended' : userProfile?.role}`}>
+            {userProfile?.status === 'suspended' ? 'Suspended' : userProfile?.role?.replace(/_/g, " ")}
           </span>
         </div>
 
         <div className="view-grid">
-          {/* --- LEFT COLUMN: Personal Info --- */}
-          <div className="view-column">
+          {/* --- LEFT COLUMN: Personal Info + Actions (STICKY) --- */}
+          <div className="view-column sticky-column">
+            
+            {/* 1. Personal Information Card */}
             <section className="provider-card">
               <h2><FaUser /> Personal Information</h2>
               <div className="info-item">
@@ -166,6 +236,47 @@ export default function AdminViewBooking() {
                 <strong>Member Since:</strong> {userProfile?.created_at ? new Date(userProfile.created_at).toLocaleDateString() : "-"}
               </div>
             </section>
+
+            {/* 2. User Action Card (New) */}
+            <section className="provider-card action-card">
+              <h2 style={{color: '#b91c1c', borderBottomColor: '#fecaca'}}>
+                 <FaExclamationTriangle /> Admin Actions
+              </h2>
+              
+              <div className="action-group">
+                <label className="action-label">Issue Warning</label>
+                <textarea 
+                    className="warning-input" 
+                    placeholder="Type warning message here..."
+                    value={warningMessage}
+                    onChange={(e) => setWarningMessage(e.target.value)}
+                />
+                <button 
+                    className="btn-action-send" 
+                    onClick={handleSendWarning}
+                    disabled={actionLoading || !warningMessage}
+                >
+                    <FaPaperPlane /> Send Notification
+                </button>
+              </div>
+
+              <hr className="divider" style={{margin: '20px 0'}} />
+
+              <div className="action-group">
+                <label className="action-label">Account Suspension</label>
+                <p style={{fontSize: '0.8rem', color: '#64748b', marginBottom: '10px'}}>
+                    Temporarily disable this user's access for 7 days.
+                </p>
+                <button 
+                    className="btn-action-suspend" 
+                    onClick={handleSuspendUser}
+                    disabled={actionLoading || userProfile?.status === 'suspended'}
+                >
+                    <FaUserSlash /> {userProfile?.status === 'suspended' ? 'User Suspended' : 'Suspend for 1 Week'}
+                </button>
+              </div>
+            </section>
+
           </div>
 
           {/* --- RIGHT COLUMN: ALL BOOKING HISTORY --- */}
@@ -235,7 +346,7 @@ export default function AdminViewBooking() {
              </div>
              <div className="modal-body-scroll">
                 
-                {/* --- CLIENT FEEDBACK SECTION (Only if reviews exist) --- */}
+                {/* --- CLIENT FEEDBACK SECTION --- */}
                 {selectedBooking.reviews && selectedBooking.reviews.length > 0 && (
                   <div className="review-highlight-box" style={{
                       backgroundColor: '#f0f9ff', 

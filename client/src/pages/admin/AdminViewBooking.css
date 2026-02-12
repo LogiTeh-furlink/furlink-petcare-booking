@@ -59,16 +59,24 @@
   color: #0E2679;
 }
 
-/* Grid Layout */
+/* Grid Layout with Sticky Column */
 .view-grid {
   display: grid;
   grid-template-columns: 1fr 2fr;
   gap: 25px;
+  align-items: start; /* Crucial for sticky to work properly */
 }
 
 .view-column {
   display: flex;
   flex-direction: column;
+}
+
+.sticky-column {
+  position: -webkit-sticky; /* Safari */
+  position: sticky;
+  top: 20px;
+  height: fit-content;
 }
 
 /* Info Items */
@@ -106,6 +114,7 @@
 }
 .badge-status.pet_owner { background: #eff6ff; color: #1e40af; border: 1px solid #3b82f6; }
 .badge-status.service_provider { background: #f0fdf4; color: #15803d; border: 1px solid #16a34a; }
+.badge-status.suspended { background: #fef2f2; color: #b91c1c; border: 1px solid #ef4444; }
 
 .status-pill {
   padding: 4px 10px;
@@ -123,8 +132,7 @@
     min-height: 400px;
 }
 
-/* --- UPDATED GRID COLUMNS --- */
-/* Changed ratios: Date(2.2) Pets(0.8) Service(1.4) Total(1.3) Action(1) */
+/* --- GRID COLUMNS --- */
 .list-table-header {
     display: grid;
     grid-template-columns: 2.2fr 0.8fr 1.4fr 1.3fr 1fr; 
@@ -154,7 +162,7 @@
 .col-price {
     font-weight: 600;
     color: #0E2679;
-    white-space: nowrap; /* Prevent squishing onto two lines */
+    white-space: nowrap; 
 }
 
 .app-row:hover {
@@ -192,6 +200,83 @@
 .empty-icon {
     font-size: 3rem;
     margin-bottom: 15px;
+}
+
+/* --- ADMIN ACTION CARD STYLES (NEW) --- */
+.action-card {
+    background: #fff;
+    border-color: #fecaca; /* Light red border */
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+}
+
+.action-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.action-label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #0E2679;
+}
+
+.warning-input {
+    width: 100%;
+    min-height: 80px;
+    padding: 10px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 0.9rem;
+    resize: vertical;
+}
+
+.btn-action-send {
+    background-color: #0E2679;
+    color: white;
+    border: none;
+    padding: 8px;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-weight: 500;
+    transition: background 0.2s;
+}
+
+.btn-action-send:hover {
+    background-color: #fbbf24;
+    color: #0E2679;
+}
+
+.btn-action-suspend {
+    background-color: #fee2e2;
+    color: #b91c1c;
+    border: 1px solid #fecaca;
+    padding: 10px;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-weight: 600;
+    transition: all 0.2s;
+}
+
+.btn-action-suspend:hover {
+    background-color: #b91c1c;
+    color: white;
+}
+
+.btn-action-suspend:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
 }
 
 /* Modal Styles */
@@ -407,6 +492,7 @@
   .view-grid { grid-template-columns: 1fr; }
   .list-table-header, .app-row { grid-template-columns: 2fr 2fr 1fr; }
   .col-service, .col-price { display: none; }
+  .sticky-column { position: static; } /* Disable sticky on mobile */
 }
 
 @media (max-width: 600px) {
