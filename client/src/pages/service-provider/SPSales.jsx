@@ -60,6 +60,7 @@ export default function SPSales() {
   const [showReportModal, setShowReportModal] = useState(false);
   const [selectedYear, setSelectedYear] = useState(savedFilters.selectedYear);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+  const [listingApprovedDate, setListingApprovedDate] = useState(null);
 
   // ============================================
   // SAVE FILTERS TO LOCALSTORAGE ON CHANGE
@@ -86,13 +87,17 @@ export default function SPSales() {
 
         const { data: provider } = await supabase
           .from("service_providers")
-          .select("id, click_count")
+          .select("id, click_count, created_at")
           .eq("user_id", user.id)
           .single();
 
         if (!provider) return;
 
         setListingVisitors(provider.click_count || 0);
+        if (provider.created_at) {
+          // Splits "2024-01-15T14:30:00" into "2024-01-15"
+          setListingApprovedDate(provider.created_at.split('T')[0]);
+        }
 
         // Fetch bookings with related data
         const { data: bookings, error: bError } = await supabase
@@ -981,7 +986,8 @@ export default function SPSales() {
                     className="date-input" 
                     value={customDateStart} 
                     onChange={(e) => setCustomDateStart(e.target.value)} 
-                    max={customDateEnd || new Date().toISOString().split('T')[0]} 
+                    max={customDateEnd || new Date().toISOString().split('T')[0]}
+                    min={listingApprovedDate} 
                   />
                   <label className="date-label">To:</label>
                   <input 
@@ -989,7 +995,7 @@ export default function SPSales() {
                     className="date-input" 
                     value={customDateEnd} 
                     onChange={(e) => setCustomDateEnd(e.target.value)} 
-                    min={customDateStart} 
+                    min={listingApprovedDate || customDateStart}
                     max={new Date().toISOString().split('T')[0]} 
                   />
                 </div>

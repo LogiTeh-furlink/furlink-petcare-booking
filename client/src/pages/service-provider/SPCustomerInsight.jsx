@@ -41,6 +41,7 @@ export default function SPCustomerInsight() {
   const [profilesMap, setProfilesMap] = useState({}); // Stores { userId: profileData }
   const [showReportModal, setShowReportModal] = useState(false);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+  const [listingApprovedDate, setListingApprovedDate] = useState(null);
 
   // Save filters to localStorage on change
   useEffect(() => {
@@ -62,13 +63,17 @@ export default function SPCustomerInsight() {
 
         const { data: provider } = await supabase
           .from("service_providers")
-          .select("id, click_count")
+          .select("id, click_count, created_at")
           .eq("user_id", user.id)
           .single();
 
         if (!provider) return;
 
         setListingVisitors(provider.click_count || 0);
+
+        if (provider.created_at) {
+          setListingApprovedDate(provider.created_at.split('T')[0]);
+        }
 
         // 1. Fetch Source of Truth: Sizes from service_options
         const { data: serviceData } = await supabase
@@ -767,9 +772,9 @@ const getRange = (filter, isPrevious = false) => {
               {activeFilter === 'custom' && (
                 <div className="custom-date-range">
                   <label className="date-label">From:</label>
-                  <input type="date" className="date-input" value={customDateStart} onChange={(e) => setCustomDateStart(e.target.value)} max={customDateEnd} />
+                  <input type="date" className="date-input" value={customDateStart} onChange={(e) => setCustomDateStart(e.target.value)} max={customDateEnd} min={listingApprovedDate} />
                   <label className="date-label">To:</label>
-                  <input type="date" className="date-input" value={customDateEnd} onChange={(e) => setCustomDateEnd(e.target.value)} min={customDateStart} />
+                  <input type="date" className="date-input" value={customDateEnd} onChange={(e) => setCustomDateEnd(e.target.value)} min={listingApprovedDate || customDateStart} />
                 </div>
               )}
             </div>
