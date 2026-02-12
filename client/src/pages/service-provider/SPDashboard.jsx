@@ -468,10 +468,32 @@ export default function SPDashboard() {
       {/* --- SUCCESS MODAL --- */}
       {showSuccessModal && (
         <div className="modal-overlay" style={{ zIndex: 5000 }}>
-          <div className="modal-content small-modal success-center" style={{ textAlign: 'center', padding: '2rem' }}>
-            <FaCheckCircle size={60} color="#22c55e" style={{ marginBottom: '1rem' }} />
-            <h3 style={{ color: 'var(--brand-blue)', fontWeight: '800' }}>{successTitle}</h3>
-            <p style={{ color: '#64748b', margin: '10px 0 20px' }}>{successMessage}</p>
+          <div className="modal-content small-modal success-center" 
+              style={{ 
+                textAlign: 'center', 
+                padding: '2rem', 
+                display: 'flex', 
+                flexDirection: 'column', 
+                alignItems: 'center' // Ensures all children are centered horizontally
+              }}>
+            
+            <FaCheckCircle 
+              size={60} 
+              color="#22c55e" 
+              style={{ 
+                display: 'block',    // Makes it a block to respect auto margins
+                margin: '0 auto 1rem', // 0 top, auto sides (centers it), 1rem bottom
+              }} 
+            />
+            
+            <h3 style={{ color: 'var(--brand-blue)', fontWeight: '800', width: '100%' }}>
+              {successTitle}
+            </h3>
+            
+            <p style={{ color: '#64748b', margin: '10px 0 20px', width: '100%' }}>
+              {successMessage}
+            </p>
+            
             <button 
               className="btn-approve" 
               style={{ width: '100%' }} 

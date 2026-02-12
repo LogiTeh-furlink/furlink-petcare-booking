@@ -560,8 +560,7 @@ export default function BookingHistory() {
                      <span className="status-badge">{selectedBooking.status}</span>
                    </div>
                    {selectedBooking.rejection_reason && 
-                      (selectedBooking.status === "declined" || 
-                      selectedBooking.status === "void" || 
+                      (selectedBooking.status === "void" || 
                       selectedBooking.status === "voided") && (
                       <div className="info-item" style={{ gridColumn: '1 / -1', marginTop: '10px' }}>
                         <label style={{ color: 'var(--brand-red)' }}><FaExclamationTriangle/> Rejection for Reason</label>
