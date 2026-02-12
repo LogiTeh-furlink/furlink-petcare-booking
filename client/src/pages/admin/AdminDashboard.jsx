@@ -1,3 +1,4 @@
+/* src/pages/admin/AdminDashboard.jsx */
 import React, { useState, useEffect } from "react";
 import { supabase } from "../../config/supabase";
 import LoggedInAdmin from "../../components/Header/LoggedInAdmin";
@@ -121,11 +122,14 @@ export default function AdminDashboard() {
     try {
       // --- CASE 1: USERS ---
       if (filter === 'users') {
-        // Mocking for now as requested, ready for Supabase integration
-        // const { data, error } = await supabase.from("profiles").select("*").neq("role", "admin").order("created_at", { ascending: false });
+        // Updated to fetch columns based on new schema
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("id, display_name, email, mobile_number, role, created_at")
+          .neq("role", "admin")
+          .order("created_at", { ascending: false });
         
-        // Placeholder empty array until integration is ready
-        setTableData([]); 
+        if (!error) setTableData(data || []);
       } 
       
       // --- CASE 2: SERVICE PROVIDERS ---
@@ -168,7 +172,7 @@ export default function AdminDashboard() {
       case "pending": return "Pending Approvals (Complete Applications)";
       case "active": return "Active Listings";
       case "rejected": return "Rejected Listings";
-      case "users": return "Total Users";
+      case "users": return "Registered Users";
       default: return "Service Providers";
     }
   };
@@ -226,7 +230,7 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          {/* Users Card (Now acts as a Tab) */}
+          {/* Users Card (Tab) */}
           <div className={`stat-card ${currentFilter === 'users' ? 'active-filter' : ''}`} onClick={() => handleCardClick('users')}>
             <div className="stat-icon-wrapper users"><FaUsers size={24} /></div>
             <div className="stat-content">
@@ -248,12 +252,12 @@ export default function AdminDashboard() {
                 {/* --- TABLE HEADERS --- */}
                 <thead>
                   {currentFilter === 'users' ? (
-                    /* User Headers */
+                    /* User Headers (Updated) */
                     <tr>
-                      <th>Name</th>
+                      <th>Display Name</th>
                       <th>Email</th>
+                      <th>Contact Number</th>
                       <th>Role</th>
-                      <th>Joined Date</th>
                       <th>Action</th>
                     </tr>
                   ) : (
@@ -273,16 +277,16 @@ export default function AdminDashboard() {
                   {tableData.map((item) => (
                     <tr key={item.id}>
                       {currentFilter === 'users' ? (
-                        /* User Row Data */
+                        /* User Row Data (Updated) */
                         <>
-                          <td className="fw-bold">{item.first_name} {item.last_name}</td>
-                          <td>{item.email}</td>
+                          <td className="fw-bold">{item.display_name || "N/A"}</td>
+                          <td>{item.email || "-"}</td>
+                          <td>{item.mobile_number || "-"}</td>
                           <td style={{textTransform:'capitalize'}}>{item.role}</td>
-                          <td>{formatDate(item.created_at)}</td>
                           <td>
-                             {/* Future User Details Link */}
-                             <button className="btn-view-details" disabled>
-                               View Profile
+                             {/* Static View Details Button */}
+                             <button className="btn-view-details">
+                               View Details <FaArrowRight size={12} style={{marginLeft: 5}} />
                              </button>
                           </td>
                         </>
