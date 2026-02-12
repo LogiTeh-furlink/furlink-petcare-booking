@@ -257,95 +257,99 @@ export default function SPBusinessDashboard() {
     }
   };
 
-  // ============================================
+// ============================================
   // ANALYTICS CALCULATIONS
   // ============================================
   const analytics = useMemo(() => {
-  const now = new Date();
+    const now = new Date();
     
-// Helper function to get date ranges based on filter
-  const getRange = (filter, isPrevious = false) => {
-    const today = new Date();
+    // === HELPER 1: Force UTC Date Formatting ===
+    // This guarantees '2025-12-20' becomes 'Dec 20' regardless of your timezone
+    const formatLabel = (dateInput) => {
+      const d = new Date(dateInput);
+      return d.toLocaleDateString('en-US', { 
+        month: 'short', 
+        day: 'numeric',
+        timeZone: 'UTC' 
+      });
+    };
 
-    if (filter === 'custom' && customDateStart && customDateEnd) {
-      const start = new Date(customDateStart);
-      const end = new Date(customDateEnd);
-      end.setHours(23, 59, 59, 999);
-      if (isPrevious) {
-        const duration = end - start;
-        const prevEnd = new Date(start);
-        prevEnd.setDate(prevEnd.getDate() - 1);
-        prevEnd.setHours(23, 59, 59, 999);
-        const prevStart = new Date(prevEnd - duration);
-        return { start: prevStart, end: prevEnd };
-      }
-      return { start, end };
-    }
-    
-    let start = new Date();
-    let end = new Date();
+    // Helper function to get date ranges based on filter
+    const getRange = (filter, isPrevious = false) => {
+      const today = new Date();
 
-    if (filter === 'weekly') {
-      if (isPrevious) { 
-        start.setDate(today.getDate() - 14); 
-        end.setDate(today.getDate() - 7); 
-        end.setHours(23, 59, 59, 999);
-      } else { 
-        start.setDate(today.getDate() - 7); 
-        end = today;
-      }
-    } else if (filter === 'monthly') {
-      
-      if (isPrevious) { 
-        start.setMonth(today.getMonth() - 1, 1); 
+      if (filter === 'custom' && customDateStart && customDateEnd) {
+        const start = new Date(customDateStart);
+        const end = new Date(customDateEnd);
+        end.setUTCHours(23, 59, 59, 999); // Use UTC to match database
         
-        // Calculate the fair end date (Period-to-Date)
-        const daysInPrevMonth = new Date(today.getFullYear(), today.getMonth(), 0).getDate();
-        const targetDay = Math.min(today.getDate(), daysInPrevMonth);
-        
-        end = new Date(today.getFullYear(), today.getMonth() - 1, targetDay);
-        end.setHours(23, 59, 59, 999);
-      } else { 
-        start = new Date(today.getFullYear(), today.getMonth(), 1);
-        end = today;
-      }
-    } else if (filter === 'yearly') {
-      // === FIX APPLIED HERE ===
-      if (selectedYear) {
-        start = new Date(selectedYear, 0, 1);
-        end = new Date(selectedYear, 11, 31, 23, 59, 59, 999);
         if (isPrevious) {
-          start = new Date(selectedYear - 1, 0, 1);
-          end = new Date(selectedYear - 1, 11, 31, 23, 59, 59, 999);
+          const duration = end - start;
+          const prevEnd = new Date(start);
+          prevEnd.setUTCDate(prevEnd.getUTCDate() - 1);
+          prevEnd.setUTCHours(23, 59, 59, 999);
+          const prevStart = new Date(prevEnd - duration);
+          return { start: prevStart, end: prevEnd };
+        }
+        return { start, end };
+      }
+      
+      let start = new Date();
+      let end = new Date();
+
+      if (filter === 'weekly') {
+        if (isPrevious) { 
+          start.setDate(today.getDate() - 14); 
+          end.setDate(today.getDate() - 7); 
+          end.setHours(23, 59, 59, 999);
+        } else { 
+          start.setDate(today.getDate() - 7); 
+          end = today;
+        }
+      } else if (filter === 'monthly') {
+        if (isPrevious) { 
+          start.setMonth(today.getMonth() - 1, 1);
+          const daysInPrevMonth = new Date(today.getFullYear(), today.getMonth(), 0).getDate();
+          const targetDay = Math.min(today.getDate(), daysInPrevMonth);
+          end = new Date(today.getFullYear(), today.getMonth() - 1, targetDay);
+          end.setHours(23, 59, 59, 999);
+        } else { 
+          start = new Date(today.getFullYear(), today.getMonth(), 1);
+          end = today;
+        }
+      } else if (filter === 'yearly') {
+        if (selectedYear) {
+          start = new Date(selectedYear, 0, 1);
+          end = new Date(selectedYear, 11, 31, 23, 59, 59, 999);
+          if (isPrevious) {
+            start = new Date(selectedYear - 1, 0, 1);
+            end = new Date(selectedYear - 1, 11, 31, 23, 59, 59, 999);
+          }
+        } else {
+          if (isPrevious) { 
+            start = new Date(today.getFullYear() - 1, 0, 1);
+            if (today.getMonth() === 1 && today.getDate() === 29) {
+               end = new Date(today.getFullYear() - 1, 1, 28);
+            } else {
+               end = new Date(today.getFullYear() - 1, today.getMonth(), today.getDate());
+            }
+            end.setHours(23, 59, 59, 999);
+          } else { 
+            start = new Date(today.getFullYear(), 0, 1);
+            end = today;
+          }
         }
       } else {
         if (isPrevious) { 
-          start = new Date(today.getFullYear() - 1, 0, 1);
-          
-          // Handle Leap Year edge cases
-          if (today.getMonth() === 1 && today.getDate() === 29) {
-             end = new Date(today.getFullYear() - 1, 1, 28);
-          } else {
-             end = new Date(today.getFullYear() - 1, today.getMonth(), today.getDate());
-          }
-          end.setHours(23, 59, 59, 999);
+          start.setFullYear(today.getFullYear() - 1, 0, 1); 
+          end.setFullYear(today.getFullYear() - 1, 11, 31); 
         } else { 
           start = new Date(today.getFullYear(), 0, 1);
           end = today;
         }
       }
-    } else {
-      // Default fallback
-      if (isPrevious) { 
-        start.setFullYear(today.getFullYear() - 1, 0, 1); 
-        end.setFullYear(today.getFullYear() - 1, 11, 31); 
-      } else { 
-        start = new Date(today.getFullYear(), 0, 1);
-        end = today;
-      }
-    }
-    return { start, end };
-  };
+      return { start, end };
+    };
 
     const currentRange = getRange(activeFilter);
     const previousRange = getRange(activeFilter, true);
@@ -355,7 +359,6 @@ export default function SPBusinessDashboard() {
       ? `${new Date(customDateStart).toLocaleDateString(undefined, { month: 'short', day: '2-digit' })} - ${new Date(customDateEnd).toLocaleDateString(undefined, { month: 'short', day: '2-digit', year: 'numeric' })}`
       : `${currentRange.start.toLocaleDateString(undefined, { month: 'short', day: '2-digit' })} - ${now.toLocaleDateString(undefined, { month: 'short', day: '2-digit', year: 'numeric' })}`;
 
-    // Helper to convert 12-hour time to 24-hour format
     const convertTo24Hour = (timeStr) => {
       if (!timeStr) return "00:00";
       if (timeStr.includes('M')) {
@@ -368,27 +371,22 @@ export default function SPBusinessDashboard() {
       return timeStr;
     };
 
-    // Check if booking is 4 hours past scheduled time
     const isFourHoursPast = (dateStr, timeStr) => {
       if (!dateStr || !timeStr) return false;
       try {
         const bookingDateTime = new Date(`${dateStr}T${convertTo24Hour(timeStr)}`);
         const diffMs = now - bookingDateTime;
         return diffMs / (1000 * 60 * 60) >= 4;
-      } catch (e) {
-        return false;
-      }
+      } catch (e) { return false; }
     };
 
-    // Determine if booking is complete
     const isBookingComplete = (b) => {
-      // Include all statuses that represent completed bookings
       if (['rated', 'for review'].includes(b.status)) return true;
       if (['paid'].includes(b.status) && isFourHoursPast(b.booking_date, b.time_slot)) return true;
       return false;
     };
 
-    // Filter bookings by date range
+    // Filter logic
     const filterByRange = (list, range) => {
       return list.filter(b => {
         const d = new Date(b.booking_date);
@@ -399,7 +397,6 @@ export default function SPBusinessDashboard() {
     const currentBookings = filterByRange(rawBookings, currentRange);
     const previousBookings = filterByRange(rawBookings, previousRange);
 
-    // Extract valid pets from complete bookings
     const getValidPets = (bookingsList) => {
       const validPets = [];
       bookingsList.forEach(b => {
@@ -419,14 +416,12 @@ export default function SPBusinessDashboard() {
           });
         }
       });
-      
       return validPets;
     };
 
     const currentValidPets = getValidPets(currentBookings);
     const previousValidPets = getValidPets(previousBookings);
 
-    // Calculate metrics (revenue, count)
     const calculateMetrics = (petsList, originalBookings) => {
       const uniqueBookingIds = new Set(petsList.map(p => p.booking_id));
       const uniqueBookings = originalBookings.filter(b => uniqueBookingIds.has(b.id));
@@ -437,7 +432,6 @@ export default function SPBusinessDashboard() {
     const current = calculateMetrics(currentValidPets, currentBookings);
     const previous = calculateMetrics(previousValidPets, previousBookings);
 
-    // Calculate percentage trend
     const getTrend = (curr, prev) => {
       if (prev === 0) return curr > 0 ? { val: 100, dir: 'up' } : { val: 0, dir: 'neutral' };
       const diff = ((curr - prev) / prev) * 100;
@@ -445,75 +439,79 @@ export default function SPBusinessDashboard() {
     };
 
     // ============================================
-    // CHART DATA GENERATION - AVERAGE BOOKINGS
+    // CHART DATA GENERATION - LABELS
     // ============================================
     let dateLabels = [];
     
-    // For yearly filter with drill-down capability
-    if (activeFilter === 'yearly' && !selectedYear) {
-      // Show years from 2020 to current year
-      const currentYear = new Date().getFullYear();
-      const years = [];
-      for (let y = 2020; y <= currentYear; y++) {
-        years.push(y.toString());
+    // === YEARLY VIEW ===
+    if (activeFilter === 'yearly') {
+      if (selectedYear) {
+        dateLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].map(m => `${m} ${selectedYear}`);
+      } else {
+        const currentYear = new Date().getFullYear();
+        const years = [];
+        for (let y = 2020; y <= currentYear; y++) years.push(y.toString());
+        dateLabels = years;
       }
-      dateLabels = years;
-    } else if (activeFilter === 'yearly' && selectedYear) {
-      // Show months of selected year
-      dateLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].map(m => `${m} ${selectedYear}`);
-    } else if (activeFilter === 'monthly') {
+    } 
+    // === MONTHLY VIEW ===
+    else if (activeFilter === 'monthly') {
       const monthName = currentRange.start.toLocaleString('default', { month: 'short' });
       const lastDay = new Date(currentRange.start.getFullYear(), currentRange.start.getMonth() + 1, 0).getDate();
-      dateLabels = [
-        `${monthName} 1 - 7`,
-        `${monthName} 8 - 14`,
-        `${monthName} 15 - 21`,
-        `${monthName} 22 - ${lastDay}`
-      ];
-    } else {
+      dateLabels = [`${monthName} 1 - 7`, `${monthName} 8 - 14`, `${monthName} 15 - 21`, `${monthName} 22 - ${lastDay}`];
+    } 
+    // === CUSTOM RANGE VIEW (FIXED) ===
+    else if (activeFilter === 'custom' && currentRange.start && currentRange.end) {
+      // Generate strict daily labels using UTC loop
+      const tempDate = new Date(customDateStart); // This is UTC midnight
+      const endDate = new Date(customDateEnd);
+      
+      while (tempDate <= endDate) {
+        // formatLabel uses UTC, so it won't shift
+        dateLabels.push(formatLabel(tempDate)); 
+        tempDate.setUTCDate(tempDate.getUTCDate() + 1); // Add exactly 24h
+      }
+    } 
+    // === WEEKLY VIEW ===
+    else {
       dateLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     }
 
+    // ============================================
+    // CHART DATA GENERATION - VALUES MAPPING
+    // ============================================
     let dateValuesDog = new Array(dateLabels.length).fill(0);
     let dateValuesCat = new Array(dateLabels.length).fill(0);
     
     current.validPets.forEach(pet => {
-      const bDate = new Date(pet.booking_date);
-      let idx;
+      let idx = -1;
       
       if (activeFilter === 'yearly' && !selectedYear) {
-        // Group by year (2020-current)
-        const petYear = bDate.getFullYear();
-        idx = petYear - 2020;
-        // Only include if year is within our range (2020 to current year)
-        if (petYear < 2020 || petYear > now.getFullYear()) {
-          return; // Skip this pet
-        }
+        const petYear = new Date(pet.booking_date).getFullYear();
+        idx = dateLabels.indexOf(petYear.toString());
       } else if (activeFilter === 'yearly' && selectedYear) {
-        // Group by month of selected year
-        // Only include bookings from the selected year
-        if (bDate.getFullYear() !== selectedYear) {
-          return; // Skip this pet
-        }
-        idx = bDate.getMonth();
+        const bDate = new Date(pet.booking_date);
+        if (bDate.getFullYear() === selectedYear) idx = bDate.getMonth();
       } else if (activeFilter === 'monthly') {
-        const day = bDate.getDate();
-        if (day <= 7) idx = 0;
-        else if (day <= 14) idx = 1;
-        else if (day <= 21) idx = 2;
-        else idx = 3;
+        const day = new Date(pet.booking_date).getDate();
+        idx = day <= 7 ? 0 : day <= 14 ? 1 : day <= 21 ? 2 : 3;
+      } else if (activeFilter === 'custom') {
+        // === FIX: MATCH USING STRICT UTC FORMATTER ===
+        // This ensures the booking date string matches exactly one of the generated labels
+        const label = formatLabel(pet.booking_date);
+        idx = dateLabels.indexOf(label);
       } else {
-        idx = (bDate.getDay() + 6) % 7;
+        idx = (new Date(pet.booking_date).getDay() + 6) % 7;
       }
       
-      if (dateValuesDog[idx] !== undefined) {
+      if (idx !== -1 && dateValuesDog[idx] !== undefined) {
         if (pet.pet_type === 'Dog') dateValuesDog[idx]++;
         else if (pet.pet_type === 'Cat') dateValuesCat[idx]++;
       }
     });
 
     // ============================================
-    // CHART DATA GENERATION - PEAK DAYS (Static - always shows days of week)
+    // CHART DATA GENERATION - PEAK DAYS
     // ============================================
     const peakDaysLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     let peakDaysValuesDog = new Array(7).fill(0);
@@ -541,12 +539,10 @@ export default function SPBusinessDashboard() {
 
     const generateProviderTimeSlots = () => {
       if (!providerHours || providerHours.length === 0) return { labels: [], valuesDog: [], valuesCat: [] };
-      
       const timeToMinutes = (t) => {
         const [h, m] = t.split(':').map(Number);
         return h * 60 + m;
       };
-      
       let start = Math.min(...providerHours.map(ph => timeToMinutes(ph.start_time)));
       let end = Math.max(...providerHours.map(ph => timeToMinutes(ph.end_time)));
       let step = providerHours[0].slot_interval_minutes || 60;
@@ -559,7 +555,6 @@ export default function SPBusinessDashboard() {
       
       const vDog = new Array(labels.length).fill(0);
       const vCat = new Array(labels.length).fill(0);
-      
       current.validPets.forEach(pet => {
         const f = formatCleanTime(pet.time_slot);
         const idx = labels.indexOf(f);
@@ -568,14 +563,13 @@ export default function SPBusinessDashboard() {
           else vCat[idx]++;
         }
       });
-      
       return { labels, valuesDog: vDog, valuesCat: vCat };
     };
 
     const timeSlots = generateProviderTimeSlots();
 
     // ============================================
-    // CHART DATA GENERATION - BOOKED SERVICES (Doughnut)
+    // CHART DATA GENERATION - BOOKED SERVICES
     // ============================================
     const filteredServices = serviceStats.filter(s => {
       const b = s.booking_pets?.bookings;
@@ -595,7 +589,6 @@ export default function SPBusinessDashboard() {
     const sLabels = Object.keys(serviceNameMap);
     const sValues = Object.values(serviceNameMap);
 
-    // Get busiest hour
     const getBusiestHour = () => {
       if (timeSlots.labels.length === 0) return "No data";
       const combinedValues = timeSlots.labels.map((label, idx) => ({
@@ -609,26 +602,18 @@ export default function SPBusinessDashboard() {
 
     // ========================================
     // PET TYPE BREAKDOWN FOR REPORT
-    // Calculate stats broken down by pet type
     // ========================================
     const calculatePetTypeBreakdown = () => {
       const breakdown = {
         Dog: { revenue: 0, bookings: 0, customers: new Set() },
         Cat: { revenue: 0, bookings: 0, customers: new Set() }
       };
-
       currentBookings.forEach(booking => {
         if (!isBookingComplete(booking)) return;
-        
         const bookingRevenue = Number(booking.total_estimated_price) || 0;
-        
-        // Track which pet types are in this booking
         const petTypes = new Set();
-        booking.booking_pets?.forEach(pet => {
-          petTypes.add(pet.pet_type);
-        });
+        booking.booking_pets?.forEach(pet => petTypes.add(pet.pet_type));
 
-        // If booking has both pet types, split the revenue
         if (petTypes.has('Dog') && petTypes.has('Cat')) {
           const splitRevenue = bookingRevenue / 2;
           breakdown.Dog.revenue += splitRevenue;
@@ -647,22 +632,11 @@ export default function SPBusinessDashboard() {
           breakdown.Cat.customers.add(booking.user_id);
         }
       });
-
       return {
-        Dog: {
-          revenue: breakdown.Dog.revenue,
-          bookings: breakdown.Dog.bookings,
-          customers: breakdown.Dog.customers.size
-        },
-        Cat: {
-          revenue: breakdown.Cat.revenue,
-          bookings: breakdown.Cat.bookings,
-          customers: breakdown.Cat.customers.size
-        }
+        Dog: { revenue: breakdown.Dog.revenue, bookings: breakdown.Dog.bookings, customers: breakdown.Dog.customers.size },
+        Cat: { revenue: breakdown.Cat.revenue, bookings: breakdown.Cat.bookings, customers: breakdown.Cat.customers.size }
       };
     };
-
-    const petTypeBreakdown = calculatePetTypeBreakdown();
 
     return { 
       revenue: current.rev, 
@@ -687,7 +661,7 @@ export default function SPBusinessDashboard() {
       totalS: sValues.reduce((a, b) => a + b, 0),
       rangeText, 
       busiestHour: getBusiestHour(),
-      petTypeBreakdown
+      petTypeBreakdown: calculatePetTypeBreakdown()
     };
   }, [rawBookings, serviceStats, activeFilter, providerHours, petTypeFilter, customDateStart, customDateEnd, selectedYear]);
 
@@ -785,7 +759,9 @@ export default function SPBusinessDashboard() {
       barThickness = 8; // Thinner bars for month view
     } else if (activeFilter === 'monthly') {
       barThickness = 25;
-    } else {
+    } else if (activeFilter === 'custom') {
+      barThickness = 30;
+    }else {
       barThickness = 35;
     }
     
@@ -1052,7 +1028,7 @@ export default function SPBusinessDashboard() {
               </div>
             </div>
 
-            {/* Average Bookings Chart (Main Chart) */}
+{/* Average Bookings Chart (Main Chart) */}
             <div className="chart-box main-chart">
               <div className="chart-header">
                 <div className="chart-title-wrapper">
@@ -1071,11 +1047,45 @@ export default function SPBusinessDashboard() {
                 </div>
                 <span className="date-range">{analytics.rangeText}</span>
               </div>
-              <div className="chart-container-large">
-                <Bar 
-                  data={getAverageBookingsChartData()} 
-                  options={getAverageBookingsChartOptions()} 
-                />
+
+              {/* SCROLLABLE CONTAINER */}
+              <div 
+                className="chart-scroll-wrapper" 
+                style={{ 
+                  overflowX: 'auto',       // Enable horizontal scrolling
+                  overflowY: 'hidden',     // Hide vertical scrollbar
+                  width: '100%',           // Wrapper fits the card
+                  display: 'block'
+                }}
+              >
+                <div 
+                  className="chart-inner-container" 
+                  style={{ 
+                    height: '300px',
+                    position: 'relative',
+                    // FIX: Use 'px' instead of '%' and ensure it takes at least 100% of the view
+                    // 60px per bar is enough space. If total < screen width, '100%' takes over.
+                    minWidth: activeFilter === 'custom' 
+                      ? `${analytics.dateLabels.length * 60}px` 
+                      : '100%'
+                  }}
+                >
+                  <Bar 
+                    key={activeFilter + analytics.dateLabels.length} 
+                    data={getAverageBookingsChartData()} 
+                    options={{
+                      ...getAverageBookingsChartOptions(),
+                      maintainAspectRatio: false,
+                      responsive: true,
+                      layout: {
+                        padding: {
+                          // Add right padding so the last date label isn't cut off
+                          right: activeFilter === 'custom' ? 20 : 0
+                        }
+                      }
+                    }} 
+                  />
+                </div>
               </div>
             </div>
             

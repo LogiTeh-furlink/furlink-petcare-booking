@@ -384,6 +384,14 @@ export default function SPSales() {
         `${monthName} 15 - 21`,
         `${monthName} 22 - ${lastDay}`
       ];
+    } else if (activeFilter === 'custom' && currentRange.start && currentRange.end) {
+      // === MODIFIED: GENERATE DAILY LABELS FOR CUSTOM RANGE ===
+      // This loop creates a label for every day between start and end date
+      const tempDate = new Date(currentRange.start);
+      while (tempDate <= currentRange.end) {
+        timeLabels.push(tempDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
+        tempDate.setDate(tempDate.getDate() + 1);
+      }
     } else {
       timeLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     }
