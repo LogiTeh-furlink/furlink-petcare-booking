@@ -624,10 +624,17 @@ export default function SPDashboard() {
                 <strong>{formatDateTime(selectedBooking.booking_date, selectedBooking.time_slot)}</strong>
               </div>
               <div className="info-row">
-                <span>Total Amount:</span>
+                <span>Balance:</span>
                 <div className="amount-container">
-                  <strong className="text-highlight">{formatCurrency(selectedBooking.total_estimated_price)}</strong>
-                  <p className="down-payment-note">30% Down Payment: {formatCurrency(selectedBooking.installation_payment)}</p>
+                  <strong className="text-highlight">
+                    <b>
+                      {formatCurrency(
+                        (selectedBooking.total_estimated_price || 0) - (selectedBooking.installation_payment || 0)
+                      )}
+                    </b>
+                  </strong>
+                  <p className="down-payment-note">30% Down Payment: <b>{formatCurrency(selectedBooking.installation_payment)}</b></p>
+                  <p className="down-payment-note">Total Amount: <b>{formatCurrency(selectedBooking.total_estimated_price)}</b></p>
                 </div>
               </div>
             </div>

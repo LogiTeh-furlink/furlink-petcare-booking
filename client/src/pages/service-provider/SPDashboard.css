@@ -835,15 +835,25 @@ p {
 }
 
 .amount-container {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 0 !important; /* Forces the flex gap to zero */
+    align-items: flex-start; /* Optional: keeps text left-aligned */
 }
+
+.text-highlight {
+    display: block; /* Ensures it behaves like a block for margin control */
+    margin-bottom: -2px; /* Pulls the note up slightly */
+    line-height: 1.2; /* Tightens the vertical space of the price */
+}
+
 .down-payment-note {
-  font-size: 0.75rem;
-  color: #64748b;
-  margin: 0;
-} 
+    font-size: 0.75rem;
+    color: #64748b;
+    margin: 0 !important; 
+    padding: 0 !important;
+    line-height: 1.4; /* Prevents text from being too tall */
+}
 
 .image-preview-overlay {
   background: rgba(0, 0, 0, 0.9) !important;
