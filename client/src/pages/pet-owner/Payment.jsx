@@ -165,18 +165,37 @@ export default function Payment() {
 
   if (loading) return <div className="payment-loading">Loading...</div>;
 
+  // --- PRICE BREAKDOWN CALCULATIONS (Strict 2 Decimal Points) ---
+  const grandTotal = parseFloat(booking?.total_estimated_price || 0);
+  
+  // VAT: (Total * 12) / 112
+  const vatAmount = parseFloat(((grandTotal * 12) / 112).toFixed(2));
+  
+  // Base Price: Total - VAT
+  const basePrice = parseFloat((grandTotal - vatAmount).toFixed(2));
+
+  // Down Payment: 30% of Total
+  const downPayment = parseFloat((grandTotal * 0.30).toFixed(2));
+
+  // Remaining Balance
+  const remainingBalance = parseFloat((grandTotal - downPayment).toFixed(2));
+
   return (
     <div className="page-wrapper">
       <LoggedInNavbar />
       
       <div className="payment-container">
         
-        {/* --- UPDATED HEADER: Centered --- */}
-        <div className="payment-header centered-header">
-          <button className="back-btn absolute-left" onClick={() => navigate(-1)}>
+        {/* --- UPDATED HEADER: Relative parent with absolute child --- */}
+        <div className="payment-header centered-header" style={{ position: 'relative', display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px 0' }}>
+          <button 
+            className="back-btn absolute-left" 
+            onClick={() => navigate(-1)}
+            style={{ position: 'absolute', left: '20px' }} // '20px' provides a nice breathing room from the edge
+          >
             <FaArrowLeft />
           </button> 
-          <h1>Complete Your Payment</h1>
+          <h1 style={{ margin: 0 }}>Complete Your Payment</h1>
         </div>
 
         <div className="payment-grid-layout">
@@ -184,45 +203,65 @@ export default function Payment() {
         <div className="info-card details-section">
           <h3 className="card-title"><FaFileInvoiceDollar/> Booking Summary</h3>
           <div className="summary-grid">
-              {/* NEW: Down Payment (Displayed First and Bigger) */}
-              <div className="summary-item downpayment-highlight-box">
-                <span className="label">Amount to Pay (Down Payment)</span>
-                <span className="downpayment-amount">
-                  {formatCurrency(booking.installation_payment)}
-                </span>
-                <small className="price-note">30% of total amount required to confirm booking</small>
-              </div>
+            
+            {/* 1. Down Payment - The primary action amount */}
+            <div className="summary-item downpayment-highlight-box">
+              <span className="label">Amount to Pay Now (Down Payment)</span>
+              <span className="downpayment-amount">
+                {formatCurrency(downPayment)}
+              </span>
+              <small className="price-note">Required 30% deposit to secure your slot</small>
+            </div>
 
-              <div className="summary-item">
-                <span className="label">Total Amount</span>
-                <span className="total-amount-sub">
-                  {formatCurrency(booking.total_estimated_price)}
-                </span>
+            {/* 2. Detailed Breakdown */}
+            <div className="price-breakdown-container" style={{ 
+              backgroundColor: '#f8fafc', 
+              padding: '15px', 
+              borderRadius: '10px', 
+              marginTop: '10px',
+              border: '1px solid #e2e8f0' 
+            }}>
+              <div className="summary-item small-item">
+                <span className="label">Base Price</span>
+                <span>{formatCurrency(basePrice)}</span>
               </div>
               
-              <div className="summary-item">
-                <span className="label">Provider</span>
-                <span>{booking.service_providers?.business_name}</span>
+              <div className="summary-item small-item">
+                <span className="label">VAT (12%)</span>
+                <span>{formatCurrency(vatAmount)}</span>
               </div>
-              <div className="summary-item">
-                <span className="label">Schedule</span>
-                <span>{formatDateTime(booking.booking_date, booking.time_slot)}</span>
-              </div>
-          </div>
 
-            <h4 className="sub-header"><FaPaw/> Pet Details</h4>
-            <div className="pets-scroll">
-              {booking.booking_pets?.map((pet, idx) => (
-                <div key={idx} className="mini-pet-card">
-                  <strong>{idx + 1}. {pet.pet_name} ({pet.pet_type})</strong>
-                  <p className="mini-specs">{pet.breed} | {pet.weight_kg}kg | {pet.gender}</p>
-                  <p className="mini-services">
-                    <b>Service/s</b>: {pet.booking_services?.map(s => s.service_name).join(', ')}
-                  </p>
-                </div>
-              ))}
+              <div className="summary-item" style={{ borderTop: '1px solid #cbd5e1', paddingTop: '8px', marginTop: '8px' }}>
+                <span className="label" style={{ fontWeight: '700' }}>Total Price (VAT Inclusive)</span>
+                <span style={{ fontWeight: '700', color: '#0E2679' }}>{formatCurrency(grandTotal)}</span>
+              </div>
+            </div>
+
+            {/* 3. Future Balance */}
+            <div className="summary-item" style={{ marginTop: '15px', padding: '0 5px' }}>
+              <span className="label" style={{ color: 'var(--brand-blue)', fontWeight: '600' }}>
+                <FaMoneyBillWave style={{ marginRight: '5px' }} /> Remaining Balance
+              </span>
+              <span style={{ fontWeight: '700', color: 'var(--brand-blue)', fontSize: '1.1rem' }}>
+                {formatCurrency(remainingBalance)}
+              </span>
+              <p style={{ fontSize: '0.75rem', color: '#64748b', margin: '4px 0 0 0' }}>
+                Payable at the shop on your appointment date.
+              </p>
+            </div>
+            
+            <hr className="divider" style={{ margin: '20px 0' }}/>
+
+            <div className="summary-item">
+              <span className="label">Provider</span>
+              <span>{booking.service_providers?.business_name}</span>
+            </div>
+            <div className="summary-item">
+              <span className="label">Schedule</span>
+              <span>{formatDateTime(booking.booking_date, booking.time_slot)}</span>
             </div>
           </div>
+        </div>
 
           {/* --- TOP RIGHT: QR CODES --- */}
           <div className="info-card qr-section">
