@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { FaEye, FaEyeSlash, FaStore, FaQuestionCircle, FaTimes, FaClock } from "react-icons/fa";
 import { supabase } from "../../config/supabase";
 import "./LoginPage.css"; 
+import becomePetOwnerImg from "../../assets/become-a-pet-owner.png";
+import becomeServiceProviderImg from "../../assets/become-a-service-provider.png";
 import Header from "../../components/Header/Header";
 import Footer from "../../components/Footer/Footer";
 
@@ -281,25 +283,26 @@ const LoginPage = () => {
               <FaTimes />
             </button>
             <div className="promo-image-wrapper" onClick={() => navigate("/apply-provider")}>
-               <img 
-                 src="https://images.unsplash.com/photo-1516733725897-1aa73b87c8e8?q=80&w=1000&auto=format&fit=crop" 
-                 alt="Become a provider" 
-                 className="promo-main-image"
-               />
-               <div className="promo-overlay-text">
-                  <h2>Love Pets?</h2>
-                  <p>Earn by becoming a service provider today!</p>
-                  <span className="promo-badge">Apply Now</span>
-               </div>
+              {/* UPDATED IMAGE SOURCE BELOW */}
+              <img 
+                src={becomeServiceProviderImg} 
+                alt="Become a provider" 
+                className="promo-main-image"
+              />
+              <div className="promo-overlay-text">
+                <h2>Love Pets?</h2>
+                <p>Earn by becoming a service provider today!</p>
+                <span className="promo-badge">Apply Now</span>
+              </div>
             </div>
             <div className="promo-footer">
-               <button className="promo-later-btn" onClick={() => navigate("/dashboard")}>Maybe Later</button>
+              <button className="promo-later-btn" onClick={() => navigate("/dashboard")}>Maybe Later</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* PROMO MODAL FOR SERVICE PROVIDERS (Encouraging them to be Pet Owners) */}
+      {/* PROMO MODAL FOR SERVICE PROVIDERS */}
       {showPetOwnerPromo && (
         <div className="promo-overlay">
           <div className="promo-card">
@@ -307,9 +310,10 @@ const LoginPage = () => {
               <FaTimes />
             </button>
             
-            <div className="promo-image-wrapper" onClick={handleBecomeBoth}> {/* Changed this */}
+            <div className="promo-image-wrapper" onClick={handleBecomeBoth}>
+                {/* UPDATED IMAGE SOURCE BELOW */}
                 <img 
-                  src="https://images.unsplash.com/photo-1583337130417-3346a1be7dee?q=80&w=1000&auto=format&fit=crop" 
+                  src={becomePetOwnerImg} 
                   alt="Become a pet owner" 
                   className="promo-main-image"
                 />
@@ -321,9 +325,9 @@ const LoginPage = () => {
             </div>
 
             <div className="promo-footer">
-               <button className="promo-later-btn" onClick={() => navigate("/service/dashboard")}>
-                 Go to My Shop Dashboard
-               </button>
+              <button className="promo-later-btn" onClick={() => navigate("/service/dashboard")}>
+                Go to My Shop Dashboard
+              </button>
             </div>
           </div>
         </div>
