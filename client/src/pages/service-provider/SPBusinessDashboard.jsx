@@ -261,7 +261,7 @@ export default function SPBusinessDashboard() {
   // ANALYTICS CALCULATIONS
   // ============================================
   const analytics = useMemo(() => {
-    const now = new Date();
+  const now = new Date();
     
 // Helper function to get date ranges based on filter
   const getRange = (filter, isPrevious = false) => {
@@ -419,25 +419,19 @@ export default function SPBusinessDashboard() {
           });
         }
       });
+      
       return validPets;
     };
 
     const currentValidPets = getValidPets(currentBookings);
     const previousValidPets = getValidPets(previousBookings);
 
-    // Calculate metrics (revenue, booking count, pet count)
+    // Calculate metrics (revenue, count)
     const calculateMetrics = (petsList, originalBookings) => {
       const uniqueBookingIds = new Set(petsList.map(p => p.booking_id));
       const uniqueBookings = originalBookings.filter(b => uniqueBookingIds.has(b.id));
       const rev = uniqueBookings.reduce((sum, b) => sum + (Number(b.total_estimated_price) || 0), 0);
-      
-      // Return both pet count AND booking count
-      return { 
-        rev, 
-        petCount: petsList.length,           // Number of pets
-        bookingCount: uniqueBookings.length, // Number of unique bookings
-        validPets: petsList 
-      };
+      return { rev, count: petsList.length, validPets: petsList };
     };
 
     const current = calculateMetrics(currentValidPets, currentBookings);
@@ -672,13 +666,13 @@ export default function SPBusinessDashboard() {
 
     return { 
       revenue: current.rev, 
-      validCount: current.bookingCount,  // CHANGED: Use bookingCount instead of petCount
+      validCount: current.count, 
       cancellations: new Set(currentBookings.filter(b => b.status === 'cancelled').map(b => b.id)).size, 
       avg: new Set(current.validPets.map(p => p.user_id)).size > 0 
-        ? Math.round(current.bookingCount / new Set(current.validPets.map(p => p.user_id)).size)  // CHANGED: Use bookingCount
+        ? Math.round(current.count / new Set(current.validPets.map(p => p.user_id)).size) 
         : 0, 
       revTrend: getTrend(current.rev, previous.rev), 
-      bookTrend: getTrend(current.bookingCount, previous.bookingCount),  // CHANGED: Use bookingCount
+      bookTrend: getTrend(current.count, previous.count),
       dateLabels, 
       dateValuesDog, 
       dateValuesCat,
@@ -875,6 +869,7 @@ export default function SPBusinessDashboard() {
   // ============================================
   // MAIN RENDER
   // ============================================
+  
   return (
     <div className="sp-biz-page-wrapper">
       <LoggedInNavbar />
