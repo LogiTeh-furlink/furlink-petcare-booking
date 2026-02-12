@@ -250,11 +250,23 @@ const LoggedInNavbar = () => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  const handleLogoClick = () => {
+    if (userRole === "both" || userRole === "service_provider") {
+      navigate("/service/dashboard");
+    } else if (userRole === "pet_owner") {
+      navigate("/dashboard");
+    } else {
+      // Fallback for admins or undefined roles
+      navigate("/dashboard");
+    }
+  };
+
   return (
     <>
       <header className="loggedin-header">
         <div className="navbar-container">
-          <div className="header-left" onClick={() => navigate("/dashboard")}>
+          {/* Change this line */}
+          <div className="header-left" onClick={handleLogoClick}>
             <img src={logo} alt="Furlink logo" className="header-logo" />
           </div>
 
