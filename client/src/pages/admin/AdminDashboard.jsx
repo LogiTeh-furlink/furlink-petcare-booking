@@ -1,4 +1,3 @@
-/* src/pages/admin/AdminDashboard.jsx */
 import React, { useState, useEffect } from "react";
 import { supabase } from "../../config/supabase";
 import LoggedInAdmin from "../../components/Header/LoggedInAdmin";
@@ -290,8 +289,11 @@ export default function AdminDashboard() {
                             {item.role ? item.role.replace(/_/g, " ") : "-"}
                           </td>
                           <td>
-                             {/* Static View Details Button with no-wrap style */}
-                             <button className="btn-view-details" style={{ whiteSpace: "nowrap" }}>
+                             <button 
+                               className="btn-view-details" 
+                               style={{ whiteSpace: "nowrap" }}
+                               onClick={() => navigate(`/admin/user-bookings/${item.id}`)}
+                             >
                                View Details <FaArrowRight size={12} style={{marginLeft: 5}} />
                              </button>
                           </td>

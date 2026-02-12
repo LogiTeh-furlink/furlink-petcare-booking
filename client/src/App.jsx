@@ -22,7 +22,7 @@ import Payment from "./pages/pet-owner/Payment";
 // Service Provider Pages
 import SPDashboard from "./pages/service-provider/SPDashboard";
 import SPBusinessDashboard from "./pages/service-provider/SPBusinessDashboard"; 
-import SPSales from "./pages/service-provider/SPSales"; // ⭐ NEW IMPORT
+import SPSales from "./pages/service-provider/SPSales"; 
 import SPCustomerInsight from "./pages/service-provider/SPCustomerInsight"; 
 import SPManageListing from "./pages/service-provider/SPManageListing";
 import SPEditListing from "./pages/service-provider/SPEditListing";
@@ -33,6 +33,7 @@ import SPBookingDetails from "./pages/service-provider/SPBookingDetails";
 import AdminChangePassword from "./pages/admin/AdminChangePassword";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminViewProvider from "./pages/admin/AdminViewProvider";
+import AdminViewBooking from "./pages/admin/AdminViewBooking"; // ⭐ NEW IMPORT
 
 // Route Guards
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -91,7 +92,7 @@ function App() {
             <Route path="/service/dashboard/:id" element={<SPDashboard />} />
             
             {/* Analytics Dashboards */}
-            <Route path="/service/sales" element={<SPSales />} /> {/* ⭐ NEW ROUTE */}
+            <Route path="/service/sales" element={<SPSales />} /> 
             <Route path="/service/business-dashboard" element={<SPBusinessDashboard />} />
             <Route path="/service/customer-insight" element={<SPCustomerInsight />} />
 
@@ -108,7 +109,8 @@ function App() {
           {/* --- 3. ADMIN SIDE --- */}
           <Route path="/admin-change-password" element={<AdminChangePassword />} />
           <Route path="/admin-dashboard" element={<AdminDashboard />} />
-          <Route path="/admin/provider/:id" element={<AdminViewProvider />} />  
+          <Route path="/admin/provider/:id" element={<AdminViewProvider />} /> 
+          <Route path="/admin/user-bookings/:id" element={<AdminViewBooking />} /> {/* ⭐ NEW ROUTE */}
 
 
         </Route>
