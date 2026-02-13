@@ -262,6 +262,10 @@
   gap: 10px;
   font-weight: 500;
   border: 1px solid #fecaca;
+  /* Added alignment props to match form layout */
+  max-width: 1200px;
+  width: 100%;
+  margin: 0 auto 20px auto;
 }
 
 /* Input Field Error State */
@@ -290,7 +294,7 @@
 }
 
 /* =========================================
-   WARNING BANNER (NEW SECTION)
+   WARNING BANNER (UPDATED ALIGNMENT)
    ========================================= */
 .warning-banner-container {
   background-color: #fef2f2;
@@ -298,8 +302,12 @@
   border-left: 5px solid #ef4444;
   border-radius: 12px;
   padding: 20px;
-  margin-bottom: 30px;
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  
+  /* --- NEW ALIGNMENT PROPERTIES --- */
+  max-width: 1200px; /* Match the form body width */
+  width: 100%;
+  margin: 0 auto 30px auto; /* Center horizontally */
 }
 
 .warning-banner-content {
@@ -368,6 +376,10 @@
   display: flex;
   justify-content: flex-end;
   margin-top: 20px;
+  /* Added alignment props to match form layout */
+  max-width: 1200px;
+  width: 100%;
+  margin: 30px auto 0 auto;
 }
 
 .save-btn {
@@ -514,11 +526,7 @@
 
 /* Action buttons alignment */
 .form-actions {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 30px;
-  padding-top: 20px;
-  border-top: 1px solid #f3f4f6;
+  /* (Already updated above in section 6) */
 }
 
 @media (max-width: 1024px) {
