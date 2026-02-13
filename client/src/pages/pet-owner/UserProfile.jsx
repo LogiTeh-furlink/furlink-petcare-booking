@@ -28,7 +28,7 @@ export default function UserProfile() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   
-  // NEW: State for Active Warning
+  // Warning State
   const [activeWarning, setActiveWarning] = useState(null);
 
   const [showConfirmModal, setShowConfirmModal] = useState(false);
@@ -61,7 +61,7 @@ export default function UserProfile() {
 
   const [showDeactivateConfirm, setShowDeactivateConfirm] = useState(false);
   const [showDeactivateSuccess, setShowDeactivateSuccess] = useState(false);
-  const [deactivating, setDeactivating] = useState(false)
+  const [deactivating, setDeactivating] = useState(false);
 
   useEffect(() => {
     fetchProfile();
@@ -76,12 +76,13 @@ export default function UserProfile() {
       const [profileRes, providerRes, warningRes] = await Promise.all([
         supabase.from("profiles").select("*").eq("id", user.id).single(),
         supabase.from("service_providers").select("status").eq("user_id", user.id).maybeSingle(),
-        // Check for unread Admin Warnings
+        
+        // UPDATED QUERY: Removed .eq("read", false) so the banner persists even after clicking
         supabase.from("notifications")
           .select("*")
           .eq("user_id", user.id)
           .eq("title", "Admin Warning")
-          .eq("read", false) // Only show if unread
+          .order('created_at', { ascending: false }) // Get the latest one
           .limit(1)
           .maybeSingle()
       ]);
@@ -97,7 +98,9 @@ export default function UserProfile() {
 
       setFormData(profileData);
       setInitialData(profileData);
-      setActiveWarning(warningRes.data); // Set warning state
+      
+      // Set the warning state if data exists
+      setActiveWarning(warningRes.data);
 
       setUserRoleInfo({
         baseRole: profileRes.data.role,
@@ -261,7 +264,6 @@ export default function UserProfile() {
               {providerStatus === 'approved' ? <FaCheckCircle className="status-icon-check" /> : <FaClock className="status-icon-pending" />}
             </div>
           )}
-
         </div>
       </div>
     );
@@ -280,7 +282,7 @@ export default function UserProfile() {
             <p>Manage your personal information and security</p>
           </div>
 
-          {/* --- WARNING BANNER (INSERTED HERE) --- */}
+          {/* --- WARNING BANNER --- */}
           {activeWarning && (
             <div className="warning-banner-container">
               <div className="warning-banner-content">
@@ -292,7 +294,7 @@ export default function UserProfile() {
                     <small>Please review our community guidelines to avoid suspension.</small>
                   </div>
                 </div>
-                <button className="warning-banner-btn" onClick={() => navigate('/guidelines')}>
+                <button className="warning-banner-btn" onClick={() => navigate('/terms')}>
                   Review Guidelines <FaExternalLinkAlt size={12}/>
                 </button>
               </div>
