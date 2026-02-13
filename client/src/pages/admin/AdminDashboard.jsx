@@ -24,6 +24,9 @@ export default function AdminDashboard() {
   
   // Filter State (Default: 'pending')
   const [currentFilter, setCurrentFilter] = useState("pending"); 
+  
+  // User Specific Filter (all, pet_owner, service_provider)
+  const [userRoleFilter, setUserRoleFilter] = useState("all");
 
   useEffect(() => {
     fetchAdminProfile();
@@ -31,9 +34,10 @@ export default function AdminDashboard() {
     fetchTableData(currentFilter);
   }, []);
 
+  // Refetch when main filter or user sub-filter changes
   useEffect(() => {
     fetchTableData(currentFilter);
-  }, [currentFilter]);
+  }, [currentFilter, userRoleFilter]);
 
   // Real-time updates (Listeners)
   useEffect(() => {
@@ -59,7 +63,7 @@ export default function AdminDashboard() {
       supabase.removeChannel(providerChannel);
       supabase.removeChannel(userChannel);
     };
-  }, [currentFilter]);
+  }, [currentFilter, userRoleFilter]);
 
   // --- FETCH FUNCTIONS ---
 
@@ -121,11 +125,17 @@ export default function AdminDashboard() {
     try {
       // --- CASE 1: USERS ---
       if (filter === 'users') {
-        const { data, error } = await supabase
+        let query = supabase
           .from("profiles")
           .select("id, first_name, last_name, display_name, email, mobile_number, role, created_at")
-          .neq("role", "admin")
-          .order("created_at", { ascending: false });
+          .neq("role", "admin");
+
+        // Apply Role Filter if not 'all'
+        if (userRoleFilter !== 'all') {
+          query = query.eq("role", userRoleFilter);
+        }
+
+        const { data, error } = await query.order("created_at", { ascending: false });
         
         if (!error) setTableData(data || []);
       } 
@@ -163,6 +173,8 @@ export default function AdminDashboard() {
 
   const handleCardClick = (filterType) => {
     setCurrentFilter(filterType);
+    // Optional: Reset user filter when switching back to users tab? 
+    // Currently keeping it persistent.
   };
 
   const getListTitle = () => {
@@ -239,7 +251,34 @@ export default function AdminDashboard() {
         </div>
 
         <div className="dashboard-list-container">
-          <h2 className="list-title">{getListTitle()}</h2>
+          <div className="list-header">
+            <h2 className="list-title">{getListTitle()}</h2>
+            
+            {/* --- USER ROLE FILTER --- */}
+            {currentFilter === 'users' && (
+              <div className="user-filter-group">
+                <button 
+                  className={`filter-btn ${userRoleFilter === 'all' ? 'active' : ''}`} 
+                  onClick={() => setUserRoleFilter('all')}
+                >
+                  All
+                </button>
+                <button 
+                  className={`filter-btn ${userRoleFilter === 'pet_owner' ? 'active' : ''}`} 
+                  onClick={() => setUserRoleFilter('pet_owner')}
+                >
+                  Pet Owner
+                </button>
+                <button 
+                  className={`filter-btn ${userRoleFilter === 'service_provider' ? 'active' : ''}`} 
+                  onClick={() => setUserRoleFilter('service_provider')}
+                >
+                  Service Provider
+                </button>
+              </div>
+            )}
+          </div>
+
           <div className="providers-table-wrapper">
             {loading ? (
               <div className="loading-state">Loading data...</div>
