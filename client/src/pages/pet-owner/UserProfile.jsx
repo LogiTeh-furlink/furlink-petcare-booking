@@ -18,7 +18,8 @@ import {
   FaUserShield,
   FaClock,
   FaPaw,
-  FaStore
+  FaStore,
+  FaExternalLinkAlt
 } from "react-icons/fa";
 import "./UserProfile.css";
 
@@ -27,6 +28,9 @@ export default function UserProfile() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   
+  // NEW: State for Active Warning
+  const [activeWarning, setActiveWarning] = useState(null);
+
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showNoChangesModal, setShowNoChangesModal] = useState(false);
@@ -41,7 +45,6 @@ export default function UserProfile() {
     mobile_number: ""
   });
 
-  // NEW STATE: For role and provider status
   const [userRoleInfo, setUserRoleInfo] = useState({
     baseRole: "pet_owner",
     isProvider: false,
@@ -56,7 +59,6 @@ export default function UserProfile() {
 
   const [errors, setErrors] = useState({});
 
-  // ADD THESE HERE
   const [showDeactivateConfirm, setShowDeactivateConfirm] = useState(false);
   const [showDeactivateSuccess, setShowDeactivateSuccess] = useState(false);
   const [deactivating, setDeactivating] = useState(false)
@@ -70,10 +72,18 @@ export default function UserProfile() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return navigate("/login");
 
-      // Fetch Profile and Service Provider status in parallel
-      const [profileRes, providerRes] = await Promise.all([
+      // Fetch Profile, Provider Status, AND Active Warning in parallel
+      const [profileRes, providerRes, warningRes] = await Promise.all([
         supabase.from("profiles").select("*").eq("id", user.id).single(),
-        supabase.from("service_providers").select("status").eq("user_id", user.id).maybeSingle()
+        supabase.from("service_providers").select("status").eq("user_id", user.id).maybeSingle(),
+        // Check for unread Admin Warnings
+        supabase.from("notifications")
+          .select("*")
+          .eq("user_id", user.id)
+          .eq("title", "Admin Warning")
+          .eq("read", false) // Only show if unread
+          .limit(1)
+          .maybeSingle()
       ]);
 
       if (profileRes.error) throw profileRes.error;
@@ -87,8 +97,8 @@ export default function UserProfile() {
 
       setFormData(profileData);
       setInitialData(profileData);
+      setActiveWarning(warningRes.data); // Set warning state
 
-      // Determine Role Logic
       setUserRoleInfo({
         baseRole: profileRes.data.role,
         isProvider: !!providerRes.data,
@@ -102,7 +112,7 @@ export default function UserProfile() {
     }
   };
 
-const handleDeactivateAccount = async () => {
+  const handleDeactivateAccount = async () => {
     setDeactivating(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -110,7 +120,7 @@ const handleDeactivateAccount = async () => {
       const updates = [
         supabase.from("profiles").update({ 
           is_active: false, 
-          deactivated_at: new Date().toISOString() // Use toISOString() for Supabase compatibility
+          deactivated_at: new Date().toISOString()
         }).eq("id", user.id)
       ];
 
@@ -126,11 +136,9 @@ const handleDeactivateAccount = async () => {
       const failed = results.find(r => r.error);
       if (failed) throw failed.error;
 
-      // DO NOT navigate here. Show the modal first.
       setShowDeactivateConfirm(false);
       setShowDeactivateSuccess(true);
       
-      // Logout happens here
       await supabase.auth.signOut();
     } catch (err) {
       alert("Deactivation failed: " + err.message);
@@ -207,16 +215,12 @@ const handleDeactivateAccount = async () => {
     }
   };
 
-  // Helper to render the role badge
-  // Helper to render the role badge based on baseRole
   const renderRoleBadge = () => {
     const { baseRole, providerStatus } = userRoleInfo;
 
     return (
       <div className="role-display-container">
         <div className="role-card">
-          
-          {/* CASE 1: User is a Pet Owner only */}
           {baseRole === "pet_owner" && (
             <div className="role-item active">
               <div className="role-icon-circle active"><FaPaw /></div>
@@ -227,7 +231,6 @@ const handleDeactivateAccount = async () => {
             </div>
           )}
 
-          {/* CASE 2: User is BOTH */}
           {baseRole === "both" && (
             <>
               <div className="role-item active">
@@ -248,7 +251,6 @@ const handleDeactivateAccount = async () => {
             </>
           )}
 
-          {/* CASE 3: User is a Service Provider only */}
           {baseRole === "service_provider" && (
             <div className={`role-item ${providerStatus === 'approved' ? 'active' : 'inactive'}`}>
               <div className={`role-icon-circle ${providerStatus}`}><FaStore /></div>
@@ -277,6 +279,25 @@ const handleDeactivateAccount = async () => {
             <h1>My Profile</h1>
             <p>Manage your personal information and security</p>
           </div>
+
+          {/* --- WARNING BANNER (INSERTED HERE) --- */}
+          {activeWarning && (
+            <div className="warning-banner-container">
+              <div className="warning-banner-content">
+                <div className="warning-banner-left">
+                  <FaExclamationTriangle className="warning-banner-icon" />
+                  <div className="warning-banner-text">
+                    <strong>Account Warning</strong>
+                    <p>"{activeWarning.message}"</p>
+                    <small>Please review our community guidelines to avoid suspension.</small>
+                  </div>
+                </div>
+                <button className="warning-banner-btn" onClick={() => navigate('/guidelines')}>
+                  Review Guidelines <FaExternalLinkAlt size={12}/>
+                </button>
+              </div>
+            </div>
+          )}
 
           {errors.general && (
             <div className="general-error-banner">
@@ -316,9 +337,8 @@ const handleDeactivateAccount = async () => {
                       <input type="text" name="mobile_number" value={formData.mobile_number} onChange={handleProfileChange} placeholder="09XXXXXXXXX" className={errors.mobile_number ? "input-error" : ""}/>
                       {errors.mobile_number && <span className="field-error-msg">{errors.mobile_number}</span>}
                     </div>
-                  </div> {/* End of Personal Details form-section */}
+                  </div> 
 
-                  {/* ADD THE BUTTON SECTION HERE */}
                   <div className="form-section deactivation-section">
                     <h3>Account Security</h3>
                     <p className="section-subtitle" style={{ fontSize: '0.8rem', color: '#64748b' }}>
@@ -363,7 +383,6 @@ const handleDeactivateAccount = async () => {
                   </div>
                 </div>
 
-                {/* ROLE SECTION PRINTED HERE */}
                 <div className="form-section role-section">
                   <h3>Account Roles</h3>
                   <p className="section-subtitle">Your current verified roles in furlink.</p>
@@ -395,7 +414,6 @@ const handleDeactivateAccount = async () => {
         </div>
       )}
 
-      {/* ADD THE MODALS HERE */}
       {showDeactivateConfirm && (
         <div className="modal-overlay">
           <div className="modal-content small-modal">

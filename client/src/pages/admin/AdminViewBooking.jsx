@@ -109,25 +109,24 @@ export default function AdminViewBooking() {
     
     setActionLoading(true);
     try {
-      // Create notification entry MATCHING YOUR SCHEMA
       const { error } = await supabase
         .from('notifications')
         .insert({
-          user_id: id,                  // Target User
-          title: 'Admin Warning',       // Title
-          message: warningMessage,      // The text from input
-          read: false,                  // Default unread (schema: read)
-          link: '/notifications'        // Optional: Link to a view
+          user_id: id,
+          title: 'Admin Warning',
+          message: warningMessage,
+          read: false,
+          link: '/profile' // <--- UPDATED: Points to the Profile page
         });
 
       if (error) throw error;
 
       setSuccessMessage("Warning notification sent successfully.");
       setShowSuccessModal(true);
-      setWarningMessage(""); // Clear input
+      setWarningMessage(""); 
     } catch (err) {
       console.error("Error sending warning:", err);
-      alert("Failed to send warning. Check console/RLS.");
+      alert("Failed to send warning.");
     } finally {
       setActionLoading(false);
     }
@@ -140,7 +139,6 @@ export default function AdminViewBooking() {
   const confirmSuspension = async () => {
     setActionLoading(true);
     try {
-        // Calculate suspension end date (7 days from now)
         const suspensionEnd = new Date();
         suspensionEnd.setDate(suspensionEnd.getDate() + 7);
 
@@ -155,20 +153,20 @@ export default function AdminViewBooking() {
 
         if (profileError) throw profileError;
 
-        // 2. Insert Notification about suspension
+        // 2. Insert Notification
         await supabase.from('notifications').insert({
             user_id: id,
             title: 'Account Suspended',
-            message: `Your account has been suspended for 7 days until ${suspensionEnd.toLocaleDateString()} due to policy violations.`,
+            message: `Your account has been suspended for 7 days until ${suspensionEnd.toLocaleDateString()}.`,
             read: false,
-            link: '/support'
+            link: '/profile' // <--- UPDATED: Points to the Profile page
         });
 
         setShowSuspendModal(false); 
         setSuccessMessage(`User has been suspended until ${suspensionEnd.toLocaleDateString()}.`);
         setShowSuccessModal(true); 
         
-        fetchUserData(); // Refresh UI
+        fetchUserData(); 
 
     } catch (err) {
         console.error("Error suspending user:", err);

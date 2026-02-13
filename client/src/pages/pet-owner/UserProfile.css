@@ -290,6 +290,78 @@
 }
 
 /* =========================================
+   WARNING BANNER (NEW SECTION)
+   ========================================= */
+.warning-banner-container {
+  background-color: #fef2f2;
+  border: 1px solid #fecaca;
+  border-left: 5px solid #ef4444;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 30px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.warning-banner-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+}
+
+.warning-banner-left {
+  display: flex;
+  align-items: flex-start;
+  gap: 15px;
+}
+
+.warning-banner-icon {
+  color: #ef4444;
+  font-size: 1.8rem;
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+.warning-banner-text strong {
+  color: #991b1b;
+  display: block;
+  font-size: 1.1rem;
+  margin-bottom: 4px;
+}
+
+.warning-banner-text p {
+  color: #b91c1c;
+  margin: 0;
+  font-style: italic;
+  font-weight: 500;
+}
+
+.warning-banner-text small {
+  color: #64748b;
+  display: block;
+  margin-top: 8px;
+}
+
+.warning-banner-btn {
+  background-color: #ef4444;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: background 0.2s;
+}
+
+.warning-banner-btn:hover {
+  background-color: #dc2626;
+}
+
+/* =========================================
    6. Action Buttons
    ========================================= */
 .form-actions {
@@ -412,37 +484,8 @@
 }
 
 /* =========================================
-   8. Responsive Design
+   8. Responsive Design & Layouts
    ========================================= */
-@media (max-width: 1024px) {
-  .profile-container {
-    padding: 40px;
-  }
-}
-
-@media (max-width: 850px) {
-  .profile-form-body {
-    flex-direction: column;
-    gap: 20px;
-  }
-  
-  .profile-column {
-    width: 100%;
-  }
-
-  .profile-container {
-    padding: 30px 20px;
-  }
-
-  .profile-header {
-    text-align: center;
-  }
-  
-  .header-icon {
-    margin: 0 auto 15px auto;
-  }
-}
-
 .profile-form-body {
   display: flex;
   gap: 60px;
@@ -478,14 +521,43 @@
   border-top: 1px solid #f3f4f6;
 }
 
+@media (max-width: 1024px) {
+  .profile-container {
+    padding: 40px;
+  }
+}
+
 @media (max-width: 850px) {
   .profile-form-body {
     flex-direction: column;
     gap: 20px;
   }
   
+  .profile-column {
+    width: 100%;
+  }
+
   .profile-container {
     padding: 30px 20px;
+  }
+
+  .profile-header {
+    text-align: center;
+  }
+  
+  .header-icon {
+    margin: 0 auto 15px auto;
+  }
+
+  /* Adjust banner for mobile */
+  .warning-banner-content {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .warning-banner-btn {
+    width: 100%;
+    justify-content: center;
   }
 }
 
