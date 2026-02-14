@@ -559,11 +559,15 @@ export default function BookingHistory() {
                      <label>Status</label>
                      <span className="status-badge">{selectedBooking.status}</span>
                    </div>
-                   {selectedBooking.rejection_reason && 
+                   {/* Updated logic: Show rejection reason for voided payments AND declined requests */}
+                    {selectedBooking.rejection_reason && 
                       (selectedBooking.status === "void" || 
-                      selectedBooking.status === "voided") && (
+                      selectedBooking.status === "voided" || 
+                      selectedBooking.status === "declined") && (
                       <div className="info-item" style={{ gridColumn: '1 / -1', marginTop: '10px' }}>
-                        <label style={{ color: 'var(--brand-red)' }}><FaExclamationTriangle/> Rejection for Reason</label>
+                        <label style={{ color: 'var(--brand-red)' }}>
+                          <FaExclamationTriangle/> {selectedBooking.status === "declined" ? "Decline Reason" : "Rejection for Reason"}
+                        </label>
                         <div style={{ 
                           padding: '12px', 
                           backgroundColor: '#fff5f5', 
@@ -574,11 +578,10 @@ export default function BookingHistory() {
                             {selectedBooking.rejection_reason}
                           </span>
                           <p style={{ fontSize: '0.85rem', color: '#4a5568', margin: 0, lineHeight: '1.4' }}>
-                            We apologize for the inconvenience. If you believe this is a mistake or if you need help with your payment, please reach out to our support team at 
-                            <a href={`mailto:logiteh045@gmail.com?subject=Payment Assistance - Booking #${selectedBooking.id}`} 
-                              style={{ color: '#2b6cb0', fontWeight: '600', marginLeft: '4px', textDecoration: 'underline' }}>
-                              logiteh045@gmail.com
-                            </a>. We're here to help!
+                            {selectedBooking.status === "declined" 
+                              ? "We're sorry, but the service provider cannot accommodate this request at the moment. You may try booking another slot or provider."
+                              : "We apologize for the inconvenience. If you believe this is a mistake or if you need help with your payment, please reach out to our support team via email (logiteh045@gmail.com)."
+                            }
                           </p>
                         </div>
                       </div>
