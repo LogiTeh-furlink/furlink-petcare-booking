@@ -1,13 +1,16 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { supabase } from "../../config/supabase";
 import LoggedInAdmin from "../../components/Header/LoggedInAdmin";
-import { FaStore, FaCheckCircle, FaTimesCircle, FaClock, FaUsers, FaArrowRight, FaFileAlt, FaTimes } from "react-icons/fa";
+import { FaStore, FaCheckCircle, FaTimesCircle, FaClock, FaUsers, FaArrowRight, FaFileAlt, FaTimes, FaDownload } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 import { loadAdminFilters, saveAdminFilters } from "../../utils/adminFilterUtils";
+import jsPDF from "jspdf";
+import html2canvas from "html2canvas";
 import "./AdminDashboard.css";
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
+  const reportRef = useRef(null);
 
   // --- STATE ---
   const [adminName, setAdminName] = useState("Admin");
@@ -37,6 +40,7 @@ export default function AdminDashboard() {
 
   // Report Modal State
   const [showReportModal, setShowReportModal] = useState(false);
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
 
   useEffect(() => {
     fetchAdminProfile();
@@ -267,6 +271,81 @@ export default function AdminDashboard() {
     return new Date(dateString).toLocaleDateString("en-US", {
       month: "short", day: "numeric", year: "numeric"
     });
+  };
+
+  // --- PDF GENERATION ---
+  const generatePDF = async () => {
+    if (!reportRef.current) return;
+    
+    setIsGeneratingPDF(true);
+    
+    try {
+      // Create a clone of the report content to manipulate for PDF
+      const reportContent = reportRef.current;
+      const clone = reportContent.cloneNode(true);
+      
+      // Apply PDF-specific styling
+      clone.style.width = '210mm'; // A4 width
+      clone.style.padding = '20px';
+      clone.style.backgroundColor = 'white';
+      clone.style.position = 'absolute';
+      clone.style.left = '-9999px';
+      clone.style.top = '0';
+      
+      document.body.appendChild(clone);
+      
+      // Generate canvas from the cloned element
+      const canvas = await html2canvas(clone, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#ffffff'
+      });
+      
+      // Remove clone
+      document.body.removeChild(clone);
+      
+      // Calculate PDF dimensions
+      const imgWidth = 210; // A4 width in mm
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      
+      // Create PDF
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const imgData = canvas.toDataURL('image/png');
+      
+      let heightLeft = imgHeight;
+      let position = 0;
+      
+      // Add first page
+      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+      heightLeft -= 297; // A4 height
+      
+      // Add additional pages if content is longer than one page
+      while (heightLeft > 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+        heightLeft -= 297;
+      }
+      
+      // Generate filename with current date
+      const dateStr = new Date().toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+      }).replace(/\//g, '-');
+      
+      const filename = `Admin_Dashboard_Report_${dateStr}.pdf`;
+      
+      // Save the PDF
+      pdf.save(filename);
+      
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      alert('Failed to generate PDF. Please try again.');
+    } finally {
+      setIsGeneratingPDF(false);
+    }
   };
 
   return (
@@ -521,8 +600,8 @@ export default function AdminDashboard() {
                 </button>
               </div>
 
-              {/* Modal Body */}
-              <div className="report-modal-body">
+              {/* Modal Body - with ref for PDF generation */}
+              <div className="report-modal-body" ref={reportRef}>
                 {/* Report Header Info */}
                 <div className="report-info-section">
                   <div className="report-info-row">
@@ -677,8 +756,13 @@ export default function AdminDashboard() {
 
               {/* Modal Footer */}
               <div className="report-modal-footer">
-                <button className="btn-close-report" onClick={() => setShowReportModal(false)}>
-                  Close
+                <button 
+                  className="btn-download-pdf" 
+                  onClick={generatePDF}
+                  disabled={isGeneratingPDF}
+                >
+                  <FaDownload size={14} />
+                  <span>{isGeneratingPDF ? 'Generating PDF...' : 'Download as PDF'}</span>
                 </button>
               </div>
             </div>
