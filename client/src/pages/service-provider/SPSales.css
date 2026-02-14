@@ -160,12 +160,20 @@
   gap: 0.75rem; 
 }
 
-/* Report Button Container */
 .report-button-container {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 0.5rem;
+  justify-content: space-between; 
+  align-items: center;          
+  width: 100%;                  
+  padding: 10px 0;               
+}
+
+.as-of-date {
+  font-size: 0.85rem;
+  color: var(--primary-blue);
+  font-weight: 700;
+  text-align: left;
+  flex: 1; /* Allows the text to take up available space on the left */
 }
 
 .report-modal-body.generating-pdf {
