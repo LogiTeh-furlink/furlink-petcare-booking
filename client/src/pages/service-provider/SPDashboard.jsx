@@ -583,10 +583,17 @@ export default function SPDashboard() {
                     </td>
                     <td>{formatCurrency(booking.total_estimated_price)}</td>
                     <td>
-                      <span className={`badge badge-${booking.status ? booking.status.replace(' ', '_') : 'unknown'}`}>
-                        {booking.status}
-                      </span>
-                    </td>
+                        {/* Check if the booking is time-completed but still just says 'paid' */}
+                        {activeTab === 'completed' && booking.status === 'paid' && isFourHoursPast(booking.booking_date, booking.time_slot) ? (
+                          <span className="badge badge-to_rate">
+                            To Rate
+                          </span>
+                        ) : (
+                          <span className={`badge badge-${booking.status ? booking.status.replace(/\s+/g, '_').toLowerCase() : 'unknown'}`}>
+                            {booking.status}
+                          </span>
+                        )}
+                      </td>
                     <td>
                       <button className="view-details-btn" onClick={() => handleViewDetails(booking)}>
                         View Details
@@ -633,14 +640,6 @@ export default function SPDashboard() {
               </div>
               {/* ----------------------------- */}
 
-              {(selectedBooking.status === 'for review' || selectedBooking.status === 'paid') && (
-                <div className="info-row">
-                  <span>Reference No:</span>
-                  <strong style={{ color: 'var(--brand-blue)' }}>
-                    {selectedBooking?.rejection_reason || "Not Provided"}
-                  </strong>
-                </div>
-              )}
               <div className="info-row">
                 <span>Date & Time:</span>
                 <strong>{formatDateTime(selectedBooking.booking_date, selectedBooking.time_slot)}</strong>
