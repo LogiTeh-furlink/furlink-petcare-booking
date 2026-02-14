@@ -60,6 +60,7 @@ export default function SPSales() {
   const [showReportModal, setShowReportModal] = useState(false);
   const [selectedYear, setSelectedYear] = useState(savedFilters.selectedYear);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+  const [listingApprovedDate, setListingApprovedDate] = useState(null);
 
   // ============================================
   // SAVE FILTERS TO LOCALSTORAGE ON CHANGE
@@ -86,13 +87,17 @@ export default function SPSales() {
 
         const { data: provider } = await supabase
           .from("service_providers")
-          .select("id, click_count")
+          .select("id, click_count, created_at")
           .eq("user_id", user.id)
           .single();
 
         if (!provider) return;
 
         setListingVisitors(provider.click_count || 0);
+        if (provider.created_at) {
+          // Splits "2024-01-15T14:30:00" into "2024-01-15"
+          setListingApprovedDate(provider.created_at.split('T')[0]);
+        }
 
         // Fetch bookings with related data
         const { data: bookings, error: bError } = await supabase
@@ -383,6 +388,14 @@ export default function SPSales() {
         `${monthName} 15 - 21`,
         `${monthName} 22 - ${lastDay}`
       ];
+    } else if (activeFilter === 'custom' && currentRange.start && currentRange.end) {
+      // === MODIFIED: GENERATE DAILY LABELS FOR CUSTOM RANGE ===
+      // This loop creates a label for every day between start and end date
+      const tempDate = new Date(currentRange.start);
+      while (tempDate <= currentRange.end) {
+        timeLabels.push(tempDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
+        tempDate.setDate(tempDate.getDate() + 1);
+      }
     } else {
       timeLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     }
@@ -972,7 +985,8 @@ export default function SPSales() {
                     className="date-input" 
                     value={customDateStart} 
                     onChange={(e) => setCustomDateStart(e.target.value)} 
-                    max={customDateEnd || new Date().toISOString().split('T')[0]} 
+                    max={customDateEnd || new Date().toISOString().split('T')[0]}
+                    min={listingApprovedDate} 
                   />
                   <label className="date-label">To:</label>
                   <input 
@@ -980,7 +994,7 @@ export default function SPSales() {
                     className="date-input" 
                     value={customDateEnd} 
                     onChange={(e) => setCustomDateEnd(e.target.value)} 
-                    min={customDateStart} 
+                    min={listingApprovedDate || customDateStart}
                     max={new Date().toISOString().split('T')[0]} 
                   />
                 </div>
@@ -1489,91 +1503,6 @@ export default function SPSales() {
                 </div>
               </div>
 
-              {/* Pet Type Breakdown Section - NEW */}
-              {petTypeFilter === 'both' && (
-                <div className="report-section">
-                  <h3 className="report-section-title">Revenue by Pet Type</h3>
-                  <div className="pet-type-breakdown-grid">
-                    <div className="pet-breakdown-card">
-                      <div className="pet-breakdown-header">
-                        <span className="pet-type-icon"></span>
-                        <h4>Dog Services</h4>
-                      </div>
-                      <div className="pet-breakdown-stats">
-                        <div className="pet-stat-item">
-                          <span className="pet-stat-label">Revenue</span>
-                          <span className="pet-stat-value">
-                            ₱{formatCurrency(analytics.petTypeBreakdown.Dog.revenue)}
-                          </span>
-                        </div>
-                        <div className="pet-stat-item">
-                          <span className="pet-stat-label">Bookings</span>
-                          <span className="pet-stat-value">
-                            {analytics.petTypeBreakdown.Dog.bookings}
-                          </span>
-                        </div>
-                        <div className="pet-stat-item">
-                          <span className="pet-stat-label">Customers</span>
-                          <span className="pet-stat-value">
-                            {analytics.petTypeBreakdown.Dog.customers}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="pet-breakdown-card">
-                      <div className="pet-breakdown-header">
-                        <span className="pet-type-icon"></span>
-                        <h4>Cat Services</h4>
-                      </div>
-                      <div className="pet-breakdown-stats">
-                        <div className="pet-stat-item">
-                          <span className="pet-stat-label">Revenue</span>
-                          <span className="pet-stat-value">
-                            ₱{formatCurrency(analytics.petTypeBreakdown.Cat.revenue)}
-                          </span>
-                        </div>
-                        <div className="pet-stat-item">
-                          <span className="pet-stat-label">Bookings</span>
-                          <span className="pet-stat-value">
-                            {analytics.petTypeBreakdown.Cat.bookings}
-                          </span>
-                        </div>
-                        <div className="pet-stat-item">
-                          <span className="pet-stat-label">Customers</span>
-                          <span className="pet-stat-value">
-                            {analytics.petTypeBreakdown.Cat.customers}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* Insights */}
-                  <div className="pet-breakdown-insights">
-                    <p>
-                      <strong>Top Performing Pet Type:</strong>{' '}
-                      {analytics.petTypeBreakdown.Dog.revenue > analytics.petTypeBreakdown.Cat.revenue 
-                        ? `Dog services generated ${((analytics.petTypeBreakdown.Dog.revenue / (analytics.petTypeBreakdown.Dog.revenue + analytics.petTypeBreakdown.Cat.revenue)) * 100).toFixed(0)}% of total revenue`
-                        : `Cat services generated ${((analytics.petTypeBreakdown.Cat.revenue / (analytics.petTypeBreakdown.Dog.revenue + analytics.petTypeBreakdown.Cat.revenue)) * 100).toFixed(0)}% of total revenue`}
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {/* Show filtered pet type note when specific filter is active */}
-              {petTypeFilter !== 'both' && (
-                <div className="report-section">
-                  <div className="pet-filter-notice">
-                    <h4>📊 Filtered Report</h4>
-                    <p>
-                      This report displays data exclusively for <strong>{petTypeFilter}</strong> services. 
-                      To view complete data across all pet types, change the pet type filter to "Both (Dog & Cat)".
-                    </p>
-                  </div>
-                </div>
-              )}
-
               {/* Sales Analysis */}
               <div className="report-section">
                 <h3 className="report-section-title">Sales Analysis</h3>
@@ -1606,6 +1535,14 @@ export default function SPSales() {
                       {analytics.totalLoss > 0 
                         ? ' Consider implementing cancellation policies or improving customer communication.'
                         : ' Excellent! No revenue was lost to cancellations.'}
+                    </p>
+                  </div>
+                  <div className="insight-item">
+                    <strong>Top Performing Pet Type:</strong>
+                    <p>
+                      {analytics.petTypeBreakdown.Dog.revenue > analytics.petTypeBreakdown.Cat.revenue 
+                        ? `Dog services generated ${((analytics.petTypeBreakdown.Dog.revenue / (analytics.petTypeBreakdown.Dog.revenue + analytics.petTypeBreakdown.Cat.revenue)) * 100).toFixed(0)}% of total revenue`
+                        : `Cat services generated ${((analytics.petTypeBreakdown.Cat.revenue / (analytics.petTypeBreakdown.Dog.revenue + analytics.petTypeBreakdown.Cat.revenue)) * 100).toFixed(0)}% of total revenue`}
                     </p>
                   </div>
                 </div>

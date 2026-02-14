@@ -16,6 +16,10 @@ import './SPCustomerInsight.css';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, PointElement, LineElement, ArcElement, Tooltip, Legend);
 
+// Helper: Format currency with 2 decimal places
+const formatCurrency = (value) =>
+  value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
 export default function SPCustomerInsight() {
   const navigate = useNavigate();
   const reportRef = useRef(null);
@@ -37,6 +41,7 @@ export default function SPCustomerInsight() {
   const [profilesMap, setProfilesMap] = useState({}); // Stores { userId: profileData }
   const [showReportModal, setShowReportModal] = useState(false);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+  const [listingApprovedDate, setListingApprovedDate] = useState(null);
 
   // Save filters to localStorage on change
   useEffect(() => {
@@ -45,7 +50,7 @@ export default function SPCustomerInsight() {
       petTypeFilter,
       customDateStart,
       customDateEnd,
-      selectedYear: null // Customer Insights doesn't use selectedYear, but we include it for consistency
+      selectedYear: null 
     });
   }, [activeFilter, petTypeFilter, customDateStart, customDateEnd]);
 
@@ -58,13 +63,17 @@ export default function SPCustomerInsight() {
 
         const { data: provider } = await supabase
           .from("service_providers")
-          .select("id, click_count")
+          .select("id, click_count, created_at")
           .eq("user_id", user.id)
           .single();
 
         if (!provider) return;
 
         setListingVisitors(provider.click_count || 0);
+
+        if (provider.created_at) {
+          setListingApprovedDate(provider.created_at.split('T')[0]);
+        }
 
         // 1. Fetch Source of Truth: Sizes from service_options
         const { data: serviceData } = await supabase
@@ -631,6 +640,63 @@ const getRange = (filter, isPrevious = false) => {
       recentReviews
     };
 
+    // ========================================
+    // PET TYPE BREAKDOWN FOR REPORT
+    // Calculate stats broken down by pet type
+    // ========================================
+    const calculatePetTypeBreakdown = () => {
+      const breakdown = {
+        Dog: { revenue: 0, bookings: 0, customers: new Set() },
+        Cat: { revenue: 0, bookings: 0, customers: new Set() }
+      };
+
+      currentBookings.forEach(booking => {
+        if (!isBookingComplete(booking)) return;
+        
+        const bookingRevenue = Number(booking.total_estimated_price) || 0;
+        
+        // Track which pet types are in this booking
+        const petTypes = new Set();
+        booking.booking_pets?.forEach(pet => {
+          petTypes.add(pet.pet_type);
+        });
+
+        // If booking has both pet types, split the revenue
+        if (petTypes.has('Dog') && petTypes.has('Cat')) {
+          const splitRevenue = bookingRevenue / 2;
+          breakdown.Dog.revenue += splitRevenue;
+          breakdown.Cat.revenue += splitRevenue;
+          breakdown.Dog.bookings += 1;
+          breakdown.Cat.bookings += 1;
+          breakdown.Dog.customers.add(booking.user_id);
+          breakdown.Cat.customers.add(booking.user_id);
+        } else if (petTypes.has('Dog')) {
+          breakdown.Dog.revenue += bookingRevenue;
+          breakdown.Dog.bookings += 1;
+          breakdown.Dog.customers.add(booking.user_id);
+        } else if (petTypes.has('Cat')) {
+          breakdown.Cat.revenue += bookingRevenue;
+          breakdown.Cat.bookings += 1;
+          breakdown.Cat.customers.add(booking.user_id);
+        }
+      });
+
+      return {
+        Dog: {
+          revenue: breakdown.Dog.revenue,
+          bookings: breakdown.Dog.bookings,
+          customers: breakdown.Dog.customers.size
+        },
+        Cat: {
+          revenue: breakdown.Cat.revenue,
+          bookings: breakdown.Cat.bookings,
+          customers: breakdown.Cat.customers.size
+        }
+      };
+    };
+
+    const petTypeBreakdown = calculatePetTypeBreakdown();
+
     return { 
       revenue: current.rev, 
       validCount: current.count, 
@@ -643,7 +709,8 @@ const getRange = (filter, isPrevious = false) => {
       petTypeData,
       customerTypeData,
       topRebookedCustomers, 
-      dogBreedsData
+      dogBreedsData,
+      petTypeBreakdown
     };
   }, [rawBookings, rawReviews, providerServiceSizes, profilesMap, activeFilter, petTypeFilter, customDateStart, customDateEnd]);
 
@@ -704,9 +771,9 @@ const getRange = (filter, isPrevious = false) => {
               {activeFilter === 'custom' && (
                 <div className="custom-date-range">
                   <label className="date-label">From:</label>
-                  <input type="date" className="date-input" value={customDateStart} onChange={(e) => setCustomDateStart(e.target.value)} max={customDateEnd} />
+                  <input type="date" className="date-input" value={customDateStart} onChange={(e) => setCustomDateStart(e.target.value)} max={customDateEnd} min={listingApprovedDate} />
                   <label className="date-label">To:</label>
-                  <input type="date" className="date-input" value={customDateEnd} onChange={(e) => setCustomDateEnd(e.target.value)} min={customDateStart} />
+                  <input type="date" className="date-input" value={customDateEnd} onChange={(e) => setCustomDateEnd(e.target.value)} min={listingApprovedDate || customDateStart} />
                 </div>
               )}
             </div>
