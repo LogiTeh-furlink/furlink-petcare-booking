@@ -107,36 +107,64 @@ export default function AdminDashboard() {
 
   const fetchDashboardCounts = async () => {
     try {
-      // 1. Counts by Status - For Pending, we only count those with services
+      // 1. Fetch Status Counts
       const { count: pending } = await supabase
         .from("service_providers")
         .select("id, services!inner(id)", { count: "exact", head: true })
         .eq("status", "pending");
 
-      const { count: approved } = await supabase.from("service_providers").select("*", { count: "exact", head: true }).eq("status", "approved");
-      const { count: rejected } = await supabase.from("service_providers").select("*", { count: "exact", head: true }).eq("status", "rejected");
+      const { count: approved } = await supabase
+        .from("service_providers")
+        .select("*", { count: "exact", head: true })
+        .eq("status", "approved");
+
+      const { count: rejected } = await supabase
+        .from("service_providers")
+        .select("*", { count: "exact", head: true })
+        .eq("status", "rejected");
 
       const { count: users } = await supabase
         .from("profiles")
         .select("*", { count: "exact", head: true })
         .neq("role", "admin");
 
+      // 2. Calculate Average Approval Time
+      // We only pull records that are 'approved' and have a timestamp for approval
       const { data: approvals } = await supabase
         .from("service_providers")
         .select("created_at, approved_at")
+        .eq("status", "approved")
         .not("approved_at", "is", null);
 
       let avgStr = "-";
       if (approvals && approvals.length > 0) {
+        // Sum the difference in milliseconds
         const totalMs = approvals.reduce((sum, row) => {
           const start = new Date(row.created_at);
           const end = new Date(row.approved_at);
           return sum + (end - start);
         }, 0);
-        const hours = totalMs / approvals.length / (1000 * 60 * 60);
-        avgStr = hours < 1 ? "< 1 hr" : `${hours.toFixed(1)} hrs`;
+
+        // Average milliseconds per approval
+        const avgMs = totalMs / approvals.length;
+        
+        // Convert to total hours
+        const totalHours = avgMs / (1000 * 60 * 60);
+
+        if (totalHours < 1) {
+          avgStr = "< 1 hr";
+        } else if (totalHours < 24) {
+          // If less than a day, show hours
+          avgStr = `${totalHours.toFixed(1)} hrs`;
+        } else {
+          // If more than a day, convert to Days and remaining Hours
+          const days = Math.floor(totalHours / 24);
+          const remainingHours = Math.round(totalHours % 24);
+          avgStr = `${days}d ${remainingHours}h`;
+        }
       }
 
+      // 3. Update State
       setPendingCount(pending || 0);
       setActiveCount(approved || 0);
       setRejectedCount(rejected || 0);
