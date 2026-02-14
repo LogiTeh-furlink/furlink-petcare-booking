@@ -168,8 +168,8 @@
 /* --- DATE RANGE FILTER --- */
 .date-range-filter {
   display: flex;
-  align-items: center;
-  gap: 12px;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .date-inputs-group {
@@ -234,6 +234,43 @@
   background-color: #dc2626;
   transform: translateY(-1px);
   box-shadow: 0 2px 4px rgba(239, 68, 68, 0.3);
+}
+
+/* Active Filter Indicator */
+.active-filter-indicator {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background-color: #eff6ff;
+  border: 1px solid #3b82f6;
+  border-radius: 6px;
+  align-self: flex-start;
+}
+
+.filter-active-dot {
+  width: 8px;
+  height: 8px;
+  background-color: #3b82f6;
+  border-radius: 50%;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.5;
+    transform: scale(1.1);
+  }
+}
+
+.filter-active-text {
+  font-size: 0.8rem;
+  color: #1e40af;
+  font-weight: 600;
 }
 
 /* --- TABLE STYLES --- */

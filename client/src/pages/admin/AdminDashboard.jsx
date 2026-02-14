@@ -3,6 +3,7 @@ import { supabase } from "../../config/supabase";
 import LoggedInAdmin from "../../components/Header/LoggedInAdmin";
 import { FaStore, FaCheckCircle, FaTimesCircle, FaClock, FaUsers, FaArrowRight } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
+import { loadAdminFilters, saveAdminFilters } from "../../utils/adminFilterUtils";
 import "./AdminDashboard.css";
 
 export default function AdminDashboard() {
@@ -22,24 +23,32 @@ export default function AdminDashboard() {
   const [tableData, setTableData] = useState([]);
   const [loading, setLoading] = useState(true);
   
-  // Filter State (Default: 'pending')
-  const [currentFilter, setCurrentFilter] = useState("pending"); 
+  // Load saved filters from localStorage
+  const savedFilters = loadAdminFilters();
   
-  // User Specific Filter (all, pet_owner, service_provider)
-  const [userRoleFilter, setUserRoleFilter] = useState("all");
+  // Filter State (Load from localStorage or default to 'pending')
+  const [currentFilter, setCurrentFilter] = useState(savedFilters.currentFilter); 
+  
+  // User Specific Filter (Load from localStorage)
+  const [userRoleFilter, setUserRoleFilter] = useState(savedFilters.userRoleFilter);
 
-  // Date Range Filters for Service Providers
-  const [dateRanges, setDateRanges] = useState({
-    pending: { start: "", end: "" },
-    active: { start: "", end: "" },
-    rejected: { start: "", end: "" }
-  });
+  // Single shared Date Range for all Service Provider tabs (Load from localStorage)
+  const [dateRange, setDateRange] = useState(savedFilters.dateRange);
 
   useEffect(() => {
     fetchAdminProfile();
     fetchDashboardCounts();
     fetchTableData(currentFilter);
   }, []);
+
+  // Save filters to localStorage whenever they change
+  useEffect(() => {
+    saveAdminFilters({
+      currentFilter,
+      userRoleFilter,
+      dateRange
+    });
+  }, [currentFilter, userRoleFilter, dateRange]);
 
   // Refetch when main filter or user sub-filter changes
   useEffect(() => {
@@ -51,7 +60,7 @@ export default function AdminDashboard() {
     if (currentFilter !== 'users') {
       fetchTableData(currentFilter);
     }
-  }, [dateRanges]);
+  }, [dateRange]);
 
   // Real-time updates (Listeners)
   useEffect(() => {
@@ -165,13 +174,12 @@ export default function AdminDashboard() {
             .select("id, business_name, city, province, status, created_at, updated_at, services!inner(id)")
             .eq("status", "pending");
 
-          // Apply date range filter for pending
-          const range = dateRanges.pending;
-          if (range.start) {
-            query = query.gte("created_at", range.start);
+          // Apply shared date range filter for pending (based on created_at)
+          if (dateRange.start) {
+            query = query.gte("created_at", dateRange.start);
           }
-          if (range.end) {
-            const endDate = new Date(range.end);
+          if (dateRange.end) {
+            const endDate = new Date(dateRange.end);
             endDate.setUTCHours(23, 59, 59, 999);
             query = query.lte("created_at", endDate.toISOString());
           }
@@ -183,13 +191,12 @@ export default function AdminDashboard() {
             .select("id, business_name, city, province, status, created_at, updated_at, approved_at")
             .eq("status", "approved");
 
-          // Apply date range filter for approved (based on approved_at)
-          const range = dateRanges.active;
-          if (range.start) {
-            query = query.gte("approved_at", range.start);
+          // Apply shared date range filter for approved (based on approved_at)
+          if (dateRange.start) {
+            query = query.gte("approved_at", dateRange.start);
           }
-          if (range.end) {
-            const endDate = new Date(range.end);
+          if (dateRange.end) {
+            const endDate = new Date(dateRange.end);
             endDate.setUTCHours(23, 59, 59, 999);
             query = query.lte("approved_at", endDate.toISOString());
           }
@@ -198,17 +205,15 @@ export default function AdminDashboard() {
         }
         else if (dbStatus === 'rejected') {
           query = query
-            .select("id, business_name, city, province, status, created_at, updated_at, rejected_at")
+            .select("id, business_name, city, province, status, created_at, updated_at")
             .eq("status", "rejected");
 
-          // Apply date range filter for rejected (based on rejected_at or updated_at)
-          const range = dateRanges.rejected;
-          if (range.start) {
-            // Use rejected_at if available, otherwise fall back to updated_at
-            query = query.gte("updated_at", range.start);
+          // Apply shared date range filter for rejected (based on updated_at)
+          if (dateRange.start) {
+            query = query.gte("updated_at", dateRange.start);
           }
-          if (range.end) {
-            const endDate = new Date(range.end);
+          if (dateRange.end) {
+            const endDate = new Date(dateRange.end);
             endDate.setUTCHours(23, 59, 59, 999);
             query = query.lte("updated_at", endDate.toISOString());
           }
@@ -233,21 +238,15 @@ export default function AdminDashboard() {
     setCurrentFilter(filterType);
   };
 
-  const handleDateRangeChange = (filterType, field, value) => {
-    setDateRanges(prev => ({
+  const handleDateRangeChange = (field, value) => {
+    setDateRange(prev => ({
       ...prev,
-      [filterType]: {
-        ...prev[filterType],
-        [field]: value
-      }
+      [field]: value
     }));
   };
 
-  const clearDateRange = (filterType) => {
-    setDateRanges(prev => ({
-      ...prev,
-      [filterType]: { start: "", end: "" }
-    }));
+  const clearDateRangeHandler = () => {
+    setDateRange({ start: "", end: "" });
   };
 
   const getListTitle = () => {
@@ -265,13 +264,6 @@ export default function AdminDashboard() {
     return new Date(dateString).toLocaleDateString("en-US", {
       month: "short", day: "numeric", year: "numeric"
     });
-  };
-
-  const getCurrentDateRange = () => {
-    if (currentFilter === 'active') return dateRanges.active;
-    if (currentFilter === 'pending') return dateRanges.pending;
-    if (currentFilter === 'rejected') return dateRanges.rejected;
-    return { start: "", end: "" };
   };
 
   return (
@@ -367,9 +359,9 @@ export default function AdminDashboard() {
                     <input 
                       type="date" 
                       className="date-input" 
-                      value={getCurrentDateRange().start} 
-                      onChange={(e) => handleDateRangeChange(currentFilter, 'start', e.target.value)}
-                      max={getCurrentDateRange().end || new Date().toISOString().split('T')[0]}
+                      value={dateRange.start} 
+                      onChange={(e) => handleDateRangeChange('start', e.target.value)}
+                      max={dateRange.end || new Date().toISOString().split('T')[0]}
                     />
                   </div>
                   <div className="date-input-wrapper">
@@ -377,22 +369,29 @@ export default function AdminDashboard() {
                     <input 
                       type="date" 
                       className="date-input" 
-                      value={getCurrentDateRange().end} 
-                      onChange={(e) => handleDateRangeChange(currentFilter, 'end', e.target.value)}
-                      min={getCurrentDateRange().start}
+                      value={dateRange.end} 
+                      onChange={(e) => handleDateRangeChange('end', e.target.value)}
+                      min={dateRange.start}
                       max={new Date().toISOString().split('T')[0]}
                     />
                   </div>
-                  {(getCurrentDateRange().start || getCurrentDateRange().end) && (
+                  {(dateRange.start || dateRange.end) && (
                     <button 
                       className="clear-dates-btn"
-                      onClick={() => clearDateRange(currentFilter)}
+                      onClick={clearDateRangeHandler}
                       title="Clear date range"
                     >
-                      Clear
+                      Clear Dates
                     </button>
                   )}
                 </div>
+                {/* Show active filter indicator */}
+                {(dateRange.start || dateRange.end) && (
+                  <div className="active-filter-indicator">
+                    <span className="filter-active-dot"></span>
+                    <span className="filter-active-text">Date filter active</span>
+                  </div>
+                )}
               </div>
             )}
           </div>
