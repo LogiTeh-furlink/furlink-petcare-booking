@@ -28,6 +28,13 @@ export default function AdminDashboard() {
   // User Specific Filter (all, pet_owner, service_provider)
   const [userRoleFilter, setUserRoleFilter] = useState("all");
 
+  // Date Range Filters for Service Providers
+  const [dateRanges, setDateRanges] = useState({
+    pending: { start: "", end: "" },
+    active: { start: "", end: "" },
+    rejected: { start: "", end: "" }
+  });
+
   useEffect(() => {
     fetchAdminProfile();
     fetchDashboardCounts();
@@ -38,6 +45,13 @@ export default function AdminDashboard() {
   useEffect(() => {
     fetchTableData(currentFilter);
   }, [currentFilter, userRoleFilter]);
+
+  // Refetch when date ranges change
+  useEffect(() => {
+    if (currentFilter !== 'users') {
+      fetchTableData(currentFilter);
+    }
+  }, [dateRanges]);
 
   // Real-time updates (Listeners)
   useEffect(() => {
@@ -149,13 +163,57 @@ export default function AdminDashboard() {
         if (dbStatus === 'pending') {
           query = query
             .select("id, business_name, city, province, status, created_at, updated_at, services!inner(id)")
-            .eq("status", "pending")
-            .order("created_at", { ascending: true });
-        } else {
+            .eq("status", "pending");
+
+          // Apply date range filter for pending
+          const range = dateRanges.pending;
+          if (range.start) {
+            query = query.gte("created_at", range.start);
+          }
+          if (range.end) {
+            const endDate = new Date(range.end);
+            endDate.setUTCHours(23, 59, 59, 999);
+            query = query.lte("created_at", endDate.toISOString());
+          }
+
+          query = query.order("created_at", { ascending: true });
+        } 
+        else if (dbStatus === 'approved') {
           query = query
-            .select("id, business_name, city, province, status, created_at, updated_at")
-            .eq("status", dbStatus)
-            .order("updated_at", { ascending: false });
+            .select("id, business_name, city, province, status, created_at, updated_at, approved_at")
+            .eq("status", "approved");
+
+          // Apply date range filter for approved (based on approved_at)
+          const range = dateRanges.active;
+          if (range.start) {
+            query = query.gte("approved_at", range.start);
+          }
+          if (range.end) {
+            const endDate = new Date(range.end);
+            endDate.setUTCHours(23, 59, 59, 999);
+            query = query.lte("approved_at", endDate.toISOString());
+          }
+
+          query = query.order("approved_at", { ascending: false });
+        }
+        else if (dbStatus === 'rejected') {
+          query = query
+            .select("id, business_name, city, province, status, created_at, updated_at, rejected_at")
+            .eq("status", "rejected");
+
+          // Apply date range filter for rejected (based on rejected_at or updated_at)
+          const range = dateRanges.rejected;
+          if (range.start) {
+            // Use rejected_at if available, otherwise fall back to updated_at
+            query = query.gte("updated_at", range.start);
+          }
+          if (range.end) {
+            const endDate = new Date(range.end);
+            endDate.setUTCHours(23, 59, 59, 999);
+            query = query.lte("updated_at", endDate.toISOString());
+          }
+
+          query = query.order("updated_at", { ascending: false });
         }
 
         const { data, error } = await query;
@@ -173,8 +231,23 @@ export default function AdminDashboard() {
 
   const handleCardClick = (filterType) => {
     setCurrentFilter(filterType);
-    // Optional: Reset user filter when switching back to users tab? 
-    // Currently keeping it persistent.
+  };
+
+  const handleDateRangeChange = (filterType, field, value) => {
+    setDateRanges(prev => ({
+      ...prev,
+      [filterType]: {
+        ...prev[filterType],
+        [field]: value
+      }
+    }));
+  };
+
+  const clearDateRange = (filterType) => {
+    setDateRanges(prev => ({
+      ...prev,
+      [filterType]: { start: "", end: "" }
+    }));
   };
 
   const getListTitle = () => {
@@ -192,6 +265,13 @@ export default function AdminDashboard() {
     return new Date(dateString).toLocaleDateString("en-US", {
       month: "short", day: "numeric", year: "numeric"
     });
+  };
+
+  const getCurrentDateRange = () => {
+    if (currentFilter === 'active') return dateRanges.active;
+    if (currentFilter === 'pending') return dateRanges.pending;
+    if (currentFilter === 'rejected') return dateRanges.rejected;
+    return { start: "", end: "" };
   };
 
   return (
@@ -277,6 +357,44 @@ export default function AdminDashboard() {
                 </button>
               </div>
             )}
+
+            {/* --- DATE RANGE FILTER FOR SERVICE PROVIDERS --- */}
+            {currentFilter !== 'users' && (
+              <div className="date-range-filter">
+                <div className="date-inputs-group">
+                  <div className="date-input-wrapper">
+                    <label className="date-label">From:</label>
+                    <input 
+                      type="date" 
+                      className="date-input" 
+                      value={getCurrentDateRange().start} 
+                      onChange={(e) => handleDateRangeChange(currentFilter, 'start', e.target.value)}
+                      max={getCurrentDateRange().end || new Date().toISOString().split('T')[0]}
+                    />
+                  </div>
+                  <div className="date-input-wrapper">
+                    <label className="date-label">To:</label>
+                    <input 
+                      type="date" 
+                      className="date-input" 
+                      value={getCurrentDateRange().end} 
+                      onChange={(e) => handleDateRangeChange(currentFilter, 'end', e.target.value)}
+                      min={getCurrentDateRange().start}
+                      max={new Date().toISOString().split('T')[0]}
+                    />
+                  </div>
+                  {(getCurrentDateRange().start || getCurrentDateRange().end) && (
+                    <button 
+                      className="clear-dates-btn"
+                      onClick={() => clearDateRange(currentFilter)}
+                      title="Clear date range"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="providers-table-wrapper">
@@ -304,7 +422,7 @@ export default function AdminDashboard() {
                     <tr>
                       <th>Business Name</th>
                       <th>Location</th>
-                      <th>Date {currentFilter === 'pending' ? 'Submitted' : 'Updated'}</th>
+                      <th>Date {currentFilter === 'pending' ? 'Submitted' : currentFilter === 'active' ? 'Approved' : 'Updated'}</th>
                       <th>Status</th>
                       <th>Action</th>
                     </tr>
@@ -342,7 +460,15 @@ export default function AdminDashboard() {
                         <>
                           <td className="fw-bold">{item.business_name}</td>
                           <td>{item.city}, {item.province}</td>
-                          <td>{formatDate(currentFilter === 'pending' ? item.created_at : item.updated_at)}</td>
+                          <td>
+                            {formatDate(
+                              currentFilter === 'pending' 
+                                ? item.created_at 
+                                : currentFilter === 'active' 
+                                ? item.approved_at 
+                                : item.updated_at
+                            )}
+                          </td>
                           <td>
                             <span className={`status-pill ${item.status}`}>
                               {item.status}
