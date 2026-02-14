@@ -537,7 +537,7 @@ export default function SPDashboard() {
              <p className="status-count">{stats.new_request}</p>
            </div>
            <div className={`status-card ${activeTab === 'for_verification' ? 'active' : ''}`} onClick={() => setActiveTab('for_verification')}>
-             <h3>Pending Payment</h3>
+             <h3>Verify Payment</h3>
              <p className="status-count">{stats.for_verification}</p>
            </div>
            <div className={`status-card ${activeTab === 'upcoming' ? 'active' : ''}`} onClick={() => setActiveTab('upcoming')}>
