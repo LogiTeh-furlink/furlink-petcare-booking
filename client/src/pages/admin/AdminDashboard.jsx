@@ -348,7 +348,7 @@ export default function AdminDashboard() {
     }
   };
 
-  return (
+return (
     <>
       <LoggedInAdmin />
       <div className="admin-dashboard-wrapper">
@@ -357,8 +357,15 @@ export default function AdminDashboard() {
           <p>Here is your daily overview.</p>
         </div>
 
-        {/* Generate Report Button */}
+        {/* Generate Report Button and As of Date */}
         <div className="report-button-container">
+          <div className="as-of-date">
+            As of {new Date().toLocaleDateString('en-US', { 
+              month: 'long', 
+              day: 'numeric', 
+              year: 'numeric' 
+            })}
+          </div>
           <button className="generate-report-btn" onClick={() => setShowReportModal(true)}>
             <FaFileAlt size={16} />
             <span>Generate Admin Report</span>
@@ -366,7 +373,7 @@ export default function AdminDashboard() {
         </div>
 
         <div className="stats-grid">
-          {/* Pending Card */}
+          {/* ... existing stats cards ... */}
           <div className={`stat-card ${currentFilter === 'pending' ? 'active-filter' : ''}`} onClick={() => handleCardClick('pending')}>
             <div className="stat-icon-wrapper pending"><FaStore size={24} /></div>
             <div className="stat-content">
@@ -375,7 +382,6 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          {/* Active Card */}
           <div className={`stat-card ${currentFilter === 'active' ? 'active-filter' : ''}`} onClick={() => handleCardClick('active')}>
             <div className="stat-icon-wrapper active"><FaCheckCircle size={24} /></div>
             <div className="stat-content">
@@ -384,7 +390,6 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          {/* Rejected Card */}
           <div className={`stat-card ${currentFilter === 'rejected' ? 'active-filter' : ''}`} onClick={() => handleCardClick('rejected')}>
             <div className="stat-icon-wrapper rejected"><FaTimesCircle size={24} /></div>
             <div className="stat-content">
@@ -393,7 +398,6 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          {/* Avg Time Card (Non-Clickable) */}
           <div className="stat-card non-clickable">
             <div className="stat-icon-wrapper info"><FaClock size={24} /></div>
             <div className="stat-content">
@@ -402,7 +406,6 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          {/* Users Card (Tab) */}
           <div className={`stat-card ${currentFilter === 'users' ? 'active-filter' : ''}`} onClick={() => handleCardClick('users')}>
             <div className="stat-icon-wrapper users"><FaUsers size={24} /></div>
             <div className="stat-content">

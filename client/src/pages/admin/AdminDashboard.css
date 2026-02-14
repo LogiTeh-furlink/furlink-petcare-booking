@@ -24,11 +24,19 @@
   color: #6b7280;
 }
 
-/* --- REPORT BUTTON --- */
+/* --- REPORT BUTTON CONTAINER --- */
 .report-button-container {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between; 
+  align-items: center;
   margin-bottom: 20px;
+  width: 100%;
+}
+
+.as-of-date {
+  font-size: 0.95rem;
+  color: #1e3a8a;
+  font-weight: 700;
 }
 
 .generate-report-btn {
@@ -52,6 +60,8 @@
   transform: translateY(-1px);
   box-shadow: 0 4px 8px rgba(30, 58, 138, 0.3);
 }
+
+/* ... keep the rest of your CSS as is ... */
 
 /* --- STATS GRID --- */
 .stats-grid {
