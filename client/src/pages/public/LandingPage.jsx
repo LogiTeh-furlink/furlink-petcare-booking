@@ -20,7 +20,7 @@ const HeroSection = () => {
           <div className="hero-text">
             <h1 className="hero-title">
               Link with service providers
-              <span className="hero-highlight"> with just few clicks</span>
+              <span className="hero-highlight"> with just a few clicks</span>
             </h1>
             <p className="hero-description">
               Connect with trusted pet grooming professionals in your area. <br />

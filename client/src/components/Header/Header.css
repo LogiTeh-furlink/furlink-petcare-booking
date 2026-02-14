@@ -28,6 +28,7 @@
   height: 55px;
   width: auto;
   object-fit: contain;
+  transition: height 0.3s ease;
 }
 
 .header-nav {
@@ -59,8 +60,46 @@
   font-weight: 600;
   cursor: pointer;
   transition: 0.2s ease-in-out;
+  white-space: nowrap; /* Prevents text from wrapping to two lines */
 }
 
 .signup-btn:hover {
   background-color: #1333a0;
+}
+
+/* --- MOBILE RESPONSIVENESS --- */
+@media (max-width: 768px) {
+  .main-header {
+    margin: 1rem auto;
+    padding: 0.6rem 1.2rem; /* Reduced padding for more space */
+    border-radius: 30px;    /* Slightly less rounded for smaller screens */
+  }
+
+  .header-logo {
+    height: 40px; /* Smaller logo on mobile */
+  }
+
+  .header-nav {
+    gap: 0.8rem; /* Smaller gap between buttons */
+  }
+
+  .nav-link {
+    font-size: 0.85rem; /* Smaller font */
+  }
+
+  .signup-btn {
+    padding: 0.5rem 1rem; /* Smaller button padding */
+    font-size: 0.85rem;
+  }
+}
+
+/* Extra small screens (Phones) */
+@media (max-width: 480px) {
+  .header-nav {
+    gap: 0.5rem;
+  }
+  
+  .nav-link {
+    display: none; /* Optional: Hide "About" link on very small screens to save space */
+  }
 }
