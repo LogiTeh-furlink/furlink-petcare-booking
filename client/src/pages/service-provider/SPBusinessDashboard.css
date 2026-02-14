@@ -137,9 +137,16 @@
 
 .report-button-container {
   display: flex;
-  justify-content: space-between;
+  justify-content: space-between;  /* This puts items at opposite ends */
   align-items: center;
   margin-bottom: 0;
+}
+
+.as-of-date {
+  font-size: 0.85rem;
+  color: var(--primary-blue);
+  font-weight: 700;
+  text-align: left;  /* Already aligned left */
 }
 
 .generate-report-btn {

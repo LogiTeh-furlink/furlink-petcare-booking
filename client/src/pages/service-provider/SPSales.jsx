@@ -1588,9 +1588,6 @@ export default function SPSales() {
                   </>
                 )}
               </button>
-              <button className="btn-close-report" onClick={() => setShowReportModal(false)}>
-                Close
-              </button>
             </div>
           </div>
         </div>
