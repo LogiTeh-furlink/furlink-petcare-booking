@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { supabase } from "../../config/supabase";
 import LoggedInAdmin from "../../components/Header/LoggedInAdmin";
-import { FaStore, FaCheckCircle, FaTimesCircle, FaClock, FaUsers, FaArrowRight } from "react-icons/fa";
+import { FaStore, FaCheckCircle, FaTimesCircle, FaClock, FaUsers, FaArrowRight, FaFileAlt, FaTimes } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 import { loadAdminFilters, saveAdminFilters } from "../../utils/adminFilterUtils";
 import "./AdminDashboard.css";
@@ -34,6 +34,9 @@ export default function AdminDashboard() {
 
   // Single shared Date Range for all Service Provider tabs (Load from localStorage)
   const [dateRange, setDateRange] = useState(savedFilters.dateRange);
+
+  // Report Modal State
+  const [showReportModal, setShowReportModal] = useState(false);
 
   useEffect(() => {
     fetchAdminProfile();
@@ -275,6 +278,14 @@ export default function AdminDashboard() {
           <p>Here is your daily overview.</p>
         </div>
 
+        {/* Generate Report Button */}
+        <div className="report-button-container">
+          <button className="generate-report-btn" onClick={() => setShowReportModal(true)}>
+            <FaFileAlt size={16} />
+            <span>Generate Admin Report</span>
+          </button>
+        </div>
+
         <div className="stats-grid">
           {/* Pending Card */}
           <div className={`stat-card ${currentFilter === 'pending' ? 'active-filter' : ''}`} onClick={() => handleCardClick('pending')}>
@@ -492,6 +503,187 @@ export default function AdminDashboard() {
             )}
           </div>
         </div>
+
+        {/* ============================================ */}
+        {/* ADMIN REPORT MODAL */}
+        {/* ============================================ */}
+        {showReportModal && (
+          <div className="report-modal-overlay" onClick={() => setShowReportModal(false)}>
+            <div className="report-modal-content" onClick={(e) => e.stopPropagation()}>
+              {/* Modal Header */}
+              <div className="report-modal-header">
+                <div className="report-header-title">
+                  <FaFileAlt size={20} />
+                  <h2>Admin Dashboard Report</h2>
+                </div>
+                <button className="modal-close-btn" onClick={() => setShowReportModal(false)}>
+                  <FaTimes />
+                </button>
+              </div>
+
+              {/* Modal Body */}
+              <div className="report-modal-body">
+                {/* Report Header Info */}
+                <div className="report-info-section">
+                  <div className="report-info-row">
+                    <span className="report-label">Report Generated:</span>
+                    <span className="report-value">
+                      {new Date().toLocaleDateString('en-US', { 
+                        month: 'long', 
+                        day: 'numeric', 
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </span>
+                  </div>
+                  {(dateRange.start || dateRange.end) && (
+                    <div className="report-info-row">
+                      <span className="report-label">Date Filter Applied:</span>
+                      <span className="report-value">
+                        {dateRange.start && dateRange.end 
+                          ? `${new Date(dateRange.start).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' })} - ${new Date(dateRange.end).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' })}`
+                          : dateRange.start 
+                          ? `From ${new Date(dateRange.start).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' })}`
+                          : `Until ${new Date(dateRange.end).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' })}`
+                        }
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Executive Summary */}
+                <div className="report-section">
+                  <h3 className="report-section-title">Executive Summary</h3>
+                  <div className="report-kpi-grid">
+                    <div className="report-kpi-item">
+                      <span className="report-kpi-label">Pending Approvals</span>
+                      <span className="report-kpi-value">{pendingCount}</span>
+                      <span className="report-kpi-description">
+                        Complete applications awaiting review
+                      </span>
+                    </div>
+                    <div className="report-kpi-item">
+                      <span className="report-kpi-label">Active Listings</span>
+                      <span className="report-kpi-value">{activeCount}</span>
+                      <span className="report-kpi-description">
+                        Approved service providers
+                      </span>
+                    </div>
+                    <div className="report-kpi-item">
+                      <span className="report-kpi-label">Rejected Listings</span>
+                      <span className="report-kpi-value">{rejectedCount}</span>
+                      <span className="report-kpi-description">
+                        Applications not approved
+                      </span>
+                    </div>
+                    <div className="report-kpi-item">
+                      <span className="report-kpi-label">Total Users</span>
+                      <span className="report-kpi-value">{totalUsers}</span>
+                      <span className="report-kpi-description">
+                        Registered platform users
+                      </span>
+                    </div>
+                    <div className="report-kpi-item">
+                      <span className="report-kpi-label">Avg Approval Time</span>
+                      <span className="report-kpi-value">{avgApprovalTime}</span>
+                      <span className="report-kpi-description">
+                        Time to approve applications
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Platform Insights */}
+                <div className="report-section">
+                  <h3 className="report-section-title">Platform Insights</h3>
+                  <div className="report-insights">
+                    <div className="insight-item">
+                      <strong>Application Status:</strong>
+                      <p>
+                        {pendingCount > 0 
+                          ? `There are currently ${pendingCount} complete application${pendingCount !== 1 ? 's' : ''} pending review. ${pendingCount >= 5 ? 'Consider prioritizing these reviews to maintain platform quality.' : ''}`
+                          : 'All applications have been reviewed. Great work staying on top of approvals!'
+                        }
+                      </p>
+                    </div>
+                    
+                    <div className="insight-item">
+                      <strong>Service Provider Network:</strong>
+                      <p>
+                        The platform has {activeCount} active service provider{activeCount !== 1 ? 's' : ''} available to pet owners.
+                        {rejectedCount > 0 && ` ${rejectedCount} application${rejectedCount !== 1 ? 's have' : ' has'} been rejected.`}
+                      </p>
+                    </div>
+
+                    <div className="insight-item">
+                      <strong>User Base:</strong>
+                      <p>
+                        Total registered users: {totalUsers}. This includes both pet owners and service providers who are actively using the platform.
+                      </p>
+                    </div>
+
+                    <div className="insight-item">
+                      <strong>Approval Efficiency:</strong>
+                      <p>
+                        {avgApprovalTime === '-' 
+                          ? 'No approval data available yet. Start reviewing applications to track approval times.'
+                          : `Applications are being approved in an average of ${avgApprovalTime}. ${avgApprovalTime.includes('< 1') ? 'Excellent response time!' : 'Consider streamlining the approval process if possible.'}`
+                        }
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Action Items */}
+                <div className="report-section">
+                  <h3 className="report-section-title">Recommended Actions</h3>
+                  <div className="action-items-list">
+                    {pendingCount > 0 && (
+                      <div className="action-item">
+                        <span className="action-priority pending">Pending</span>
+                        <span className="action-text">
+                          Review {pendingCount} pending application{pendingCount !== 1 ? 's' : ''} to maintain quality standards
+                        </span>
+                      </div>
+                    )}
+                    {pendingCount === 0 && (
+                      <div className="action-item">
+                        <span className="action-priority completed">Completed</span>
+                        <span className="action-text">
+                          All applications reviewed - No pending items
+                        </span>
+                      </div>
+                    )}
+                    {activeCount < 10 && (
+                      <div className="action-item">
+                        <span className="action-priority info">Info</span>
+                        <span className="action-text">
+                          Consider marketing initiatives to attract more service providers
+                        </span>
+                      </div>
+                    )}
+                    {rejectedCount > activeCount && (
+                      <div className="action-item">
+                        <span className="action-priority warning">Alert</span>
+                        <span className="action-text">
+                          High rejection rate detected - Review approval criteria
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="report-modal-footer">
+                <button className="btn-close-report" onClick={() => setShowReportModal(false)}>
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </>
   );
