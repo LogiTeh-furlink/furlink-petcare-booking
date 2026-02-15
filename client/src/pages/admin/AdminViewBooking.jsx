@@ -1,4 +1,3 @@
-// src/pages/admin/AdminViewBooking.jsx
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "../../config/supabase";
@@ -19,7 +18,9 @@ import {
   FaExclamationTriangle,
   FaUserSlash,
   FaPaperPlane,
-  FaCheckCircle
+  FaCheckCircle,
+  FaExclamationCircle,
+  FaBell
 } from "react-icons/fa";
 import "./AdminViewBooking.css";
 
@@ -30,6 +31,7 @@ export default function AdminViewBooking() {
   // --- STATE ---
   const [userProfile, setUserProfile] = useState(null);
   const [bookings, setBookings] = useState([]);
+  const [warningCount, setWarningCount] = useState(0); 
   const [loading, setLoading] = useState(true);
   
   // Action States
@@ -37,6 +39,7 @@ export default function AdminViewBooking() {
   const [actionLoading, setActionLoading] = useState(false);
   const [showSuspendModal, setShowSuspendModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showEligibleModal, setShowEligibleModal] = useState(false); 
   const [successMessage, setSuccessMessage] = useState("");
 
   // Modal States
@@ -61,7 +64,24 @@ export default function AdminViewBooking() {
       if (profileError) throw profileError;
       setUserProfile(profileData);
 
-      // 2. Fetch ALL Bookings
+      // 2. Fetch Warnings Count (Past Notifications)
+      // UPDATED: Fetching the ID array length instead of 'count' header for better reliability.
+      // Reverted to strict equality since title is always "Admin Warning".
+      const { data: warningData, error: countError } = await supabase
+        .from('notifications')
+        .select('id') 
+        .eq('user_id', id)
+        .eq('title', 'Admin Warning');
+
+      if (!countError && warningData) {
+          setWarningCount(warningData.length);
+      } else if (countError) {
+          console.error("Error fetching warning history:", countError);
+          // Note: If this errors, it might be an RLS (Row Level Security) issue in Supabase 
+          // where Admins cannot 'SELECT' other users' notifications.
+      }
+
+      // 3. Fetch ALL Bookings
       const { data: bookingData, error: bookingError } = await supabase
         .from("bookings")
         .select(`
@@ -109,6 +129,7 @@ export default function AdminViewBooking() {
     
     setActionLoading(true);
     try {
+      // 1. Send the Notification
       const { error } = await supabase
         .from('notifications')
         .insert({
@@ -116,14 +137,25 @@ export default function AdminViewBooking() {
           title: 'Admin Warning',
           message: warningMessage,
           read: false,
-          link: '/profile' // <--- UPDATED: Points to the Profile page
+          link: '/profile' 
         });
 
       if (error) throw error;
 
-      setSuccessMessage("Warning notification sent successfully.");
-      setShowSuccessModal(true);
+      // 2. Increment local count (Past + Current)
+      // We manually update state to reflect the change immediately
+      const newCount = warningCount + 1;
+      setWarningCount(newCount);
       setWarningMessage(""); 
+      
+      // 3. Trigger Modal Logic
+      if (newCount === 3) {
+        setShowEligibleModal(true);
+      } else {
+        setSuccessMessage("Warning notification sent successfully.");
+        setShowSuccessModal(true);
+      }
+
     } catch (err) {
       console.error("Error sending warning:", err);
       alert("Failed to send warning.");
@@ -159,10 +191,12 @@ export default function AdminViewBooking() {
             title: 'Account Suspended',
             message: `Your account has been suspended for 7 days until ${suspensionEnd.toLocaleDateString()}.`,
             read: false,
-            link: '/profile' // <--- UPDATED: Points to the Profile page
+            link: '/profile'
         });
 
         setShowSuspendModal(false); 
+        setShowEligibleModal(false); 
+
         setSuccessMessage(`User has been suspended until ${suspensionEnd.toLocaleDateString()}.`);
         setShowSuccessModal(true); 
         
@@ -210,6 +244,7 @@ export default function AdminViewBooking() {
     setPreviewImage(null);
     setShowSuspendModal(false);
     setShowSuccessModal(false);
+    setShowEligibleModal(false);
   };
 
   if (loading) return <div className="admin-view-booking-loading-screen">Loading User Details...</div>;
@@ -261,7 +296,15 @@ export default function AdminViewBooking() {
               </h2>
               
               <div className="action-group">
-                <label className="action-label">Issue Warning</label>
+                <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+                  <label className="action-label">Issue Warning</label>
+                  {/* --- NOTIFICATION COUNTER --- */}
+                  <span className={`warning-count-display ${warningCount >= 3 ? 'high-risk' : ''}`}>
+                    <FaBell size={10} style={{marginRight: '4px'}}/>
+                    Count: {warningCount}
+                  </span>
+                </div>
+                
                 <textarea 
                     className="warning-input" 
                     placeholder="Type warning message here..."
@@ -362,22 +405,22 @@ export default function AdminViewBooking() {
                <button className="admin-view-booking-close-btn" onClick={handleCloseAll}><FaTimes/></button>
              </div>
              <div className="admin-view-booking-modal-body-scroll">
-                
-                {/* --- CLIENT FEEDBACK SECTION --- */}
-                {selectedBooking.reviews && selectedBooking.reviews.length > 0 && (
-                  <div className="review-highlight-box" style={{
-                      backgroundColor: '#f0f9ff', 
-                      border: '1px solid #bae6fd', 
-                      borderRadius: '12px', 
-                      padding: '15px',
-                      marginBottom: '20px'
-                  }}>
-                    <h4 style={{marginTop: 0, color: '#0369a1', display:'flex', alignItems:'center', gap:'8px'}}>
-                       <FaCommentDots /> Client Feedback
-                    </h4>
-                    
-                    {selectedBooking.reviews.map((review, idx) => (
-                      <div key={idx}>
+               
+               {/* --- CLIENT FEEDBACK SECTION --- */}
+               {selectedBooking.reviews && selectedBooking.reviews.length > 0 && (
+                 <div className="review-highlight-box" style={{
+                     backgroundColor: '#f0f9ff', 
+                     border: '1px solid #bae6fd', 
+                     borderRadius: '12px', 
+                     padding: '15px',
+                     marginBottom: '20px'
+                 }}>
+                   <h4 style={{marginTop: 0, color: '#0369a1', display:'flex', alignItems:'center', gap:'8px'}}>
+                      <FaCommentDots /> Client Feedback
+                   </h4>
+                   
+                   {selectedBooking.reviews.map((review, idx) => (
+                     <div key={idx}>
                          <div style={{display:'flex', gap:'20px', marginBottom:'10px'}}>
                            <div>
                              <span style={{fontSize:'0.75rem', fontWeight:'600', color:'#64748b', display:'block'}}>Overall</span>
@@ -392,72 +435,72 @@ export default function AdminViewBooking() {
                            "{review.comment || "No comment provided."}"
                          </div>
                       </div>
-                    ))}
-                  </div>
-                )}
+                   ))}
+                 </div>
+               )}
 
-                <div className="admin-view-booking-info-grid">
-                   <div className="admin-view-booking-info-item">
-                     <label><FaInfoCircle/> Provider</label>
-                     <span>{selectedBooking.service_providers?.business_name}</span>
-                   </div>
-                   <div className="admin-view-booking-info-item">
-                     <label><FaClock/> Schedule</label>
-                     <span>{formatDateTime(selectedBooking.booking_date, selectedBooking.time_slot)}</span>
-                   </div>
-                   <div className="admin-view-booking-info-item">
-                       <label><FaFileInvoiceDollar/> Total Amount</label>
-                       <span className="admin-view-booking-price-tag">{formatCurrency(selectedBooking.total_estimated_price)}</span>
+               <div className="admin-view-booking-info-grid">
+                  <div className="admin-view-booking-info-item">
+                    <label><FaInfoCircle/> Provider</label>
+                    <span>{selectedBooking.service_providers?.business_name}</span>
+                  </div>
+                  <div className="admin-view-booking-info-item">
+                    <label><FaClock/> Schedule</label>
+                    <span>{formatDateTime(selectedBooking.booking_date, selectedBooking.time_slot)}</span>
+                  </div>
+                  <div className="admin-view-booking-info-item">
+                      <label><FaFileInvoiceDollar/> Total Amount</label>
+                      <span className="admin-view-booking-price-tag">{formatCurrency(selectedBooking.total_estimated_price)}</span>
+                      <span className="admin-view-booking-vat-note-small" style={{textAlign: 'left', marginTop: '0'}}>* VAT exclusive</span>
+                  </div>
+                  <div className="admin-view-booking-info-item">
+                       <label><FaCreditCard/> Downpayment</label>
+                       <span className="admin-view-booking-price-tag">{formatCurrency(selectedBooking.installation_payment)}</span>
                        <span className="admin-view-booking-vat-note-small" style={{textAlign: 'left', marginTop: '0'}}>* VAT exclusive</span>
                    </div>
-                   <div className="admin-view-booking-info-item">
-                        <label><FaCreditCard/> Downpayment</label>
-                        <span className="admin-view-booking-price-tag">{formatCurrency(selectedBooking.installation_payment)}</span>
-                        <span className="admin-view-booking-vat-note-small" style={{textAlign: 'left', marginTop: '0'}}>* VAT exclusive</span>
+                  <div className="admin-view-booking-info-item">
+                    <label>Status</label>
+                    <span className={`status-pill ${selectedBooking.status}`} style={{display: 'inline-block', width: 'fit-content'}}>
+                       {selectedBooking.status}
+                    </span>
+                  </div>
+                  
+                  {selectedBooking.payment_proof_url && (
+                    <div className="admin-view-booking-info-item">
+                      <label>Payment Proof</label>
+                      <div className="admin-view-booking-image-wrapper admin-view-booking-clickable-img" onClick={() => setPreviewImage(selectedBooking.payment_proof_url)}>
+                         <div className="admin-view-booking-img-label">View Proof <FaSearchPlus size={12} /></div>
+                         <img src={selectedBooking.payment_proof_url} className="admin-view-booking-proof-image" alt="Payment Proof"/>
+                      </div>
                     </div>
-                   <div className="admin-view-booking-info-item">
-                     <label>Status</label>
-                     <span className={`status-pill ${selectedBooking.status}`} style={{display: 'inline-block', width: 'fit-content'}}>
-                        {selectedBooking.status}
-                     </span>
+                  )}
+               </div>
+               <hr className="admin-view-booking-divider"/>
+               <h4>Pets & Grooming Details</h4>
+               <div className="admin-view-booking-pets-list">
+                 {selectedBooking.booking_pets?.map((pet, idx) => (
+                   <div key={pet.id || idx} className="admin-view-booking-pet-full-card">
+                      <h5 className="admin-view-booking-pet-name-header">Pet {idx+1}: {pet.pet_name} ({pet.pet_type})</h5>
+                      <div className="admin-view-booking-pet-specs-grid">
+                        <div><span className="admin-view-booking-label">Breed</span> {pet.breed || 'N/A'}</div>
+                        <div><span className="admin-view-booking-label">Gender</span> {pet.gender || 'N/A'}</div>
+                        <div><span className="admin-view-booking-label">Weight</span> {pet.weight_kg} kg</div>
+                        <div><span className="admin-view-booking-label">Size</span> {pet.calculated_size || 'N/A'}</div>
+                        <div><span className="admin-view-booking-label">Behavior</span> {pet.behavior || 'N/A'}</div>
+                        <div><span className="admin-view-booking-label">Consent</span> {pet.emergency_consent ? 'Yes' : 'No'}</div>
+                      </div>
+                      <div className="admin-view-booking-pet-info-row-split" style={{display:'flex', gap:'15px', marginTop:'10px'}}>
+                        <div className="admin-view-booking-pet-specs-full" style={{flex:1}}><span className="admin-view-booking-label">Grooming Specs:</span> {pet.grooming_specifications || 'None'}</div>
+                        <div className="admin-view-booking-pet-specs-full" style={{flex:1}}><span className="admin-view-booking-label">Services:</span> {pet.booking_services?.map(s => s.service_name).join(', ')}</div>
+                      </div>
+                      <div className="admin-view-booking-pet-images-row">
+                        {pet.vaccine_card_url && <div className="admin-view-booking-image-wrapper admin-view-booking-clickable-img" onClick={() => setPreviewImage(pet.vaccine_card_url)}><div className="admin-view-booking-img-label">Vaccine Card <FaSearchPlus size={12} /></div><img src={pet.vaccine_card_url} className="admin-view-booking-proof-image" alt="Vaccine Card"/></div>}
+                        {pet.illness_proof_url && <div className="admin-view-booking-image-wrapper admin-view-booking-clickable-img" onClick={() => setPreviewImage(pet.illness_proof_url)}><div className="admin-view-booking-img-label">Proof of Illness <FaSearchPlus size={12} /></div><img src={pet.illness_proof_url} className="admin-view-booking-proof-image" alt="Illness Proof"/></div>}
+                        {pet.ai_generated_url && <div className="admin-view-booking-image-wrapper admin-view-booking-clickable-img" onClick={() => setPreviewImage(pet.ai_generated_url)}><div className="admin-view-booking-img-label">AI Style Preview <FaSearchPlus size={12} /></div><img src={pet.ai_generated_url} className="admin-view-booking-proof-image" alt="AI Preview"/></div>}
+                      </div>
                    </div>
-                   
-                   {selectedBooking.payment_proof_url && (
-                     <div className="admin-view-booking-info-item">
-                       <label>Payment Proof</label>
-                       <div className="admin-view-booking-image-wrapper admin-view-booking-clickable-img" onClick={() => setPreviewImage(selectedBooking.payment_proof_url)}>
-                          <div className="admin-view-booking-img-label">View Proof <FaSearchPlus size={12} /></div>
-                          <img src={selectedBooking.payment_proof_url} className="admin-view-booking-proof-image" alt="Payment Proof"/>
-                       </div>
-                     </div>
-                   )}
-                </div>
-                <hr className="admin-view-booking-divider"/>
-                <h4>Pets & Grooming Details</h4>
-                <div className="admin-view-booking-pets-list">
-                  {selectedBooking.booking_pets?.map((pet, idx) => (
-                    <div key={pet.id || idx} className="admin-view-booking-pet-full-card">
-                       <h5 className="admin-view-booking-pet-name-header">Pet {idx+1}: {pet.pet_name} ({pet.pet_type})</h5>
-                       <div className="admin-view-booking-pet-specs-grid">
-                         <div><span className="admin-view-booking-label">Breed</span> {pet.breed || 'N/A'}</div>
-                         <div><span className="admin-view-booking-label">Gender</span> {pet.gender || 'N/A'}</div>
-                         <div><span className="admin-view-booking-label">Weight</span> {pet.weight_kg} kg</div>
-                         <div><span className="admin-view-booking-label">Size</span> {pet.calculated_size || 'N/A'}</div>
-                         <div><span className="admin-view-booking-label">Behavior</span> {pet.behavior || 'N/A'}</div>
-                         <div><span className="admin-view-booking-label">Consent</span> {pet.emergency_consent ? 'Yes' : 'No'}</div>
-                       </div>
-                       <div className="admin-view-booking-pet-info-row-split" style={{display:'flex', gap:'15px', marginTop:'10px'}}>
-                         <div className="admin-view-booking-pet-specs-full" style={{flex:1}}><span className="admin-view-booking-label">Grooming Specs:</span> {pet.grooming_specifications || 'None'}</div>
-                         <div className="admin-view-booking-pet-specs-full" style={{flex:1}}><span className="admin-view-booking-label">Services:</span> {pet.booking_services?.map(s => s.service_name).join(', ')}</div>
-                       </div>
-                       <div className="admin-view-booking-pet-images-row">
-                         {pet.vaccine_card_url && <div className="admin-view-booking-image-wrapper admin-view-booking-clickable-img" onClick={() => setPreviewImage(pet.vaccine_card_url)}><div className="admin-view-booking-img-label">Vaccine Card <FaSearchPlus size={12} /></div><img src={pet.vaccine_card_url} className="admin-view-booking-proof-image" alt="Vaccine Card"/></div>}
-                         {pet.illness_proof_url && <div className="admin-view-booking-image-wrapper admin-view-booking-clickable-img" onClick={() => setPreviewImage(pet.illness_proof_url)}><div className="admin-view-booking-img-label">Proof of Illness <FaSearchPlus size={12} /></div><img src={pet.illness_proof_url} className="admin-view-booking-proof-image" alt="Illness Proof"/></div>}
-                         {pet.ai_generated_url && <div className="admin-view-booking-image-wrapper admin-view-booking-clickable-img" onClick={() => setPreviewImage(pet.ai_generated_url)}><div className="admin-view-booking-img-label">AI Style Preview <FaSearchPlus size={12} /></div><img src={pet.ai_generated_url} className="admin-view-booking-proof-image" alt="AI Preview"/></div>}
-                       </div>
-                    </div>
-                  ))}
-                </div>
+                 ))}
+               </div>
              </div>
              <div className="admin-view-booking-modal-footer">
                <button className="admin-view-booking-secondary-btn" onClick={handleCloseAll}>Close</button>
@@ -505,6 +548,51 @@ export default function AdminViewBooking() {
                 disabled={actionLoading}
               >
                 {actionLoading ? "Suspending..." : "Confirm Suspension"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- SUSPENSION ELIGIBILITY MODAL (NEW) --- */}
+      {showEligibleModal && (
+        <div className="admin-view-booking-modal-overlay">
+          <div className="admin-view-booking-modal-content admin-view-booking-small-modal">
+            <div className="admin-view-booking-modal-header warning-mode">
+              <h3 style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
+                 <FaExclamationCircle /> Suspension Eligible
+              </h3>
+              <button className="admin-view-booking-close-btn" onClick={() => setShowEligibleModal(false)}><FaTimes/></button>
+            </div>
+            <div className="admin-view-booking-modal-body-scroll" style={{textAlign: 'center', overflow: 'hidden'}}>
+               <div style={{
+                   backgroundColor: '#ffedd5', 
+                   width: '60px', 
+                   height: '60px', 
+                   borderRadius: '50%', 
+                   display: 'flex', 
+                   alignItems: 'center', 
+                   justifyContent: 'center',
+                   margin: '0 auto 15px auto'
+               }}>
+                  <FaExclamationTriangle size={24} color="#c2410c" />
+               </div>
+               <p style={{fontSize: '1rem', fontWeight: '600', color: '#1e293b', marginBottom: '8px'}}>
+                 Attention: 3rd Warning Sent
+               </p>
+               <p style={{fontSize: '0.9rem', color: '#64748b', marginBottom: '20px'}}>
+                 This user has now reached <strong>3 warnings</strong>. They are eligible for immediate account suspension.
+               </p>
+            </div>
+            <div className="admin-view-booking-modal-footer" style={{justifyContent: 'center', gap: '12px'}}>
+              <button className="admin-view-booking-secondary-btn" onClick={() => setShowEligibleModal(false)}>Cancel</button>
+              <button 
+                className="btn-action-suspend" 
+                style={{backgroundColor: '#ef4444', color: 'white', border: 'none', padding: '10px 20px'}}
+                onClick={confirmSuspension}
+                disabled={actionLoading}
+              >
+                {actionLoading ? "Suspending..." : "Suspend User Now"}
               </button>
             </div>
           </div>
