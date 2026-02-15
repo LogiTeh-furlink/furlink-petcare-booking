@@ -867,7 +867,7 @@ const handleCompleteBooking = async () => {
                             {isFull ? " (Fully Booked)" : 
                             isTooSmall ? ` (Only ${slot.remaining} left)` : 
                             isRisk ? ` (${slot.remaining} left - Pending SP Approval)` : // Inform the user
-                            ` (${slot.remaining} slots left)`}
+                            ` (Available Slots: ${slot.remaining})`}
                         </option>
                     );
                 })}
