@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { 
   FaEye, FaEyeSlash, FaStore, FaQuestionCircle, 
-  FaTimes, FaClock, FaCheckCircle // <--- Add this
+  FaTimes, FaClock, FaCheckCircle 
 } from "react-icons/fa";
 import { supabase } from "../../config/supabase";
 import "./LoginPage.css"; 
@@ -30,7 +30,7 @@ const LoginPage = () => {
   // --- ADD THESE STATES ---
   const [showReactivateModal, setShowReactivateModal] = useState(false);
   const [deactivatedUser, setDeactivatedUser] = useState(null);
-  const [daysRemaining, setDaysRemaining] = useState(0);
+  // const [daysRemaining, setDaysRemaining] = useState(0); // Unused in this snippet
 
   const handleBecomeBoth = async () => {
     try {
@@ -149,7 +149,8 @@ const LoginPage = () => {
       const [profileRes, providerRes] = await Promise.all([
         supabase
           .from("profiles")
-          .select("role, must_change_password, is_active")
+          // UPDATED: Added suspension_end_date to the selection
+          .select("role, must_change_password, is_active, suspension_end_date")
           .eq("id", data.user.id)
           .single(),
         supabase
@@ -169,8 +170,14 @@ const LoginPage = () => {
       const provider = providerRes.data;
 
       // --- ETERNAL REACTIVATION CHECK ---
-      if (profile.is_active === false) {
-        // Save the necessary info for the reactivation function
+      // Logic Update: Check if they are suspended (suspension date is in future)
+      const isSuspended = profile.suspension_end_date && new Date(profile.suspension_end_date) > new Date();
+
+      // Only show "Welcome Back" if they are inactive AND NOT suspended.
+      // If they ARE suspended, we skip this block and let them fall through to navigation.
+      // The SuspensionGuard in App.jsx will then catch them and show the Lock Screen.
+      if (profile.is_active === false && !isSuspended) {
+        
         setDeactivatedUser({ 
           id: data.user.id, 
           role: profile.role, 
@@ -181,7 +188,7 @@ const LoginPage = () => {
         return; // Stop here and wait for modal confirmation
       }
 
-      // If active, proceed to store token
+      // If active (or suspended), proceed to store token
       localStorage.setItem("token", data.session.access_token);
 
       /* =============================================
@@ -197,7 +204,6 @@ const LoginPage = () => {
       if (profile.role === "both") {
         if (provider?.status === "approved") {
           return navigate("/service/dashboard");
-          return;
         } else {
           // No entry, pending, incomplete, or rejected - show Hybrid Prompt
           setLoading(false);
@@ -231,7 +237,7 @@ const LoginPage = () => {
       // Fallback
       navigate("/dashboard");
     } finally {
-      if (!showHybridPrompt && !showPromoModal && !showPetOwnerPromo) setLoading(false);
+      if (!showHybridPrompt && !showPromoModal && !showPetOwnerPromo && !showReactivateModal) setLoading(false);
     }
   };
 
@@ -377,7 +383,7 @@ const LoginPage = () => {
         </div>
       )}
 
-      {/* --- ADD THIS MODAL --- */}
+      {/* REACTIVATION MODAL */}
       {showReactivateModal && (
       <div className="modal-overlay">
         <div className="modal-content reactivate-modal" style={{ textAlign: 'center', padding: '40px 30px' }}>

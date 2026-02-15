@@ -55,7 +55,7 @@ export default function SuspendedPage() {
               <label style={{ fontSize: '0.7rem', fontWeight: 'bold', color: '#94a3b8', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>
                 Restoration Date
               </label>
-              <strong style={{ fontSize: '1.1rem', color: '#1e293b' }}>
+              <strong style={{ fontSize: '1.1rem', color: '#0E2679' }}> {/* Updated to Dark Blue */}
                 {new Date(endDate).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
               </strong>
             </div>
@@ -66,7 +66,16 @@ export default function SuspendedPage() {
           <FaExclamationTriangle /> While suspended, you cannot book services, manage listings, or update profile info. Access is restored automatically on the date above.
         </div>
 
-        <button className="save-btn" style={{ width: '100%', backgroundColor: '#1f2937', justifyContent: 'center', padding: '15px' }} onClick={handleLogout}>
+        <button 
+          className="save-btn" 
+          style={{ 
+            width: '100%', 
+            backgroundColor: '#0E2679', 
+            justifyContent: 'center', 
+            padding: '15px' 
+          }} 
+          onClick={handleLogout}
+        >
           <FaSignOutAlt /> Sign Out and Return to Login
         </button>
       </div>
