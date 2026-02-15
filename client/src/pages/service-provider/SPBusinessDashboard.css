@@ -137,18 +137,9 @@
 
 .report-button-container {
   display: flex;
-  justify-content: space-between; 
-  align-items: center;          
-  width: 100%;                  
-  padding: 10px 0;               
-}
-
-.as-of-date {
-  font-size: 0.85rem;
-  color: var(--primary-blue);
-  font-weight: 700;
-  text-align: left;
-  flex: 1; /* Allows the text to take up available space on the left */
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0;
 }
 
 .generate-report-btn {
@@ -238,20 +229,21 @@
   display: flex; 
   justify-content: space-between; 
   align-items: center; 
-  margin-bottom: 2px; 
+  margin-bottom: 2px;
+  position: relative;
 }
 
 .chart-title-wrapper {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px;
+  flex: 1;
+  min-width: 0; /* Prevents flex item from overflowing */
+  flex-wrap: nowrap; /* Prevents wrapping */
 }
 
 /* Back to Years Button - Small Icon */
 .back-to-years-btn {
-  position: absolute;
-  top: 8px;
-  left: 8px;
   background: var(--accent-yellow);
   color: var(--primary-blue);
   border: none;
@@ -260,10 +252,11 @@
   border-radius: 6px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s;
-  display: inline-flex;
+  position: relative !important; /* Forces it back into the layout flow */
+  display: flex !important;      /* Ensures icon centers correctly */
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;                /* Prevents it from getting squished */
   z-index: 10;
 }
 
@@ -277,6 +270,9 @@
   font-size: 0.8rem; 
   font-weight: bold; 
   margin: 0;
+  white-space: nowrap; /* Prevents text wrapping */
+  overflow: hidden;
+  text-overflow: ellipsis; /* Adds ... if text is too long */
 }
 
 .chart-title-sm { 
@@ -292,6 +288,8 @@
   padding: 2px 5px; 
   border-radius: 4px; 
   color: #64748b; 
+  flex-shrink: 0; /* Prevents date range from shrinking */
+  white-space: nowrap;
 }
 
 .chart-container-large { 

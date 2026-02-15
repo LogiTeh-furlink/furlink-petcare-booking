@@ -446,7 +446,11 @@ export default function SPBusinessDashboard() {
       } else {
         const currentYear = new Date().getFullYear();
         const years = [];
-        for (let y = 2020; y <= currentYear; y++) years.push(y.toString());
+        // Use listing approval date to determine start year, default to 2020 if not available
+        const startYear = listingApprovedDate 
+          ? new Date(listingApprovedDate).getFullYear() 
+          : 2020;
+        for (let y = startYear; y <= currentYear; y++) years.push(y.toString());
         dateLabels = years;
       }
     } 
@@ -479,7 +483,12 @@ export default function SPBusinessDashboard() {
     let dateValuesDog = new Array(dateLabels.length).fill(0);
     let dateValuesCat = new Array(dateLabels.length).fill(0);
     
-    current.validPets.forEach(pet => {
+    // FIX: Use ALL valid pets when in yearly view without drill-down
+    const petsToProcess = (activeFilter === 'yearly' && !selectedYear) 
+      ? getValidPets(rawBookings.filter(b => isBookingComplete(b)))
+      : current.validPets;
+    
+    petsToProcess.forEach(pet => {
       let idx = -1;
       
       if (activeFilter === 'yearly' && !selectedYear) {
@@ -513,7 +522,8 @@ export default function SPBusinessDashboard() {
     let peakDaysValuesDog = new Array(7).fill(0);
     let peakDaysValuesCat = new Array(7).fill(0);
     
-    current.validPets.forEach(pet => {
+    // Use the same pets set as the main chart for consistency
+    petsToProcess.forEach(pet => {
       const dayIdx = (new Date(pet.booking_date).getDay() + 6) % 7;
       if (pet.pet_type === 'Dog') peakDaysValuesDog[dayIdx]++;
       else if (pet.pet_type === 'Cat') peakDaysValuesCat[dayIdx]++;
@@ -551,7 +561,8 @@ export default function SPBusinessDashboard() {
       
       const vDog = new Array(labels.length).fill(0);
       const vCat = new Array(labels.length).fill(0);
-      current.validPets.forEach(pet => {
+      // Use the same pets set as the main chart for consistency
+      petsToProcess.forEach(pet => {
         const f = formatCleanTime(pet.time_slot);
         const idx = labels.indexOf(f);
         if (idx !== -1) {
@@ -571,7 +582,15 @@ export default function SPBusinessDashboard() {
       const b = s.booking_pets?.bookings;
       if (!b) return false;
       const isComplete = isBookingComplete(b);
-      const inRange = new Date(b.booking_date) >= currentRange.start;
+      
+      // FIX: For yearly view without drill-down, show ALL years of data
+      if (activeFilter === 'yearly' && !selectedYear) {
+        const matchesPet = petTypeFilter === 'both' || s.booking_pets?.pet_type === petTypeFilter;
+        return isComplete && matchesPet;
+      }
+      
+      // For other views, use the current range
+      const inRange = new Date(b.booking_date) >= currentRange.start && new Date(b.booking_date) <= (currentRange.end || now);
       const matchesPet = petTypeFilter === 'both' || s.booking_pets?.pet_type === petTypeFilter;
       return isComplete && inRange && matchesPet;
     });
@@ -659,7 +678,7 @@ export default function SPBusinessDashboard() {
       busiestHour: getBusiestHour(),
       petTypeBreakdown: calculatePetTypeBreakdown()
     };
-  }, [rawBookings, serviceStats, activeFilter, providerHours, petTypeFilter, customDateStart, customDateEnd, selectedYear]);
+  }, [rawBookings, serviceStats, activeFilter, providerHours, petTypeFilter, customDateStart, customDateEnd, selectedYear, listingApprovedDate]);
 
   // ============================================
   // CHART OPTIONS
@@ -715,7 +734,11 @@ export default function SPBusinessDashboard() {
       baseOptions.onClick = (event, elements) => {
         if (elements.length > 0) {
           const clickedIndex = elements[0].index;
-          const clickedYear = 2020 + clickedIndex;
+          // Calculate clicked year based on start year from listing approval date
+          const startYear = listingApprovedDate 
+            ? new Date(listingApprovedDate).getFullYear() 
+            : 2020;
+          const clickedYear = startYear + clickedIndex;
           setSelectedYear(clickedYear);
         }
       };
@@ -1025,19 +1048,26 @@ export default function SPBusinessDashboard() {
               </div>
             </div>
 
-{/* Average Bookings Chart (Main Chart) */}
+            {/* Average Bookings Chart (Main Chart) */}
             <div className="chart-box main-chart">
               <div className="chart-header">
+                {/* Find this section in your JSX */}
                 <div className="chart-title-wrapper">
                   {activeFilter === 'yearly' && selectedYear && (
-                    <button 
-                      className="back-to-years-btn" 
-                      onClick={() => setSelectedYear(null)}
-                      title="Back to years view"
-                    >
-                      <FaArrowLeft size={12} />
-                    </button>
+                    /* WRAP THE BUTTON IN THIS NEW DIV */
+                    <div style={{ display: 'inline-block', marginRight: '15px', position: 'relative' }}>
+                      <button 
+                        className="back-to-years-btn" 
+                        onClick={() => setSelectedYear(null)}
+                        title="Back to years view"
+                        // Ensure the button itself doesn't have spacing, the wrapper handles it
+                        style={{ margin: 0 }} 
+                      >
+                        <FaArrowLeft size={12} />
+                      </button>
+                    </div>
                   )}
+                  
                   <h3 className="chart-title">
                     Average Bookings ({activeFilter === 'yearly' && selectedYear ? selectedYear : activeFilter})
                   </h3>
@@ -1313,7 +1343,7 @@ export default function SPBusinessDashboard() {
                 ) : (
                   <>
                     <FaDownload />
-                    Download Report
+                    Download as PDF
                   </>
                 )}
               </button>
