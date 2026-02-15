@@ -6,8 +6,9 @@ import LandingPage from "./pages/public/LandingPage";
 import AboutPage from "./pages/public/AboutPage";
 import LoginPage from "./pages/public/LoginPage";
 import SignUpPage from "./pages/public/SignUpPage";
-import TandC from "./pages/public/TandC"; // ⭐ NEW IMPORT
-import PrivacyPolicy from "./pages/public/PrivacyPolicy"; // ⭐ NEW IMPORT
+import TandC from "./pages/public/TandC"; 
+import PrivacyPolicy from "./pages/public/PrivacyPolicy"; 
+import SuspendedPage from "./pages/public/SuspendedPage"; // ⭐ NEW IMPORT
 
 // Pet Owner Pages
 import Dashboard from "./pages/pet-owner/Dashboard";
@@ -39,6 +40,7 @@ import AdminViewBooking from "./pages/admin/AdminViewBooking";
 
 // Route Guards
 import ProtectedRoute from "./components/ProtectedRoute";
+import SuspensionGuard from "./components/SuspensionGuard"; // ⭐ NEW IMPORT
 import RequireNewApplicant from "./components/RequireNewApplicant";
 import RequireProviderApplication from "./components/RequireProviderApplication";
 
@@ -56,8 +58,8 @@ function App() {
         <Route path="/about" element={<AboutPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignUpPage />} />
-        <Route path="/terms" element={<TandC />} /> {/* ⭐ NEW ROUTE */}
-        <Route path="/privacy" element={<PrivacyPolicy />} /> {/* ⭐ NEW ROUTE */}
+        <Route path="/terms" element={<TandC />} />
+        <Route path="/privacy" element={<PrivacyPolicy />} />
 
         {/* ==========================
             PROTECTED ROUTES (Logged In)
@@ -65,58 +67,55 @@ function App() {
 
         <Route element={<ProtectedRoute />}>
 
-          {/* --- 1. PET OWNER / GENERAL USER SIDE --- */}
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/listing/:id" element={<ListingInfo />} />
-          
-          {/* User & Pet Management */}
-          <Route path="/pet-details" element={<PetDetails />} />
-          <Route path="/appointments" element={<Appointments />} />
-          <Route path="/booking-history" element={<BookingHistory />} />
-          <Route path="/profile" element={<UserProfile />} />
-          <Route path="/payment/:id" element={<Payment />} />
-          
-          
-          {/* --- 2. SERVICE PROVIDER SIDE --- */}
+          {/* ⭐ SUSPENDED PAGE: Accessible to logged in users, but NOT wrapped by SuspensionGuard */}
+          <Route path="/suspended" element={<SuspendedPage />} />
 
-          {/* ZONE A: Application Start (Only if NO application exists) */}
-          <Route element={<RequireNewApplicant />}>
-              <Route path="/apply-provider" element={<ApplyProvider />} />
-          </Route>
+          {/* ⭐ SUSPENSION GUARD: Wraps all functional pages */}
+          <Route element={<SuspensionGuard />}>
 
-          {/* ZONE B: Application Continued & Management (Requires application record) */}
-          <Route element={<RequireProviderApplication />}>
-
-            {/* Setup Flow (Initial Setup) */}
-            <Route path="/service-setup" element={<ServiceSetup />} />
-            <Route path="/service-listing" element={<ServiceListing />} />
-
-            {/* Operational Dashboard (Main Business Hub) */}
-            <Route path="/service/dashboard" element={<SPDashboard />} />
-            <Route path="/service/dashboard/:id" element={<SPDashboard />} />
+            {/* --- 1. PET OWNER / GENERAL USER SIDE --- */}
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/listing/:id" element={<ListingInfo />} />
             
-            {/* Analytics Dashboards */}
-            <Route path="/service/sales" element={<SPSales />} /> 
-            <Route path="/service/business-dashboard" element={<SPBusinessDashboard />} />
-            <Route path="/service/customer-insight" element={<SPCustomerInsight />} />
+            {/* User & Pet Management */}
+            <Route path="/pet-details" element={<PetDetails />} />
+            <Route path="/appointments" element={<Appointments />} />
+            <Route path="/booking-history" element={<BookingHistory />} />
+            <Route path="/profile" element={<UserProfile />} />
+            <Route path="/payment/:id" element={<Payment />} />
+            
+            
+            {/* --- 2. SERVICE PROVIDER SIDE --- */}
 
-            <Route path="/service/booking-details/:id" element={<SPBookingDetails />} />
+            {/* ZONE A: Application Start */}
+            <Route element={<RequireNewApplicant />}>
+                <Route path="/apply-provider" element={<ApplyProvider />} />
+            </Route>
 
-            {/* Listing Management */}
-            <Route path="/service/manage-listing" element={<SPManageListing />} />
-            <Route path="/service/edit-listing" element={<SPEditListing />} />
-            <Route path="/service/edit-profile" element={<SPEditProfile />} />
+            {/* ZONE B: Application Continued */}
+            <Route element={<RequireProviderApplication />}>
+              <Route path="/service-setup" element={<ServiceSetup />} />
+              <Route path="/service-listing" element={<ServiceListing />} />
+              <Route path="/service/dashboard" element={<SPDashboard />} />
+              <Route path="/service/dashboard/:id" element={<SPDashboard />} />
+              <Route path="/service/sales" element={<SPSales />} /> 
+              <Route path="/service/business-dashboard" element={<SPBusinessDashboard />} />
+              <Route path="/service/customer-insight" element={<SPCustomerInsight />} />
+              <Route path="/service/booking-details/:id" element={<SPBookingDetails />} />
+              <Route path="/service/manage-listing" element={<SPManageListing />} />
+              <Route path="/service/edit-listing" element={<SPEditListing />} />
+              <Route path="/service/edit-profile" element={<SPEditProfile />} />
+            </Route>
 
-          </Route>
+            {/* --- 3. ADMIN SIDE --- */}
+            <Route path="/admin-change-password" element={<AdminChangePassword />} />
+            <Route path="/admin-dashboard" element={<AdminDashboard />} />
+            <Route path="/admin/provider/:id" element={<AdminViewProvider />} /> 
+            <Route path="/admin/user-bookings/:id" element={<AdminViewBooking />} /> 
 
+          </Route> {/* End SuspensionGuard */}
+        </Route> {/* End ProtectedRoute */}
 
-          {/* --- 3. ADMIN SIDE --- */}
-          <Route path="/admin-change-password" element={<AdminChangePassword />} />
-          <Route path="/admin-dashboard" element={<AdminDashboard />} />
-          <Route path="/admin/provider/:id" element={<AdminViewProvider />} /> 
-          <Route path="/admin/user-bookings/:id" element={<AdminViewBooking />} /> 
-
-        </Route>
       </Routes>
     </Router>
   );

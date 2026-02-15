@@ -65,7 +65,6 @@ export default function AdminViewBooking() {
       setUserProfile(profileData);
 
       // 2. Fetch Warnings Count
-      // Using .select('id') with .eq('title', 'Admin Warning') is reliable now that RLS is fixed.
       const { data: warningData, error: countError } = await supabase
         .from('notifications')
         .select('id') 
@@ -145,7 +144,6 @@ export default function AdminViewBooking() {
       setWarningMessage(""); 
       
       // 3. Trigger Modal Logic
-      // UPDATED: Now checks if count is greater than or equal to 3
       if (newCount >= 3) {
         setShowEligibleModal(true);
       } else {
@@ -171,11 +169,11 @@ export default function AdminViewBooking() {
         const suspensionEnd = new Date();
         suspensionEnd.setDate(suspensionEnd.getDate() + 7);
 
-        // 1. Update profile status
+        // 1. Update profile using is_active
         const { error: profileError } = await supabase
             .from('profiles')
             .update({ 
-                status: 'suspended',
+                is_active: false, 
                 suspension_end_date: suspensionEnd.toISOString()
             })
             .eq('id', id);
@@ -260,8 +258,9 @@ export default function AdminViewBooking() {
             {userProfile?.first_name} {userProfile?.last_name}
             {userProfile?.display_name && <span style={{fontSize: '1rem', color:'#64748b', marginLeft:'10px'}}>({userProfile.display_name})</span>}
           </h1>
-          <span className={`badge-status ${userProfile?.status === 'suspended' ? 'suspended' : userProfile?.role}`}>
-            {userProfile?.status === 'suspended' ? 'Suspended' : userProfile?.role?.replace(/_/g, " ")}
+          {/* UPDATED: Check for is_active === false */}
+          <span className={`badge-status ${!userProfile?.is_active ? 'suspended' : userProfile?.role}`}>
+            {!userProfile?.is_active ? 'Suspended/Inactive' : userProfile?.role?.replace(/_/g, " ")}
           </span>
         </div>
 
@@ -327,9 +326,9 @@ export default function AdminViewBooking() {
                 <button 
                     className="btn-action-suspend" 
                     onClick={initiateSuspension}
-                    disabled={actionLoading || userProfile?.status === 'suspended'}
+                    disabled={actionLoading || !userProfile?.is_active}
                 >
-                    <FaUserSlash /> {userProfile?.status === 'suspended' ? 'User Suspended' : 'Suspend for 1 Week'}
+                    <FaUserSlash /> {!userProfile?.is_active ? 'User Suspended' : 'Suspend for 1 Week'}
                 </button>
               </div>
             </section>
@@ -540,7 +539,14 @@ export default function AdminViewBooking() {
               <button className="admin-view-booking-secondary-btn" onClick={() => setShowSuspendModal(false)}>Cancel</button>
               <button 
                 className="btn-action-suspend" 
-                style={{backgroundColor: '#ef4444', color: 'white', border: 'none', padding: '10px 20px'}}
+                style={{
+                  backgroundColor: '#ef4444', 
+                  color: 'white', 
+                  border: 'none', 
+                  padding: '10px 20px',
+                  borderRadius: '8px',
+                  cursor: 'pointer'
+                }}
                 onClick={confirmSuspension}
                 disabled={actionLoading}
               >
@@ -585,7 +591,14 @@ export default function AdminViewBooking() {
               <button className="admin-view-booking-secondary-btn" onClick={() => setShowEligibleModal(false)}>Cancel</button>
               <button 
                 className="btn-action-suspend" 
-                style={{backgroundColor: '#ef4444', color: 'white', border: 'none', padding: '10px 20px'}}
+                style={{
+                  backgroundColor: '#ef4444', 
+                  color: 'white', 
+                  border: 'none', 
+                  padding: '10px 20px',
+                  borderRadius: '8px',
+                  cursor: 'pointer'
+                }}
                 onClick={confirmSuspension}
                 disabled={actionLoading}
               >
