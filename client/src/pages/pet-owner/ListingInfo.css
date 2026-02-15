@@ -540,70 +540,95 @@
   font-style: italic;
 }
 
-/* Summary Card */
+/* UPDATED Summary Card (Clean Light Version) */
 .review-summary-card {
-  display: flex;
-  background-color: #153e75; /* Deep Navy BG */
-  color: white;
-  border-radius: 12px;
-  padding: 1.5rem;
-  gap: 2rem;
-  box-shadow: 0 4px 12px rgba(21, 62, 117, 0.2);
+    background-color: white;
+    color: #153e75; /* Deep Navy */
+    border: 1px solid #cce0ff;
+    border-radius: 16px;
+    padding: 2.5rem;
+    display: flex;
+    align-items: center; /* Center items vertically */
+    gap: 3rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05); /* Soft Shadow */
 }
 
 .summary-main {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  border-right: 1px solid rgba(255, 255, 255, 0.2);
-  padding-right: 2rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding-right: 3rem;
+    border-right: 1px solid #e2e8f0; /* Light Gray Border */
+    min-width: 180px;
 }
 
 .summary-score {
-  font-size: 3rem;
-  font-weight: 700;
-  line-height: 1;
-  color: #ffffff;
+    font-size: 5rem;
+    font-weight: 700;
+    line-height: 1;
+    margin-bottom: 0.5rem;
+    color: #153e75; /* Deep Navy */
 }
 
-.summary-stars { margin: 8px 0; }
-.summary-count { font-size: 0.9rem; color: #cce0ff; }
+.summary-stars { margin-bottom: 0.5rem; }
+
+.summary-count {
+    font-size: 1rem;
+    font-weight: 400;
+    color: #64748b; /* Slate Gray */
+}
 
 .summary-details {
-  flex: 2;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 12px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 1.5rem; /* Vertical spacing between rows */
 }
 
 .detail-row {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  font-size: 0.9rem;
-  color: #e0e7ff;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.5rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px dashed #e2e8f0; /* Light Dashed Line */
 }
 
-.detail-row span:first-child { width: 60px; font-weight: 500; }
+.detail-row:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+.detail-label {
+    width: 80px;
+    font-size: 1.1rem;
+    font-weight: 500;
+    color: #4a6fa5; /* Secondary Blue */
+}
 
 .detail-bar-container {
-  flex: 1;
-  height: 8px;
-  background-color: rgba(255, 255, 255, 0.2);
-  border-radius: 4px;
-  overflow: hidden;
+    flex: 1;
+    height: 10px;
+    background-color: #f1f5f9; /* Light Gray Background */
+    border-radius: 99px;
+    overflow: hidden;
 }
 
 .detail-bar-fill {
-  height: 100%;
-  background-color: #fdbf00; /* Gold */
-  border-radius: 4px;
+    height: 100%;
+    background-color: #facc15; /* Bright Gold */
+    border-radius: 99px;
 }
 
-.detail-score { font-weight: 700; width: 30px; text-align: right; }
+.detail-score-text {
+    width: 40px;
+    text-align: right;
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: #153e75; /* Deep Navy */
+}
 
 /* Reviews List */
 .reviews-list {
@@ -738,7 +763,7 @@
   border: none; border-radius: 50%; padding: 12px;
   cursor: pointer; z-index: 10001; transition: background 0.2s;
 }
-.image-nav-btn:hover { background: rgba(255,255,255,0.4); }
+.image-nav-btn.hover { background: rgba(255,255,255,0.4); }
 .image-nav-btn.prev { left: 20px; }
 .image-nav-btn.next { right: 20px; }
 
@@ -752,8 +777,8 @@
 }
 
 @media (max-width: 768px) {
-  .review-summary-card { flex-direction: column; align-items: center; }
-  .summary-main { border-right: none; border-bottom: 1px solid rgba(255,255,255,0.2); padding-right: 0; padding-bottom: 1.5rem; width: 100%; }
+  .review-summary-card { flex-direction: column; align-items: center; gap: 2rem; padding: 1.5rem; }
+  .summary-main { border-right: none; border-bottom: 1px solid #e2e8f0; padding-right: 0; padding-bottom: 1.5rem; width: 100%; }
   .summary-details { width: 100%; }
   .listing-images.images-3 { grid-template-columns: 1fr; }
   .images-3 .main-image-placeholder { grid-row: span 1; }

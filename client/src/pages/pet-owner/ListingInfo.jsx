@@ -1,4 +1,3 @@
-// src/pages/pet-owner/ListingInfo.jsx
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom"; 
 import { supabase } from "../../config/supabase";
@@ -196,7 +195,7 @@ const StarRating = ({ rating, size = 14 }) => {
     } else if (i - 0.5 <= rating) {
       stars.push(<FaStarHalfAlt key={i} size={size} color="#facc15" />);
     } else {
-      stars.push(<FaRegStar key={i} size={size} color="#cbd5e1" />);
+      stars.push(<FaRegStar key={i} size={size} color="#cbd5e1" />); // Default gray for empty
     }
   }
 
@@ -675,29 +674,29 @@ const ListingInfo = () => {
                 
                 {reviewStats.count > 0 ? (
                   <div className="reviews-container">
-                    {/* Summary Card */}
+                    {/* UPDATED Summary Card (Clean Light Version) */}
                     <div className="review-summary-card">
                       <div className="summary-main">
                         <span className="summary-score">{reviewStats.overall.toFixed(1)}</span>
                         <div className="summary-stars">
-                          <StarRating rating={reviewStats.overall} size={20} />
+                          <StarRating rating={reviewStats.overall} size={24} />
                         </div>
                         <span className="summary-count">{reviewStats.count} Reviews</span>
                       </div>
                       <div className="summary-details">
                         <div className="detail-row">
-                          <span>Service</span>
+                          <span className="detail-label">Service</span>
                           <div className="detail-bar-container">
                             <div className="detail-bar-fill" style={{width: `${(reviewStats.service / 5) * 100}%`}}></div>
                           </div>
-                          <span className="detail-score">{reviewStats.service.toFixed(1)}</span>
+                          <span className="detail-score-text">{reviewStats.service.toFixed(1)}</span>
                         </div>
                         <div className="detail-row">
-                          <span>Staff</span>
+                          <span className="detail-label">Staff</span>
                           <div className="detail-bar-container">
                             <div className="detail-bar-fill" style={{width: `${(reviewStats.staff / 5) * 100}%`}}></div>
                           </div>
-                          <span className="detail-score">{reviewStats.staff.toFixed(1)}</span>
+                          <span className="detail-score-text">{reviewStats.staff.toFixed(1)}</span>
                         </div>
                       </div>
                     </div>
