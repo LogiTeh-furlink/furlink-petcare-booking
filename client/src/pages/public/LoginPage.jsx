@@ -1,6 +1,9 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { FaEye, FaEyeSlash, FaStore, FaQuestionCircle, FaTimes, FaClock } from "react-icons/fa";
+import { 
+  FaEye, FaEyeSlash, FaStore, FaQuestionCircle, 
+  FaTimes, FaClock, FaCheckCircle // <--- Add this
+} from "react-icons/fa";
 import { supabase } from "../../config/supabase";
 import "./LoginPage.css"; 
 import becomePetOwnerImg from "../../assets/become-a-pet-owner.png";
@@ -70,29 +73,43 @@ const LoginPage = () => {
     return newErrors;
   };
 
-  // --- ADD THIS FUNCTION ---
   const handleReactivate = async () => {
     setLoading(true);
     try {
-      // 1. Reactivate Profile
-      await supabase.from("profiles").update({ is_active: true, deactivated_at: null }).eq("id", deactivatedUser.id);
+      // 1. Restore Profile Status
+      const { error: profileErr } = await supabase
+        .from("profiles")
+        .update({ is_active: true, deactivated_at: null })
+        .eq("id", deactivatedUser.id);
+      
+      if (profileErr) throw profileErr;
 
-      // 2. Reactivate Business (Restore to approved if it was deactivated)
-      const { data: prov } = await supabase.from("service_providers").select("status").eq("user_id", deactivatedUser.id).maybeSingle();
-      if (prov?.status === 'deactivated') {
-        await supabase.from("service_providers").update({ status: 'approved' }).eq("user_id", deactivatedUser.id);
+      // 2. Restore Provider Status (if they were an SP)
+      if (deactivatedUser.providerStatus === 'deactivated') {
+        await supabase
+          .from("service_providers")
+          .update({ status: 'approved' })
+          .eq("user_id", deactivatedUser.id);
       }
 
       setShowReactivateModal(false);
-      // Re-trigger login flow or refresh
-      window.location.reload(); 
+
+      // 3. ROLE-BASED REDIRECTION
+      const role = deactivatedUser.role;
+      if (role === "service_provider" || role === "both") {
+        navigate("/service/dashboard");
+      } else {
+        navigate("/dashboard");
+      }
+
     } catch (err) {
+      console.error("Reactivation Error:", err);
       alert("Reactivation failed: " + err.message);
     } finally {
       setLoading(false);
     }
   };
-
+  
   const handleSubmit = async (e) => {
     e.preventDefault();
     setErrors({});
@@ -130,36 +147,41 @@ const LoginPage = () => {
 
       // FETCH PROFILE AND PROVIDER STATUS IN PARALLEL
       const [profileRes, providerRes] = await Promise.all([
-        supabase.from("profiles").select("role, must_change_password, is_active, deactivated_at").eq("id", data.user.id).single(),
-        supabase.from("service_providers").select("status").eq("user_id", data.user.id).maybeSingle()
+        supabase
+          .from("profiles")
+          .select("role, must_change_password, is_active")
+          .eq("id", data.user.id)
+          .single(),
+        supabase
+          .from("service_providers")
+          .select("status")
+          .eq("user_id", data.user.id)
+          .maybeSingle()
       ]);
 
       if (profileRes.error || !profileRes.data) {
         setErrors({ general: "Unable to fetch user profile." });
+        setLoading(false);
         return;
       }
 
       const profile = profileRes.data;
       const provider = providerRes.data;
 
+      // --- ETERNAL REACTIVATION CHECK ---
       if (profile.is_active === false) {
-      const deactivationDate = new Date(profile.deactivated_at);
-      const diffDays = Math.ceil(Math.abs(new Date() - deactivationDate) / (1000 * 60 * 60 * 24));
-
-      if (diffDays <= 30) {
-        setDaysRemaining(30 - diffDays);
-        setDeactivatedUser(data.user);
+        // Save the necessary info for the reactivation function
+        setDeactivatedUser({ 
+          id: data.user.id, 
+          role: profile.role, 
+          providerStatus: provider?.status 
+        });
         setShowReactivateModal(true);
         setLoading(false);
-        return; // Pause here and show modal
-      } else {
-        await supabase.auth.signOut();
-        setErrors({ general: "This account has passed the 30-day window and is permanently closed." });
-        setLoading(false);
-        return;
+        return; // Stop here and wait for modal confirmation
       }
-    }
 
+      // If active, proceed to store token
       localStorage.setItem("token", data.session.access_token);
 
       /* =============================================
@@ -357,30 +379,43 @@ const LoginPage = () => {
 
       {/* --- ADD THIS MODAL --- */}
       {showReactivateModal && (
-        <div className="modal-overlay">
-          <div className="modal-content reactivate-modal" style={{ textAlign: 'center', padding: '30px' }}>
-            <div className="modal-icon-wrapper warn" style={{ margin: '0 auto 20px', color: '#f59e0b' }}>
-              <FaClock size={50} />
-            </div>
-            <h3>Account Deactivated</h3>
-            <p style={{ color: '#475569', fontSize: '0.9rem', marginBottom: '20px' }}>
-              Welcome back! Your account is deactivated and scheduled for deletion in <strong>{daysRemaining} days</strong>. 
-              Would you like to reactivate your account?
-            </p>
-            <div className="modal-actions-column">
-              <button className="btn-primary" onClick={handleReactivate} disabled={loading}>
-                {loading ? "Reactivating..." : "Yes, Reactivate My Account"}
-              </button>
-              <button className="btn-secondary-outline" onClick={async () => {
-                await supabase.auth.signOut();
-                setShowReactivateModal(false);
-              }}>
-                No, keep it deactivated
-              </button>
-            </div>
+      <div className="modal-overlay">
+        <div className="modal-content reactivate-modal" style={{ textAlign: 'center', padding: '40px 30px' }}>
+          <div style={{ marginBottom: '20px', color: '#0E2679' }}>
+            <FaCheckCircle size={60} />
+          </div>
+          
+          <h2 style={{ color: '#0E2679', marginBottom: '15px' }}>Welcome Back!</h2>
+          
+          <p style={{ color: '#475569', fontSize: '1rem', lineHeight: '1.6', marginBottom: '25px' }}>
+            Your account is currently <strong>deactivated</strong>. Would you like to reactivate it and restore your grooming records and profile?
+          </p>
+
+          <div className="modal-actions-column" style={{ gap: '12px' }}>
+            <button 
+                className="btn-primary" 
+                onClick={handleReactivate} 
+                disabled={loading}
+                style={{ width: '100%', padding: '14px', fontSize: '1rem' }}
+            >
+              {loading ? "Reactivating..." : "Yes, Reactivate My Account"}
+            </button>
+            
+            <button 
+                className="btn-secondary-outline" 
+                style={{ width: '100%', padding: '12px' }}
+                onClick={async () => {
+                    await supabase.auth.signOut();
+                    setShowReactivateModal(false);
+                    setDeactivatedUser(null);
+                }}
+            >
+              No, stay deactivated
+            </button>
           </div>
         </div>
-      )}
+      </div>
+    )}
 
       <Footer />
     </div>

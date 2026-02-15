@@ -46,10 +46,11 @@ export default function UserProfile() {
   });
 
   const [userRoleInfo, setUserRoleInfo] = useState({
-    baseRole: "pet_owner",
-    isProvider: false,
-    providerStatus: null
-  });
+  baseRole: "pet_owner",
+  isProvider: false,
+  providerStatus: null,
+  providerId: null // <--- Add this
+});
 
   const [initialData, setInitialData] = useState({});
   const [passwords, setPasswords] = useState({
@@ -75,7 +76,7 @@ export default function UserProfile() {
       // Fetch Profile, Provider Status, AND Active Warning in parallel
       const [profileRes, providerRes, warningRes] = await Promise.all([
         supabase.from("profiles").select("*").eq("id", user.id).single(),
-        supabase.from("service_providers").select("status").eq("user_id", user.id).maybeSingle(),
+        supabase.from("service_providers").select("id, status").eq("user_id", user.id).maybeSingle(),
         
         // UPDATED QUERY: Removed .eq("read", false) so the banner persists even after clicking
         supabase.from("notifications")
@@ -105,7 +106,8 @@ export default function UserProfile() {
       setUserRoleInfo({
         baseRole: profileRes.data.role,
         isProvider: !!providerRes.data,
-        providerStatus: providerRes.data ? providerRes.data.status : null
+        providerStatus: providerRes.data ? providerRes.data.status : null,
+        providerId: providerRes.data ? providerRes.data.id : null // <--- Add this
       });
 
     } catch (err) {
@@ -115,40 +117,69 @@ export default function UserProfile() {
     }
   };
 
-  const handleDeactivateAccount = async () => {
-    setDeactivating(true);
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
+const handleDeactivateAccount = async () => {
+  setDeactivating(true);
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
 
-      const updates = [
-        supabase.from("profiles").update({ 
-          is_active: false, 
-          deactivated_at: new Date().toISOString()
-        }).eq("id", user.id)
-      ];
+    // 1. Core Profile Deactivation
+    const updates = [
+      supabase.from("profiles").update({ 
+        is_active: false, 
+        deactivated_at: new Date().toISOString()
+      }).eq("id", user.id)
+    ];
 
-      if (userRoleInfo.isProvider) {
-        updates.push(
-          supabase.from("service_providers")
-            .update({ status: 'deactivated' }) 
-            .eq("user_id", user.id)
-        );
-      }
+    // 2. Service Provider specific updates
+    if (userRoleInfo.isProvider && userRoleInfo.providerId) {
+      // Hide listing
+      updates.push(
+        supabase.from("service_providers")
+          .update({ status: 'deactivated' }) 
+          .eq("id", userRoleInfo.providerId)
+      );
 
-      const results = await Promise.all(updates);
-      const failed = results.find(r => r.error);
-      if (failed) throw failed.error;
-
-      setShowDeactivateConfirm(false);
-      setShowDeactivateSuccess(true);
-      
-      await supabase.auth.signOut();
-    } catch (err) {
-      alert("Deactivation failed: " + err.message);
-    } finally {
-      setDeactivating(false);
+      // Cancel bookings where they are the Provider
+      updates.push(
+        supabase.from("bookings")
+          .update({ 
+            status: 'cancelled',
+            rejection_reason: 'Provider account deactivated'
+          })
+          .eq('provider_id', userRoleInfo.providerId)
+          .in('status', ['pending', 'approved', 'paid'])
+      );
     }
-  };
+
+    // 3. Pet Owner specific updates (if they have this role)
+    if (userRoleInfo.baseRole === 'pet_owner' || userRoleInfo.baseRole === 'both') {
+      // Cancel bookings they MADE
+      updates.push(
+        supabase.from("bookings")
+          .update({ 
+            status: 'cancelled',
+            rejection_reason: 'Owner account deactivated'
+          })
+          .eq('user_id', user.id)
+          .in('status', ['pending', 'approved', 'paid'])
+      );
+    }
+
+    const results = await Promise.all(updates);
+    const failed = results.find(r => r.error);
+    if (failed) throw failed.error;
+
+    setShowDeactivateConfirm(false);
+    setShowDeactivateSuccess(true);
+    
+    await supabase.auth.signOut();
+  } catch (err) {
+    console.error("Deactivation error:", err);
+    alert("Deactivation failed: " + err.message);
+  } finally {
+    setDeactivating(false);
+  }
+};
 
   const handleProfileChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -417,36 +448,87 @@ export default function UserProfile() {
       )}
 
       {showDeactivateConfirm && (
-        <div className="modal-overlay">
-          <div className="modal-content small-modal">
-            <div className="modal-header"><h3>Confirm Deactivation</h3></div>
-            <div className="modal-body" style={{ textAlign: 'center', padding: '20px' }}>
+      <div className="modal-overlay">
+        <div className="modal-content small-modal">
+          <div className="modal-header"><h3>Deactivate Account</h3></div>
+          <div className="modal-body" style={{ padding: '20px' }}>
+            <div style={{ textAlign: 'center', marginBottom: '15px' }}>
               <FaExclamationTriangle size={40} color="#ef4444" />
-              <p style={{ marginTop: '15px', color: '#475569' }}>
-                Your profile and listings will be hidden immediately. You have 30 days to reactivate before permanent deletion.
-              </p>
-              <div className="modal-actions-row" style={{ marginTop: '20px' }}>
-                <button className="modal-btn-cancel" onClick={() => setShowDeactivateConfirm(false)}>Cancel</button>
-                <button className="modal-btn-confirm" style={{ background: '#ef4444' }} onClick={handleDeactivateAccount} disabled={deactivating}>
-                  {deactivating ? "Processing..." : "Yes, Deactivate"}
-                </button>
-              </div>
+            </div>
+            
+            <p style={{ fontWeight: '700', color: '#1e293b', marginBottom: '10px' }}>
+              Are you sure you want to deactivate?
+            </p>
+
+            <ul style={{ fontSize: '0.85rem', color: '#475569', paddingLeft: '20px', lineHeight: '1.6' }}>
+              {userRoleInfo.isProvider && (
+                <li>Your shop listing will be <strong>hidden from the public</strong>.</li>
+              )}
+              <li>All current and paid bookings will be <strong>automatically cancelled</strong>.</li>
+              <li style={{ marginTop: '5px' }}>
+                <em>Note: Completed records ("To Rate" and "Rated") will remain in our database for dashboard accuracy.</em>
+              </li>
+            </ul>
+
+            <p style={{ marginTop: '15px', fontSize: '0.8rem', color: '#64748b', fontStyle: 'italic' }}>
+              You can reactivate your account at any time by simply logging back in.
+            </p>
+
+            <div className="modal-actions-row" style={{ marginTop: '20px' }}>
+              <button className="modal-btn-cancel" onClick={() => setShowDeactivateConfirm(false)}>Cancel</button>
+              <button className="modal-btn-confirm" style={{ background: '#ef4444' }} onClick={handleDeactivateAccount} disabled={deactivating}>
+                {deactivating ? "Deactivating..." : "Yes, Deactivate"}
+              </button>
             </div>
           </div>
         </div>
-      )}
+      </div>
+    )}
 
       {showDeactivateSuccess && (
-        <div className="modal-overlay" style={{ zIndex: 9999 }}>
-          <div className="modal-content small-modal success-center" style={{ textAlign: 'center', padding: '30px' }}>
-            <FaCheckCircle size={50} color="#22c55e" />
-            <h3>Account Deactivated</h3>
-            <p style={{ color: '#64748b' }}>You have been logged out. Log back in within 30 days to restore your data.</p>
-            <button className="save-btn" style={{ width: '100%' }} onClick={() => navigate("/login")}>Return to Login</button>
+      <div className="modal-overlay" style={{ zIndex: 9999 }}>
+        <div className="modal-content small-modal success-center" style={{ textAlign: 'center', padding: '40px 30px' }}>
+          <div style={{ marginBottom: '20px' }}>
+            <FaCheckCircle size={60} color="#22c55e" />
           </div>
-        </div>
-      )}
+          
+          <h2 style={{ color: '#0E2679', marginBottom: '15px' }}>Account Deactivated</h2>
+          
+          <div style={{ textAlign: 'left', backgroundColor: '#f8fafc', padding: '20px', borderRadius: '12px', marginBottom: '25px', border: '1px solid #e2e8f0' }}>
+            <p style={{ color: '#475569', fontSize: '0.9rem', marginBottom: '12px', lineHeight: '1.5' }}>
+              <strong>Action Summary:</strong>
+            </p>
+            <ul style={{ fontSize: '0.85rem', color: '#64748b', paddingLeft: '20px', lineHeight: '1.8' }}>
+              <li>You have been successfully logged out.</li>
+              <li>All active and paid bookings have been <strong>cancelled</strong>.</li>
+              {userRoleInfo.isProvider && <li>Your shop listings are now <strong>hidden</strong> from the public.</li>}
+              <li>Your "To Rate" and "Rated" history has been <strong>preserved</strong> for dashboard accuracy.</li>
+            </ul>
+          </div>
 
+          <p style={{ color: '#0E2679', fontWeight: '600', fontSize: '0.9rem', marginBottom: '25px' }}>
+            Want to come back? Simply log in with your credentials at any time to reactivate your account.
+          </p>
+
+          <button 
+            className="save-btn" 
+            style={{ 
+              width: '100%', 
+              padding: '14px', 
+              fontSize: '1rem', 
+              fontWeight: 'bold', 
+              display: 'flex', 
+              justifyContent: 'center', 
+              alignItems: 'center',
+              gap: '10px'
+            }} 
+            onClick={() => navigate("/login")}
+          >
+            Return to Login <FaExternalLinkAlt size={14} />
+          </button>
+        </div>
+      </div>
+    )}
       <Footer />
     </>
   );
