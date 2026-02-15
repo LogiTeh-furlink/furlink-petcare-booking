@@ -237,13 +237,12 @@ const ListingInfo = () => {
         
         const { data, error } = await supabase
             .from("bookings")
-            .select("time_slot, status")
+            .select("time_slot, status, booking_pets(id)") // Add booking_pets(id) here
             .eq("provider_id", id)
             .eq("booking_date", dateStr)
-            .not("status", "in", '("cancelled", "rejected")');
-
-        if (!error) setExistingBookings(data || []);
-    };
+            .not("status", "in", '("cancelled", "declined", "rejected", "void", "voided")');
+                if (!error) setExistingBookings(data || []);
+            };
     fetchDateBookings();
 }, [bookingDate, id]);
 
@@ -288,8 +287,8 @@ const ListingInfo = () => {
     loadDraft();
   }, [id, location.state]);
 
-  // 3. AUTO-GENERATE TIME SLOTS
-  useEffect(() => {
+ // 3. AUTO-GENERATE TIME SLOTS with Capacity Validation
+useEffect(() => {
     setAvailableTimeSlots([]);
     if (!bookingDate || hours.length === 0) return;
 
@@ -302,35 +301,44 @@ const ListingInfo = () => {
         const end = new Date(`2000-01-01T${workingDay.end_time}`);
         const interval = parseInt(workingDay.slot_interval_minutes) || 60;
         const capacity = parseInt(workingDay.slot_capacity) || 1;
+        const requestedPets = parseInt(numberOfPets, 10) || 0;
 
         while (start < end) {
-            const timeValue = start.toTimeString().split(' ')[0]; // "09:00:00"
+            const timeValue = start.toTimeString().split(' ')[0]; // "12:00:00"
             const displayLabel = start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-            
+
+            // 1. Get ALL active booking records for this specific time slot
             const bookingsAtThisTime = existingBookings.filter(b => b.time_slot === timeValue);
-            const confirmedCount = bookingsAtThisTime.filter(b => b.status === 'confirmed' || b.status === 'completed').length;
-            const pendingCount = bookingsAtThisTime.filter(b => ['pending', 'payment_verification', 'awaiting_payment'].includes(b.status)).length;
 
-            const totalOccupied = confirmedCount + pendingCount;
+            // 2. Count EVERY record. This ensures 1 booking with 2 pets = 2 slots taken.
+            const totalPetsOccupied = bookingsAtThisTime.reduce((sum, b) => 
+                sum + (b.booking_pets?.length || 0), 0
+            );
 
-            let status = "available";
-            if (confirmedCount >= capacity) {
-                status = "full"; 
-            } else if (totalOccupied >= capacity) {
-                status = "clash_risk"; 
+            // 3. Calculate remaining based on the SP's specific slot_capacity
+            const remainingSpace = capacity - totalPetsOccupied;
+            const requestedPets = parseInt(numberOfPets, 10) || 0;
+
+            let slotStatus = "available";
+            if (remainingSpace <= 0) {
+                slotStatus = "full"; 
+            } else if (requestedPets > 0 && requestedPets > remainingSpace) {
+                slotStatus = "insufficient_space"; 
             }
 
             slots.push({ 
                 value: timeValue, 
                 label: displayLabel, 
-                status: status 
+                status: slotStatus,
+                remaining: Math.max(0, remainingSpace)
             });
 
             start.setMinutes(start.getMinutes() + interval);
         }
         setAvailableTimeSlots(slots);
     }
-}, [bookingDate, hours, existingBookings]);
+}, [bookingDate, hours, existingBookings, numberOfPets]); 
+// Added numberOfPets to dependencies so slots update when user changes pet count
 
   const fetchAllData = async () => {
     try {
@@ -379,6 +387,36 @@ const ListingInfo = () => {
     } catch (error) { console.error("Error fetching data:", error); } finally { setLoading(false); }
   };
 
+  // Add this inside your component (e.g., near line 190)
+useEffect(() => {
+  if (!id) return;
+
+  // 1. Create the Real-time Channel
+  const bookingsChannel = supabase
+    .channel('booking-updates')
+    .on(
+      'postgres_changes', 
+      { 
+        event: '*', // Listen for all changes (Insert, Update, Delete)
+        schema: 'public', 
+        table: 'bookings',
+        filter: `provider_id=eq.${id}` // Only listen for this SP's bookings
+      }, 
+      (payload) => {
+        // 2. When a change happens, re-trigger the occupancy fetch
+        console.log("Real-time update received:", payload);
+        fetchDateBookings(); 
+      }
+    )
+    .subscribe();
+
+  // 3. Clean up the listener when the user leaves the page
+  return () => {
+    supabase.removeChannel(bookingsChannel);
+  };
+}, [id, bookingDate]); // Re-subscribe if the SP or Date changes
+
+
   const formatTime = (time) => {
     if (!time) return "";
     return new Date(`2000-01-01T${time}`).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
@@ -413,7 +451,7 @@ const ListingInfo = () => {
 
   const [showTermsModal, setShowTermsModal] = useState(false);
 
-  const handleCompleteBooking = () => {
+const handleCompleteBooking = async () => {
     setBookingError(null);
 
     if (!user) { setBookingError("You must be logged in to book."); return; }
@@ -422,28 +460,48 @@ const ListingInfo = () => {
     
     const petCount = parseInt(numberOfPets, 10);
     if (isNaN(petCount) || petCount < 1) { 
-      setBookingError("Please select at least 1 pet."); 
-      return; 
+        setBookingError("Please enter a valid number of pets."); 
+        return; 
     }
 
-    const selectedSlot = availableTimeSlots.find(s => s.value === bookingTime);
-    if (selectedSlot) {
-      const dayName = bookingDate.toLocaleDateString('en-US', { weekday: 'long' });
-      const workingDay = hours.find(h => h.day_of_week === dayName);
-      const maxCapacity = workingDay ? parseInt(workingDay.slot_capacity) : 1;
+    try {
+        // 1. FRESH DB FETCH: Get existing bookings and their pet records
+        const { data: freshBookings, error } = await supabase
+            .from("bookings")
+            .select("id, booking_pets(id)") // JOIN to count actual pets
+            .eq("provider_id", id)
+            .eq("booking_date", bookingDate.toLocaleDateString('en-CA'))
+            .eq("time_slot", bookingTime)
+            .not("status", "in", '("cancelled", "declined", "rejected", "void", "voided")');
 
-      const bookingsAtThisTime = existingBookings.filter(b => b.time_slot === bookingTime);
-      const occupied = bookingsAtThisTime.length; 
-      const availableRemaining = maxCapacity - occupied;
+        if (error) throw error;
 
-      if (petCount > availableRemaining) {
-        setBookingError(`Only ${availableRemaining} pet slot(s) available for this time. Please reduce pet count or choose another time.`);
-        return;
-      }
+        // 2. Identify working day and max capacity
+        const dayName = bookingDate.toLocaleDateString('en-US', { weekday: 'long' });
+        const workingDay = hours.find(h => h.day_of_week === dayName);
+        const maxCapacity = workingDay ? parseInt(workingDay.slot_capacity) : 1;
+
+        // 3. THE MATH: Sum the linked pets in the fresh results
+        const actualPetsOccupied = freshBookings?.reduce((sum, b) => 
+            sum + (b.booking_pets?.length || 0), 0
+        ) || 0;
+        
+        const finalRemaining = maxCapacity - actualPetsOccupied;
+
+        // 4. FINAL GUARD: Compare requested count vs calculated availability
+        if (petCount > finalRemaining) {
+            setBookingError(`Conflict: Only ${Math.max(0, finalRemaining)} slot(s) left. Someone else may have just booked.`);
+            setExistingBookings(freshBookings); // Sync UI
+            return;
+        }
+
+        setShowTermsModal(true);
+
+    } catch (err) {
+        console.error("Booking verification error:", err);
+        setBookingError("Unable to verify availability. Please try again.");
     }
-
-    setShowTermsModal(true);
-  };
+};
 
   const handleAgreeAndNavigate = () => {
       const dateStr = bookingDate.toLocaleDateString('en-CA'); 
@@ -795,17 +853,21 @@ const ListingInfo = () => {
                     {availableTimeSlots.length > 0 ? "Select Time" : "No slots available"}
                 </option>
                 {availableTimeSlots.map((slot, idx) => {
-                    const isUnavailable = slot.status === "full" || slot.status === "clash_risk";
+                    const isFull = slot.status === "full";
+                    const isTooSmall = slot.status === "insufficient_space";
+                    const isRisk = slot.status === "clash_risk"; // New status check
+                    
                     return (
                         <option 
                             key={idx} 
                             value={slot.value} 
-                            disabled={isUnavailable}
-                            style={isUnavailable ? { color: '#999', backgroundColor: '#f0f0f0' } : {}}
+                            disabled={isFull || isTooSmall}
                         >
                             {slot.label} 
-                            {slot.status === "full" ? " (Fully Booked)" : 
-                            slot.status === "clash_risk" ? " (Pending Approval)" : ""}
+                            {isFull ? " (Fully Booked)" : 
+                            isTooSmall ? ` (Only ${slot.remaining} left)` : 
+                            isRisk ? ` (${slot.remaining} left - Pending SP Approval)` : // Inform the user
+                            ` (${slot.remaining} slots left)`}
                         </option>
                     );
                 })}
