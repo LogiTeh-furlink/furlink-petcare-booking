@@ -7,20 +7,20 @@ import {
   FaUser, 
   FaHistory, 
   FaTimes, 
-  FaSearchPlus,
+  FaSearchPlus, 
   FaCalendarAlt, 
   FaClock, 
   FaCreditCard, 
   FaFileInvoiceDollar,
-  FaInfoCircle,
-  FaStar,
-  FaCommentDots,
-  FaExclamationTriangle,
-  FaUserSlash,
-  FaPaperPlane,
-  FaCheckCircle,
-  FaExclamationCircle,
-  FaBell
+  FaInfoCircle, 
+  FaStar, 
+  FaCommentDots, 
+  FaExclamationTriangle, 
+  FaUserSlash, 
+  FaPaperPlane, 
+  FaCheckCircle, 
+  FaExclamationCircle, 
+  FaBell 
 } from "react-icons/fa";
 import "./AdminViewBooking.css";
 
@@ -64,9 +64,8 @@ export default function AdminViewBooking() {
       if (profileError) throw profileError;
       setUserProfile(profileData);
 
-      // 2. Fetch Warnings Count (Past Notifications)
-      // UPDATED: Fetching the ID array length instead of 'count' header for better reliability.
-      // Reverted to strict equality since title is always "Admin Warning".
+      // 2. Fetch Warnings Count
+      // Using .select('id') with .eq('title', 'Admin Warning') is reliable now that RLS is fixed.
       const { data: warningData, error: countError } = await supabase
         .from('notifications')
         .select('id') 
@@ -77,8 +76,6 @@ export default function AdminViewBooking() {
           setWarningCount(warningData.length);
       } else if (countError) {
           console.error("Error fetching warning history:", countError);
-          // Note: If this errors, it might be an RLS (Row Level Security) issue in Supabase 
-          // where Admins cannot 'SELECT' other users' notifications.
       }
 
       // 3. Fetch ALL Bookings
@@ -143,13 +140,13 @@ export default function AdminViewBooking() {
       if (error) throw error;
 
       // 2. Increment local count (Past + Current)
-      // We manually update state to reflect the change immediately
       const newCount = warningCount + 1;
       setWarningCount(newCount);
       setWarningMessage(""); 
       
       // 3. Trigger Modal Logic
-      if (newCount === 3) {
+      // UPDATED: Now checks if count is greater than or equal to 3
+      if (newCount >= 3) {
         setShowEligibleModal(true);
       } else {
         setSuccessMessage("Warning notification sent successfully.");
@@ -578,10 +575,10 @@ export default function AdminViewBooking() {
                   <FaExclamationTriangle size={24} color="#c2410c" />
                </div>
                <p style={{fontSize: '1rem', fontWeight: '600', color: '#1e293b', marginBottom: '8px'}}>
-                 Attention: 3rd Warning Sent
+                 Attention: {warningCount}th Warning Sent
                </p>
                <p style={{fontSize: '0.9rem', color: '#64748b', marginBottom: '20px'}}>
-                 This user has now reached <strong>3 warnings</strong>. They are eligible for immediate account suspension.
+                 This user has reached <strong>{warningCount} warnings</strong>. They are eligible for immediate account suspension.
                </p>
             </div>
             <div className="admin-view-booking-modal-footer" style={{justifyContent: 'center', gap: '12px'}}>
