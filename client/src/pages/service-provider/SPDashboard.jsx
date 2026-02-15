@@ -32,20 +32,6 @@ const convertTo24Hour = (timeStr) => {
   return timeStr;
 };
 
-const isFourHoursPast = (dateStr, timeStr) => {
-  if (!dateStr || !timeStr) return false;
-  
-  // Combine strings into a standard format
-  const appointment = new Date(`${dateStr} ${convertTo24Hour(timeStr)}`);
-  const now = new Date();
-  
-  // Use getTime() for pure millisecond comparison to avoid object weirdness
-  const diffMs = now.getTime() - appointment.getTime();
-  const diffHours = diffMs / (1000 * 60 * 60);
-  
-  return diffHours >= 4;
-};
-
 // --- Helper: Enhanced Calendar ---
 const BookingCalendar = ({ bookings = [], onClose }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
