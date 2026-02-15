@@ -377,19 +377,9 @@ export default function SPBusinessDashboard() {
       return timeStr;
     };
 
-    const isFourHoursPast = (dateStr, timeStr) => {
-      if (!dateStr || !timeStr) return false;
-      try {
-        const bookingDateTime = new Date(`${dateStr}T${convertTo24Hour(timeStr)}`);
-        const diffMs = now - bookingDateTime;
-        return diffMs / (1000 * 60 * 60) >= 4;
-      } catch (e) { return false; }
-    };
-
     const isBookingComplete = (b) => {
-      if (['rated', 'for review'].includes(b.status)) return true;
-      if (['paid'].includes(b.status) && isFourHoursPast(b.booking_date, b.time_slot)) return true;
-      return false;
+      // A booking is complete if it's waiting for a review OR if it has already been rated
+      return ['for review', 'rated'].includes(b.status);
     };
 
     // Filter logic
@@ -1326,9 +1316,6 @@ export default function SPBusinessDashboard() {
                     Download Report
                   </>
                 )}
-              </button>
-              <button className="btn-close-report" onClick={() => setShowReportModal(false)}>
-                Close
               </button>
             </div>
           </div>

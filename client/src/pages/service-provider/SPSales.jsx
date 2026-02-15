@@ -275,36 +275,10 @@ export default function SPSales() {
       ? `${new Date(customDateStart).toLocaleDateString(undefined, { month: 'short', day: '2-digit' })} - ${new Date(customDateEnd).toLocaleDateString(undefined, { month: 'short', day: '2-digit', year: 'numeric' })}`
       : `${currentRange.start.toLocaleDateString(undefined, { month: 'short', day: '2-digit' })} - ${now.toLocaleDateString(undefined, { month: 'short', day: '2-digit', year: 'numeric' })}`;
 
-    // Helper to convert 12-hour time to 24-hour format
-    const convertTo24Hour = (timeStr) => {
-      if (!timeStr) return "00:00";
-      if (timeStr.includes('M')) {
-        const [time, modifier] = timeStr.split(' ');
-        let [hours, minutes] = time.split(':');
-        if (hours === '12') { hours = '00'; }
-        if (modifier === 'PM') { hours = parseInt(hours, 10) + 12; }
-        return `${hours}:${minutes}`;
-      }
-      return timeStr;
-    };
-
-    // Check if booking is 4 hours past scheduled time
-    const isFourHoursPast = (dateStr, timeStr) => {
-      if (!dateStr || !timeStr) return false;
-      try {
-        const bookingDateTime = new Date(`${dateStr}T${convertTo24Hour(timeStr)}`);
-        const diffMs = now - bookingDateTime;
-        const diffHours = diffMs / (1000 * 60 * 60);
-        return diffHours >= 4;
-      } catch (e) { return false; }
-    };
-
     // Determine if booking is complete
     const isBookingComplete = (b) => {
-      // Include all statuses that represent completed bookings
-      if (['rated', 'for review'].includes(b.status)) return true;
-      if (['paid'].includes(b.status) && isFourHoursPast(b.booking_date, b.time_slot)) return true;
-      return false;
+      // A booking is complete if it's waiting for a review OR if it has already been rated
+      return ['for review', 'rated'].includes(b.status);
     };
 
     // Filter bookings by date range
@@ -1588,9 +1562,6 @@ export default function SPSales() {
                     Download Report
                   </>
                 )}
-              </button>
-              <button className="btn-close-report" onClick={() => setShowReportModal(false)}>
-                Close
               </button>
             </div>
           </div>

@@ -3,12 +3,21 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "../../config/supabase";
 import LoggedInNavbar from "../../components/Header/LoggedInNavbar";
 import Footer from "../../components/Footer/Footer";
-import { FaCalendarAlt, FaTimes, FaChevronLeft, FaChevronRight, FaChartLine } from "react-icons/fa";
+import { 
+  FaCalendarAlt, 
+  FaTimes, 
+  FaChevronLeft, 
+  FaChevronRight, 
+  FaChartLine, 
+  FaPaw, 
+  FaClock, 
+  FaCheckCircle, 
+  FaSearchPlus,
+  FaExclamationTriangle,
+  FaStar,
+  FaRegStar
+} from "react-icons/fa";
 import "./SPDashboard.css";
-
-// ... (Keep existing helper functions convertTo24Hour, isFourHoursPast, BookingCalendar unchanged) ...
-// For brevity, I am not re-pasting the helper functions or the BookingCalendar component code here 
-// since they did not change. You can keep them exactly as they were in the previous file.
 
 // --- Time Helpers ---
 const convertTo24Hour = (timeStr) => {
@@ -21,15 +30,6 @@ const convertTo24Hour = (timeStr) => {
     return `${hours}:${minutes}`;
   }
   return timeStr;
-};
-
-const isFourHoursPast = (dateStr, timeStr) => {
-  if (!dateStr || !timeStr) return false;
-  const bookingDateTime = new Date(`${dateStr}T${convertTo24Hour(timeStr)}`);
-  const now = new Date();
-  const diffMs = now - bookingDateTime;
-  const diffHours = diffMs / (1000 * 60 * 60);
-  return diffHours >= 4;
 };
 
 // --- Helper: Enhanced Calendar ---
@@ -69,7 +69,8 @@ const BookingCalendar = ({ bookings = [], onClose }) => {
 
     dayBookings.forEach(b => {
       const isPast = checkIsPast(b.booking_date, b.time_slot);
-      if (['completed', 'rated'].includes(b.status) || isPast) {
+      // Include 'for review' here so the calendar marks them as past/completed
+      if (['for review', 'rated'].includes(b.status) || isPast) {
         completed++;
       } else {
         if (dateStr === todayStr) todayCount++;
@@ -152,7 +153,11 @@ const BookingCalendar = ({ bookings = [], onClose }) => {
                     <div className="item-content-row">
                       <div>
                         <label>Customer</label>
-                        <strong>{b.users?.full_name || 'Pet Owner'}</strong>
+                        <strong>
+                          {b.profiles?.first_name 
+                            ? `${b.profiles.first_name} ${b.profiles.last_name}` 
+                            : 'Pet Owner'}
+                        </strong>
                       </div>
                       <div className="pet-count-info">
                         <label>Pets</label>
@@ -181,11 +186,16 @@ export default function SPDashboard() {
   const [activeTab, setActiveTab] = useState("new_request"); 
   const [showCalendar, setShowCalendar] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState(null);
+  const [bookingReview, setBookingReview] = useState(null);
   
   // Actions
   const [declineReason, setDeclineReason] = useState("");
   const [voidReason, setVoidReason] = useState("");
   const [previewImage, setPreviewImage] = useState(null);
+
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [successTitle, setSuccessTitle] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
 
   useEffect(() => {
     fetchData();
@@ -206,6 +216,7 @@ export default function SPDashboard() {
       if (providerError) throw providerError;
       setProviderId(providerData.id);
 
+      // STEP 1: Fetch Bookings without the direct 'profiles' join to prevent errors
       const { data: bookingsData, error: bookingsError } = await supabase
         .from("bookings")
         .select(`
@@ -219,7 +230,31 @@ export default function SPDashboard() {
         .order('booking_date', { ascending: false });
 
       if (bookingsError) throw bookingsError;
-      setBookings(bookingsData || []);
+
+      // STEP 2: Extract User IDs and Fetch Profiles Separately
+      const userIds = [...new Set(bookingsData.map(b => b.user_id).filter(Boolean))];
+      let profilesMap = {};
+
+      if (userIds.length > 0) {
+        const { data: profilesData, error: profilesError } = await supabase
+          .from("profiles")
+          .select("id, first_name, last_name, mobile_number, email")
+          .in("id", userIds);
+
+        if (!profilesError && profilesData) {
+          profilesData.forEach(p => {
+            profilesMap[p.id] = p;
+          });
+        }
+      }
+
+      // STEP 3: Merge Profile Data into Bookings
+      const mergedBookings = bookingsData.map(b => ({
+        ...b,
+        profiles: profilesMap[b.user_id] || null
+      }));
+
+      setBookings(mergedBookings || []);
 
     } catch (err) {
       console.error("Error fetching data:", err);
@@ -228,10 +263,46 @@ export default function SPDashboard() {
     }
   };
 
+  const fetchReviewForBooking = async (bookingId) => {
+    try {
+      const { data, error } = await supabase
+        .from("reviews")
+        .select("*")
+        .eq("booking_id", bookingId)
+        .single();
+
+      if (error) {
+        // No review found
+        setBookingReview(null);
+        return;
+      }
+
+      // Fetch user profile separately using the user_id from the review
+      if (data && data.user_id) {
+        const { data: profileData } = await supabase
+          .from("profiles")
+          .select("first_name, last_name")
+          .eq("id", data.user_id)
+          .single();
+
+        setBookingReview({
+          ...data,
+          reviewer_name: profileData 
+            ? `${profileData.first_name || ''} ${profileData.last_name || ''}`.trim() 
+            : 'Pet Owner'
+        });
+      } else {
+        setBookingReview(data);
+      }
+    } catch (err) {
+      console.error("Error fetching review:", err);
+      setBookingReview(null);
+    }
+  };
+
   const isBookingComplete = (b) => {
-    if (['completed', 'to_rate', 'rated'].includes(b.status)) return true;
-    if (['paid', 'confirmed'].includes(b.status) && isFourHoursPast(b.booking_date, b.time_slot)) return true;
-    return false;
+    // A booking is complete if it's waiting for a review OR if it has already been rated
+    return ['for review', 'rated'].includes(b.status);
   };
 
   const getFilteredBookings = () => {
@@ -251,6 +322,8 @@ export default function SPDashboard() {
         return bookings.filter(b => b.status === 'paid' && !isBookingComplete(b));
       case 'completed':
         return bookings.filter(b => isBookingComplete(b));
+      case 'cancelled':
+        return bookings.filter(b => b.status === 'cancelled');
       default:
         return [];
     }
@@ -272,6 +345,7 @@ export default function SPDashboard() {
     }).length,
     upcoming: bookings.filter(b => b.status === 'paid' && !isBookingComplete(b)).length,
     completed: bookings.filter(b => isBookingComplete(b)).length,
+    cancelled: bookings.filter(b => b.status === 'cancelled').length,
   };
 
   const formatCurrency = (val) => `₱${parseFloat(val || 0).toLocaleString('en-PH', { minimumFractionDigits: 2 })}`;
@@ -290,18 +364,58 @@ export default function SPDashboard() {
     if (!selectedBooking) return;
     let newStatus = '';
     let updateData = {};
+    let title = "";
+    let msg = "";
+
     switch(actionType) {
-      case 'approve': newStatus = 'approved'; break;
-      case 'decline': newStatus = 'decline'; updateData = { rejection_reason: declineReason }; break;
-      case 'accept_payment': newStatus = 'paid'; break;
-      case 'void_payment': newStatus = 'void'; updateData = { rejection_reason: voidReason }; break;
+      case 'approve': 
+        newStatus = 'approved'; 
+        title = "Booking Approved";
+        msg = "The customer has been notified to proceed with payment.";
+        break;
+      case 'decline': 
+        newStatus = 'declined'; 
+        updateData = { rejection_reason: declineReason }; 
+        title = "Booking Declined";
+        msg = "The request has been removed and the customer notified.";
+        break;
+      case 'accept_payment': 
+        newStatus = 'paid'; 
+        title = "Payment Accepted";
+        msg = "Payment verified. The booking is now moved to Upcoming appointments.";
+        break;
+      case 'void_payment': 
+        newStatus = 'void'; 
+        updateData = { rejection_reason: voidReason }; 
+        title = "Payment Voided";
+        msg = "The payment proof was rejected. The customer will be notified to re-upload.";
+        break;
+      case 'cancel': 
+        newStatus = 'cancelled'; 
+        title = "Booking Cancelled";
+        msg = `The booking has been moved to Cancelled. Please ensure you have refunded the 30% Downpayment (${formatCurrency(selectedBooking.installation_payment)}) to the pet owner.`;
+        break;  
       default: return;
     }
+
     try {
-      const { error } = await supabase.from('bookings').update({ status: newStatus, ...updateData }).eq('id', selectedBooking.id);
+      const { error } = await supabase
+        .from('bookings')
+        .update({ status: newStatus, ...updateData })
+        .eq('id', selectedBooking.id);
+
       if (error) throw error;
+
+      // Update local state immediately
       setBookings(prev => prev.map(b => b.id === selectedBooking.id ? { ...b, status: newStatus, ...updateData } : b));
-      closeModal();
+      
+      closeModal(); // Close details modal first
+
+      // Trigger Success Modal
+      setSuccessTitle(title);
+      setSuccessMessage(msg);
+      setShowSuccessModal(true);
+
     } catch (err) {
       alert("Action failed: " + err.message);
     }
@@ -309,9 +423,31 @@ export default function SPDashboard() {
 
   const closeModal = () => {
     setSelectedBooking(null);
+    setBookingReview(null);
     setDeclineReason("");
     setVoidReason("");
     setPreviewImage(null); 
+  };
+
+  const handleViewDetails = async (booking) => {
+    setSelectedBooking(booking);
+    
+    // If this is a completed booking, fetch the review
+    if (isBookingComplete(booking)) {
+      await fetchReviewForBooking(booking.id);
+    }
+  };
+
+  const renderStars = (rating) => {
+    const stars = [];
+    for (let i = 1; i <= 5; i++) {
+      stars.push(
+        i <= rating ? 
+          <FaStar key={i} className="star-icon filled" /> : 
+          <FaRegStar key={i} className="star-icon empty" />
+      );
+    }
+    return stars;
   };
 
   if (loading) return <div className="sp-loading">Loading Dashboard...</div>;
@@ -319,6 +455,46 @@ export default function SPDashboard() {
   return (
     <div className="page-wrapper">
       <LoggedInNavbar />
+
+      {/* --- SUCCESS MODAL --- */}
+      {showSuccessModal && (
+        <div className="modal-overlay" style={{ zIndex: 5000 }}>
+          <div className="modal-content small-modal success-center" 
+              style={{ 
+                textAlign: 'center', 
+                padding: '2rem', 
+                display: 'flex', 
+                flexDirection: 'column', 
+                alignItems: 'center' // Ensures all children are centered horizontally
+              }}>
+            
+            <FaCheckCircle 
+              size={60} 
+              color="#22c55e" 
+              style={{ 
+                display: 'block',    // Makes it a block to respect auto margins
+                margin: '0 auto 1rem', // 0 top, auto sides (centers it), 1rem bottom
+              }} 
+            />
+            
+            <h3 style={{ color: 'var(--brand-blue)', fontWeight: '800', width: '100%' }}>
+              {successTitle}
+            </h3>
+            
+            <p style={{ color: '#64748b', margin: '10px 0 20px', width: '100%' }}>
+              {successMessage}
+            </p>
+            
+            <button 
+              className="btn-approve" 
+              style={{ width: '100%' }} 
+              onClick={() => setShowSuccessModal(false)}
+            >
+              Done
+            </button>
+          </div>
+        </div>
+      )}
       
       {showCalendar && <BookingCalendar bookings={bookings} onClose={() => setShowCalendar(false)} />}
 
@@ -335,7 +511,6 @@ export default function SPDashboard() {
             </div>
           </div>
           
-          {/* Dashboard Button: Navigates to SPBusinessDashboard */}
           <button className="top-action-btn" onClick={() => navigate('/service/sales')}>
              <FaChartLine size={24} />
              <span>Dashboard</span>
@@ -347,15 +522,13 @@ export default function SPDashboard() {
           </button>
         </div>
 
-        {/* ... (Rest of the Dashboard UI: Status Cards, Table, Modals) ... */}
-        {/* Keeping the rest of the file identical to preserve your existing work. */}
         <div className="status-cards-grid">
            <div className={`status-card ${activeTab === 'new_request' ? 'active' : ''}`} onClick={() => setActiveTab('new_request')}>
              <h3>New Requests</h3>
              <p className="status-count">{stats.new_request}</p>
            </div>
            <div className={`status-card ${activeTab === 'for_verification' ? 'active' : ''}`} onClick={() => setActiveTab('for_verification')}>
-             <h3>Pending Payment</h3>
+             <h3>Verify Payment</h3>
              <p className="status-count">{stats.for_verification}</p>
            </div>
            <div className={`status-card ${activeTab === 'upcoming' ? 'active' : ''}`} onClick={() => setActiveTab('upcoming')}>
@@ -366,6 +539,10 @@ export default function SPDashboard() {
              <h3>Completed</h3>
              <p className="status-count">{stats.completed}</p>
            </div>
+           <div className={`status-card ${activeTab === 'cancelled' ? 'active' : ''}`} onClick={() => setActiveTab('cancelled')}>
+            <h3>Cancelled</h3>
+            <p className="status-count" style={{ color: '#ef4444' }}>{stats.cancelled}</p>
+          </div>
         </div>
 
         <div className="bookings-table-container">
@@ -397,12 +574,18 @@ export default function SPDashboard() {
                     </td>
                     <td>{formatCurrency(booking.total_estimated_price)}</td>
                     <td>
-                      <span className={`badge badge-${booking.status ? booking.status.replace(' ', '_') : 'unknown'}`}>
-                        {booking.status}
-                      </span>
-                    </td>
+                        {activeTab === 'completed' && booking.status === 'for review' ? (
+                          <span className="badge badge-to_rate">
+                            To Rate
+                          </span>
+                        ) : (
+                          <span className={`badge badge-${booking.status ? booking.status.replace(/\s+/g, '_').toLowerCase() : 'unknown'}`}>
+                            {booking.status}
+                          </span>
+                        )}
+                      </td>
                     <td>
-                      <button className="view-details-btn" onClick={() => setSelectedBooking(booking)}>
+                      <button className="view-details-btn" onClick={() => handleViewDetails(booking)}>
                         View Details
                       </button>
                     </td>
@@ -427,34 +610,62 @@ export default function SPDashboard() {
                 <span>Status:</span>
                 <strong className="uppercase-status">{selectedBooking.status}</strong>
               </div>
-              {(selectedBooking.status === 'for review' || selectedBooking.status === 'paid') && (
-                <div className="info-row">
-                  <span>Reference No:</span>
-                  <strong style={{ color: 'var(--brand-blue)' }}>
-                    {selectedBooking?.rejection_reason || "Not Provided"}
-                  </strong>
-                </div>
-              )}
+              
+              {/* --- CUSTOMER DETAILS (Safe Access) --- */}
+              <div className="info-row">
+                <span>Customer:</span>
+                <strong>
+                  {selectedBooking.profiles 
+                    ? `${selectedBooking.profiles.first_name} ${selectedBooking.profiles.last_name}` 
+                    : 'Pet Owner'}
+                </strong>
+              </div>
+              <div className="info-row">
+                <span>Contact:</span>
+                <strong>{selectedBooking.profiles?.mobile_number || 'N/A'}</strong>
+              </div>
+              <div className="info-row">
+                <span>Email:</span>
+                <strong style={{textTransform: 'lowercase'}}>{selectedBooking.profiles?.email || 'N/A'}</strong>
+              </div>
+              {/* ----------------------------- */}
+
               <div className="info-row">
                 <span>Date & Time:</span>
                 <strong>{formatDateTime(selectedBooking.booking_date, selectedBooking.time_slot)}</strong>
               </div>
               <div className="info-row">
-                <span>Total Amount:</span>
-                <strong className="text-highlight">{formatCurrency(selectedBooking.total_estimated_price)}</strong>
+                <span>Balance:</span>
+                <div className="amount-container">
+                  <strong className="text-highlight">
+                    <b>
+                      {formatCurrency(
+                        (selectedBooking.total_estimated_price || 0) - (selectedBooking.installation_payment || 0)
+                      )}
+                    </b>
+                  </strong>
+                  <p className="down-payment-note">30% Down Payment: <b>{formatCurrency(selectedBooking.installation_payment)}</b></p>
+                  <p className="down-payment-note">Total Amount: <b>{formatCurrency(selectedBooking.total_estimated_price)}</b></p>
+                </div>
               </div>
             </div>
 
             {selectedBooking.payment_proof_url && (
               <div className="full-image-block">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                    <h4>Payment Proof</h4>
-                    <small style={{ color: 'var(--brand-blue)', fontWeight: 'bold'}}>
-                        Payment Reference Code: {selectedBooking?.rejection_reason}
-                    </small>
+                  <small style={{ color: 'var(--brand-blue)', fontWeight: 'bold'}}>
+                    Payment Reference Code: {selectedBooking?.rejection_reason || "N/A"}
+                  </small>
                 </div>
-                <div className="image-wrapper clickable-img" onClick={() => setPreviewImage(selectedBooking.payment_proof_url)}>
-                    <img src={selectedBooking.payment_proof_url} alt="Payment Proof" className="facebook-style-img" /> 
+                
+                <div 
+                  className="image-wrapper clickable-img" 
+                  onClick={() => setPreviewImage(selectedBooking.payment_proof_url)}
+                >
+                  <p className="img-label" style={{ fontSize: '0.75rem', color: '#64748b', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    Click image to maximize <FaSearchPlus size={12} />
+                  </p>
+                  <img src={selectedBooking.payment_proof_url} alt="Payment Proof" className="facebook-style-img" /> 
                 </div>
               </div>
             )}
@@ -475,28 +686,151 @@ export default function SPDashboard() {
                       <p><strong>Services:</strong> {pet.booking_services?.map(s => s.service_name).join(', ')}</p>
                     </div>
                     <div className="pet-info-row-split">
-                         <div className="pet-specs-full"><span className="label">Grooming Specs:</span> {pet.grooming_specifications || 'None'}</div>
-                         <div className="pet-specs-full"><span className="label">Services:</span> {pet.booking_services?.map(s => s.service_name).join(', ')}</div>
+                          <div className="pet-specs-full"><span className="label">Grooming Specs:</span> {pet.grooming_specifications || 'None'}</div>
+                          <div className="pet-specs-full"><span className="label">Services:</span> {pet.booking_services?.map(s => s.service_name).join(', ')}</div>
                     </div>
                     <div className="pet-images-container">
                       {pet.vaccine_card_url && (
-                        <div className="image-wrapper">
-                          <p className="img-label">Vaccine Card</p>
+                        <div 
+                          className="image-wrapper clickable-img" 
+                          onClick={() => setPreviewImage(pet.vaccine_card_url)}
+                        >
+                          <p className="img-label">Vaccine Card <FaSearchPlus size={10} /></p>
                           <img src={pet.vaccine_card_url} alt="Vaccine Card" className="facebook-style-img" />
                         </div>
                       )}
+
                       {pet.illness_proof_url && (
-                        <div className="image-wrapper">
-                          <p className="img-label">Proof of Illness</p>
+                        <div 
+                          className="image-wrapper clickable-img" 
+                          onClick={() => setPreviewImage(pet.illness_proof_url)}
+                        >
+                          <p className="img-label">Proof of Illness <FaSearchPlus size={10} /></p>
                           <img src={pet.illness_proof_url} alt="Illness Proof" className="facebook-style-img" />
+                        </div>
+                      )}
+
+                      {pet.ai_generated_url && (
+                        <div 
+                          className="image-wrapper clickable-img ai-preview-border" 
+                          onClick={() => setPreviewImage(pet.ai_generated_url)}
+                        >
+                          <p className="img-label">AI Style Preview <FaSearchPlus size={10} /></p>
+                          <img src={pet.ai_generated_url} alt="AI Generated Preview" className="facebook-style-img" />
                         </div>
                       )}
                     </div>
                   </div>
                 ))}
               </div>
+
+              {/* REVIEW SECTION - Only shows for completed bookings */}
+              {isBookingComplete(selectedBooking) && (
+                <div className="review-section">
+                  <h4>Customer Review</h4>
+                  {bookingReview ? (
+                    <div className="review-card">
+                      <div className="review-header">
+                        <div className="reviewer-info">
+                          <strong className="reviewer-name">
+                            {bookingReview.reviewer_name || 'Pet Owner'}
+                          </strong>
+                          <span className="review-date">
+                            {new Date(bookingReview.created_at).toLocaleDateString('en-US', { 
+                              month: 'short', 
+                              day: 'numeric', 
+                              year: 'numeric' 
+                            })}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="review-ratings">
+                        <div className="rating-item">
+                          <span className="rating-label">Overall Experience:</span>
+                          <div className="stars-display">
+                            {renderStars(bookingReview.rating_overall)}
+                            <span className="rating-number">{bookingReview.rating_overall}/5</span>
+                          </div>
+                        </div>
+                        <div className="rating-item">
+                          <span className="rating-label">Staff Service:</span>
+                          <div className="stars-display">
+                            {renderStars(bookingReview.rating_staff)}
+                            <span className="rating-number">{bookingReview.rating_staff}/5</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {bookingReview.comment && (
+                        <div className="review-comment">
+                          <p className="comment-label">Comment:</p>
+                          <p className="comment-text">{bookingReview.comment}</p>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="no-review-card">
+                      <p>No review submitted yet for this booking.</p>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
             <div className="modal-footer">
+              {selectedBooking.status === 'paid' && !isBookingComplete(selectedBooking) && (
+  <div className="cancel-verification-wrapper" style={{ 
+      marginTop: '15px', 
+      borderTop: '1px solid #f1f5f9', 
+      paddingTop: '15px',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'flex-start',
+      gap: '12px'
+  }}>
+    
+    <div className="compact-refund-alert" style={{ 
+        display: 'flex', 
+        alignItems: 'center', 
+        gap: '8px', 
+        padding: '6px 10px',
+        borderRadius: '6px', 
+        background: '#fff1f2', 
+        borderLeft: '4px solid #e11d48',
+        marginRight: 'auto',
+        textAlign: 'left'
+    }}>
+      <FaExclamationTriangle style={{ color: '#e11d48', flexShrink: 0 }} size={12} />
+      <p style={{ margin: 0, fontSize: '0.75rem', color: '#be123c', fontWeight: '500', lineHeight: '1.2' }}>
+          Cancellation requires a manual refund of the <strong>{formatCurrency(selectedBooking.installation_payment)}</strong> (30% Down Payment) to the pet owner.
+      </p>
+    </div>
+    
+    <button 
+      className="btn-cancel-action" 
+      style={{ 
+        padding: '8px 16px', 
+        background: '#475569', 
+        color: 'white', 
+        border: 'none', 
+        borderRadius: '6px', 
+        fontWeight: '600', 
+        fontSize: '0.8rem',
+        whiteSpace: 'nowrap',
+        cursor: 'pointer',
+        transition: 'background 0.2s'
+      }} 
+      onClick={() => {
+        if(window.confirm(`Cancel booking? You must manually refund ${formatCurrency(selectedBooking.installation_payment)}.`)) {
+          handleAction('cancel');
+        }
+      }}
+    >
+      Cancel Booking
+    </button>
+  </div>
+)}
+
               {selectedBooking.status === 'pending' && (
                 <div className="action-row">
                    <div className="decline-area">
@@ -525,14 +859,22 @@ export default function SPDashboard() {
                    <button className="btn-approve" onClick={() => handleAction('accept_payment')}>Accept Payment</button>
                 </div>
               )}
-              {(isBookingComplete(selectedBooking) || ['approved', 'paid', 'decline', 'void', 'cancelled'].includes(selectedBooking.status)) && (
-                 <button className="btn-close-footer" onClick={closeModal}>Close Details</button>
-              )}
             </div>
           </div>
         </div>
       )}
       <Footer />
+
+      {previewImage && (
+        <div className="modal-overlay image-preview-overlay" onClick={() => setPreviewImage(null)}>
+          <div className="image-preview-content" onClick={e => e.stopPropagation()}>
+            <button className="close-preview-btn" onClick={() => setPreviewImage(null)}>
+              <FaTimes />
+            </button>
+            <img src={previewImage} alt="Maximized Preview" className="large-proof-image" />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
