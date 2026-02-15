@@ -68,9 +68,8 @@ const BookingCalendar = ({ bookings = [], onClose }) => {
     let todayCount = 0;
 
     dayBookings.forEach(b => {
-      const isPast = checkIsPast(b.booking_date, b.time_slot);
-      // Include 'for review' here so the calendar marks them as past/completed
-      if (['for review', 'rated'].includes(b.status) || isPast) {
+      // Use the same helper used by the rest of the dashboard
+      if (isBookingComplete(b)) {
         completed++;
       } else {
         if (dateStr === todayStr) todayCount++;
@@ -78,7 +77,10 @@ const BookingCalendar = ({ bookings = [], onClose }) => {
       }
     });
 
-    return { total: dayBookings.length, badge: todayCount > 0 ? "today" : upcoming > 0 ? "upcoming" : completed > 0 ? "past" : "" };
+    return { 
+      total: dayBookings.length, 
+      badge: todayCount > 0 ? "today" : upcoming > 0 ? "upcoming" : completed > 0 ? "past" : "" 
+    };
   };
 
   const renderDays = () => {
