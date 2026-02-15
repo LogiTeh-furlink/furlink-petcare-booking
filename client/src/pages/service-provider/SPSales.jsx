@@ -61,6 +61,7 @@ export default function SPSales() {
   const [selectedYear, setSelectedYear] = useState(savedFilters.selectedYear);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [listingApprovedDate, setListingApprovedDate] = useState(null);
+  const [providerHours, setProviderHours] = useState([]);
 
   // ============================================
   // SAVE FILTERS TO LOCALSTORAGE ON CHANGE
@@ -95,8 +96,17 @@ export default function SPSales() {
 
         setListingVisitors(provider.click_count || 0);
         if (provider.created_at) {
-          // Splits "2024-01-15T14:30:00" into "2024-01-15"
           setListingApprovedDate(provider.created_at.split('T')[0]);
+        }
+
+        // Fetch provider hours for slot interval logic
+        const { data: hoursData, error: hoursError } = await supabase
+          .from("service_provider_hours")
+          .select("day_of_week, slot_interval_minutes")
+          .eq("provider_id", provider.id);
+
+        if (!hoursError && hoursData) {
+          setProviderHours(hoursData);
         }
 
         // Fetch bookings with related data
@@ -171,101 +181,114 @@ export default function SPSales() {
   const analytics = useMemo(() => {
     const now = new Date();
     
+    // Helper to convert time to 24-hour format
+    const convertTo24Hour = (timeStr) => {
+      if (!timeStr) return "00:00";
+      if (timeStr.includes('M')) {
+        const [time, modifier] = timeStr.split(' ');
+        let [hours, minutes] = time.split(':');
+        if (hours === '12') { hours = '00'; }
+        if (modifier === 'PM') { hours = parseInt(hours, 10) + 12; }
+        return `${hours}:${minutes}`;
+      }
+      return timeStr;
+    };
+
+    // Check if booking slot + interval has passed (matches SQL logic)
+    const hasSlotIntervalPassed = (dateStr, timeStr, slotIntervalMinutes) => {
+      if (!dateStr || !timeStr || !slotIntervalMinutes) return false;
+      
+      try {
+        const bookingDateTime = new Date(`${dateStr}T${convertTo24Hour(timeStr)}`);
+        const completionTime = new Date(bookingDateTime.getTime() + (slotIntervalMinutes * 60 * 1000));
+        return now >= completionTime;
+      } catch (e) {
+        console.error('Error checking slot interval:', e);
+        return false;
+      }
+    };
+
+    const isBookingComplete = (b) => {
+      // A booking is complete if it's waiting for a review OR if it has already been rated
+      return ['for review', 'rated'].includes(b.status);
+    };
+      
     // Helper function to get date ranges based on filter
     const getRange = (filter, isPrevious = false) => {
-    const today = new Date(); // Freeze 'now' for consistency
+      const today = new Date();
 
-    // CUSTOM RANGE (Logic remains mostly the same, ensures fair duration)
-    if (filter === 'custom' && customDateStart && customDateEnd) {
-      const start = new Date(customDateStart);
-      const end = new Date(customDateEnd);
-      end.setHours(23, 59, 59, 999);
-      
-      if (isPrevious) {
-        const duration = end - start; // Difference in milliseconds
-        const prevEnd = new Date(start);
-        prevEnd.setDate(prevEnd.getDate() - 1);
-        prevEnd.setHours(23, 59, 59, 999);
-        const prevStart = new Date(prevEnd - duration); // Same duration back
-        return { start: prevStart, end: prevEnd };
-      }
-      return { start, end };
-    }
-    
-    let start = new Date();
-    let end = new Date();
-
-    if (filter === 'weekly') {
-      // === WEEKLY LOGIC (Rolling 7 Days) ===
-      // This is already fair because it compares 7 days vs 7 days.
-      if (isPrevious) { 
-        start.setDate(today.getDate() - 14); 
-        end.setDate(today.getDate() - 7); 
-        end.setHours(23, 59, 59, 999); // Ensure we get the full last day
-      } else { 
-        start.setDate(today.getDate() - 7); 
-        end = today;
-      }
-
-    } else if (filter === 'monthly') {
-      // === MONTHLY LOGIC (Fixed for Period-to-Date) ===
-      if (isPrevious) { 
-        // Start: 1st of previous month
-        start = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-        
-        // End: The SAME DAY of the previous month (or last day if it doesn't exist)
-        // Example: If today is March 31, previous period ends Feb 28 (or 29)
-        const daysInPrevMonth = new Date(today.getFullYear(), today.getMonth(), 0).getDate();
-        const targetDay = Math.min(today.getDate(), daysInPrevMonth);
-        
-        end = new Date(today.getFullYear(), today.getMonth() - 1, targetDay);
+      if (filter === 'custom' && customDateStart && customDateEnd) {
+        const start = new Date(customDateStart);
+        const end = new Date(customDateEnd);
         end.setHours(23, 59, 59, 999);
-      } else { 
-        // Current: 1st of this month to NOW
-        start = new Date(today.getFullYear(), today.getMonth(), 1);
-        end = today;
-      }
-
-    } else if (filter === 'yearly') {
-      // === YEARLY LOGIC (Fixed for Year-to-Date) ===
-      if (selectedYear) {
-        // If a specific past year is selected (e.g., 2023), compare full 2023 vs full 2022
-        start = new Date(selectedYear, 0, 1);
-        end = new Date(selectedYear, 11, 31, 23, 59, 59, 999);
+        
         if (isPrevious) {
-          start = new Date(selectedYear - 1, 0, 1);
-          end = new Date(selectedYear - 1, 11, 31, 23, 59, 59, 999);
+          const duration = end - start;
+          const prevEnd = new Date(start);
+          prevEnd.setDate(prevEnd.getDate() - 1);
+          prevEnd.setHours(23, 59, 59, 999);
+          const prevStart = new Date(prevEnd - duration);
+          return { start: prevStart, end: prevEnd };
         }
-      } else {
-        // Default: This Year (YTD) vs Last Year (YTD)
+        return { start, end };
+      }
+      
+      let start = new Date();
+      let end = new Date();
+
+      if (filter === 'weekly') {
         if (isPrevious) { 
-          start = new Date(today.getFullYear() - 1, 0, 1);
-          
-          // End: Same month/day but last year
-          // Handle leap year edge case (Feb 29 -> Feb 28)
-          if (today.getMonth() === 1 && today.getDate() === 29) {
-            end = new Date(today.getFullYear() - 1, 1, 28);
-          } else {
-            end = new Date(today.getFullYear() - 1, today.getMonth(), today.getDate());
-          }
+          start.setDate(today.getDate() - 14); 
+          end.setDate(today.getDate() - 7); 
           end.setHours(23, 59, 59, 999);
         } else { 
-          start = new Date(today.getFullYear(), 0, 1); // Jan 1st of this year
-          end = today; // To right now
+          start.setDate(today.getDate() - 7); 
+          end = today;
+        }
+      } else if (filter === 'monthly') {
+        if (isPrevious) { 
+          start = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+          const daysInPrevMonth = new Date(today.getFullYear(), today.getMonth(), 0).getDate();
+          const targetDay = Math.min(today.getDate(), daysInPrevMonth);
+          end = new Date(today.getFullYear(), today.getMonth() - 1, targetDay);
+          end.setHours(23, 59, 59, 999);
+        } else { 
+          start = new Date(today.getFullYear(), today.getMonth(), 1);
+          end = today;
+        }
+      } else if (filter === 'yearly') {
+        if (selectedYear) {
+          start = new Date(selectedYear, 0, 1);
+          end = new Date(selectedYear, 11, 31, 23, 59, 59, 999);
+          if (isPrevious) {
+            start = new Date(selectedYear - 1, 0, 1);
+            end = new Date(selectedYear - 1, 11, 31, 23, 59, 59, 999);
+          }
+        } else {
+          if (isPrevious) { 
+            start = new Date(today.getFullYear() - 1, 0, 1);
+            if (today.getMonth() === 1 && today.getDate() === 29) {
+              end = new Date(today.getFullYear() - 1, 1, 28);
+            } else {
+              end = new Date(today.getFullYear() - 1, today.getMonth(), today.getDate());
+            }
+            end.setHours(23, 59, 59, 999);
+          } else { 
+            start = new Date(today.getFullYear(), 0, 1);
+            end = today;
+          }
+        }
+      } else {
+        if (isPrevious) { 
+          start.setFullYear(today.getFullYear() - 1, 0, 1); 
+          end.setFullYear(today.getFullYear() - 1, 11, 31); 
+        } else { 
+          start = new Date(today.getFullYear(), 0, 1);
+          end = today;
         }
       }
-    } else {
-      // Default Fallback
-      if (isPrevious) { 
-        start.setFullYear(today.getFullYear() - 1, 0, 1); 
-        end.setFullYear(today.getFullYear() - 1, 11, 31); 
-      } else { 
-        start = new Date(today.getFullYear(), 0, 1);
-        end = today;
-      }
-    }
-    return { start, end };
-  };
+      return { start, end };
+    };
 
     const currentRange = getRange(activeFilter);
     const previousRange = getRange(activeFilter, true);
@@ -274,12 +297,6 @@ export default function SPSales() {
     const rangeText = activeFilter === 'custom' && customDateStart && customDateEnd
       ? `${new Date(customDateStart).toLocaleDateString(undefined, { month: 'short', day: '2-digit' })} - ${new Date(customDateEnd).toLocaleDateString(undefined, { month: 'short', day: '2-digit', year: 'numeric' })}`
       : `${currentRange.start.toLocaleDateString(undefined, { month: 'short', day: '2-digit' })} - ${now.toLocaleDateString(undefined, { month: 'short', day: '2-digit', year: 'numeric' })}`;
-
-    // Determine if booking is complete
-    const isBookingComplete = (b) => {
-      // A booking is complete if it's waiting for a review OR if it has already been rated
-      return ['for review', 'rated'].includes(b.status);
-    };
 
     // Filter bookings by date range
     const filterByRange = (list, range) => {
@@ -347,9 +364,12 @@ export default function SPSales() {
         // Show months of selected year
         timeLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].map(m => `${m} ${selectedYear}`);
       } else {
-        // Show years from 2020 to current
+        // Show years from listing approved year to current year
+        const startYear = listingApprovedDate 
+          ? new Date(listingApprovedDate).getFullYear() 
+          : 2020;
         const years = [];
-        for (let year = 2020; year <= currentYear; year++) {
+        for (let year = startYear; year <= currentYear; year++) {
           years.push(year.toString());
         }
         timeLabels = years;
@@ -364,8 +384,6 @@ export default function SPSales() {
         `${monthName} 22 - ${lastDay}`
       ];
     } else if (activeFilter === 'custom' && currentRange.start && currentRange.end) {
-      // === MODIFIED: GENERATE DAILY LABELS FOR CUSTOM RANGE ===
-      // This loop creates a label for every day between start and end date
       const tempDate = new Date(currentRange.start);
       while (tempDate <= currentRange.end) {
         timeLabels.push(tempDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
@@ -382,10 +400,15 @@ export default function SPSales() {
     const overallSalesData = new Array(timeLabels.length).fill(0);
     const overallCustomerCount = new Array(timeLabels.length).fill(0).map(() => new Set());
     
-    currentBookings.forEach(booking => {
+    // FIX: Use ALL bookings when NOT in drill-down mode for yearly
+    const bookingsToProcess = (activeFilter === 'yearly' && !selectedYear) 
+      ? rawBookings.filter(b => isBookingComplete(b))
+      : currentBookings;
+    
+    bookingsToProcess.forEach(booking => {
       if (!isBookingComplete(booking)) return;
       
-      // Apply pet type filter - check if booking has pets matching the filter
+      // Apply pet type filter
       if (petTypeFilter !== 'both') {
         const hasPetType = booking.booking_pets?.some(pet => pet.pet_type === petTypeFilter);
         if (!hasPetType) return;
@@ -396,10 +419,12 @@ export default function SPSales() {
       
       if (activeFilter === 'yearly') {
         if (selectedYear) {
-          // Monthly view of selected year
-          idx = bDate.getMonth();
+          // Monthly view of selected year - only show data for that year
+          if (bDate.getFullYear() === selectedYear) {
+            idx = bDate.getMonth();
+          }
         } else {
-          // Year list view
+          // Year list view - show ALL years of data
           const bookingYear = bDate.getFullYear();
           idx = timeLabels.indexOf(bookingYear.toString());
         }
@@ -444,20 +469,25 @@ export default function SPSales() {
       const bDate = new Date(booking.booking_date);
       const bookingYear = bDate.getFullYear();
       
-      // Filter by selected year when in yearly drill-down mode
-      if (activeFilter === 'yearly' && selectedYear && bookingYear !== selectedYear) return;
-      
-      // Filter by current range (handles all year data when selectedYear is null)
-      if (bDate < currentRange.start || bDate > (currentRange.end || now)) return;
+      // FIX: When in year list view, don't filter by currentRange
+      // When drilling down into a specific year, filter by that year
+      if (activeFilter === 'yearly') {
+        if (selectedYear) {
+          // In drill-down mode - only show data for selected year
+          if (bookingYear !== selectedYear) return;
+        }
+        // In year list view - show ALL years (no date range filter)
+      } else {
+        // For other filters, use the current range
+        if (bDate < currentRange.start || bDate > (currentRange.end || now)) return;
+      }
       
       let idx;
       
       if (activeFilter === 'yearly') {
         if (selectedYear) {
-          // Monthly view of selected year
           idx = bDate.getMonth();
         } else {
-          // Year list view
           idx = timeLabels.indexOf(bookingYear.toString());
         }
       } else if (activeFilter === 'monthly') {
@@ -502,11 +532,14 @@ export default function SPSales() {
       }
     });
     
-    // Now categorize current period bookings
-    currentBookings.forEach(booking => {
+    const bookingsForCustomerSegmentation = (activeFilter === 'yearly' && !selectedYear)
+      ? allCompletedBookings
+      : currentBookings;
+    
+    bookingsForCustomerSegmentation.forEach(booking => {
       if (!isBookingComplete(booking)) return;
       
-      // Apply pet type filter - check if booking has pets matching the filter
+      // Apply pet type filter
       if (petTypeFilter !== 'both') {
         const hasPetType = booking.booking_pets?.some(pet => pet.pet_type === petTypeFilter);
         if (!hasPetType) return;
@@ -517,10 +550,10 @@ export default function SPSales() {
       
       if (activeFilter === 'yearly') {
         if (selectedYear) {
-          // Monthly view of selected year
-          idx = bDate.getMonth();
+          if (bDate.getFullYear() === selectedYear) {
+            idx = bDate.getMonth();
+          }
         } else {
-          // Year list view
           const bookingYear = bDate.getFullYear();
           idx = timeLabels.indexOf(bookingYear.toString());
         }
@@ -557,8 +590,13 @@ export default function SPSales() {
     const potentialRevenue = new Array(timeLabels.length).fill(0);
     const cancellationsPerPeriod = new Array(timeLabels.length).fill(0);
     
-    currentBookings.forEach(booking => {
-      // Apply pet type filter - check if booking has pets matching the filter
+    // FIX: Use appropriate bookings based on filter mode
+    const bookingsForCancellations = (activeFilter === 'yearly' && !selectedYear)
+      ? rawBookings
+      : currentBookings;
+    
+    bookingsForCancellations.forEach(booking => {
+      // Apply pet type filter
       if (petTypeFilter !== 'both') {
         const hasPetType = booking.booking_pets?.some(pet => pet.pet_type === petTypeFilter);
         if (!hasPetType) return;
@@ -569,10 +607,10 @@ export default function SPSales() {
       
       if (activeFilter === 'yearly') {
         if (selectedYear) {
-          // Monthly view of selected year
-          idx = bDate.getMonth();
+          if (bDate.getFullYear() === selectedYear) {
+            idx = bDate.getMonth();
+          }
         } else {
-          // Year list view
           const bookingYear = bDate.getFullYear();
           idx = timeLabels.indexOf(bookingYear.toString());
         }
@@ -586,15 +624,12 @@ export default function SPSales() {
       const revenue = Number(booking.total_estimated_price) || 0;
       
       if (idx !== -1 && idx !== undefined) {
-        // Add to potential revenue regardless of status
         potentialRevenue[idx] += revenue;
         
-        // Track cancellations
-        if (booking.status === 'cancelled') {
+        if (booking.status === 'cancelled' || booking.status === 'declined') {
           cancellationsPerPeriod[idx] += 1;
         }
         
-        // Only add to actual if booking is complete
         if (isBookingComplete(booking)) {
           actualRevenue[idx] += revenue;
         }
@@ -611,7 +646,6 @@ export default function SPSales() {
 
     // ========================================
     // PET TYPE BREAKDOWN FOR REPORT
-    // Calculate stats broken down by pet type
     // ========================================
     const calculatePetTypeBreakdown = () => {
       const breakdown = {
@@ -623,14 +657,9 @@ export default function SPSales() {
         if (!isBookingComplete(booking)) return;
         
         const bookingRevenue = Number(booking.total_estimated_price) || 0;
-        
-        // Track which pet types are in this booking
         const petTypes = new Set();
-        booking.booking_pets?.forEach(pet => {
-          petTypes.add(pet.pet_type);
-        });
+        booking.booking_pets?.forEach(pet => petTypes.add(pet.pet_type));
 
-        // If booking has both pet types, split the revenue
         if (petTypes.has('Dog') && petTypes.has('Cat')) {
           const splitRevenue = bookingRevenue / 2;
           breakdown.Dog.revenue += splitRevenue;
@@ -651,16 +680,8 @@ export default function SPSales() {
       });
 
       return {
-        Dog: {
-          revenue: breakdown.Dog.revenue,
-          bookings: breakdown.Dog.bookings,
-          customers: breakdown.Dog.customers.size
-        },
-        Cat: {
-          revenue: breakdown.Cat.revenue,
-          bookings: breakdown.Cat.bookings,
-          customers: breakdown.Cat.customers.size
-        }
+        Dog: { revenue: breakdown.Dog.revenue, bookings: breakdown.Dog.bookings, customers: breakdown.Dog.customers.size },
+        Cat: { revenue: breakdown.Cat.revenue, bookings: breakdown.Cat.bookings, customers: breakdown.Cat.customers.size }
       };
     };
 
@@ -669,7 +690,7 @@ export default function SPSales() {
     return { 
       revenue: current.rev, 
       validCount: current.count, 
-      cancellations: new Set(currentBookings.filter(b => b.status === 'cancelled').map(b => b.id)).size, 
+      cancellations: new Set(currentBookings.filter(b => b.status === 'cancelled' || b.status === 'declined').map(b => b.id)).size, 
       avg: new Set(current.validPets.map(p => p.user_id)).size > 0 
         ? Math.round(current.count / new Set(current.validPets.map(p => p.user_id)).size) 
         : 0, 
@@ -677,7 +698,6 @@ export default function SPSales() {
       bookTrend: getTrend(current.count, previous.count),
       rangeText,
       timeLabels,
-      // Chart data
       overallSalesData,
       overallCustomerCountArray,
       totalRevenue,
@@ -693,7 +713,7 @@ export default function SPSales() {
       totalLoss,
       petTypeBreakdown
     };
-  }, [rawBookings, servicesList, bookingServices, activeFilter, petTypeFilter, customDateStart, customDateEnd, selectedYear]);
+  }, [rawBookings, servicesList, bookingServices, activeFilter, providerHours, petTypeFilter, customDateStart, customDateEnd, selectedYear, listingApprovedDate]);
 
   // ============================================
   // PDF DOWNLOAD FUNCTION
@@ -710,25 +730,20 @@ export default function SPSales() {
         return;
       }
 
-      // Create a clone of the report content for printing
       const clone = element.cloneNode(true);
       clone.style.position = 'absolute';
       clone.style.left = '-9999px';
       clone.style.top = '0';
-      clone.style.width = '800px'; // Fixed width for consistent rendering
+      clone.style.width = '800px';
       clone.style.overflow = 'visible';
       clone.style.maxHeight = 'none';
       clone.style.height = 'auto';
       clone.style.padding = '24px';
       clone.style.backgroundColor = '#ffffff';
       
-      // Append to body temporarily
       document.body.appendChild(clone);
-      
-      // Wait for rendering
       await new Promise(resolve => setTimeout(resolve, 500));
 
-      // Capture the cloned element
       const canvas = await html2canvas(clone, {
         scale: 2,
         useCORS: true,
@@ -738,58 +753,34 @@ export default function SPSales() {
         height: clone.scrollHeight
       });
 
-      // Remove the clone
       document.body.removeChild(clone);
 
-      console.log('Canvas captured:', { width: canvas.width, height: canvas.height });
-
       const imgData = canvas.toDataURL('image/png', 1.0);
-      
-      // Create PDF with proper dimensions
       const pdf = new jsPDF('p', 'mm', 'a4');
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = pdf.internal.pageSize.getHeight();
       
-      // Calculate image dimensions with margins
       const margin = 10;
       const imgWidth = pdfWidth - (2 * margin);
       const imgHeight = (canvas.height * imgWidth) / canvas.width;
-      
-      // Calculate how many pages we need
       const pageHeight = pdfHeight - (2 * margin);
       const totalPages = Math.ceil(imgHeight / pageHeight);
-      
-      console.log('PDF pages needed:', totalPages);
 
-      // Add content to PDF pages
       for (let page = 0; page < totalPages; page++) {
-        if (page > 0) {
-          pdf.addPage();
-        }
+        if (page > 0) pdf.addPage();
         
-        // Calculate the portion of the image for this page
         const sourceY = page * (pageHeight * canvas.width / imgWidth);
-        const sourceHeight = Math.min(
-          pageHeight * canvas.width / imgWidth,
-          canvas.height - sourceY
-        );
+        const sourceHeight = Math.min(pageHeight * canvas.width / imgWidth, canvas.height - sourceY);
         
-        // Only add if there's content to add
         if (sourceHeight > 0) {
-          // Create a temporary canvas for this page slice
           const pageCanvas = document.createElement('canvas');
           pageCanvas.width = canvas.width;
           pageCanvas.height = sourceHeight;
           const pageCtx = pageCanvas.getContext('2d');
           
-          // Draw the slice of the full canvas onto the page canvas
           pageCtx.fillStyle = '#ffffff';
           pageCtx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
-          pageCtx.drawImage(
-            canvas,
-            0, sourceY, canvas.width, sourceHeight,
-            0, 0, canvas.width, sourceHeight
-          );
+          pageCtx.drawImage(canvas, 0, sourceY, canvas.width, sourceHeight, 0, 0, canvas.width, sourceHeight);
           
           const pageImgData = pageCanvas.toDataURL('image/png', 1.0);
           const pageImgHeight = (sourceHeight * imgWidth) / canvas.width;
@@ -798,13 +789,8 @@ export default function SPSales() {
         }
       }
 
-      // Generate filename with current date
       const fileName = `Sales_Report_${new Date().toISOString().split('T')[0]}.pdf`;
-      
-      // Save the PDF
       pdf.save(fileName);
-      
-      console.log('PDF generated successfully');
       
     } catch (error) {
       console.error('Error generating PDF:', error);
@@ -834,12 +820,9 @@ export default function SPSales() {
         mode: 'index',
         intersect: false,
         callbacks: {
-          // CHANGE: Use formatCurrency for 2 decimal places in base tooltip
           label: function(context) {
             let label = context.dataset.label || '';
-            if (label) {
-              label += ': ';
-            }
+            if (label) label += ': ';
             if (context.parsed.y !== null) {
               label += '₱' + formatCurrency(context.parsed.y);
             }
@@ -910,7 +893,6 @@ export default function SPSales() {
           {/* SIDEBAR - Filters */}
           {/* ============================================ */}
           <aside className="sp-biz-sidebar">
-            {/* Back to Dashboard Button */}
             <button 
               className="back-to-dashboard-btn"
               onClick={() => navigate('/service/dashboard')}
@@ -919,7 +901,6 @@ export default function SPSales() {
               <FaArrowLeft size={18} />
             </button>
 
-            {/* Tab Navigation */}
             <div className="sidebar-tabs-group">
               <button 
                 className={`sidebar-tab-btn ${activeTab === 'sales' ? 'active' : ''}`} 
@@ -941,7 +922,6 @@ export default function SPSales() {
               </button>
             </div>
             
-            {/* Timeframe Filter */}
             <div className="sidebar-section">
               <h3>Timeframe</h3>
               <select className="filter-dropdown" value={activeFilter} onChange={(e) => setActiveFilter(e.target.value)}>
@@ -951,7 +931,6 @@ export default function SPSales() {
                 <option value="custom">Custom Range</option>
               </select>
               
-              {/* Custom Date Range Inputs */}
               {activeFilter === 'custom' && (
                 <div className="custom-date-range">
                   <label className="date-label">From:</label>
@@ -976,7 +955,6 @@ export default function SPSales() {
               )}
             </div>
 
-            {/* Pet Type Filter */}
             <div className="sidebar-section">
               <h3>Pet Type</h3>
               <select className="filter-dropdown" value={petTypeFilter} onChange={(e) => setPetTypeFilter(e.target.value)}>
@@ -991,7 +969,6 @@ export default function SPSales() {
           {/* MAIN CONTENT - KPIs and Charts */}
           {/* ============================================ */}
           <main className="sp-biz-main-content">
-            {/* Generate Report Button and As of Date */}
             <div className="report-button-container">
               <div className="as-of-date">
                 As of {new Date().toLocaleDateString('en-US', { 
@@ -1006,9 +983,7 @@ export default function SPSales() {
               </button>
             </div>
 
-            {/* KPI Cards Grid */}
             <div className="sp-biz-kpi-grid">
-              {/* Gross Revenue KPI */}
               <div className="kpi-card">
                 <span className="kpi-label">Gross Revenue</span>
                 <div className="kpi-row">
@@ -1021,7 +996,6 @@ export default function SPSales() {
                 </div>
               </div>
               
-              {/* Total Bookings KPI */}
               <div className="kpi-card">
                 <span className="kpi-label">Total Bookings</span>
                 <div className="kpi-row">
@@ -1030,19 +1004,16 @@ export default function SPSales() {
                 </div>
               </div>
               
-              {/* Listing Visitors KPI */}
               <div className="kpi-card">
                 <span className="kpi-label">Listing Visitors</span>
                 <span className="kpi-value">{listingVisitors.toLocaleString()}</span>
               </div>
               
-              {/* Average per Customer KPI */}
               <div className="kpi-card">
                 <span className="kpi-label">Avg/Customer</span>
                 <span className="kpi-value">{analytics.avg}</span>
               </div>
               
-              {/* Cancellations KPI */}
               <div className="kpi-card">
                 <span className="kpi-label">Cancellations</span>
                 <span className="kpi-value">{analytics.cancellations.toString().padStart(2, '0')}</span>
@@ -1054,7 +1025,6 @@ export default function SPSales() {
             {/* ============================================ */}
             <div className="sales-charts-grid">
               
-              {/* CHART 1: OVERALL SALES PERFORMANCE */}
               <div className="chart-box">
                 {activeFilter === 'yearly' && selectedYear && (
                   <button 
@@ -1097,7 +1067,6 @@ export default function SPSales() {
                           mode: 'index',
                           intersect: false,
                           callbacks: {
-                            // CHANGE: decimals in tooltip
                             label: function(context) {
                               let label = context.dataset.label || '';
                               if (label) label += ': ';
@@ -1116,13 +1085,11 @@ export default function SPSales() {
                     }}
                   />
                 </div>
-                {/* CHANGE: Total Revenue summary below chart, matching Total Loss style */}
                 <p className="chart-insight-text">
                   Total Revenue: ₱{formatCurrency(analytics.totalRevenue)}
                 </p>
               </div>
 
-              {/* CHART 4: REVENUE LOSS DUE TO CANCELLATIONS */}
               <div className="chart-box">
                 {activeFilter === 'yearly' && selectedYear && (
                   <button 
@@ -1179,7 +1146,6 @@ export default function SPSales() {
                           mode: 'index',
                           intersect: false,
                           callbacks: {
-                            // CHANGE: decimals in tooltip
                             label: function(context) {
                               let label = context.dataset.label || '';
                               if (label) label += ': ';
@@ -1189,13 +1155,11 @@ export default function SPSales() {
                               return label;
                             },
                             afterLabel: function(context) {
-                              // Show cancellations count only once (on the first dataset)
                               if (context.datasetIndex === 0) {
                                 const cancellations = analytics.cancellationsPerPeriod[context.dataIndex];
                                 const loss = analytics.potentialRevenue[context.dataIndex] - analytics.actualRevenue[context.dataIndex];
                                 return [
                                   `Cancellations: ${cancellations}`,
-                                  // CHANGE: decimals in revenue lost line
                                   `Revenue Lost: ₱${formatCurrency(loss)}`
                                 ];
                               }
@@ -1207,7 +1171,6 @@ export default function SPSales() {
                     }}
                   />
                 </div>
-                {/* CHANGE: decimals in Total Loss summary */}
                 <p className="chart-insight-text">
                   Total Loss: ₱{formatCurrency(analytics.totalLoss)}
                 </p>
@@ -1220,7 +1183,6 @@ export default function SPSales() {
             {/* ============================================ */}
             <div className="sales-charts-grid">
               
-              {/* CHART 3: NEW VS RETURNING CUSTOMERS */}
               <div className="chart-box">
                 <h4 className="chart-title-sm">New vs Returning Customer Revenue</h4>
                 <div className="chart-container-medium">
@@ -1260,7 +1222,6 @@ export default function SPSales() {
                           mode: 'index',
                           intersect: false,
                           callbacks: {
-                            // CHANGE: decimals in tooltip
                             label: function(context) {
                               let label = context.dataset.label || '';
                               if (label) label += ': ';
@@ -1295,7 +1256,6 @@ export default function SPSales() {
                 </div>
               </div>
 
-              {/* CHART 2: SALES PERFORMANCE PER SERVICE */}
               <div className="chart-box">
                 {activeFilter === 'yearly' && selectedYear && (
                   <button 
@@ -1333,7 +1293,7 @@ export default function SPSales() {
                           borderWidth: 2,
                           pointRadius: 3,
                           pointHoverRadius: 5,
-                          serviceId: serviceId // Store serviceId for tooltip access
+                          serviceId: serviceId
                         };
                       })
                     }}
@@ -1345,7 +1305,6 @@ export default function SPSales() {
                           mode: 'index',
                           intersect: false,
                           callbacks: {
-                            // CHANGE: decimals in tooltip
                             label: function(context) {
                               let label = context.dataset.label || '';
                               if (label) label += ': ';
@@ -1389,7 +1348,6 @@ export default function SPSales() {
       {showReportModal && (
         <div className="report-modal-overlay" onClick={() => setShowReportModal(false)}>
           <div className="report-modal-content" onClick={(e) => e.stopPropagation()}>
-            {/* Modal Header */}
             <div className="report-modal-header">
               <div className="report-header-title">
                 <FaFileAlt size={20} />
@@ -1400,9 +1358,7 @@ export default function SPSales() {
               </button>
             </div>
 
-            {/* Modal Body - This content will be captured for PDF */}
             <div className="report-modal-body" ref={reportRef}>
-              {/* Report Header Info */}
               <div className="report-info-section">
                 <div className="report-info-row">
                   <span className="report-label">Report Period:</span>
@@ -1432,7 +1388,6 @@ export default function SPSales() {
                 </div>
               </div>
 
-              {/* Executive Summary — KPI values intentionally kept without decimals per requirement */}
               <div className="report-section">
                 <h3 className="report-section-title">Executive Summary</h3>
                 <div className="report-kpi-grid">
@@ -1464,7 +1419,6 @@ export default function SPSales() {
                   </div>
                   <div className="report-kpi-item">
                     <span className="report-kpi-label">Revenue Loss</span>
-                    {/* KPI card — no decimals */}
                     <span className="report-kpi-value">₱{analytics.totalLoss.toLocaleString()}</span>
                   </div>
                   <div className="report-kpi-item">
@@ -1478,7 +1432,6 @@ export default function SPSales() {
                 </div>
               </div>
 
-              {/* Sales Analysis */}
               <div className="report-section">
                 <h3 className="report-section-title">Sales Analysis</h3>
                 <div className="report-insights">
@@ -1504,7 +1457,6 @@ export default function SPSales() {
                   </div>
                   <div className="insight-item">
                     <strong>Cancellation Impact:</strong>
-                    {/* CHANGE: decimals for revenue loss figure in narrative */}
                     <p>
                       Cancellations resulted in a revenue loss of ₱{formatCurrency(analytics.totalLoss)} during this period. 
                       {analytics.totalLoss > 0 
@@ -1523,13 +1475,11 @@ export default function SPSales() {
                 </div>
               </div>
 
-              {/* Customer Segmentation */}
               <div className="report-section">
                 <h3 className="report-section-title">Customer Segmentation</h3>
                 <div className="pet-distribution">
                   <div className="pet-dist-item">
                     <span className="pet-type">New Customers</span>
-                    {/* CHANGE: decimals for segmentation revenue figures */}
                     <span className="pet-count">
                       ₱{formatCurrency(analytics.newCustomerRevenue.reduce((a, b) => a + b, 0))} revenue
                     </span>
@@ -1544,7 +1494,6 @@ export default function SPSales() {
               </div>
             </div>
 
-            {/* Modal Footer */}
             <div className="report-modal-footer">
               <button 
                 className="btn-download-report" 
@@ -1559,7 +1508,7 @@ export default function SPSales() {
                 ) : (
                   <>
                     <FaDownload />
-                    Download Report
+                    Download as PDF
                   </>
                 )}
               </button>

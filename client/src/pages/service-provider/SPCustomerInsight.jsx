@@ -927,7 +927,7 @@ const getRange = (filter, isPrevious = false) => {
 
             <div className="insights-bottom-row">
               <div className="chart-box">
-                <h4 className="chart-title-sm">Top 5 Rebooked Customers</h4>
+                <h4 className="chart-title-sm">Top Rebooked Customers</h4>
                 <div className="chart-container-large">
                   <Bar 
                     data={{
@@ -1176,7 +1176,7 @@ const getRange = (filter, isPrevious = false) => {
                 ) : (
                   <>
                     <FaDownload />
-                    Download Report
+                    Download as PDF
                   </>
                 )}
               </button>
