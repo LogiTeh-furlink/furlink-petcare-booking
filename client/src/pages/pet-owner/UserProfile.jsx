@@ -4,22 +4,11 @@ import { supabase } from "../../config/supabase";
 import LoggedInNavbar from "../../components/Header/LoggedInNavbar";
 import Footer from "../../components/Footer/Footer";
 import { 
-  FaUserEdit, 
-  FaSave, 
-  FaEnvelope, 
-  FaPhone, 
-  FaLock, 
-  FaEye, 
-  FaEyeSlash, 
-  FaExclamationCircle,
-  FaCheckCircle,
-  FaExclamationTriangle,
-  FaInfoCircle,
-  FaUserShield,
-  FaClock,
-  FaPaw,
-  FaStore,
-  FaExternalLinkAlt
+  FaUserEdit, FaSave, FaEnvelope, FaPhone, FaLock, 
+  FaEye, FaEyeSlash, FaExclamationCircle, FaCheckCircle, 
+  FaExclamationTriangle, FaInfoCircle, FaUserShield, 
+  FaClock, FaPaw, FaStore, FaExternalLinkAlt,
+  FaTimes // <--- ADD THIS
 } from "react-icons/fa";
 import "./UserProfile.css";
 
@@ -34,6 +23,9 @@ export default function UserProfile() {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showNoChangesModal, setShowNoChangesModal] = useState(false);
+
+  const [showDeactivateBlock, setShowDeactivateBlock] = useState(false);
+  const [activeBookingCount, setActiveBookingCount] = useState(0);
 
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -112,6 +104,39 @@ export default function UserProfile() {
 
     } catch (err) {
       console.error("Error fetching profile:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const checkEligibilityAndDeactivate = async () => {
+    setLoading(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      // Determine which column to check based on role
+      // Providers check bookings received; Owners check bookings made.
+      let query = supabase.from("bookings").select("id", { count: 'exact' });
+      
+      if (userRoleInfo.isProvider && userRoleInfo.providerId) {
+          query = query.eq('provider_id', userRoleInfo.providerId);
+      } else {
+          query = query.eq('user_id', user.id);
+      }
+
+      // Check for live statuses only
+      const { count, error } = await query.in('status', ['pending', 'approved', 'paid']);
+
+      if (error) throw error;
+
+      if (count > 0) {
+        setActiveBookingCount(count);
+        setShowDeactivateBlock(true); // Stop them here
+      } else {
+        setShowDeactivateConfirm(true); // Let them proceed to the "Are you sure?" modal
+      }
+    } catch (err) {
+      console.error("Eligibility check failed:", err);
     } finally {
       setLoading(false);
     }
@@ -379,7 +404,7 @@ const handleDeactivateAccount = async () => {
                     </p>
                     <button 
                       type="button" 
-                      onClick={() => setShowDeactivateConfirm(true)}
+                      onClick={checkEligibilityAndDeactivate} 
                       style={{ marginTop: '10px', border: '1px solid #ef4444', color: '#ef4444', background: 'none', padding: '10px', borderRadius: '8px', width: '100%', cursor: 'pointer', fontWeight: '600' }}
                     >
                       Deactivate My Account
@@ -442,6 +467,38 @@ const handleDeactivateAccount = async () => {
             <div className="modal-actions-row">
               <button className="modal-btn-cancel" onClick={() => setShowConfirmModal(false)}>Cancel</button>
               <button className="modal-btn-confirm" onClick={confirmSave}>Yes, Save</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* BLOCKING MODAL: User has active obligations */}
+      {showDeactivateBlock && (
+        <div className="modal-overlay">
+          <div className="modal-content small-modal">
+            <div className="modal-header" style={{ borderBottom: 'none' }}>
+               <h3 style={{ color: '#0E2679' }}>Deactivation Blocked</h3>
+               <button className="close-btn" onClick={() => setShowDeactivateBlock(false)}><FaTimes /></button>
+            </div>
+            <div className="modal-body" style={{ textAlign: 'center', padding: '10px 20px 30px' }}>
+              <div style={{ color: '#ef4444', marginBottom: '20px' }}>
+                <FaExclamationTriangle size={60} />
+              </div>
+              <p style={{ color: '#1e293b', fontSize: '1rem', fontWeight: '700' }}>
+                You have {activeBookingCount} ongoing booking(s).
+              </p>
+              <p style={{ color: '#64748b', fontSize: '0.85rem', marginTop: '12px', lineHeight: '1.6' }}>
+                To protect our community, accounts with <strong>Accepted</strong> or <strong>Paid</strong> appointments cannot be deactivated. 
+                <br/><br/>
+                Please complete these services or cancel them (with manual refunds) before trying again.
+              </p>
+              <button 
+                className="save-btn" 
+                style={{ width: '100%', marginTop: '25px', backgroundColor: '#0E2679', alignContent: 'center', display: 'flex', justifyContent: 'center', gap: '8px' }} 
+                onClick={() => navigate(userRoleInfo.isProvider ? "/service/dashboard" : "/appointments")}
+              >
+                Manage My Bookings
+              </button>
             </div>
           </div>
         </div>
