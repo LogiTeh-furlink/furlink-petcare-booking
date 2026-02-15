@@ -611,7 +611,7 @@ const ListingInfo = () => {
                   </div>
                   <div className="info-section" style={{marginTop:'3rem', borderTop:'1px solid #dbeafe', paddingTop:'2rem'}}>
                     <h3 className="subsection-title">Service Prices</h3>
-                    <p className="vat-note">* VAT exclusive</p>
+                    <p className="vat-note">* VAT inclusive</p>
                     <ServicesList />
                   </div>
               </div>
