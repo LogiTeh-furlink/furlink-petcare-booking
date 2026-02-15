@@ -226,13 +226,6 @@ export default function BookingHistory() {
     return original > tomorrow ? original.toISOString().split("T")[0] : tomorrow.toISOString().split("T")[0];
   };
 
-  const isFourHoursPast = (booking) => {
-    if (!booking.booking_date || !booking.time_slot) return false;
-    const bookingDateTime = new Date(`${booking.booking_date}T${booking.time_slot}`);
-    const diffHours = (new Date() - bookingDateTime) / (1000 * 60 * 60);
-    return diffHours >= 4;
-  };
-
   const isCancellable = (booking) => {
     if (!booking.booking_date) return false;
     const bookingDate = new Date(booking.booking_date);
@@ -294,8 +287,7 @@ export default function BookingHistory() {
         return sorted.filter(b => b.status === "paid" && isTodayBooking(b));
       
       case "toRate":
-        // Display "paid" bookings that are 4 hours past the scheduled time and not yet rated
-        return sorted.filter(b => b.status === "paid" && isFourHoursPast(b));
+          return sorted.filter(b => b.status === "for review");
       
       case "rated": 
         return sorted.filter(b => b.status === "rated");
@@ -319,7 +311,7 @@ export default function BookingHistory() {
     payment: bookings.filter(b => b.status === "approved").length,
     upcoming: bookings.filter(b => b.status === "paid" && isUpcomingBooking(b) && !isTodayBooking(b)).length,
     today: bookings.filter(b => b.status === "paid" && isTodayBooking(b)).length,
-    toRate: bookings.filter(b => b.status === "paid" && isFourHoursPast(b)).length,
+    toRate: bookings.filter(b => b.status === "for review").length,
     rated: bookings.filter(b => b.status === "rated").length,
     cancelled: bookings.filter(b => b.status === "cancelled").length,
     denied: bookings.filter(b => b.status === "declined").length,
@@ -626,9 +618,10 @@ export default function BookingHistory() {
                )}
 
                {/* Rate for paid bookings 4 hours past */}
-               {selectedBooking.status === 'paid' && isFourHoursPast(selectedBooking) && (
-                 <button className="rate-btn" onClick={() => setShowFeedbackModal(true)}>Rate Service</button>
-               )}
+               {/* Rate button logic: Only shows if the status is 'for review' (Service is finished) */}
+              {selectedBooking.status === 'for review' && (
+                <button className="rate-btn" onClick={() => setShowFeedbackModal(true)}>Rate Service</button>
+              )}
 
                {/* Cancel for pending/paid bookings not within 24h */}
                {isCancellable(selectedBooking) && (

@@ -83,7 +83,8 @@ const BookingCalendar = ({ bookings = [], onClose }) => {
 
     dayBookings.forEach(b => {
       const isPast = checkIsPast(b.booking_date, b.time_slot);
-      if (['completed', 'rated'].includes(b.status) || isPast) {
+      // Include 'for review' here so the calendar marks them as past/completed
+      if (['for review', 'rated'].includes(b.status) || isPast) {
         completed++;
       } else {
         if (dateStr === todayStr) todayCount++;
@@ -314,9 +315,8 @@ export default function SPDashboard() {
   };
 
   const isBookingComplete = (b) => {
-    if (['completed', 'to_rate', 'rated'].includes(b.status)) return true;
-    if (['paid', 'confirmed'].includes(b.status) && isFourHoursPast(b.booking_date, b.time_slot)) return true;
-    return false;
+    // A booking is complete if it's waiting for a review OR if it has already been rated
+    return ['for review', 'rated'].includes(b.status);
   };
 
   const getFilteredBookings = () => {
@@ -588,8 +588,7 @@ export default function SPDashboard() {
                     </td>
                     <td>{formatCurrency(booking.total_estimated_price)}</td>
                     <td>
-                        {/* Check if the booking is time-completed but still just says 'paid' */}
-                        {activeTab === 'completed' && booking.status === 'paid' && isFourHoursPast(booking.booking_date, booking.time_slot) ? (
+                        {activeTab === 'completed' && booking.status === 'for review' ? (
                           <span className="badge badge-to_rate">
                             To Rate
                           </span>

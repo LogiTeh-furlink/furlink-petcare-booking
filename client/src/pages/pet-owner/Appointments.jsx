@@ -384,13 +384,6 @@ const handleRescheduleDateChange = async (e) => {
     return `${hours}:${minutes}`;
   };
 
-  const isFourHoursPast = (booking) => {
-    if (!booking.booking_date || !booking.time_slot) return false;
-    const bookingDateTime = new Date(`${booking.booking_date}T${convertTo24Hour(booking.time_slot)}`);
-    const diffHours = (new Date() - bookingDateTime) / (1000 * 60 * 60);
-    return diffHours >= 4;
-  };
-
   const isCancellable = (booking) => {
     if (!booking.booking_date) return false;
     const bookingDate = new Date(booking.booking_date);
@@ -415,20 +408,18 @@ const handleRescheduleDateChange = async (e) => {
       case "payment": 
         return sorted.filter(b => b.status === "approved");
       case "upcoming": 
-        // Requirement: Status must be "paid" and NOT 4 hours past
-        return sorted.filter(b => b.status === "paid" && !isFourHoursPast(b));
+        return sorted.filter(b => b.status === "paid");
       case "rate": 
-        // Requirement: Status must be "paid" and 4 hours after scheduled time
-        return sorted.filter(b => b.status === "paid" && isFourHoursPast(b));
+        return sorted.filter(b => b.status === "for review");
       default: return [];
-    }
+    }   
   };
 
   const counts = {
     awaiting: bookings.filter(b => b.status === "pending").length,
     payment: bookings.filter(b => b.status === "approved").length,
-    upcoming: bookings.filter(b => b.status === "paid" && !isFourHoursPast(b)).length,
-    rate: bookings.filter(b => b.status === "paid" && isFourHoursPast(b)).length,
+    upcoming: bookings.filter(b => b.status === "paid").length,
+    rate: bookings.filter(b => b.status === "for review").length,
   };
 
   const getServiceSummary = (pets) => {
@@ -718,7 +709,8 @@ const handleRescheduleDateChange = async (e) => {
               )}
 
               {/* Requirement: Rate only if 'paid' and 4 hours past */}
-              {selectedBooking.status === 'paid' && isFourHoursPast(selectedBooking) && (
+              {/* Requirement: Rate only if the service is done (database status is 'for review') */}
+              {selectedBooking.status === 'for review' && (
                 <button className="rate-btn" onClick={handleOpenRateModal}>Rate Service</button>
               )}
 
