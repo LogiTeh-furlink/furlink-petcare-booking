@@ -1,196 +1,153 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import nodemailer from "npm:nodemailer";
 
-serve(async (req) => {
+serve(async (req: Request) => {
   try {
     const payload = await req.json();
     const { record, old_record, type, table } = payload;
+    const opType = type.toUpperCase();
+
+    console.log(`🔔 Triggered: ${opType} on ${table}. ID: ${record?.id}`);
 
     const supabaseAdmin = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
-    let targetTemplateId = "";
-    let templateParams: any = {};
-    let config = {
-      service_id: "",
-      public_key: "",
-      private_key: ""
-    };
+    let subject = "FurLink Update 🐾";
+    let htmlContent = "";
+    let toEmail = "";
+    let targetUserId = "";
 
-    // --- CASE A: PROFILES TABLE ---
-    if (table === 'profiles') {
-      config = {
-        service_id: Deno.env.get('EMAILJS_SERVICE_ID')!,
-        public_key: Deno.env.get('EMAILJS_PUBLIC_KEY')!,
-        private_key: Deno.env.get('EMAILJS_PRIVATE_KEY')!
-      };
-      targetTemplateId = Deno.env.get('EMAILJS_TEMPLATE_ID')!;
-      templateParams = {
-        to_email: record.email,
-        first_name: record.first_name,
-        subject: '',
-        message: ''
-      };
+    // ==========================================
+    // 1. PROFILES (Signups & Admin Warnings)
+    // ==========================================
+    if (table === "profiles") {
+      toEmail = record.email;
+      targetUserId = record.id;
 
-      if (type === 'INSERT') {
-        templateParams.subject = `Welcome to FurLink, ${record.first_name}! 🐾`;
-        templateParams.message = "We're thrilled to have you here. Explore our services or set up your shop to get started!";
-      } else if (type === 'UPDATE' && old_record.role !== record.role) {
-        if (record.role === 'both') {
-          templateParams.subject = "The best of both worlds! You're now a Provider & Owner 🐾";
-          templateParams.message = "Congratulations! You can now book services and manage your own pet care business from one account.";
-        }
-      }
-    }
-
-    // --- CASE B: SERVICE_PROVIDERS TABLE ---
-    else if (table === 'service_providers' && type === 'UPDATE') {
-      if (old_record.status !== record.status) {
-        config = {
-          service_id: Deno.env.get('EMAILJS_SP_SERVICE_ID')!,
-          public_key: Deno.env.get('EMAILJS_SP_PUBLIC_KEY')!,
-          private_key: Deno.env.get('EMAILJS_SP_PRIVATE_KEY')!
-        };
-        const currentStatus = record.status?.toLowerCase();
-        
-        if (currentStatus === 'approved') {
-          targetTemplateId = Deno.env.get('EMAILJS_SP_APPROVED_ID')!;
-        } else if (currentStatus === 'rejected') {
-          targetTemplateId = Deno.env.get('EMAILJS_SP_REJECTED_ID')!;
-        }
-
-        templateParams = {
-          to_email: record.business_email,
-          business_name: record.business_name,
-          status: record.status,
-          rejection_reason: record.rejection_reason || 'Please review our guidelines and try again.'
-        };
-
-        // --- IN-APP NOTIFICATION: Provider Approval/Rejection ---
-        await supabaseAdmin.from('notifications').insert({
-          user_id: record.user_id,
-          title: currentStatus === 'approved' ? 'Application Approved! 🎉' : 'Application Update',
-          message: currentStatus === 'approved' 
-            ? `Welcome! Your shop ${record.business_name} is now live.` 
-            : `Your application for ${record.business_name} requires changes.`,
-          link: '/dashboard'
-        });
-      }
-    }
-
-    // --- CASE C: BOOKINGS TABLE ---
-    else if (table === 'bookings') {
-      config = {
-        service_id: Deno.env.get('EMAILJS_BOOKING_SERVICE_ID')!,
-        public_key: Deno.env.get('EMAILJS_BOOKING_PUBLIC_KEY')!,
-        private_key: Deno.env.get('EMAILJS_BOOKING_PRIVATE_KEY')!
-      };
-
-      const { data: owner } = await supabaseAdmin.from('profiles').select('email, first_name, last_name').eq('id', record.user_id).single();
-      const { data: provider } = await supabaseAdmin.from('service_providers').select('business_email, business_name, user_id').eq('id', record.provider_id).single();
-
-      // Initialize base params
-      templateParams = {
-        first_name: owner?.first_name,
-        last_name: owner?.last_name,
-        business_name: provider?.business_name,
-        booking_date: record.booking_date,
-        time_slot: record.time_slot,
-        total_estimated_price: record.total_estimated_price,
-        installation_payment: record.installation_payment,
-        rejection_reason: record.rejection_reason, 
-        status: record.status
-      };
-
-      if (type === 'INSERT') {
-        console.log("Detecting INSERT: New Booking");
-        targetTemplateId = Deno.env.get('EMAILJS_NEW_BOOKING_TEMPLATE_ID')!;
-        templateParams.to_email = provider?.business_email;
-
-        if (provider?.user_id) {
-          await supabaseAdmin.from('notifications').insert({
-            user_id: provider.user_id,
-            title: 'New Booking Request 📅',
-            message: `New request from ${owner?.first_name} for ${record.booking_date}.`,
-            link: '/service/dashboard'
-          });
-        }
+      if (opType === "INSERT") {
+        subject = "Welcome to FurLink! 🐾";
+        htmlContent = `<h2>Hi ${record.first_name}!</h2><p>Your account is ready. Explore our pet grooming services today.</p>`;
       } 
-      // 2. SCENARIO: STATUS UPDATES
-      else if (type === 'UPDATE' && old_record.status !== record.status) {
-        const currentStatus = record.status?.toLowerCase();
-        const previousStatus = old_record.status?.toLowerCase();
-        
-        console.log(`Transition detected: ${previousStatus} -> ${currentStatus}`);
+      else if (opType === "UPDATE" && record.suspension_end_date !== old_record?.suspension_end_date && record.suspension_end_date !== null) {
+        subject = "Account Warning ⚠️";
+        htmlContent = `<h2>Important Notice</h2><p>An admin has updated your account status. Suspension end date: ${record.suspension_end_date}</p>`;
+      }
+    } 
 
-        // Path A: Owner submits payment (Pending -> For Review)
-        if (currentStatus === 'for review') {
-          targetTemplateId = Deno.env.get('EMAILJS_PAYMENT_REQUEST_TEMPLATE_ID')!;
-          templateParams.to_email = provider?.business_email;
+    // ==========================================
+    // 2. BOOKINGS (New, Rebook, Accept, Pay, Cancel)
+    // ==========================================
+    else if (table === "bookings") {
+      const { data: owner } = await supabaseAdmin.from("profiles").select("email, first_name").eq("id", record.user_id).single();
+      const { data: provider } = await supabaseAdmin.from("service_providers").select("business_email, business_name, user_id").eq("id", record.provider_id).single();
 
-          if (provider?.user_id) {
-            await supabaseAdmin.from('notifications').insert({
-              user_id: provider.user_id,
-              title: 'Payment Verification Needed 💳',
-              message: `${owner?.first_name} submitted payment proof for ${record.booking_date}.`,
-              link: '/service/dashboard'
-            });
-          }
-        } 
-        // Path B: Initial Provider Response (Pending -> Approved/Rejected)
-        else if (currentStatus === 'approved' || currentStatus === 'rejected') {
-          targetTemplateId = Deno.env.get('EMAILJS_STATUS_BOOKING_TEMPLATE_ID')!;
-          templateParams.to_email = owner?.email;
+      const curStatus = record.status?.toLowerCase();
+      const prevStatus = old_record?.status?.toLowerCase();
 
-          await supabaseAdmin.from('notifications').insert({
-            user_id: record.user_id,
-            title: `Booking ${currentStatus.toUpperCase()} 🐾`,
-            message: `Your booking request with ${provider?.business_name} was ${currentStatus}.`,
-            link: '/appointments'
-          });
+      if (opType === "INSERT") {
+        toEmail = provider?.business_email;
+        targetUserId = provider?.user_id;
+        subject = "New Booking Request 📅";
+        htmlContent = `<h3>New request from ${owner?.first_name || 'User'}</h3><p>Date: ${record.booking_date} at ${record.time_slot}</p>`;
+      } 
+      else if (opType === "UPDATE") {
+        if (old_record?.booking_date !== record.booking_date || old_record?.time_slot !== record.time_slot) {
+          toEmail = provider?.business_email;
+          targetUserId = provider?.user_id;
+          subject = "Appointment Rescheduled 🔄";
+          htmlContent = `<h3>Schedule Updated</h3><p>${owner?.first_name || 'Owner'} changed the booking to ${record.booking_date} at ${record.time_slot}.</p>`;
         }
-        // Path C: Final Payment Response (Approved -> Paid or Void)
-        else if (currentStatus === 'paid' || currentStatus === 'void') {
-          console.log("Triggering Path C: Payment Response Notification");
-          
-          targetTemplateId = Deno.env.get('EMAILJS_PAYMENT_RESPONSE_TEMPLATE_ID')!;
-          templateParams.to_email = owner?.email;
-          
-          // Map 'paid' to 'Approved' and 'void' to 'Rejected' for the email template
-          templateParams.status = currentStatus === 'paid' ? 'Approved' : 'Rejected';
-
-          await supabaseAdmin.from('notifications').insert({
-            user_id: record.user_id,
-            title: `Payment Update: ${currentStatus === 'paid' ? 'Successful' : 'Cancelled'} ✨`,
-            message: `Your payment to ${provider?.business_name} has been marked as ${currentStatus}.`,
-            link: '/appointments'
-          });
+        else if (curStatus === "cancelled" && prevStatus !== "cancelled") {
+          toEmail = provider?.business_email;
+          targetUserId = provider?.user_id;
+          subject = "Booking Cancelled ❌";
+          htmlContent = `<p>The booking for ${record.booking_date} has been cancelled.</p>`;
+        }
+        else if ((curStatus === "paid" || curStatus === "void") && prevStatus === "for review") {
+          toEmail = owner?.email;
+          targetUserId = record.user_id;
+          subject = `Payment ${curStatus.toUpperCase()} ✨`;
+          htmlContent = `<p>Your payment to ${provider?.business_name} was ${curStatus}.</p>`;
+        }
+        // Fail-safe fallback if none of the above specific updates matched
+        else if (!htmlContent) {
+           toEmail = provider?.business_email;
+           targetUserId = provider?.user_id;
+           htmlContent = `<p>A booking update occurred. New status: <strong>${curStatus}</strong></p>`;
         }
       }
     }
-    
-    // --- SENDING EMAIL LOGIC ---
-    if (targetTemplateId && templateParams.to_email) {
-      await fetch('https://api.emailjs.com/api/v1.0/email/send', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          service_id: config.service_id,
-          template_id: targetTemplateId,
-          user_id: config.public_key,
-          accessToken: config.private_key,
-          template_params: templateParams
-        }),
-      });
-      return new Response("OK", { status: 200 });
+
+    // ==========================================
+    // 3. REVIEWS (Owner -> SP)
+    // ==========================================
+    else if (table === "reviews" && opType === "INSERT") {
+      const { data: provider } = await supabaseAdmin.from("service_providers").select("business_email, user_id").eq("id", record.provider_id).single();
+      const { data: owner } = await supabaseAdmin.from("profiles").select("first_name").eq("id", record.user_id).single();
+
+      toEmail = provider?.business_email;
+      targetUserId = provider?.user_id;
+      subject = "New Review Received! ⭐";
+      htmlContent = `<h3>New Feedback from ${owner?.first_name}</h3><p>Rating: ${record.rating_overall}/5</p>`;
     }
 
-    return new Response(JSON.stringify({ message: "No action taken" }), { status: 200 });
+    // ==========================================
+    // 4. PERSIST IN-APP NOTIFICATION
+    // ==========================================
+    if (targetUserId && subject) {
+      const { error: notifErr } = await supabaseAdmin.from("notifications").insert({
+        user_id: targetUserId,
+        title: subject,
+        message: "Check your email for full details.",
+        link: "/dashboard"
+      });
+      if (notifErr) console.error("❌ Notification Error:", notifErr.message);
+      else console.log("✅ In-App Notification Sent");
+    }
 
-  } catch (err: any) {
-    console.error("Critical Error:", err.message);
+    // ==========================================
+    // 5. SEND EMAIL VIA NODEMAILER (Modern Fix)
+    // ==========================================
+    if (toEmail && htmlContent) {
+      console.log(`📧 Dispatching Nodemailer email to: ${toEmail}`);
+      
+      const transporter = nodemailer.createTransport({
+        host: "smtp.gmail.com",
+        port: 465,
+        secure: true, // Use Port 465 for Implicit TLS
+        auth: {
+          user: Deno.env.get("SMTP_USER"),
+          pass: Deno.env.get("SMTP_PASS"), // Ensure no spaces in App Password
+        },
+      });
+
+      try {
+        const info = await transporter.sendMail({
+          from: `"FurLink" <${Deno.env.get("SMTP_USER")}>`,
+          to: toEmail,
+          subject: subject,
+          text: htmlContent.replace(/<[^>]*>?/gm, ''), // Plain text fallback
+          html: htmlContent,
+        });
+
+        console.log("✅ SUCCESS: Email sent via Nodemailer!", info.messageId);
+      } catch (smtpErr) {
+        console.error("❌ Nodemailer Failure:", smtpErr.message);
+      }
+    } else {
+      console.log("⚠️ Skipping Email: toEmail or htmlContent is missing.");
+    }
+
+    return new Response(JSON.stringify({ message: "Success" }), { 
+      status: 200,
+      headers: { "Content-Type": "application/json" } 
+    });
+
+  } catch (err) {
+    console.error("💥 Function Crash:", err.message);
     return new Response(JSON.stringify({ error: err.message }), { status: 500 });
   }
 });
