@@ -30,7 +30,24 @@ const LoginPage = () => {
   // --- ADD THESE STATES ---
   const [showReactivateModal, setShowReactivateModal] = useState(false);
   const [deactivatedUser, setDeactivatedUser] = useState(null);
-  // const [daysRemaining, setDaysRemaining] = useState(0); // Unused in this snippet
+
+  const handleDismissPromo = async (columnName, targetPath) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        // Save preference to database
+        await supabase
+          .from("profiles")
+          .update({ [columnName]: true })
+          .eq("id", user.id);
+      }
+    } catch (err) {
+      console.error("Error saving preference:", err);
+    } finally {
+      // Always navigate so the user isn't stuck
+      navigate(targetPath);
+    }
+  };
 
   const handleBecomeBoth = async () => {
     try {
@@ -150,7 +167,8 @@ const LoginPage = () => {
         supabase
           .from("profiles")
           // UPDATED: Added suspension_end_date to the selection
-          .select("role, must_change_password, is_active, suspension_end_date")
+          // Change your .select to include the new hidden columns
+          .select("role, must_change_password, is_active, suspension_end_date, hide_sp_promo, hide_po_promo")
           .eq("id", data.user.id)
           .single(),
         supabase
@@ -215,6 +233,7 @@ const LoginPage = () => {
       // 3. Service Provider Only
       if (profile.role === "service_provider") {
         if (provider?.status === "approved") {
+          if (profile.hide_po_promo) return navigate("/service/dashboard"); // SKIP PROMO
           setLoading(false);
           setShowPetOwnerPromo(true);
           return;
@@ -229,6 +248,7 @@ const LoginPage = () => {
 
       // 4. Pet Owner Only
       if (profile.role === "pet_owner") {
+        if (profile.hide_sp_promo) return navigate("/dashboard"); // SKIP PROMO
         setLoading(false);
         setShowPromoModal(true);
         return;
@@ -324,7 +344,12 @@ const LoginPage = () => {
               </div>
             </div>
             <div className="promo-footer">
-              <button className="promo-later-btn" onClick={() => navigate("/dashboard")}>Maybe Later</button>
+              <button 
+                className="promo-later-btn" 
+                onClick={() => handleDismissPromo("hide_sp_promo", "/dashboard")}
+              >
+                Do not show this again
+              </button>
             </div>
           </div>
         </div>
@@ -351,10 +376,12 @@ const LoginPage = () => {
                   <span className="promo-badge">Explore Shops</span>
                 </div>
             </div>
-
             <div className="promo-footer">
-              <button className="promo-later-btn" onClick={() => navigate("/service/dashboard")}>
-                Go to My Shop Dashboard
+              <button 
+                className="promo-later-btn" 
+                onClick={() => handleDismissPromo("hide_po_promo", "/service/dashboard")}
+              >
+                Do not show this again
               </button>
             </div>
           </div>
