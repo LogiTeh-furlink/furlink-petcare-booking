@@ -1060,3 +1060,260 @@ p {
   text-transform: capitalize;
 }
 
+/* ==========================================================================
+   MOBILE RESPONSIVENESS (SP DASHBOARD) - IMPROVED CARD DESIGN
+   ========================================================================== */
+
+@media (max-width: 768px) {
+  
+  /* 1. Main Container & Spacing */
+  .sp-dashboard-container {
+    width: 95%;
+    margin: 1rem auto;
+    padding-bottom: 80px; 
+  }
+
+  /* 2. Top Row: Stack Revenue and Buttons */
+  .dashboard-top-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    grid-template-areas: 
+      "revenue revenue"
+      "btn1 btn2";
+  }
+
+  .revenue-card { 
+    grid-area: revenue; 
+    padding: 1rem;
+    justify-content: space-between;
+  }
+  
+  .revenue-info h1 { font-size: 1rem; }
+  .revenue-value span { font-size: 1.4rem; }
+
+  .top-action-btn:nth-of-type(1) { grid-area: btn1; }
+  .top-action-btn:nth-of-type(2) { grid-area: btn2; }
+
+  .top-action-btn {
+    padding: 0.8rem;
+    font-size: 0.85rem;
+    border-radius: 12px;
+    width: 100%;
+  }
+
+  /* 3. Status Cards: Horizontal Scroll */
+  .status-cards-grid {
+    display: flex;
+    overflow-x: auto;
+    gap: 12px;
+    padding: 5px 5px 15px 5px; /* Bottom padding for shadow/scrollbar */
+    margin-right: -10px; 
+    padding-right: 15px;
+    scrollbar-width: none; /* Hide scrollbar Firefox */
+  }
+  
+  .status-cards-grid::-webkit-scrollbar { display: none; /* Hide scrollbar Chrome/Safari */ }
+
+  .status-card {
+    min-width: 130px;
+    flex-shrink: 0;
+    padding: 1rem;
+    border: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .status-card h3 { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; }
+  .status-count { font-size: 1.6rem; margin-top: 5px; }
+
+  /* 4. BOOKING TABLE -> MODERN CARD LAYOUT */
+  .bookings-table-container {
+    background: transparent;
+    box-shadow: none;
+    border: none;
+    margin-top: 1rem;
+  }
+
+  .table-header-title {
+    padding: 0 0 1rem 0;
+    background: transparent;
+  }
+  
+  .table-header-title h2 { font-size: 1.1rem; }
+
+  .sp-table { padding: 0; }
+  .sp-table thead { display: none; }
+
+  /* --- THE CARD STYLE --- */
+  .sp-table tbody tr {
+    display: flex;
+    flex-direction: column;
+    position: relative; /* Context for absolute badge */
+    background: white;
+    border-radius: 16px;
+    padding: 1.25rem;
+    margin-bottom: 1rem;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.05); /* Softer, deeper shadow */
+    border: 1px solid #f1f5f9;
+    gap: 0; /* We use margins on elements instead */
+  }
+
+  /* Reset Cell Styles */
+  .sp-table td {
+    display: block; 
+    border: none !important;
+    padding: 0;
+    font-size: 0.95rem;
+    width: 100%;
+  }
+
+  /* A. DATE & TIME (Top Left) */
+  .sp-table td.col-datetime {
+    order: 1;
+    margin-bottom: 1rem; /* Space below header */
+    padding-right: 90px; /* Make space for badge */
+  }
+  
+  .sp-table td.col-datetime .fw-bold {
+    font-size: 1rem;
+    color: var(--text-dark);
+    font-weight: 700;
+  }
+
+  /* B. STATUS BADGE (Top Right - Pinned) */
+  .sp-table td.col-status {
+    order: 2;
+    position: absolute;
+    top: 1.25rem;
+    right: 1.25rem;
+    width: auto;
+  }
+  
+  .badge {
+    font-size: 0.7rem;
+    padding: 4px 10px;
+    border-radius: 6px; /* Softer radius */
+  }
+
+  /* C. SERVICES (Middle Content) */
+  .sp-table td.col-service {
+    order: 3;
+    color: #475569;
+    font-size: 0.9rem;
+    margin-bottom: 0.5rem;
+    line-height: 1.5;
+  }
+  
+  /* Make "Service:" label distinct */
+  .sp-table td.col-service::before {
+    content: "Service: ";
+    font-weight: 600;
+    color: var(--primary-blue);
+    display: inline-block;
+    margin-right: 4px;
+  }
+
+  /* D. INFO ROW (Pets & Price side-by-side) */
+  /* We use flex order to sit them next to each other visually via margins, 
+     or we treat them as blocks. Let's stack them neatly. */
+
+  /* Pets (Above Price) */
+  .sp-table td.col-pets {
+    order: 4;
+    font-size: 0.85rem;
+    color: #64748b;
+    margin-bottom: 0.25rem;
+    display: inline-block;
+    background: #f8fafc;
+    padding: 4px 8px;
+    border-radius: 4px;
+    width: auto;
+  }
+
+  /* Price (Big & Bold) */
+  .sp-table td.col-price {
+    order: 5;
+    font-weight: 800;
+    font-size: 1.25rem; /* Bigger price */
+    color: var(--primary-blue);
+    margin: 0.5rem 0 1.25rem 0; /* Space before button */
+  }
+
+  /* E. ACTION BUTTON (Bottom) */
+  .sp-table td.col-action {
+    order: 6;
+    width: 100%;
+  }
+
+  .view-details-btn {
+    width: 100%;
+    padding: 0.9rem;
+    font-size: 0.9rem;
+    border: 1px solid var(--border);
+    background-color: #ffffff;
+    color: var(--primary-blue);
+    border-radius: 12px;
+    font-weight: 600;
+    /* Subtle interaction hint */
+    box-shadow: 0 2px 5px rgba(0,0,0,0.03); 
+  }
+  
+  .view-details-btn:active {
+    background-color: #f1f5f9;
+    transform: scale(0.98);
+  }
+
+  /* 5. MODAL RESPONSIVENESS (Standardized) */
+  .modal-content.wide-modal, 
+  .large-split-modal {
+    width: 100% !important;
+    height: 100% !important;
+    max-height: 100% !important;
+    border-radius: 0 !important;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .modal-body-scroll { padding: 1rem; }
+
+  /* Stack Modal Info */
+  .modal-summary-section {
+    grid-template-columns: 1fr;
+    gap: 0.8rem;
+    padding: 1rem;
+  }
+
+  .info-row {
+    flex-direction: row;
+    justify-content: space-between;
+    width: 100%;
+    border-bottom: 1px solid #f1f5f9;
+    padding-bottom: 0.5rem;
+  }
+  .info-row:last-child { border-bottom: none; }
+
+  /* Pet Details Stack */
+  .pet-grid { grid-template-columns: 1fr; }
+  .pet-info-row-split { flex-direction: column; gap: 0.5rem; }
+  .pet-images-container { grid-template-columns: 1fr; }
+
+  /* Action Buttons Stack */
+  .action-row { flex-direction: column; gap: 10px; }
+  .decline-area { width: 100%; flex-direction: column; }
+  .btn-approve, .btn-decline, .action-select { width: 100%; padding: 1rem; }
+
+  /* Calendar Fixes */
+  .calendar-body-split { display: flex; flex-direction: column; }
+  .calendar-main-column { border-right: none; border-bottom: 1px solid #f1f5f9; }
+  .cal-details-section { flex: 1; }
+  
+  /* Image Preview */
+  .large-proof-image { max-width: 95vw; max-height: 70vh; }
+  .close-preview-btn { top: -60px; right: 10px; background: white; color: black; }
+  
+  /* Review Stack */
+  .review-ratings { grid-template-columns: 1fr; gap: 1rem; }
+}

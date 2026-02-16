@@ -37,19 +37,6 @@ const BookingCalendar = ({ bookings = [], onClose }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
 
-  const checkIsPast = (dateStr, timeStr) => {
-    if (!dateStr || !timeStr) return false;
-    try {
-      const cleanTime = timeStr.includes('M') 
-        ? new Date(`2000-01-01 ${timeStr}`).toLocaleTimeString('en-GB', { hour12: false }).slice(0, 5)
-        : timeStr;
-      
-      const bookingDateTime = new Date(`${dateStr}T${cleanTime}`);
-      const now = new Date();
-      return (now - bookingDateTime) / (1000 * 60 * 60) >= 4;
-    } catch (e) { return false; }
-  };
-
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -58,6 +45,8 @@ const BookingCalendar = ({ bookings = [], onClose }) => {
   const selectedDayBookings = Array.isArray(bookings) 
     ? bookings.filter(b => b.booking_date === selectedDate) 
     : [];
+
+  const isBookingComplete = (b) => ['for review', 'rated'].includes(b.status);
 
   const getDayStats = (dateStr) => {
     const dayBookings = bookings.filter(b => b.booking_date === dateStr);
@@ -68,7 +57,6 @@ const BookingCalendar = ({ bookings = [], onClose }) => {
     let todayCount = 0;
 
     dayBookings.forEach(b => {
-      // Use the same helper used by the rest of the dashboard
       if (isBookingComplete(b)) {
         completed++;
       } else {
@@ -199,6 +187,16 @@ export default function SPDashboard() {
   const [successTitle, setSuccessTitle] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
 
+  // Lock Body Scroll when Modal is Open
+  useEffect(() => {
+    if (selectedBooking || showCalendar || previewImage || showSuccessModal) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => { document.body.style.overflow = 'unset'; }
+  }, [selectedBooking, showCalendar, previewImage, showSuccessModal]);
+
   useEffect(() => {
     fetchData();
   }, [navigate]);
@@ -218,7 +216,7 @@ export default function SPDashboard() {
       if (providerError) throw providerError;
       setProviderId(providerData.id);
 
-      // STEP 1: Fetch Bookings without the direct 'profiles' join to prevent errors
+      // STEP 1: Fetch Bookings
       const { data: bookingsData, error: bookingsError } = await supabase
         .from("bookings")
         .select(`
@@ -274,12 +272,10 @@ export default function SPDashboard() {
         .single();
 
       if (error) {
-        // No review found
         setBookingReview(null);
         return;
       }
 
-      // Fetch user profile separately using the user_id from the review
       if (data && data.user_id) {
         const { data: profileData } = await supabase
           .from("profiles")
@@ -303,7 +299,6 @@ export default function SPDashboard() {
   };
 
   const isBookingComplete = (b) => {
-    // A booking is complete if it's waiting for a review OR if it has already been rated
     return ['for review', 'rated'].includes(b.status);
   };
 
@@ -408,12 +403,10 @@ export default function SPDashboard() {
 
       if (error) throw error;
 
-      // Update local state immediately
       setBookings(prev => prev.map(b => b.id === selectedBooking.id ? { ...b, status: newStatus, ...updateData } : b));
       
-      closeModal(); // Close details modal first
+      closeModal(); 
 
-      // Trigger Success Modal
       setSuccessTitle(title);
       setSuccessMessage(msg);
       setShowSuccessModal(true);
@@ -433,8 +426,6 @@ export default function SPDashboard() {
 
   const handleViewDetails = async (booking) => {
     setSelectedBooking(booking);
-    
-    // If this is a completed booking, fetch the review
     if (isBookingComplete(booking)) {
       await fetchReviewForBooking(booking.id);
     }
@@ -444,9 +435,7 @@ export default function SPDashboard() {
     const stars = [];
     for (let i = 1; i <= 5; i++) {
       stars.push(
-        i <= rating ? 
-          <FaStar key={i} className="star-icon filled" /> : 
-          <FaRegStar key={i} className="star-icon empty" />
+        i <= rating ? <FaStar key={i} className="star-icon filled" /> : <FaRegStar key={i} className="star-icon empty" />
       );
     }
     return stars;
@@ -462,38 +451,11 @@ export default function SPDashboard() {
       {showSuccessModal && (
         <div className="modal-overlay" style={{ zIndex: 5000 }}>
           <div className="modal-content small-modal success-center" 
-              style={{ 
-                textAlign: 'center', 
-                padding: '2rem', 
-                display: 'flex', 
-                flexDirection: 'column', 
-                alignItems: 'center' // Ensures all children are centered horizontally
-              }}>
-            
-            <FaCheckCircle 
-              size={60} 
-              color="#22c55e" 
-              style={{ 
-                display: 'block',    // Makes it a block to respect auto margins
-                margin: '0 auto 1rem', // 0 top, auto sides (centers it), 1rem bottom
-              }} 
-            />
-            
-            <h3 style={{ color: 'var(--brand-blue)', fontWeight: '800', width: '100%' }}>
-              {successTitle}
-            </h3>
-            
-            <p style={{ color: '#64748b', margin: '10px 0 20px', width: '100%' }}>
-              {successMessage}
-            </p>
-            
-            <button 
-              className="btn-approve" 
-              style={{ width: '100%' }} 
-              onClick={() => setShowSuccessModal(false)}
-            >
-              Done
-            </button>
+              style={{ textAlign: 'center', padding: '2rem', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <FaCheckCircle size={60} color="#22c55e" style={{ display: 'block', margin: '0 auto 1rem' }} />
+            <h3 style={{ color: 'var(--brand-blue)', fontWeight: '800', width: '100%' }}>{successTitle}</h3>
+            <p style={{ color: '#64748b', margin: '10px 0 20px', width: '100%' }}>{successMessage}</p>
+            <button className="btn-approve" style={{ width: '100%' }} onClick={() => setShowSuccessModal(false)}>Done</button>
           </div>
         </div>
       )}
@@ -559,34 +521,31 @@ export default function SPDashboard() {
                 <th>Service to Avail</th>
                 <th>Total Amt</th>
                 <th>Status</th>
+                <th>Action</th>
               </tr>
             </thead>
             <tbody>
               {getFilteredBookings().length === 0 ? (
-                <tr><td colSpan="6" className="empty-state">No bookings found in this category.</td></tr>
+                <tr><td colSpan="6" className="empty-state"><FaPaw size={40} style={{ opacity: 0.2, marginBottom: '10px' }} />No bookings found in this category.</td></tr>
               ) : (
                 getFilteredBookings().map(booking => (
                   <tr key={booking.id}>
-                    <td><div className="fw-bold">{formatDateTime(booking.booking_date, booking.time_slot)}</div></td>
-                    <td>{booking.booking_pets?.length || 0} Pets</td>
-                    <td className="service-cell">
+                    <td className="col-datetime">
+                        <div className="fw-bold">{formatDateTime(booking.booking_date, booking.time_slot)}</div>
+                    </td>
+                    <td className="col-pets"><span>{booking.booking_pets?.length || 0} Pets</span></td>
+                    <td className="service-cell col-service">
                        {booking.booking_pets?.map(p => 
                          p.booking_services?.map(s => s.service_name).join(', ')
                        ).join(', ')}
                     </td>
-                    <td>{formatCurrency(booking.total_estimated_price)}</td>
-                    <td>
-                        {activeTab === 'completed' && booking.status === 'for review' ? (
-                          <span className="badge badge-to_rate">
-                            To Rate
-                          </span>
-                        ) : (
-                          <span className={`badge badge-${booking.status ? booking.status.replace(/\s+/g, '_').toLowerCase() : 'unknown'}`}>
-                            {booking.status}
-                          </span>
-                        )}
-                      </td>
-                    <td>
+                    <td className="col-price">{formatCurrency(booking.total_estimated_price)}</td>
+                    <td className="col-status">
+                        <span className={`badge badge-${booking.status === 'for review' ? 'for_review' : booking.status ? booking.status.replace(/\s+/g, '_').toLowerCase() : 'unknown'}`}>
+                          {booking.status === 'for review' && activeTab === 'completed' ? 'To Rate' : booking.status}
+                        </span>
+                    </td>
+                    <td className="col-action">
                       <button className="view-details-btn" onClick={() => handleViewDetails(booking)}>
                         View Details
                       </button>
@@ -613,7 +572,6 @@ export default function SPDashboard() {
                 <strong className="uppercase-status">{selectedBooking.status}</strong>
               </div>
               
-              {/* --- CUSTOMER DETAILS (Safe Access) --- */}
               <div className="info-row">
                 <span>Customer:</span>
                 <strong>
@@ -630,7 +588,6 @@ export default function SPDashboard() {
                 <span>Email:</span>
                 <strong style={{textTransform: 'lowercase'}}>{selectedBooking.profiles?.email || 'N/A'}</strong>
               </div>
-              {/* ----------------------------- */}
 
               <div className="info-row">
                 <span>Date & Time:</span>
@@ -693,30 +650,19 @@ export default function SPDashboard() {
                     </div>
                     <div className="pet-images-container">
                       {pet.vaccine_card_url && (
-                        <div 
-                          className="image-wrapper clickable-img" 
-                          onClick={() => setPreviewImage(pet.vaccine_card_url)}
-                        >
+                        <div className="image-wrapper clickable-img" onClick={() => setPreviewImage(pet.vaccine_card_url)}>
                           <p className="img-label">Vaccine Card <FaSearchPlus size={10} /></p>
                           <img src={pet.vaccine_card_url} alt="Vaccine Card" className="facebook-style-img" />
                         </div>
                       )}
-
                       {pet.illness_proof_url && (
-                        <div 
-                          className="image-wrapper clickable-img" 
-                          onClick={() => setPreviewImage(pet.illness_proof_url)}
-                        >
+                        <div className="image-wrapper clickable-img" onClick={() => setPreviewImage(pet.illness_proof_url)}>
                           <p className="img-label">Proof of Illness <FaSearchPlus size={10} /></p>
                           <img src={pet.illness_proof_url} alt="Illness Proof" className="facebook-style-img" />
                         </div>
                       )}
-
                       {pet.ai_generated_url && (
-                        <div 
-                          className="image-wrapper clickable-img ai-preview-border" 
-                          onClick={() => setPreviewImage(pet.ai_generated_url)}
-                        >
+                        <div className="image-wrapper clickable-img ai-preview-border" onClick={() => setPreviewImage(pet.ai_generated_url)}>
                           <p className="img-label">AI Style Preview <FaSearchPlus size={10} /></p>
                           <img src={pet.ai_generated_url} alt="AI Generated Preview" className="facebook-style-img" />
                         </div>
@@ -726,7 +672,6 @@ export default function SPDashboard() {
                 ))}
               </div>
 
-              {/* REVIEW SECTION - Only shows for completed bookings */}
               {isBookingComplete(selectedBooking) && (
                 <div className="review-section">
                   <h4>Customer Review</h4>
@@ -734,19 +679,12 @@ export default function SPDashboard() {
                     <div className="review-card">
                       <div className="review-header">
                         <div className="reviewer-info">
-                          <strong className="reviewer-name">
-                            {bookingReview.reviewer_name || 'Pet Owner'}
-                          </strong>
+                          <strong className="reviewer-name">{bookingReview.reviewer_name || 'Pet Owner'}</strong>
                           <span className="review-date">
-                            {new Date(bookingReview.created_at).toLocaleDateString('en-US', { 
-                              month: 'short', 
-                              day: 'numeric', 
-                              year: 'numeric' 
-                            })}
+                            {new Date(bookingReview.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                           </span>
                         </div>
                       </div>
-
                       <div className="review-ratings">
                         <div className="rating-item">
                           <span className="rating-label">Overall Experience:</span>
@@ -763,7 +701,6 @@ export default function SPDashboard() {
                           </div>
                         </div>
                       </div>
-
                       {bookingReview.comment && (
                         <div className="review-comment">
                           <p className="comment-label">Comment:</p>
@@ -781,57 +718,25 @@ export default function SPDashboard() {
             </div>
             <div className="modal-footer">
               {selectedBooking.status === 'paid' && !isBookingComplete(selectedBooking) && (
-  <div className="cancel-verification-wrapper" style={{ 
-      marginTop: '15px', 
-      borderTop: '1px solid #f1f5f9', 
-      paddingTop: '15px',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'flex-start',
-      gap: '12px'
-  }}>
-    
-    <div className="compact-refund-alert" style={{ 
-        display: 'flex', 
-        alignItems: 'center', 
-        gap: '8px', 
-        padding: '6px 10px',
-        borderRadius: '6px', 
-        background: '#fff1f2', 
-        borderLeft: '4px solid #e11d48',
-        marginRight: 'auto',
-        textAlign: 'left'
-    }}>
-      <FaExclamationTriangle style={{ color: '#e11d48', flexShrink: 0 }} size={12} />
-      <p style={{ margin: 0, fontSize: '0.75rem', color: '#be123c', fontWeight: '500', lineHeight: '1.2' }}>
-          Cancellation requires a manual refund of the <strong>{formatCurrency(selectedBooking.installation_payment)}</strong> (30% Down Payment) to the pet owner.
-      </p>
-    </div>
-    
-    <button 
-      className="btn-cancel-action" 
-      style={{ 
-        padding: '8px 16px', 
-        background: '#475569', 
-        color: 'white', 
-        border: 'none', 
-        borderRadius: '6px', 
-        fontWeight: '600', 
-        fontSize: '0.8rem',
-        whiteSpace: 'nowrap',
-        cursor: 'pointer',
-        transition: 'background 0.2s'
-      }} 
-      onClick={() => {
-        if(window.confirm(`Cancel booking? You must manually refund ${formatCurrency(selectedBooking.installation_payment)}.`)) {
-          handleAction('cancel');
-        }
-      }}
-    >
-      Cancel Booking
-    </button>
-  </div>
-)}
+                <div className="cancel-verification-wrapper" style={{ marginTop: '15px', borderTop: '1px solid #f1f5f9', paddingTop: '15px', display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: '12px' }}>
+                  <div className="compact-refund-alert" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 10px', borderRadius: '6px', background: '#fff1f2', borderLeft: '4px solid #e11d48', marginRight: 'auto', textAlign: 'left' }}>
+                    <FaExclamationTriangle style={{ color: '#e11d48', flexShrink: 0 }} size={12} />
+                    <p style={{ margin: 0, fontSize: '0.75rem', color: '#be123c', fontWeight: '500', lineHeight: '1.2' }}>
+                        Cancellation requires a manual refund of the <strong>{formatCurrency(selectedBooking.installation_payment)}</strong> (30% Down Payment) to the pet owner.
+                    </p>
+                  </div>
+                  <button className="btn-cancel-action" 
+                    style={{ padding: '8px 16px', background: '#475569', color: 'white', border: 'none', borderRadius: '6px', fontWeight: '600', fontSize: '0.8rem', whiteSpace: 'nowrap', cursor: 'pointer', transition: 'background 0.2s' }} 
+                    onClick={() => {
+                      if(window.confirm(`Cancel booking? You must manually refund ${formatCurrency(selectedBooking.installation_payment)}.`)) {
+                        handleAction('cancel');
+                      }
+                    }}
+                  >
+                    Cancel Booking
+                  </button>
+                </div>
+              )}
 
               {selectedBooking.status === 'pending' && (
                 <div className="action-row">
