@@ -26,6 +26,41 @@ const LoginPage = () => {
   const [showPromoModal, setShowPromoModal] = useState(false);
   const [showPetOwnerPromo, setShowPetOwnerPromo] = useState(false);
   const [showRoleChangeConfirmation, setShowRoleChangeConfirmation] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [agreedToUpgradeTerms, setAgreedToUpgradeTerms] = useState(false);  
+
+  // Handler for when SP clicks "Explore Shops" in the PetOwnerPromo modal
+  const initiateUpgradeFromPromo = () => {
+    setShowPetOwnerPromo(false); // Close the promo modal first
+    setShowUpgradeModal(true);   // Open the legal confirmation modal
+    setAgreedToUpgradeTerms(false);
+  };
+
+  // Handler for the FINAL database update
+  const handleFinalUpgrade = async () => {
+    if (!agreedToUpgradeTerms) return;
+    
+    setLoading(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { error } = await supabase
+        .from("profiles")
+        .update({ role: "both" })
+        .eq("id", user.id);
+
+      if (error) throw error;
+
+      setShowUpgradeModal(false);
+      setShowRoleChangeConfirmation(true); // Show the final success screen
+    } catch (err) {
+      console.error("Error upgrading role:", err);
+      alert("Failed to update account role.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // --- ADD THESE STATES ---
   const [showReactivateModal, setShowReactivateModal] = useState(false);
@@ -363,13 +398,9 @@ const LoginPage = () => {
               <FaTimes />
             </button>
             
-            <div className="promo-image-wrapper" onClick={handleBecomeBoth}>
-                {/* UPDATED IMAGE SOURCE BELOW */}
-                <img 
-                  src={becomePetOwnerImg} 
-                  alt="Become a pet owner" 
-                  className="promo-main-image"
-                />
+            {/* Change handleBecomeBoth to initiateUpgradeFromPromo */}
+            <div className="promo-image-wrapper" onClick={initiateUpgradeFromPromo}>
+                <img src={becomePetOwnerImg} alt="Become a pet owner" className="promo-main-image" />
                 <div className="promo-overlay-text">
                   <h2>Need Grooming?</h2>
                   <p>Discover and book top-rated pet stylists for your own fur babies!</p>
@@ -383,6 +414,59 @@ const LoginPage = () => {
               >
                 Do not show this again
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* UPGRADE LEGAL MODAL */}
+      {showUpgradeModal && (
+        <div className="modal-overlay">
+          <div className="modal-content upgrade-modal">
+            <button className="close-modal-btn" onClick={() => setShowUpgradeModal(false)}>
+              <FaTimes />
+            </button>
+            <div className="modal-header-upgrade">
+              <h3>Upgrade to Dual Account</h3>
+              <p>You are about to unlock Pet Owner features alongside your Provider profile.</p>
+            </div>
+            <div className="upgrade-terms-box">
+              <p>
+                By upgrading, you agree to our{" "}
+                <strong>
+                  <a 
+                    href="https://mdhudfatvdipxwufcbis.supabase.co/storage/v1/object/public/agreements/terms_general.pdf" 
+                    target="_blank" 
+                    rel="noreferrer"
+                    className="view-terms-link"
+                  >
+                    Terms and Conditions
+                  </a>
+                </strong>
+                . Please review the document carefully.
+              </p>
+            </div>
+            <div className="modal-footer-upgrade">
+              <label className="checkbox-label">
+                <input 
+                  type="checkbox" 
+                  checked={agreedToUpgradeTerms} 
+                  onChange={(e) => setAgreedToUpgradeTerms(e.target.checked)} 
+                />
+                <span>I have read and agree to the Terms and Conditions</span>
+              </label>
+              <div className="modal-actions">
+                <button 
+                  className="modal-ok-btn" 
+                  onClick={handleFinalUpgrade} 
+                  disabled={!agreedToUpgradeTerms || loading}
+                >
+                  {loading ? "Processing..." : "Confirm Upgrade"}
+                </button>
+                <button className="modal-cancel-btn" onClick={() => setShowUpgradeModal(false)}>
+                  Cancel
+                </button>
+              </div>
             </div>
           </div>
         </div>
