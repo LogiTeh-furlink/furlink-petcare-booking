@@ -165,6 +165,8 @@ const SignUpPage = () => {
 // You can use this for the Privacy Policy link
 const getPrivacyPath = () => `${BASE_URL}/privacy_policy.pdf`;
 
+const isFormValid = Object.keys(validate()).length === 0 && agreedToTerms;
+
   return (
     <div className="signup-page">
       <Header hideSignup={true} />
@@ -173,7 +175,21 @@ const getPrivacyPath = () => `${BASE_URL}/privacy_policy.pdf`;
           <h2>Create Your Account</h2>
           <p className="subtitle">Join the Furlink community today</p>
 
-          {errors.general && <div className="general-error">{errors.general}</div>}
+          {errors.general && (
+          <div className="error-alert-box animate-shake">
+            <div className="alert-icon">
+              <FaExclamationCircle />
+            </div>
+            <div className="alert-content">
+              <p className="alert-title">Registration Failed</p>
+              <p className="alert-message">
+                {errors.general.includes("already registered") 
+                  ? "This email is already associated with an account. Please try logging in instead." 
+                  : errors.general}
+              </p>
+            </div>
+          </div>
+        )}
 
           <div className="form-row">
             <div className="input-wrap">
@@ -294,7 +310,11 @@ const getPrivacyPath = () => `${BASE_URL}/privacy_policy.pdf`;
           </div>
           {submitted && errors.terms && <span className="field-error-msg" style={{marginBottom: '1rem'}}><FaExclamationCircle /> {errors.terms}</span>}
 
-          <button className="btn-primary" type="submit" disabled={loading}>
+          <button 
+            className="btn-primary" 
+            type="submit" 
+            disabled={loading || !isFormValid}
+          >
             {loading ? "Processing..." : "Register"}
           </button>
           
