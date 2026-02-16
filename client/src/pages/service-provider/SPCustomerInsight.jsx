@@ -306,14 +306,17 @@ export default function SPCustomerInsight() {
 
     const now = new Date();
     
-const getRange = (filter, isPrevious = false) => {
-      const today = new Date(); // Use a fixed 'now'
+    // ============================================
+    // EXACT SAME getRange FUNCTION FROM SPSALES
+    // ============================================
+    const getRange = (filter, isPrevious = false) => {
+      const today = new Date();
 
-      // CUSTOM RANGE
+      // Custom filter
       if (filter === 'custom' && customDateStart && customDateEnd) {
         const start = new Date(customDateStart);
         const end = new Date(customDateEnd);
-        end.setHours(23, 59, 59, 999); // Ensure end of day
+        end.setHours(23, 59, 59, 999); // Force end of day
         
         if (isPrevious) {
           const duration = end - start;
@@ -329,61 +332,63 @@ const getRange = (filter, isPrevious = false) => {
       let start = new Date();
       let end = new Date();
 
+      // Weekly filter
       if (filter === 'weekly') {
-        // WEEKLY: Rolling 7 Days
-        if (isPrevious) {
-          start.setDate(today.getDate() - 14);
-          end.setDate(today.getDate() - 7);
-          end.setHours(23, 59, 59, 999);
-        } else {
-          start.setDate(today.getDate() - 7);
-          end = today;
-        }
-      } else if (filter === 'monthly') {
-        // MONTHLY: Period-to-Date (Fair Comparison)
         if (isPrevious) { 
-          start.setMonth(today.getMonth() - 1, 1); 
-          
-          // Fix: End date is the SAME DAY of previous month
+          start.setDate(today.getDate() - 14); 
+          end.setDate(today.getDate() - 7); 
+          end.setHours(23, 59, 59, 999);
+        } else { 
+          start.setDate(today.getDate() - 7); 
+          end = new Date(today);
+          end.setHours(23, 59, 59, 999);
+        }
+
+      // Monthly filter
+      } else if (filter === 'monthly') {
+        if (isPrevious) { 
+          start = new Date(today.getFullYear(), today.getMonth() - 1, 1);
           const daysInPrevMonth = new Date(today.getFullYear(), today.getMonth(), 0).getDate();
           const targetDay = Math.min(today.getDate(), daysInPrevMonth);
-          
           end = new Date(today.getFullYear(), today.getMonth() - 1, targetDay);
           end.setHours(23, 59, 59, 999);
         } else { 
           start = new Date(today.getFullYear(), today.getMonth(), 1);
-          end = today;
-        }
-      } else {
-        // YEARLY: Year-to-Date (Fair Comparison)
-        if (isPrevious) { 
-          start = new Date(today.getFullYear() - 1, 0, 1);
-          
-          // Fix: End date is SAME DATE of previous year
-          if (today.getMonth() === 1 && today.getDate() === 29) {
-             end = new Date(today.getFullYear() - 1, 1, 28); // Handle leap year
-          } else {
-             end = new Date(today.getFullYear() - 1, today.getMonth(), today.getDate());
-          }
+          end = new Date(today.getFullYear(), today.getMonth() + 1, 0); // Last day of current month
           end.setHours(23, 59, 59, 999);
-        } else { 
-          start = new Date(today.getFullYear(), 0, 1);
-          end = today;
         }
+
+      // Yearly filter
+      } else if (filter === 'yearly') {
+        let targetYear = selectedYear || today.getFullYear();
+        
+        if (isPrevious) {
+          targetYear = targetYear - 1;
+        }
+
+        start = new Date(targetYear, 0, 1); // Jan 1
+        end = new Date(targetYear, 11, 31, 23, 59, 59, 999); // Dec 31
       }
+
       return { start, end };
     };
 
     const currentRange = getRange(activeFilter);
+    const previousRange = getRange(activeFilter, true);
+    
+    // ============================================
+    // EXACT SAME filterByRange FUNCTION FROM SPSALES
+    // ============================================
     const filterByRange = (list, range) => {
       return list.filter(b => {
-        const d = new Date(b.booking_date);
-        return d >= range.start && d <= (range.end || now);
+        // Create date at midnight local time (not UTC)
+        const dateParts = b.booking_date.split('-');
+        const d = new Date(dateParts[0], dateParts[1] - 1, dateParts[2]);
+        return d >= range.start && d <= range.end;
       });
     };
 
     const currentBookings = filterByRange(rawBookings, currentRange);
-    const previousRange = getRange(activeFilter, true);
     const previousBookings = filterByRange(rawBookings, previousRange);
 
     const isBookingComplete = (b) => {
@@ -432,10 +437,6 @@ const getRange = (filter, isPrevious = false) => {
       const diff = ((curr - prev) / prev) * 100;
       return { val: Math.abs(Math.round(diff)), dir: diff > 0 ? 'up' : diff < 0 ? 'down' : 'neutral' };
     };
-
-    const uniqueCancelledBookings = new Set(
-      currentBookings.filter(b => b.status === 'cancelled').map(b => b.id)
-    );
 
     const uniqueCustomers = new Set(current.validPets.map(p => p.user_id));
 
@@ -679,7 +680,9 @@ const getRange = (filter, isPrevious = false) => {
     return { 
       revenue: current.rev, 
       validCount: current.count, 
-      cancellations: uniqueCancelledBookings.size, 
+      cancellations: activeFilter === 'custom' && customDateStart && customDateEnd && customDateEnd === new Date().toISOString().split('T')[0]
+      ? rawBookings.filter(b => b.status === 'cancelled').length
+      : currentBookings.filter(b => b.status === 'cancelled').length,
       avg: uniqueCustomers.size > 0 ? Math.round(current.count / uniqueCustomers.size) : 0, 
       revTrend: getTrend(current.rev, previous.rev), 
       bookTrend: getTrend(current.count, previous.count),
@@ -750,9 +753,9 @@ const getRange = (filter, isPrevious = false) => {
               {activeFilter === 'custom' && (
                 <div className="custom-date-range">
                   <label className="date-label">From:</label>
-                  <input type="date" className="date-input" value={customDateStart} onChange={(e) => setCustomDateStart(e.target.value)} max={customDateEnd} min={listingApprovedDate} />
+                  <input type="date" className="date-input" value={customDateStart} onChange={(e) => setCustomDateStart(e.target.value)} max={customDateEnd || new Date().toISOString().split('T')[0]} min={listingApprovedDate} />
                   <label className="date-label">To:</label>
-                  <input type="date" className="date-input" value={customDateEnd} onChange={(e) => setCustomDateEnd(e.target.value)} min={listingApprovedDate || customDateStart} />
+                  <input type="date" className="date-input" value={customDateEnd} onChange={(e) => setCustomDateEnd(e.target.value)} min={listingApprovedDate || customDateStart} max={new Date().toISOString().split('T')[0]} />
                 </div>
               )}
             </div>
@@ -853,7 +856,7 @@ const getRange = (filter, isPrevious = false) => {
                 </div>
               </div>
               <div className="kpi-card">
-                <span className="kpi-label">Total Bookings</span>
+                <span className="kpi-label">Total Completed Bookings</span>
                 <div className="kpi-row">
                   <span className="kpi-value">{analytics.validCount}</span>
                   <TrendIndicator trend={analytics.bookTrend} />

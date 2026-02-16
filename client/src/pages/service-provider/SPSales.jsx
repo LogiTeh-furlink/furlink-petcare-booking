@@ -217,10 +217,11 @@ export default function SPSales() {
     const getRange = (filter, isPrevious = false) => {
       const today = new Date();
 
+      // Custom filter
       if (filter === 'custom' && customDateStart && customDateEnd) {
         const start = new Date(customDateStart);
         const end = new Date(customDateEnd);
-        end.setHours(23, 59, 59, 999);
+        end.setHours(23, 59, 59, 999); // Force end of day
         
         if (isPrevious) {
           const duration = end - start;
@@ -236,6 +237,7 @@ export default function SPSales() {
       let start = new Date();
       let end = new Date();
 
+      // Weekly filter
       if (filter === 'weekly') {
         if (isPrevious) { 
           start.setDate(today.getDate() - 14); 
@@ -243,8 +245,11 @@ export default function SPSales() {
           end.setHours(23, 59, 59, 999);
         } else { 
           start.setDate(today.getDate() - 7); 
-          end = today;
+          end = new Date(today);
+          end.setHours(23, 59, 59, 999);
         }
+
+      // Monthly filter
       } else if (filter === 'monthly') {
         if (isPrevious) { 
           start = new Date(today.getFullYear(), today.getMonth() - 1, 1);
@@ -254,39 +259,22 @@ export default function SPSales() {
           end.setHours(23, 59, 59, 999);
         } else { 
           start = new Date(today.getFullYear(), today.getMonth(), 1);
-          end = today;
+          end = new Date(today.getFullYear(), today.getMonth() + 1, 0); // Last day of current month
+          end.setHours(23, 59, 59, 999);
         }
+
+      // Yearly filter
       } else if (filter === 'yearly') {
-        if (selectedYear) {
-          start = new Date(selectedYear, 0, 1);
-          end = new Date(selectedYear, 11, 31, 23, 59, 59, 999);
-          if (isPrevious) {
-            start = new Date(selectedYear - 1, 0, 1);
-            end = new Date(selectedYear - 1, 11, 31, 23, 59, 59, 999);
-          }
-        } else {
-          if (isPrevious) { 
-            start = new Date(today.getFullYear() - 1, 0, 1);
-            if (today.getMonth() === 1 && today.getDate() === 29) {
-              end = new Date(today.getFullYear() - 1, 1, 28);
-            } else {
-              end = new Date(today.getFullYear() - 1, today.getMonth(), today.getDate());
-            }
-            end.setHours(23, 59, 59, 999);
-          } else { 
-            start = new Date(today.getFullYear(), 0, 1);
-            end = today;
-          }
+        let targetYear = selectedYear || today.getFullYear();
+        
+        if (isPrevious) {
+          targetYear = targetYear - 1;
         }
-      } else {
-        if (isPrevious) { 
-          start.setFullYear(today.getFullYear() - 1, 0, 1); 
-          end.setFullYear(today.getFullYear() - 1, 11, 31); 
-        } else { 
-          start = new Date(today.getFullYear(), 0, 1);
-          end = today;
-        }
+
+        start = new Date(targetYear, 0, 1); // Jan 1
+        end = new Date(targetYear, 11, 31, 23, 59, 59, 999); // Dec 31
       }
+
       return { start, end };
     };
 
@@ -301,8 +289,10 @@ export default function SPSales() {
     // Filter bookings by date range
     const filterByRange = (list, range) => {
       return list.filter(b => {
-        const d = new Date(b.booking_date);
-        return d >= range.start && d <= (range.end || now);
+        // Create date at midnight local time (not UTC)
+        const dateParts = b.booking_date.split('-');
+        const d = new Date(dateParts[0], dateParts[1] - 1, dateParts[2]);
+        return d >= range.start && d <= range.end;
       });
     };
 
@@ -626,7 +616,7 @@ export default function SPSales() {
       if (idx !== -1 && idx !== undefined) {
         potentialRevenue[idx] += revenue;
         
-        if (booking.status === 'cancelled' || booking.status === 'declined') {
+        if (booking.status === 'cancelled') {
           cancellationsPerPeriod[idx] += 1;
         }
         
@@ -690,7 +680,10 @@ export default function SPSales() {
     return { 
       revenue: current.rev, 
       validCount: current.count, 
-      cancellations: new Set(currentBookings.filter(b => b.status === 'cancelled' || b.status === 'declined').map(b => b.id)).size, 
+      cancellations: activeFilter === 'custom' && customDateStart && customDateEnd && customDateEnd === new Date().toISOString().split('T')[0]
+      ? rawBookings.filter(b => b.status === 'cancelled').length
+      : currentBookings.filter(b => b.status === 'cancelled').length,
+      
       avg: new Set(current.validPets.map(p => p.user_id)).size > 0 
         ? Math.round(current.count / new Set(current.validPets.map(p => p.user_id)).size) 
         : 0, 
@@ -997,7 +990,7 @@ export default function SPSales() {
               </div>
               
               <div className="kpi-card">
-                <span className="kpi-label">Total Bookings</span>
+                <span className="kpi-label">Total Completed Bookings</span>
                 <div className="kpi-row">
                   <span className="kpi-value">{analytics.validCount}</span>
                   <TrendIndicator trend={analytics.bookTrend} />
