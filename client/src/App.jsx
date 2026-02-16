@@ -6,8 +6,7 @@ import LandingPage from "./pages/public/LandingPage";
 import AboutPage from "./pages/public/AboutPage";
 import LoginPage from "./pages/public/LoginPage";
 import SignUpPage from "./pages/public/SignUpPage";
-import TandC from "./pages/public/TandC"; 
-import PrivacyPolicy from "./pages/public/PrivacyPolicy"; 
+
 // REMOVED: import SuspendedPage from "./pages/public/SuspendedPage"; 
 
 // Pet Owner Pages
@@ -58,8 +57,6 @@ function App() {
         <Route path="/about" element={<AboutPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignUpPage />} />
-        <Route path="/terms" element={<TandC />} />
-        <Route path="/privacy" element={<PrivacyPolicy />} />
 
         {/* ==========================
             PROTECTED ROUTES (Logged In)
