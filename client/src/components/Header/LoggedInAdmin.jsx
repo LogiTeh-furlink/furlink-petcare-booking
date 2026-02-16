@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { FaBell, FaUserCircle, FaSignOutAlt } from "react-icons/fa";
+import { FaBell, FaUserCircle, FaSignOutAlt, FaBars, FaTimes } from "react-icons/fa";
 import { supabase } from "../../config/supabase";
 import "./LoggedInAdmin.css";
 import logo from "../../assets/logo.png";
@@ -9,10 +9,13 @@ const LoggedInAdmin = () => {
   const navigate = useNavigate();
   const [showNotif, setShowNotif] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
+  const [showMobileMenu, setShowMobileMenu] = useState(false); // NEW: Mobile Drawer State
   const [notifications, setNotifications] = useState([]);
   const [profile, setProfile] = useState(null);
 
-  const notifRef = useRef();
+  // SEPARATE REFS: Prevents mobile/desktop click collision
+  const desktopNotifRef = useRef();
+  const mobileNotifRef = useRef();
   const menuRef = useRef();
 
   useEffect(() => {
@@ -42,9 +45,14 @@ const LoggedInAdmin = () => {
 
   useEffect(() => {
     const handleClickOutside = (e) => {
-      if (notifRef.current && !notifRef.current.contains(e.target)) {
+      // Check outside notification refs
+      const outsideDesktopNotif = desktopNotifRef.current && !desktopNotifRef.current.contains(e.target);
+      const outsideMobileNotif = mobileNotifRef.current && !mobileNotifRef.current.contains(e.target);
+      
+      if (outsideDesktopNotif && outsideMobileNotif) {
         setShowNotif(false);
       }
+      
       if (menuRef.current && !menuRef.current.contains(e.target)) {
         setShowMenu(false);
       }
@@ -61,63 +69,105 @@ const LoggedInAdmin = () => {
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
+  // Shared Notification Component
+  const NotificationContent = () => (
+    <div className="notif-dropdown">
+      {notifications.length === 0 ? (
+        <div className="notif-empty">No notifications</div>
+      ) : (
+        notifications.slice(0, 3).map((notif) => (
+          <div key={notif.id} className={`notif-item ${notif.read ? "" : "unread"}`}>
+            <strong>{notif.title}</strong>
+            <p>{notif.message}</p>
+          </div>
+        ))
+      )}
+    </div>
+  );
+
   return (
-    <header className="loggedin-header">
-      <div className="navbar-container">
-        {/* Left Logo */}
-        <div className="header-left" onClick={() => navigate("/admin-dashboard")}>
-          <img src={logo} alt="Furlink logo" className="header-logo" />
-        </div>
-
-        {/* Right Section */}
-        <div className="nav-right">
-
-          {/* Notifications */}
-          <div ref={notifRef} className="notif-wrapper">
-            <button className="icon-btn" onClick={() => setShowNotif(!showNotif)}>
-              <FaBell className="icon" />
-              {unreadCount > 0 && <span className="notif-dot">{unreadCount}</span>}
-            </button>
-
-            {showNotif && (
-              <div className="notif-dropdown">
-                {notifications.length === 0 ? (
-                  <div className="notif-empty">No notifications</div>
-                ) : (
-                  notifications.slice(0, 3).map((notif) => (
-                    <div
-                      key={notif.id}
-                      className={`notif-item ${notif.read ? "" : "unread"}`}
-                    >
-                      <strong>{notif.title}</strong>
-                      <p>{notif.message}</p>
-                    </div>
-                  ))
-                )}
-              </div>
-            )}
+    <>
+      <header className="loggedin-header">
+        <div className="navbar-container">
+          
+          {/* === DESKTOP LAYOUT === */}
+          <div className="header-left desktop-only-group" onClick={() => navigate("/admin-dashboard")}>
+            <img src={logo} alt="Furlink logo" className="header-logo" />
           </div>
 
-          {/* Profile Menu */}
-          <div ref={menuRef} className="profile-wrapper">
-            <button className="icon-btn" onClick={() => setShowMenu(!showMenu)}>
-              <FaUserCircle className="icon" />
-            </button>
+          <div className="nav-right desktop-only-group">
+            <div ref={desktopNotifRef} className="notif-wrapper">
+              <button className="icon-btn" onClick={() => setShowNotif(!showNotif)}>
+                <FaBell className="icon" />
+                {unreadCount > 0 && <span className="notif-dot">{unreadCount}</span>}
+              </button>
+              {showNotif && <NotificationContent />}
+            </div>
 
-            {showMenu && (
-              <div className="dropdown">
-                <p className="user-name">{profile?.first_name || "User"}</p>
+            <div ref={menuRef} className="profile-wrapper">
+              <button className="icon-btn" onClick={() => setShowMenu(!showMenu)}>
+                <FaUserCircle className="icon" />
+              </button>
+              {showMenu && (
+                <div className="dropdown">
+                  <p className="user-name">{profile?.first_name || "Admin"}</p>
+                  <button className="logout-btn" onClick={handleLogout}>
+                    <FaSignOutAlt /> Logout
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
 
-                <button className="logout-btn" onClick={handleLogout}>
-                  <FaSignOutAlt /> Logout
+          {/* === MOBILE LAYOUT === */}
+          <div className="mobile-nav-container mobile-only-group">
+            <div className="mobile-left-nav">
+              <button className="icon-btn" onClick={() => setShowMobileMenu(true)}>
+                <FaBars className="icon" />
+              </button>
+              
+              <div ref={mobileNotifRef} className="notif-wrapper">
+                <button className="icon-btn" onClick={() => setShowNotif(!showNotif)}>
+                  <FaBell className="icon" />
+                  {unreadCount > 0 && <span className="notif-dot">{unreadCount}</span>}
                 </button>
+                {showNotif && <NotificationContent />}
               </div>
-            )}
+            </div>
+
+            <div className="mobile-right-nav" onClick={() => navigate("/admin-dashboard")}>
+              <img src={logo} alt="Furlink logo" className="header-logo" />
+            </div>
           </div>
 
+        </div>
+      </header>
+
+      {/* === MOBILE SIDEBAR (LEFT) === */}
+      <div className={`mobile-drawer-overlay ${showMobileMenu ? 'active' : ''}`} onClick={() => setShowMobileMenu(false)}></div>
+      <div className={`mobile-drawer ${showMobileMenu ? 'active' : ''}`}>
+        <div className="mobile-drawer-header">
+           <img src={logo} alt="Logo" className="mobile-drawer-logo" />
+           <button className="close-drawer-btn" onClick={() => setShowMobileMenu(false)}>
+             <FaTimes />
+           </button>
+        </div>
+        <div className="mobile-drawer-content">
+          <div className="drawer-user-card">
+            <FaUserCircle className="drawer-user-icon" />
+            <div>
+              <p className="drawer-welcome">Admin Panel</p>
+              <p className="drawer-username">{profile?.first_name || "Admin"}</p>
+            </div>
+          </div>
+          <div className="drawer-footer">
+            <button className="drawer-logout-btn" onClick={handleLogout}>
+              <FaSignOutAlt /> Logout
+            </button>
+          </div>
         </div>
       </div>
-    </header>
+    </>
   );
 };
 
