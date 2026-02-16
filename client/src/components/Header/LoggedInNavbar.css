@@ -1,5 +1,7 @@
 /* src/components/Header/LoggedInNavbar.css */
 
+/* ... (Keep all your existing desktop styles above) ... */
+
 /* ===== Logged-in Header Wrapper ===== */
 .loggedin-header {
   background-color: white;
@@ -34,12 +36,18 @@
   display: block;
 }
 
-/* ===== Right Section ===== */
+/* ===== Right Section (Desktop) ===== */
 .nav-right {
   display: flex;
   align-items: center;
   gap: 1.5rem;
   position: relative;
+}
+
+.desktop-btn-group {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
 }
 
 /* ===== Provider Button (Default) ===== */
@@ -48,7 +56,7 @@
   color: #0e2679;
   font-weight: 600;
   padding: 0.6rem 1.4rem;
-  border: 1.5px solid #0e2679; /* Added border for better visibility */
+  border: 1.5px solid #0e2679;
   border-radius: 2rem;
   cursor: pointer;
   font-size: 0.95rem;
@@ -244,14 +252,6 @@
 .reject-reason-list { margin: 0; padding-left: 20px; color: #7f1d1d; font-size: 0.9rem; }
 .reject-reason-item { margin-bottom: 4px; }
 
-/* Mobile Responsiveness */
-@media (max-width: 768px) {
-  .loggedin-header { width: 95%; padding: 0.8rem 1rem; }
-  .nav-right { gap: 0.8rem; }
-  .provider-btn { padding: 0.5rem 1rem; font-size: 0.8rem; }
-  .profile-dropdown { right: -10px; }
-}
-
 /* Bell Icon Badge */
 .notif-wrapper {
   position: relative;
@@ -392,4 +392,145 @@
   font-size: 30px;
   margin-bottom: 10px;
   opacity: 0.2;
+}
+
+/* ==========================================================================
+   MOBILE RESPONSIVE STYLES (Added at the end)
+   ========================================================================== */
+
+/* 1. Default Visibility (Desktop) */
+.mobile-only-group {
+  display: none !important;
+}
+
+/* 2. Mobile Drawer Base Styles (LEFT SIDE) */
+.mobile-drawer-overlay {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(0, 0, 0, 0.4); z-index: 2999;
+  opacity: 0; visibility: hidden; transition: all 0.3s ease;
+}
+.mobile-drawer-overlay.active { opacity: 1; visibility: visible; }
+
+.mobile-drawer {
+  position: fixed; 
+  top: 0; 
+  left: -300px; /* START OFF-SCREEN LEFT */
+  width: 260px; 
+  height: 100%;
+  background: white; 
+  z-index: 3000;
+  box-shadow: 2px 0 15px rgba(0,0,0,0.1); /* Shadow to right */
+  transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1); /* Animate LEFT property */
+  display: flex; flex-direction: column;
+}
+
+.mobile-drawer.active { 
+  left: 0; /* SLIDE IN TO LEFT 0 */
+}
+
+.mobile-drawer-header {
+  padding: 15px 20px; border-bottom: 1px solid #f0f0f0;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.mobile-drawer-logo { height: 30px; }
+.close-drawer-btn { font-size: 1.2rem; background:none; border:none; color:#666; cursor:pointer;}
+
+.mobile-drawer-content { flex: 1; padding: 20px; overflow-y: auto; display:flex; flex-direction:column; }
+
+/* Drawer Elements */
+.drawer-user-card {
+  display: flex; align-items: center; gap: 12px; padding: 12px;
+  background-color: #f8faff; border-radius: 10px; margin-bottom: 20px;
+}
+.drawer-user-icon { font-size: 2rem; color: #0e2679; }
+.drawer-welcome { font-size: 0.75rem; color: #888; margin: 0; }
+.drawer-username { font-weight: 700; color: #0e2679; margin: 0; }
+
+.drawer-section { margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid #eee; }
+
+.drawer-action-btn {
+  width: 100%; background: #0e2679; color: white;
+  padding: 10px; border-radius: 25px; border: none; font-weight: 600;
+  cursor: pointer; margin-bottom: 10px;
+}
+
+.drawer-links { display: flex; flex-direction: column; gap: 5px; margin-bottom: auto; }
+
+.drawer-link-item {
+  width: 100%; text-align: left; padding: 10px; background: none; border: none;
+  font-size: 0.95rem; color: #333; display: flex; align-items: center; gap: 10px;
+  cursor: pointer; border-radius: 8px;
+}
+.drawer-link-item:hover { background-color: #f5f5f5; color: #0e2679; }
+
+.drawer-footer { margin-top: 20px; border-top: 1px solid #eee; padding-top: 15px; }
+.drawer-logout-btn {
+  width: 100%; display: flex; align-items: center; gap: 10px; color: #e74c3c;
+  background: none; border: none; font-weight: 600; cursor: pointer; padding: 5px;
+}
+
+/* ============================
+   MEDIA QUERIES (BREAKPOINT) 
+   ============================ */
+@media (max-width: 768px) {
+  /* 1. Header Layout Adjustments */
+  .loggedin-header {
+    width: 95%;
+    padding: 0.6rem 1rem;
+    margin: 1rem auto;
+  }
+  
+  /* 2. Hide Desktop Elements */
+  .desktop-only-group {
+    display: none !important;
+  }
+
+  /* 3. Show & Layout Mobile Elements */
+  .mobile-only-group {
+    display: flex !important;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+  }
+
+  /* Left side: Hamburger & Bell */
+  .mobile-left-nav {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+  }
+
+  /* Right side: Logo */
+  .mobile-right-nav {
+    cursor: pointer;
+  }
+
+  .header-logo {
+    height: 32px;
+  }
+
+  /* 4. NOTIFICATION DROPDOWN FIX (LEFT ALIGNMENT) */
+  /* Remove relative positioning from the wrapper on mobile so dropdown positions to the header */
+  .mobile-left-nav .notif-wrapper {
+    position: static;
+  }
+
+  .notif-dropdown {
+    position: absolute;
+    /* Anchor top of dropdown to bottom of header */
+    top: 100%; 
+    
+    /* Force Left Alignment */
+    left: 0 !important; 
+    right: auto !important;
+    
+    /* Remove any margins that might center it */
+    margin: 10px 0 0 0 !important;
+    
+    /* Adjust width to be readable but not full screen if not needed */
+    width: 85vw !important;
+    max-width: 320px;
+    
+    z-index: 3001;
+  }
 }
