@@ -13,41 +13,6 @@ import Header from "../../components/Header/LoggedInNavbar";
 import Footer from "../../components/Footer/Footer";
 import "./ListingInfo.css";
 
-// --- Terms & Conditions Modal ---
-const TermsModal = ({ isOpen, onClose, onAgree }) => {
-  if (!isOpen) return null;
-
-  return (
-    <div className="modal-overlay">
-      <div className="modal-content terms-modal">
-        <div className="modal-header">
-          <h2>Terms & Conditions</h2>
-          <button className="close-btn" onClick={onClose}><X size={20} /></button>
-        </div>
-        <div className="modal-body terms-scroll">
-          <h3>1. Booking Policy</h3>
-          <p>By booking a grooming session, you agree to provide accurate information regarding your pet's breed, weight, and behavior.</p>
-          
-          <h3>2. Health and Safety</h3>
-          <p>You certify that your pet is up-to-date on all required vaccinations. You must inform the groomer of any medical conditions or physical limitations your pet may have.</p>
-          
-          <h3>3. Cancellation & Down Payment</h3>
-          <p>A 30% non-refundable down payment is required to secure your slot. Cancellations made within 24 hours of the appointment may forfeit the full down payment.</p>
-          
-          <h3>4. Aggressive Behavior</h3>
-          <p>If a pet shows signs of extreme aggression that may harm the staff or the pet itself, the session may be terminated immediately for safety reasons.</p>
-          
-          <h3>5. Liability</h3>
-          <p>While every precaution is taken, FurLink and its service providers are not responsible for pre-existing medical conditions that may be aggravated during the grooming process.</p>
-        </div>
-        <div className="modal-footer">
-          <button className="btn-modal-cancel" onClick={onClose}>Decline</button>
-          <button className="btn-modal-confirm" onClick={onAgree}>I Agree & Continue</button>
-        </div>
-      </div>
-    </div>
-  );
-};
 
 // Helper for a Read-Only Map Preview
 const MapPreview = ({ lat, lng, businessName }) => {
@@ -219,6 +184,9 @@ const ListingInfo = () => {
   const [selectedImageIndex, setSelectedImageIndex] = useState(null);
   
   // --- BOOKING STATES ---
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
+  const TERMS_URL = "https://mdhudfatvdipxwufcbis.supabase.co/storage/v1/object/public/agreements/terms_po.pdf";
+
   const [bookingDate, setBookingDate] = useState(null);
   const [bookingTime, setBookingTime] = useState("");
   const [numberOfPets, setNumberOfPets] = useState(0);
@@ -449,15 +417,29 @@ useEffect(() => {
     setBookingTime(""); 
   };
 
-  const [showTermsModal, setShowTermsModal] = useState(false);
 
 const handleCompleteBooking = async () => {
     setBookingError(null);
+    setDateError(null);
 
-    if (!user) { setBookingError("You must be logged in to book."); return; }
-    if (!bookingDate) { setDateError("Please select a date."); return; }
-    if (!bookingTime) { setBookingError("Please select a time slot."); return; }
-    
+    // 1. Initial Validation Guards
+    if (!user) { 
+        setBookingError("You must be logged in to book."); 
+        return; 
+    }
+    if (!bookingDate) { 
+        setDateError("Please select a date."); 
+        return; 
+    }
+    if (!bookingTime) { 
+        setBookingError("Please select a time slot."); 
+        return; 
+    }
+    if (!agreedToTerms) { 
+        setBookingError("Please agree to the Terms and Conditions to proceed.");
+        return; 
+    }
+
     const petCount = parseInt(numberOfPets, 10);
     if (isNaN(petCount) || petCount < 1) { 
         setBookingError("Please enter a valid number of pets."); 
@@ -465,58 +447,60 @@ const handleCompleteBooking = async () => {
     }
 
     try {
-        // 1. FRESH DB FETCH: Get existing bookings and their pet records
+        setLoading(true); // Ensure you have a loading state for the sidebar button
+
+        // 2. FRESH DB FETCH: Verify actual availability right now
+        const dateStr = bookingDate.toLocaleDateString('en-CA'); // YYYY-MM-DD
+        
         const { data: freshBookings, error } = await supabase
             .from("bookings")
-            .select("id, booking_pets(id)") // JOIN to count actual pets
+            .select("id, booking_pets(id)") 
             .eq("provider_id", id)
-            .eq("booking_date", bookingDate.toLocaleDateString('en-CA'))
+            .eq("booking_date", dateStr)
             .eq("time_slot", bookingTime)
             .not("status", "in", '("cancelled", "declined", "rejected", "void", "voided")');
 
         if (error) throw error;
 
-        // 2. Identify working day and max capacity
+        // 3. IDENTIFY CAPACITY: Based on the provider's specific hours for that day
         const dayName = bookingDate.toLocaleDateString('en-US', { weekday: 'long' });
         const workingDay = hours.find(h => h.day_of_week === dayName);
         const maxCapacity = workingDay ? parseInt(workingDay.slot_capacity) : 1;
 
-        // 3. THE MATH: Sum the linked pets in the fresh results
+        // 4. THE MATH: Calculate real-time remaining slots
         const actualPetsOccupied = freshBookings?.reduce((sum, b) => 
             sum + (b.booking_pets?.length || 0), 0
         ) || 0;
         
         const finalRemaining = maxCapacity - actualPetsOccupied;
 
-        // 4. FINAL GUARD: Compare requested count vs calculated availability
+        // 5. FINAL GUARD: Check if the user's pets fit in the remaining slots
         if (petCount > finalRemaining) {
             setBookingError(`Conflict: Only ${Math.max(0, finalRemaining)} slot(s) left. Someone else may have just booked.`);
-            setExistingBookings(freshBookings); // Sync UI
+            setExistingBookings(freshBookings); // Sync UI slots immediately
+            setLoading(false);
             return;
         }
 
-        setShowTermsModal(true);
+        // 6. SUCCESS: Navigate to the next step
+        // We bypass the modal here because they checked the box in the sidebar
+        navigate('/pet-details', {
+            state: {
+                providerId: id,
+                providerName: provider.business_name,
+                bookingDate: dateStr,
+                bookingTime,
+                numberOfPets: petCount
+            }
+        });
 
     } catch (err) {
         console.error("Booking verification error:", err);
         setBookingError("Unable to verify availability. Please try again.");
+    } finally {
+        setLoading(false);
     }
 };
-
-  const handleAgreeAndNavigate = () => {
-      const dateStr = bookingDate.toLocaleDateString('en-CA'); 
-      setShowTermsModal(false);
-      
-      navigate('/pet-details', {
-        state: {
-          providerId: id,
-          providerName: provider.business_name,
-          bookingDate: dateStr,
-          bookingTime,
-          numberOfPets: parseInt(numberOfPets, 10)
-        }
-      });
-  };
 
   const ServicesList = () => (
     <>
@@ -568,6 +552,14 @@ const handleCompleteBooking = async () => {
       <Footer />
     </div>
   );
+
+  // Add this helper before the return statement
+const isBookingDisabled = 
+  !bookingDate || 
+  !bookingTime || 
+  parseInt(numberOfPets, 10) < 1 || 
+  !agreedToTerms || 
+  loading;
 
   return (
     <div className="listing-info-page">
@@ -905,20 +897,31 @@ const handleCompleteBooking = async () => {
             )}
           </div>
 
-          <button onClick={handleCompleteBooking} className="booking-button">
-            Complete Booking
-          </button>    
+          <div className="booking-field">
+            <div className="terms-checkbox-container">
+              <input 
+                type="checkbox" 
+                id="booking-terms" 
+                checked={agreedToTerms}
+                onChange={(e) => setAgreedToTerms(e.target.checked)}
+              />
+              <label htmlFor="booking-terms">
+                I agree to the <a href={TERMS_URL} target="_blank" rel="noreferrer">Terms and Conditions</a> including policies on <strong>down payments, cancellations, and pet safety.</strong>
+              </label>
+            </div>
+          </div>
+
+          <button 
+            onClick={handleCompleteBooking} 
+            className="booking-button"
+            disabled={isBookingDisabled} // Now checks all requirements
+          >
+            {loading ? "Verifying..." : "Complete Booking"}
+          </button>
         </div>
       </main>
     
       <ImageModal isOpen={selectedImageIndex !== null} onClose={() => setSelectedImageIndex(null)} images={images} currentIndex={selectedImageIndex} onNext={() => setSelectedImageIndex((prev) => (prev + 1) % images.length)} onPrev={() => setSelectedImageIndex((prev) => (prev - 1 + images.length) % images.length)}/>
-
-      {/* 4. Add the Terms Modal here */}
-      <TermsModal 
-        isOpen={showTermsModal} 
-        onClose={() => setShowTermsModal(false)} 
-        onAgree={handleAgreeAndNavigate} 
-      />
 
       <Footer />
     </div>

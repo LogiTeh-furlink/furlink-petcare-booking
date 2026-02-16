@@ -940,3 +940,61 @@
     from { transform: scale(0.9); opacity: 0; }
     to { transform: scale(1); opacity: 1; }
 }
+
+.terms-checkbox-container label a {
+    color: #153e75;
+    font-weight: 700;
+    text-decoration: underline;
+}
+.terms-checkbox-container label a:hover {
+  color: #FDBF00;
+  font-weight: 700;
+  text-decoration: underline;
+}
+
+.terms-checkbox-container {
+    display: flex;
+    align-items: flex-start; /* Aligns checkbox to the top of the text */
+    gap: 12px;
+    margin: 1.5rem 0;
+    padding: 12px;
+    background-color: #f8fafc; /* Very light blue/gray to highlight the area */
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+}
+
+.terms-checkbox-container label {
+    font-size: 0.85rem;
+    line-height: 1.4;
+    color: #475569;
+}
+
+.terms-checkbox-container label strong {
+    color: #153e75; /* Match your brand blue */
+}
+
+.terms-checkbox-container input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    margin-top: 2px;
+    cursor: pointer;
+    flex-shrink: 0; /* Prevents checkbox from squishing */
+}
+
+/* Disabled state for the sidebar button */
+.booking-button:disabled {
+    background-color: #cbd5e1;
+    color: #94a3b8;
+    cursor: not-allowed;
+    transform: none !important;
+    box-shadow: none !important;
+}
+
+.booking-button:disabled {
+    background-color: #cbd5e1; /* Neutral Gray */
+    color: #94a3b8;
+    cursor: not-allowed;
+    border: none;
+    transform: none !important; /* Prevents the hover animation */
+    box-shadow: none !important;
+}
