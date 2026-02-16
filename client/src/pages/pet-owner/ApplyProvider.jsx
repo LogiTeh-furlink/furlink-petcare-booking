@@ -564,6 +564,26 @@ export default function ApplyProvider() {
       <div className="apply-provider-wrapper">
         <h1 className="page-title">Service Provider Application</h1>
 
+        <div className="terms-info-section">
+            <div className="terms-info-content">
+                <FileText className="terms-icon" size={20} />
+                <p>
+                    By applying to become a partner, you agree to the{" "}
+                    <strong>
+                        <a 
+                            href="https://mdhudfatvdipxwufcbis.supabase.co/storage/v1/object/public/agreements/terms_sp.pdf" 
+                            target="_blank" 
+                            rel="noreferrer"
+                            className="terms-link-highlight"
+                        >
+                            Terms and Conditions for Service Providers
+                        </a>
+                    </strong>
+                    . Please review these policies carefully as they govern your business operations on <i>furlink</i>.
+                </p>
+            </div>
+        </div>
+
         {/* ⭐ SUSPENSION READ-ONLY BANNER */}
         {isSuspended && (
           <div className="error-banner" style={{ backgroundColor: '#fff1f2', color: '#be123c', border: '1px solid #fecdd3', marginBottom: '25px' }}>

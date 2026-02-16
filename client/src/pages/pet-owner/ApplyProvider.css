@@ -631,3 +631,41 @@ h1.page-title {
   .time-inputs { flex-wrap: wrap; }
   .review-grid { grid-template-columns: 1fr; }
 }
+
+.terms-info-section {
+    background-color: #eff6ff; /* Light blue background */
+    padding: 1rem 1.5rem;
+    border-radius: 8px;
+    margin-bottom: 25px;
+    display: flex;
+    align-items: center;
+}
+
+.terms-info-content {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+}
+
+.terms-info-content p {
+    margin: 0;
+    font-size: 0.95rem;
+    color: #1e293b;
+    line-height: 1.5;
+}
+
+.terms-icon {
+    color: #0E2679;
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+.terms-link-highlight {
+    color: #0E2679;
+    text-decoration: underline;
+    font-weight: 700;
+}
+
+.terms-link-highlight:hover {
+    color: #FDBF00; /* Use your primary yellow hover color */
+}
