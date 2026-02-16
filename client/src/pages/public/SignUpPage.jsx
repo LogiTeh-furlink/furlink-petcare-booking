@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { FaEye, FaEyeSlash, FaCheckCircle, FaFileContract, FaTimes } from "react-icons/fa";
+import { FaEye, FaEyeSlash, FaCheckCircle, FaExclamationCircle} from "react-icons/fa";
 import { supabase } from "../../config/supabase";
 
 import Header from "../../components/Header/Header";
@@ -28,33 +28,58 @@ const SignUpPage = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const [showTermsModal, setShowTermsModal] = useState(false);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [showHybridWelcomeModal, setShowHybridWelcomeModal] = useState(false);
 
+  // 1. UPDATED VALIDATE FUNCTION
   const validate = () => {
     let newErrors = {};
-    if (!formData.firstName.trim()) newErrors.firstName = true;
-    if (!formData.lastName.trim()) newErrors.lastName = true;
-    if (!formData.email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) newErrors.email = true;
-    if (!formData.mobile.match(/^9\d{9}$/)) newErrors.mobile = true;
+    if (!formData.firstName.trim()) newErrors.firstName = "First name is required.";
+    if (!formData.lastName.trim()) newErrors.lastName = "Last name is required.";
+    if (!formData.email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) newErrors.email = "Invalid email format.";
+    if (!formData.mobile.match(/^9\d{9}$/)) newErrors.mobile = "Mobile must be 10 digits starting with 9.";
     if (!formData.roleChoice) newErrors.roleChoice = "Please select at least one role.";
     
-    if (!formData.dob) {
-      newErrors.dob = true;
+    // DOB Validation (Checking MM/DD/YYYY format)
+    if (!formData.dob.match(/^(0[1-9]|1[0-2])\/(0[1-9]|[12][0-9]|3[01])\/\d{4}$/)) {
+      newErrors.dob = "Format must be MM/DD/YYYY.";
     } else {
-      const dobDate = new Date(formData.dob);
+      const [m, d, y] = formData.dob.split("/").map(Number);
+      const dobDate = new Date(y, m - 1, d);
       const age = new Date().getFullYear() - dobDate.getFullYear();
       if (age < 13) newErrors.dob = "Must be at least 13 years old.";
     }
 
-    // UPDATED PASSWORD VALIDATION MESSAGE
     if (!formData.password.match(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,12}$/)) {
-      newErrors.password = "Password must be 8-12 chars with upper, lower, number & symbol.";
+      newErrors.password = "Must be 8-12 chars with upper, lower, number & symbol.";
     }
 
-    if (formData.password !== formData.confirmPassword) newErrors.confirmPassword = true;
+    if (formData.password !== formData.confirmPassword) {
+      newErrors.confirmPassword = "Passwords do not match.";
+    }
     return newErrors;
+  };
+
+  // 2. NUMERIC ONLY MOBILE HANDLER
+  const handleMobileChange = (e) => {
+    const val = e.target.value.replace(/\D/g, ""); // Remove non-digits
+    if (val.length <= 10) {
+      setFormData({ ...formData, mobile: val });
+    }
+  };
+
+  // 3. DOB MASK HANDLER (MM/DD/YYYY)
+  const handleDobChange = (e) => {
+    let val = e.target.value.replace(/\D/g, "");
+    if (val.length > 8) val = val.slice(0, 8);
+    
+    // Add slashes automatically
+    if (val.length >= 5) {
+      val = `${val.slice(0, 2)}/${val.slice(2, 4)}/${val.slice(4)}`;
+    } else if (val.length >= 3) {
+      val = `${val.slice(0, 2)}/${val.slice(2)}`;
+    }
+    setFormData({ ...formData, dob: val });
   };
 
   const handleRoleToggle = (selectedRole) => {
@@ -76,62 +101,51 @@ const SignUpPage = () => {
     setFormData({ ...formData, roleChoice: newRole });
   };
 
-  const handleRegisterClick = (e) => {
+  const handleRegister = async (e) => {
     e.preventDefault();
     setSubmitted(true);
     const validationErrors = validate();
-    setErrors(validationErrors);
     
+    // Add checkbox validation
+    if (!agreedToTerms) validationErrors.terms = "You must agree to the terms.";
+    
+    setErrors(validationErrors);
+
     if (Object.keys(validationErrors).length === 0) {
-      setShowTermsModal(true); 
-    }
-  };
+      setLoading(true);
+      try {
+        const { data: signUpData, error: authError } = await supabase.auth.signUp({
+          email: formData.email,
+          password: formData.password,
+        });
+        if (authError) throw authError;
 
-  const handleFinalSubmit = async () => {
-    if (!agreedToTerms) return;
-    setLoading(true);
-    setShowTermsModal(false);
+        const user = signUpData.user;
+        if (user) {
+          const { error: profileError } = await supabase.from("profiles").upsert([
+            {
+              id: user.id,
+              first_name: formData.firstName,
+              last_name: formData.lastName,
+              display_name: `${formData.firstName} ${formData.lastName}`,
+              mobile_number: formData.mobile,
+              date_of_birth: formData.dob,
+              role: formData.roleChoice 
+            },
+          ]);
+          if (profileError) throw profileError;
 
-    try {
-      const { data: signUpData, error: authError } = await supabase.auth.signUp({
-        email: formData.email,
-        password: formData.password,
-      });
-
-      if (authError) throw authError;
-
-      const user = signUpData.user;
-      if (user) {
-        const { error: profileError } = await supabase.from("profiles").upsert([
-          {
-            id: user.id,
-            first_name: formData.firstName,
-            last_name: formData.lastName,
-            display_name: `${formData.firstName} ${formData.lastName}`,
-            mobile_number: formData.mobile,
-            date_of_birth: formData.dob,
-            role: formData.roleChoice 
-          },
-        ], { onConflict: 'id' });
-
-        if (profileError) throw profileError;
-
-        await supabase.from("user_sessions").insert([{ user_id: user.id }]);
-
-        if (formData.roleChoice === "pet_owner") {
-          navigate("/dashboard");
-        } else if (formData.roleChoice === "service_provider") {
-          navigate("/apply-provider");
-        } else if (formData.roleChoice === "both") {
-          navigate("/dashboard");
-          setTimeout(() => setShowHybridWelcomeModal(true), 500);
+          if (formData.roleChoice === "service_provider") navigate("/apply-provider");
+          else {
+            navigate("/dashboard");
+            if (formData.roleChoice === "both") setTimeout(() => setShowHybridWelcomeModal(true), 500);
+          }
         }
+      } catch (err) {
+        setErrors({ general: err.message });
+      } finally {
+        setLoading(false);
       }
-    } catch (err) {
-      console.error("Registration error:", err);
-      setErrors({ general: err.message });
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -139,157 +153,156 @@ const SignUpPage = () => {
   const isProvider = formData.roleChoice === "service_provider" || formData.roleChoice === "both";
   const isBoth = formData.roleChoice === "both";
 
+  const SUPABASE_PROJECT_ID = "mdhudfatvdipxwufcbis"; 
+  const BASE_URL = `https://mdhudfatvdipxwufcbis.supabase.co/storage/v1/object/public/agreements`;
+
+  const getTermsLink = () => {
+    if (formData.roleChoice === "service_provider") return `${BASE_URL}/terms_sp.pdf`;
+    if (formData.roleChoice === "pet_owner") return `${BASE_URL}/terms_po.pdf`;
+    return `${BASE_URL}/terms_general.pdf`;
+  };
+
+// You can use this for the Privacy Policy link
+const getPrivacyPath = () => `${BASE_URL}/privacy_policy.pdf`;
+
   return (
     <div className="signup-page">
       <Header hideSignup={true} />
       <div className="signup-container">
-        <form className="signup-form" onSubmit={handleRegisterClick}>
+        <form className="signup-form" onSubmit={handleRegister}>
           <h2>Create Your Account</h2>
           <p className="subtitle">Join the Furlink community today</p>
 
           {errors.general && <div className="general-error">{errors.general}</div>}
 
           <div className="form-row">
-            <input type="text" placeholder="First Name" className={submitted && errors.firstName ? "input-error" : ""} value={formData.firstName} onChange={(e) => setFormData({ ...formData, firstName: e.target.value })} />
-            <input type="text" placeholder="Last Name" className={submitted && errors.lastName ? "input-error" : ""} value={formData.lastName} onChange={(e) => setFormData({ ...formData, lastName: e.target.value })} />
+            <div className="input-wrap">
+              <input 
+                type="text" 
+                placeholder="First Name" 
+                className={submitted && errors.firstName ? "input-error" : ""} 
+                value={formData.firstName} 
+                onChange={(e) => setFormData({ ...formData, firstName: e.target.value })} 
+              />
+              {submitted && errors.firstName && <span className="field-error-msg"><FaExclamationCircle /> {errors.firstName}</span>}
+            </div>
+            <div className="input-wrap">
+              <input 
+                type="text" 
+                placeholder="Last Name" 
+                className={submitted && errors.lastName ? "input-error" : ""} 
+                value={formData.lastName} 
+                onChange={(e) => setFormData({ ...formData, lastName: e.target.value })} 
+              />
+              {submitted && errors.lastName && <span className="field-error-msg"><FaExclamationCircle /> {errors.lastName}</span>}
+            </div>
           </div>
 
-          <div className={`form-group ${submitted && errors.email ? "has-error" : ""}`}>
-            <input type="email" placeholder="Email Address" className={submitted && errors.email ? "input-error" : ""} value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} />
+          <div className="form-group">
+            <input 
+              type="email" 
+              placeholder="Email Address" 
+              className={submitted && errors.email ? "input-error" : ""} 
+              value={formData.email} 
+              onChange={(e) => setFormData({ ...formData, email: e.target.value })} 
+            />
+            {submitted && errors.email && <span className="field-error-msg"><FaExclamationCircle /> {errors.email}</span>}
           </div>
           
-          <div className="phone-input-wrapper">
-             <span className="country-code">+63</span>
-             <input 
-                type="text" 
-                placeholder="9XXXXXXXXX" 
-                className={submitted && errors.mobile ? "input-error" : ""} 
-                value={formData.mobile} 
-                onChange={(e) => setFormData({ ...formData, mobile: e.target.value })} 
-             />
+          <div className="form-group">
+            <div className={`phone-input-wrapper ${submitted && errors.mobile ? "input-error" : ""}`}>
+               <span className="country-code">+63</span>
+               <input 
+                  type="text" 
+                  placeholder="9XXXXXXXXX" 
+                  value={formData.mobile} 
+                  onChange={handleMobileChange} 
+               />
+            </div>
+            {submitted && errors.mobile && <span className="field-error-msg"><FaExclamationCircle /> {errors.mobile}</span>}
           </div>
 
           <div className="form-group" style={{marginTop: '1.25rem'}}>
             <label className="input-label">Date of Birth</label>
-            <input type="date" className={submitted && errors.dob ? "input-error" : ""} value={formData.dob} onChange={(e) => setFormData({ ...formData, dob: e.target.value })} />
+            <input 
+              type="text" 
+              placeholder="MM/DD/YYYY"
+              className={submitted && errors.dob ? "input-error" : ""} 
+              value={formData.dob} 
+              onChange={handleDobChange} 
+            />
+            {submitted && errors.dob && <span className="field-error-msg"><FaExclamationCircle /> {errors.dob}</span>}
           </div>
 
           <div className="form-group">
             <label className="input-label">I want to join as a:</label>
             <div className="role-selection-group">
-              <button 
-                type="button" 
-                className={`role-btn ${isPetOwner ? "active" : ""}`}
-                onClick={() => handleRoleToggle("pet_owner")}
-              >
-                Pet Owner
-              </button>
-              <button 
-                type="button" 
-                className={`role-btn ${isProvider ? "active" : ""}`}
-                onClick={() => handleRoleToggle("service_provider")}
-              >
-                Service Provider
+              <button type="button" className={`role-btn ${isPetOwner ? "active" : ""}`} onClick={() => handleRoleToggle("pet_owner")}>Pet Owner</button>
+              <button type="button" className={`role-btn ${isProvider ? "active" : ""}`} onClick={() => handleRoleToggle("service_provider")}>Service Provider</button>
+            </div>
+            {submitted && errors.roleChoice && <span className="field-error-msg"><FaExclamationCircle /> {errors.roleChoice}</span>}
+          </div>
+
+          <div className="password-group">
+            <div className="input-with-icon" style={{ position: 'relative' }}>
+              <input 
+                type={showPassword ? "text" : "password"} 
+                placeholder="Password" 
+                className={submitted && errors.password ? "input-error" : ""} 
+                value={formData.password} 
+                onChange={(e) => setFormData({...formData, password: e.target.value})} 
+              />
+              <button type="button" className="toggle-btn" onClick={() => setShowPassword(!showPassword)}>
+                {showPassword ? <FaEyeSlash /> : <FaEye />}
               </button>
             </div>
-            {submitted && errors.roleChoice && <span className="field-error-msg">{errors.roleChoice}</span>}
-          </div>
-
-          {/* UPDATED PASSWORD FIELD WITH ERROR MESSAGE */}
-          <div className="password-group">
-             <input type={showPassword ? "text" : "password"} placeholder="Password" className={submitted && errors.password ? "input-error" : ""} value={formData.password} onChange={(e) => setFormData({...formData, password: e.target.value})} />
-             <button type="button" className="toggle-btn" onClick={() => setShowPassword(!showPassword)}>{showPassword ? <FaEyeSlash /> : <FaEye />}</button>
-             {submitted && errors.password && <span className="field-error-msg">{errors.password}</span>}
+            {/* The error message is now OUTSIDE the icon's coordinate system */}
+            {submitted && errors.password && <span className="field-error-msg"><FaExclamationCircle /> {errors.password}</span>}
           </div>
 
           <div className="password-group">
-             <input type={showConfirmPassword ? "text" : "password"} placeholder="Confirm Password" className={submitted && errors.confirmPassword ? "input-error" : ""} value={formData.confirmPassword} onChange={(e) => setFormData({...formData, confirmPassword: e.target.value})} />
+             <input 
+                type={showConfirmPassword ? "text" : "password"} 
+                placeholder="Confirm Password" 
+                className={submitted && errors.confirmPassword ? "input-error" : ""} 
+                value={formData.confirmPassword} 
+                onChange={(e) => setFormData({...formData, confirmPassword: e.target.value})} 
+             />
              <button type="button" className="toggle-btn" onClick={() => setShowConfirmPassword(!showConfirmPassword)}>{showConfirmPassword ? <FaEyeSlash /> : <FaEye />}</button>
+             {submitted && errors.confirmPassword && <span className="field-error-msg"><FaExclamationCircle /> {errors.confirmPassword}</span>}
           </div>
 
-          <button className="btn-primary" type="submit" disabled={loading}>{loading ? "Processing..." : "Register"}</button>
+          {/* NEW TERMS CHECKBOX */}
+          <div className={`terms-checkbox-group ${submitted && errors.terms ? "checkbox-error" : ""}`}>
+            <input 
+              type="checkbox" 
+              id="terms-checkbox" 
+              checked={agreedToTerms} 
+              onChange={(e) => setAgreedToTerms(e.target.checked)} 
+            />
+            <label htmlFor="terms-checkbox">
+              I agree to the{" "}
+              <a href={getTermsLink()} target="_blank" rel="noreferrer">
+                Terms and Conditions
+              </a>{" "}
+              and{" "}
+              <a href={getPrivacyPath()} target="_blank" rel="noreferrer">
+                Privacy Policy
+              </a>{" "}
+              of Furlink
+            </label>
+          </div>
+          {submitted && errors.terms && <span className="field-error-msg" style={{marginBottom: '1rem'}}><FaExclamationCircle /> {errors.terms}</span>}
+
+          <button className="btn-primary" type="submit" disabled={loading}>
+            {loading ? "Processing..." : "Register"}
+          </button>
+          
           <div className="login-redirect">
-            <p>
-              Already have an account?{" "}
-              <span className="login-link" onClick={() => navigate("/login")}>
-                Login here
-              </span>
-            </p>
+            <p>Already have an account? <span className="login-link" onClick={() => navigate("/login")}>Login here</span></p>
           </div>
         </form>
       </div>
-
-      {showTermsModal && (
-        <div className="modal-overlay">
-          {isBoth ? (
-            <div className="dual-modal-wrapper">
-              <div className="dual-cards-container">
-                <div className="terms-card">
-                  <div className="modal-header">
-                    <FaFileContract className="icon-brand" /> <h3>Pet Owner Agreement</h3>
-                  </div>
-                  <div className="modal-body-scrollable">
-                    <h4>Terms and Conditions</h4>
-                    <p>Welcome to Furlink! These terms apply to all Pet Owners using our platform.</p>
-                    <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit.</p>
-                    <h4>Privacy Policy</h4>
-                    <p>We value your privacy and the safety of your pets.</p>
-                  </div>
-                </div>
-
-                <div className="terms-card">
-                  <div className="modal-header">
-                    <FaFileContract className="icon-brand" /> <h3>Provider Agreement</h3>
-                  </div>
-                  <div className="modal-body-scrollable">
-                    <h4>Service Provider Terms</h4>
-                    <p>Welcome, Partner! These terms apply to all Service Providers.</p>
-                    <p>Ut enim ad minim veniam, quis nostrud exercitation ullamco.</p>
-                    <h4>Commission and Fees</h4>
-                    <p>Details regarding platform fees and payouts.</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="dual-footer-bar">
-                <button className="close-btn-floating" onClick={() => setShowTermsModal(false)}><FaTimes /></button>
-                <label className="checkbox-agreement-label">
-                  <input type="checkbox" checked={agreedToTerms} onChange={(e) => setAgreedToTerms(e.target.checked)} />
-                  <span>I agree to the Terms and Privacy Policies for both roles</span>
-                </label>
-                <div className="modal-action-btns">
-                   <button type="button" className="btn-cancel-modal" onClick={() => setShowTermsModal(false)}>Cancel</button>
-                   <button type="button" className="btn-continue-modal" onClick={handleFinalSubmit} disabled={!agreedToTerms}>Register</button>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="modal-content terms-modal-container">
-              <div className="modal-header">
-                <FaFileContract className="icon-brand" /> 
-                <h3>{formData.roleChoice === 'service_provider' ? "Provider Terms" : "Terms & Privacy Policy"}</h3>
-                <button className="close-btn-x" onClick={() => setShowTermsModal(false)}><FaTimes /></button>
-              </div>
-              <div className="modal-body-scrollable">
-                <h4>Terms and Conditions</h4>
-                <p>Sample terms content...</p>
-                <h4>Privacy Policy</h4>
-                <p>Sample privacy content...</p>
-              </div>
-              <div className="modal-footer-sticky">
-                <label className="checkbox-agreement-label">
-                  <input type="checkbox" checked={agreedToTerms} onChange={(e) => setAgreedToTerms(e.target.checked)} />
-                  <span>I agree to the Terms and Condition and Privacy Policy</span>
-                </label>
-                <div className="modal-action-btns">
-                  <button type="button" className="btn-cancel-modal" onClick={() => setShowTermsModal(false)}>Cancel</button>
-                  <button type="button" className="btn-continue-modal" onClick={handleFinalSubmit} disabled={!agreedToTerms}>Continue</button>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
 
       {showHybridWelcomeModal && (
         <div className="modal-overlay">
