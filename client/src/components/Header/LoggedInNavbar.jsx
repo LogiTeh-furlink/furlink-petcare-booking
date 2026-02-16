@@ -27,6 +27,9 @@ const LoggedInNavbar = () => {
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [showPendingModal, setShowPendingModal] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [agreedToUpgradeTerms, setAgreedToUpgradeTerms] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   // Data State
   const [notifications, setNotifications] = useState([]);
@@ -42,7 +45,17 @@ const LoggedInNavbar = () => {
   const mobileNotifRef = useRef();
   const menuRef = useRef();
 
-  const handleSwitchToPetOwner = async () => {
+  // Triggered by the "Become a Pet Owner" button
+  const initiateUpgrade = () => {
+    setShowUpgradeModal(true);
+    setAgreedToUpgradeTerms(false);
+  };
+
+  // Triggered only after confirming in the modal
+  const handleFinalUpgrade = async () => {
+    if (!agreedToUpgradeTerms) return;
+    
+    setLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
@@ -54,14 +67,18 @@ const LoggedInNavbar = () => {
 
       if (error) throw error;
 
+      setShowUpgradeModal(false);
       navigate("/dashboard");
       window.location.reload(); 
     } catch (err) {
-      console.error("Error switching to Pet Owner:", err);
+      console.error("Error upgrading role:", err);
       alert("Failed to update account role.");
+    } finally {
+      setLoading(false);
     }
   };
-
+  
+  
   const currentPath = location.pathname;
   const isServiceProviderPage = currentPath.startsWith("/service/");
 
@@ -363,10 +380,71 @@ const LoggedInNavbar = () => {
               {/* ⭐ BUTTON LOGIC: 
                   1. 'Become a Pet Owner' is hidden if user is a strict Service Provider AND Suspended.
               */}
+              {/* Mobile Drawer section */}
               {isStrictProvider && !isSuspended && (
-                <button className="provider-btn switch-role-btn" onClick={handleSwitchToPetOwner} title="Unlock Pet Owner features">
+                <button className="drawer-action-btn" onClick={initiateUpgrade}>
                   Become a Pet Owner
                 </button>
+              )}
+
+              {/* MODAL SECTION - Place near other modals at the bottom */}
+              {showUpgradeModal && (
+                <div className="modal-overlay">
+                  <div className="modal-content upgrade-modal">
+                    <button className="close-modal-btn" onClick={() => setShowUpgradeModal(false)}>
+                      <FaTimes />
+                    </button>
+                    
+                    <div className="modal-header-upgrade">
+                      <h3>Upgrade to Dual Account</h3>
+                      <p>You are about to unlock Pet Owner features alongside your Provider profile.</p>
+                    </div>
+
+                    <div className="upgrade-terms-box">
+                      <p>
+                        By upgrading, you agree to our{" "}
+                        <strong>
+                          <a 
+                            href="https://mdhudfatvdipxwufcbis.supabase.co/storage/v1/object/public/agreements/terms_general.pdf" 
+                            target="_blank" 
+                            rel="noreferrer"
+                            className="view-terms-link"
+                          >
+                            Terms and Conditions
+                          </a>
+                        </strong>
+                        . Please review the document carefully.
+                      </p>
+                    </div>
+
+                    <div className="modal-footer-upgrade">
+                      <label className="checkbox-label">
+                        <input 
+                          type="checkbox" 
+                          checked={agreedToUpgradeTerms} 
+                          onChange={(e) => setAgreedToUpgradeTerms(e.target.checked)} 
+                        />
+                        <span>I have read and agree to the Terms and Conditions</span>
+                      </label>
+
+                      <div className="modal-actions">
+                        <button 
+                          className="modal-ok-btn" 
+                          onClick={handleFinalUpgrade} 
+                          disabled={!agreedToUpgradeTerms || loading}
+                        >
+                          {loading ? "Processing..." : "Confirm Upgrade"}
+                        </button>
+                        <button 
+                          className="modal-cancel-btn" 
+                          onClick={() => setShowUpgradeModal(false)}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               )}
 
               {/* ⭐ BUTTON LOGIC:
@@ -474,7 +552,7 @@ const LoggedInNavbar = () => {
           <div className="drawer-section">
             {/* Mobile: Same logic applied */}
             {isStrictProvider && !isSuspended && (
-              <button className="drawer-action-btn" onClick={handleSwitchToPetOwner}>
+              <button className="drawer-action-btn" onClick={initiateUpgrade}>
                 Become a Pet Owner
               </button>
             )}

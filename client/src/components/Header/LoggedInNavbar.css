@@ -568,3 +568,46 @@
     z-index: 3001;
   }
 }
+
+.upgrade-modal {
+  max-width: 480px;
+  text-align: left;
+}
+
+.modal-header-upgrade h3 {
+  color: #0E2679;
+  margin-bottom: 8px;
+}
+
+.upgrade-terms-box {
+  background: #f1f5f9;
+  padding: 15px;
+  border-radius: 8px;
+  margin: 15px 0;
+  border: 1px solid #e2e8f0;
+}
+
+.view-terms-link {
+  display: inline; /* or inline-block */
+  color: #0E2679;
+  text-decoration: underline;
+  font-weight: 700;
+}
+
+.checkbox-label {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin-bottom: 20px;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.checkbox-label input {
+  margin-top: 3px;
+}
+
+.modal-ok-btn:disabled {
+  background-color: #cbd5e1;
+  cursor: not-allowed;
+}
