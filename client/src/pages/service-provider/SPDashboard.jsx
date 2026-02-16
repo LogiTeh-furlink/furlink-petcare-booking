@@ -15,22 +15,10 @@ import {
   FaSearchPlus,
   FaExclamationTriangle,
   FaStar,
-  FaRegStar
+  FaRegStar,
+  FaBan // Added for suspension icon
 } from "react-icons/fa";
 import "./SPDashboard.css";
-
-// --- Time Helpers ---
-const convertTo24Hour = (timeStr) => {
-  if (!timeStr) return "00:00";
-  if (timeStr.includes('M')) {
-    const [time, modifier] = timeStr.split(' ');
-    let [hours, minutes] = time.split(':');
-    if (hours === '12') { hours = '00'; }
-    if (modifier === 'PM') { hours = parseInt(hours, 10) + 12; }
-    return `${hours}:${minutes}`;
-  }
-  return timeStr;
-};
 
 // --- Helper: Enhanced Calendar ---
 const BookingCalendar = ({ bookings = [], onClose }) => {
@@ -119,7 +107,6 @@ const BookingCalendar = ({ bookings = [], onClose }) => {
               <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
             </div>
             <div className="calendar-grid">{renderDays()}</div>
-
           </div>
 
           <div className="cal-details-section">
@@ -165,7 +152,6 @@ const BookingCalendar = ({ bookings = [], onClose }) => {
   );
 };
 
-
 export default function SPDashboard() {
   const navigate = useNavigate();
   const [bookings, setBookings] = useState([]);
@@ -178,6 +164,10 @@ export default function SPDashboard() {
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [bookingReview, setBookingReview] = useState(null);
   
+  // ⭐ SUSPENSION STATES
+  const [isSuspended, setIsSuspended] = useState(false);
+  const [suspensionDate, setSuspensionDate] = useState(null);
+
   // Actions
   const [declineReason, setDeclineReason] = useState("");
   const [voidReason, setVoidReason] = useState("");
@@ -207,6 +197,21 @@ export default function SPDashboard() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return navigate("/login");
 
+      // ⭐ CHECK SUSPENSION
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("suspension_end_date")
+        .eq("id", user.id)
+        .single();
+
+      if (profile?.suspension_end_date) {
+        const endDate = new Date(profile.suspension_end_date);
+        if (endDate > new Date()) {
+          setIsSuspended(true);
+          setSuspensionDate(endDate);
+        }
+      }
+
       const { data: providerData, error: providerError } = await supabase
         .from("service_providers")
         .select("id")
@@ -216,7 +221,6 @@ export default function SPDashboard() {
       if (providerError) throw providerError;
       setProviderId(providerData.id);
 
-      // STEP 1: Fetch Bookings
       const { data: bookingsData, error: bookingsError } = await supabase
         .from("bookings")
         .select(`
@@ -231,7 +235,6 @@ export default function SPDashboard() {
 
       if (bookingsError) throw bookingsError;
 
-      // STEP 2: Extract User IDs and Fetch Profiles Separately
       const userIds = [...new Set(bookingsData.map(b => b.user_id).filter(Boolean))];
       let profilesMap = {};
 
@@ -248,7 +251,6 @@ export default function SPDashboard() {
         }
       }
 
-      // STEP 3: Merge Profile Data into Bookings
       const mergedBookings = bookingsData.map(b => ({
         ...b,
         profiles: profilesMap[b.user_id] || null
@@ -358,7 +360,7 @@ export default function SPDashboard() {
   };
 
   const handleAction = async (actionType) => {
-    if (!selectedBooking) return;
+    if (!selectedBooking || isSuspended) return; // Guard: Logic Lock
     let newStatus = '';
     let updateData = {};
     let title = "";
@@ -406,7 +408,6 @@ export default function SPDashboard() {
       setBookings(prev => prev.map(b => b.id === selectedBooking.id ? { ...b, status: newStatus, ...updateData } : b));
       
       closeModal(); 
-
       setSuccessTitle(title);
       setSuccessMessage(msg);
       setShowSuccessModal(true);
@@ -477,7 +478,7 @@ export default function SPDashboard() {
           
           <button className="top-action-btn" onClick={() => navigate('/service/sales')}>
              <FaChartLine size={24} />
-             <span>Dashboard</span>
+             <span>Dashboard</span> {/* <-- Restored "Dashboard" here */}
           </button>
 
           <button className="top-action-btn" onClick={() => setShowCalendar(true)}>
@@ -566,6 +567,15 @@ export default function SPDashboard() {
             <button onClick={closeModal}><FaTimes /></button>
           </div>
           <div className="modal-body-scroll">
+            
+            {/* ⭐ PHASE 4: SUSPENSION WARNING IN MODAL */}
+            {isSuspended && (
+              <div className="refund-warning-box" style={{ backgroundColor: '#fff1f2', border: '1px solid #fecdd3', padding: '15px', borderRadius: '12px', color: '#be123c', marginBottom: '20px', display: 'flex', gap: '10px', alignItems: 'center' }}>
+                <FaBan size={20}/>
+                <span><strong>Account Restricted:</strong> Your service provider account is suspended until {suspensionDate.toLocaleDateString()}. You can view incoming requests but cannot accept new bookings or process payments.</span>
+              </div>
+            )}
+
             <div className="modal-summary-section">
               <div className="info-row">
                 <span>Status:</span>
@@ -646,7 +656,6 @@ export default function SPDashboard() {
                     </div>
                     <div className="pet-info-row-split">
                           <div className="pet-specs-full"><span className="label">Grooming Specs:</span> {pet.grooming_specifications || 'None'}</div>
-                          <div className="pet-specs-full"><span className="label">Services:</span> {pet.booking_services?.map(s => s.service_name).join(', ')}</div>
                     </div>
                     <div className="pet-images-container">
                       {pet.vaccine_card_url && (
@@ -716,24 +725,27 @@ export default function SPDashboard() {
                 </div>
               )}
             </div>
+
+            {/* ⭐ MODAL FOOTER: HANDCUFF ACTIONS IF SUSPENDED */}
             <div className="modal-footer">
               {selectedBooking.status === 'paid' && !isBookingComplete(selectedBooking) && (
                 <div className="cancel-verification-wrapper" style={{ marginTop: '15px', borderTop: '1px solid #f1f5f9', paddingTop: '15px', display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: '12px' }}>
                   <div className="compact-refund-alert" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 10px', borderRadius: '6px', background: '#fff1f2', borderLeft: '4px solid #e11d48', marginRight: 'auto', textAlign: 'left' }}>
                     <FaExclamationTriangle style={{ color: '#e11d48', flexShrink: 0 }} size={12} />
                     <p style={{ margin: 0, fontSize: '0.75rem', color: '#be123c', fontWeight: '500', lineHeight: '1.2' }}>
-                        Cancellation requires a manual refund of the <strong>{formatCurrency(selectedBooking.installation_payment)}</strong> (30% Down Payment) to the pet owner.
+                        Cancellation requires a manual refund of the <strong>{formatCurrency(selectedBooking.installation_payment)}</strong>.
                     </p>
                   </div>
                   <button className="btn-cancel-action" 
-                    style={{ padding: '8px 16px', background: '#475569', color: 'white', border: 'none', borderRadius: '6px', fontWeight: '600', fontSize: '0.8rem', whiteSpace: 'nowrap', cursor: 'pointer', transition: 'background 0.2s' }} 
+                    disabled={isSuspended}
+                    style={isSuspended ? { backgroundColor: '#cbd5e1', cursor: 'not-allowed', color: '#64748b', border: 'none' } : { padding: '8px 16px', background: '#475569', color: 'white', border: 'none', borderRadius: '6px', fontWeight: '600', fontSize: '0.8rem', whiteSpace: 'nowrap', cursor: 'pointer' }} 
                     onClick={() => {
                       if(window.confirm(`Cancel booking? You must manually refund ${formatCurrency(selectedBooking.installation_payment)}.`)) {
                         handleAction('cancel');
                       }
                     }}
                   >
-                    Cancel Booking
+                    {isSuspended ? "Cancellation Locked" : "Cancel Booking"}
                   </button>
                 </div>
               )}
@@ -741,29 +753,57 @@ export default function SPDashboard() {
               {selectedBooking.status === 'pending' && (
                 <div className="action-row">
                    <div className="decline-area">
-                      <select value={declineReason} onChange={(e) => setDeclineReason(e.target.value)} className="action-select">
+                      <select value={declineReason} onChange={(e) => setDeclineReason(e.target.value)} className="action-select" disabled={isSuspended}>
                         <option value="">Select Reason for Declining...</option>
                         <option value="Schedule Conflict">Schedule Conflict</option>
                         <option value="Staff Unavailable">Staff Unavailable</option>
                         <option value="Service Not Available">Service Not Available</option>
                       </select>
-                      <button className="btn-decline" disabled={!declineReason} onClick={() => handleAction('decline')}>Decline</button>
+                      <button 
+                        className="btn-decline" 
+                        disabled={!declineReason || isSuspended} 
+                        onClick={() => handleAction('decline')}
+                        style={isSuspended ? { backgroundColor: '#cbd5e1', cursor: 'not-allowed', color: '#64748b' } : {}}
+                      >
+                        {isSuspended ? "Locked" : "Decline"}
+                      </button>
                    </div>
-                   <button className="btn-approve" onClick={() => handleAction('approve')}>Approve</button>
+                   <button 
+                    className="btn-approve" 
+                    onClick={() => handleAction('approve')}
+                    disabled={isSuspended}
+                    style={isSuspended ? { backgroundColor: '#cbd5e1', cursor: 'not-allowed', color: '#64748b' } : {}}
+                   >
+                    {isSuspended ? "Approval Locked" : "Approve"}
+                   </button>
                 </div>
               )}
               {selectedBooking.status === 'for review' && (
                 <div className="action-row">
                    <div className="decline-area">
-                      <select value={voidReason} onChange={(e) => setVoidReason(e.target.value)} className="action-select">
+                      <select value={voidReason} onChange={(e) => setVoidReason(e.target.value)} className="action-select" disabled={isSuspended}>
                         <option value="">Select Reason for Voiding...</option>
                         <option value="Invalid Receipt">Invalid Receipt</option>
                         <option value="Amount Mismatch">Amount Mismatch</option>
                         <option value="Unclear Image">Unclear Image</option>
                       </select>
-                      <button className="btn-decline" disabled={!voidReason} onClick={() => handleAction('void_payment')}>Void</button>
+                      <button 
+                        className="btn-decline" 
+                        disabled={!voidReason || isSuspended} 
+                        onClick={() => handleAction('void_payment')}
+                        style={isSuspended ? { backgroundColor: '#cbd5e1', cursor: 'not-allowed', color: '#64748b' } : {}}
+                      >
+                        {isSuspended ? "Locked" : "Void"}
+                      </button>
                    </div>
-                   <button className="btn-approve" onClick={() => handleAction('accept_payment')}>Accept Payment</button>
+                   <button 
+                    className="btn-approve" 
+                    onClick={() => handleAction('accept_payment')}
+                    disabled={isSuspended}
+                    style={isSuspended ? { backgroundColor: '#cbd5e1', cursor: 'not-allowed', color: '#64748b' } : {}}
+                   >
+                    {isSuspended ? "Accept Locked" : "Accept Payment"}
+                   </button>
                 </div>
               )}
             </div>

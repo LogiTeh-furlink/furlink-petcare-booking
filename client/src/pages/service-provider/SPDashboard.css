@@ -1,3 +1,6 @@
+/* src/pages/service-provider/SPDashboard.css */
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+
 :root {
   --primary-blue: #1e3a8a;
   --accent-yellow: #facc15;
@@ -6,6 +9,13 @@
   --text-dark: #0f172a;
   --text-light: #64748b;
   --border: #e2e8f0;
+  
+  /* Additional variables from your usage */
+  --brand-blue: #1e3a8a;
+  --brand-yellow: #facc15;
+  --brand-red: #ef4444;
+  --bg-card: #ffffff;
+  --border-light: #e2e8f0;
 }
 
 /* Force Poppins Everywhere */
@@ -22,7 +32,7 @@ p {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  font-family: 'Arial', sans-serif;
+  font-family: 'Poppins', sans-serif;
 }
 
 .sp-dashboard-container {
@@ -1044,20 +1054,18 @@ p {
   font-style: italic;
 }
 
-/* Styling for the specific status badges */
-.badge-paid { background-color: #dcfce7; color: #166534; }      /* Soft Green */
-.badge-to_rate { background-color: #fef9c3; color: #854d0e; }   /* Soft Yellow */
-.badge-rated { background-color: #e0f2fe; color: #075985; }     /* Soft Blue */
-.badge-completed { background-color: #f1f5f9; color: #475569; } /* Gray */
-
-/* Table Status Badge */
-.badge-cancelled {
-  background-color: #fee2e2; /* Light red background */
-  color: #b91c1c;            /* Dark red text */
-  font-weight: 600;
-  padding: 4px 10px;
-  border-radius: 50px;
-  text-transform: capitalize;
+/* ⭐ SUSPENSION BANNER STYLE */
+.refund-warning-box {
+    background-color: #fff1f2;
+    border: 1px solid #fecdd3;
+    padding: 15px;
+    border-radius: 12px;
+    color: #be123c;
+    margin-bottom: 20px;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    font-size: 0.9rem;
 }
 
 /* ==========================================================================
