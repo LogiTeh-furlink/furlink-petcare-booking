@@ -350,8 +350,8 @@ export default function SPBusinessDashboard() {
     
     // Format the date range text
     const rangeText = activeFilter === 'custom' && customDateStart && customDateEnd
-      ? `${new Date(customDateStart).toLocaleDateString(undefined, { month: 'short', day: '2-digit' })} - ${new Date(customDateEnd).toLocaleDateString(undefined, { month: 'short', day: '2-digit', year: 'numeric' })}`
-      : `${currentRange.start.toLocaleDateString(undefined, { month: 'short', day: '2-digit' })} - ${now.toLocaleDateString(undefined, { month: 'short', day: '2-digit', year: 'numeric' })}`;
+      ? `${new Date(customDateStart).toLocaleDateString(undefined, { month: 'short', day: '2-digit', year: 'numeric' })} - ${new Date(customDateEnd).toLocaleDateString(undefined, { month: 'short', day: '2-digit', year: 'numeric' })}`
+      : `${currentRange.start.toLocaleDateString(undefined, { month: 'short', day: '2-digit', year: 'numeric' })} - ${now.toLocaleDateString(undefined, { month: 'short', day: '2-digit', year: 'numeric' })}`;
 
     const convertTo24Hour = (timeStr) => {
       if (!timeStr) return "00:00";

@@ -217,11 +217,10 @@ export default function SPSales() {
     const getRange = (filter, isPrevious = false) => {
       const today = new Date();
 
-      // Custom filter
       if (filter === 'custom' && customDateStart && customDateEnd) {
         const start = new Date(customDateStart);
         const end = new Date(customDateEnd);
-        end.setHours(23, 59, 59, 999); // Force end of day
+        end.setHours(23, 59, 59, 999);
         
         if (isPrevious) {
           const duration = end - start;
@@ -237,7 +236,6 @@ export default function SPSales() {
       let start = new Date();
       let end = new Date();
 
-      // Weekly filter
       if (filter === 'weekly') {
         if (isPrevious) { 
           start.setDate(today.getDate() - 14); 
@@ -245,11 +243,8 @@ export default function SPSales() {
           end.setHours(23, 59, 59, 999);
         } else { 
           start.setDate(today.getDate() - 7); 
-          end = new Date(today);
-          end.setHours(23, 59, 59, 999);
+          end = today;
         }
-
-      // Monthly filter
       } else if (filter === 'monthly') {
         if (isPrevious) { 
           start = new Date(today.getFullYear(), today.getMonth() - 1, 1);
@@ -259,40 +254,55 @@ export default function SPSales() {
           end.setHours(23, 59, 59, 999);
         } else { 
           start = new Date(today.getFullYear(), today.getMonth(), 1);
-          end = new Date(today.getFullYear(), today.getMonth() + 1, 0); // Last day of current month
-          end.setHours(23, 59, 59, 999);
+          end = today;
         }
-
-      // Yearly filter
       } else if (filter === 'yearly') {
-        let targetYear = selectedYear || today.getFullYear();
-        
-        if (isPrevious) {
-          targetYear = targetYear - 1;
+        if (selectedYear) {
+          start = new Date(selectedYear, 0, 1);
+          end = new Date(selectedYear, 11, 31, 23, 59, 59, 999);
+          if (isPrevious) {
+            start = new Date(selectedYear - 1, 0, 1);
+            end = new Date(selectedYear - 1, 11, 31, 23, 59, 59, 999);
+          }
+        } else {
+          if (isPrevious) { 
+            start = new Date(today.getFullYear() - 1, 0, 1);
+            if (today.getMonth() === 1 && today.getDate() === 29) {
+              end = new Date(today.getFullYear() - 1, 1, 28);
+            } else {
+              end = new Date(today.getFullYear() - 1, today.getMonth(), today.getDate());
+            }
+            end.setHours(23, 59, 59, 999);
+          } else { 
+            start = new Date(today.getFullYear(), 0, 1);
+            end = today;
+          }
         }
-
-        start = new Date(targetYear, 0, 1); // Jan 1
-        end = new Date(targetYear, 11, 31, 23, 59, 59, 999); // Dec 31
+      } else {
+        if (isPrevious) { 
+          start.setFullYear(today.getFullYear() - 1, 0, 1); 
+          end.setFullYear(today.getFullYear() - 1, 11, 31); 
+        } else { 
+          start = new Date(today.getFullYear(), 0, 1);
+          end = today;
+        }
       }
-
       return { start, end };
     };
 
     const currentRange = getRange(activeFilter);
     const previousRange = getRange(activeFilter, true);
     
-    // Format the date range text
+    // Format the date range text - MM DD, YYYY - MM DD, YYYY
     const rangeText = activeFilter === 'custom' && customDateStart && customDateEnd
-      ? `${new Date(customDateStart).toLocaleDateString(undefined, { month: 'short', day: '2-digit' })} - ${new Date(customDateEnd).toLocaleDateString(undefined, { month: 'short', day: '2-digit', year: 'numeric' })}`
-      : `${currentRange.start.toLocaleDateString(undefined, { month: 'short', day: '2-digit' })} - ${now.toLocaleDateString(undefined, { month: 'short', day: '2-digit', year: 'numeric' })}`;
+      ? `${new Date(customDateStart).toLocaleDateString(undefined, { month: 'short', day: '2-digit', year: 'numeric' })} - ${new Date(customDateEnd).toLocaleDateString(undefined, { month: 'short', day: '2-digit', year: 'numeric' })}`
+      : `${currentRange.start.toLocaleDateString(undefined, { month: 'short', day: '2-digit', year: 'numeric' })} - ${now.toLocaleDateString(undefined, { month: 'short', day: '2-digit', year: 'numeric' })}`;
 
     // Filter bookings by date range
     const filterByRange = (list, range) => {
       return list.filter(b => {
-        // Create date at midnight local time (not UTC)
-        const dateParts = b.booking_date.split('-');
-        const d = new Date(dateParts[0], dateParts[1] - 1, dateParts[2]);
-        return d >= range.start && d <= range.end;
+        const d = new Date(b.booking_date);
+        return d >= range.start && d <= (range.end || now);
       });
     };
 
@@ -335,6 +345,11 @@ export default function SPSales() {
 
     const current = calculateMetrics(currentValidPets, currentBookings);
     const previous = calculateMetrics(previousValidPets, previousBookings);
+
+    // FIXED: Match SPDashboard cancellation count logic - count from currentBookings within date range
+    const cancellationCount = currentBookings.filter(b => 
+      b.status === 'cancelled' || b.status === 'declined'
+    ).length;
 
     // Calculate percentage trend
     const getTrend = (curr, prev) => {
@@ -574,16 +589,15 @@ export default function SPSales() {
 
     // ========================================
     // CHART 4: REVENUE LOSS DUE TO CANCELLATIONS
+    // FIXED: Only count cancellations/declined within the current date range
     // Two lines: actual revenue earned vs potential revenue without cancellations
     // ========================================
     const actualRevenue = new Array(timeLabels.length).fill(0);
     const potentialRevenue = new Array(timeLabels.length).fill(0);
     const cancellationsPerPeriod = new Array(timeLabels.length).fill(0);
     
-    // FIX: Use appropriate bookings based on filter mode
-    const bookingsForCancellations = (activeFilter === 'yearly' && !selectedYear)
-      ? rawBookings
-      : currentBookings;
+    // FIXED: Only use currentBookings (bookings within the selected date range)
+    const bookingsForCancellations = currentBookings;
     
     bookingsForCancellations.forEach(booking => {
       // Apply pet type filter
@@ -616,7 +630,7 @@ export default function SPSales() {
       if (idx !== -1 && idx !== undefined) {
         potentialRevenue[idx] += revenue;
         
-        if (booking.status === 'cancelled') {
+        if (booking.status === 'cancelled' || booking.status === 'declined') {
           cancellationsPerPeriod[idx] += 1;
         }
         
@@ -680,10 +694,7 @@ export default function SPSales() {
     return { 
       revenue: current.rev, 
       validCount: current.count, 
-      cancellations: activeFilter === 'custom' && customDateStart && customDateEnd && customDateEnd === new Date().toISOString().split('T')[0]
-      ? rawBookings.filter(b => b.status === 'cancelled').length
-      : currentBookings.filter(b => b.status === 'cancelled').length,
-      
+      cancellations: cancellationCount, // FIXED: Now matches SPDashboard logic
       avg: new Set(current.validPets.map(p => p.user_id)).size > 0 
         ? Math.round(current.count / new Set(current.validPets.map(p => p.user_id)).size) 
         : 0, 
@@ -1177,7 +1188,14 @@ export default function SPSales() {
             <div className="sales-charts-grid">
               
               <div className="chart-box">
-                <h4 className="chart-title-sm">New vs Returning Customer Revenue</h4>
+                <div className="chart-header-with-btn">
+                  <h4 className="chart-title-sm">New vs Returning Customer Revenue</h4>
+                  <span className="date-range-topright">
+                    {activeFilter === 'yearly' && selectedYear 
+                      ? `Year ${selectedYear}` 
+                      : analytics.rangeText}
+                  </span>
+                </div>
                 <div className="chart-container-medium">
                   <Line
                     data={{
@@ -1259,7 +1277,14 @@ export default function SPSales() {
                     <FaArrowLeft size={12} />
                   </button>
                 )}
-                <h4 className="chart-title-sm">Sales Performance by Service</h4>
+                <div className="chart-header-with-btn">
+                  <h4 className="chart-title-sm">Sales Performance by Service</h4>
+                  <span className="date-range-topright">
+                    {activeFilter === 'yearly' && selectedYear 
+                      ? `Year ${selectedYear}` 
+                      : analytics.rangeText}
+                  </span>
+                </div>
                 <div className="chart-container-medium">
                   <Line
                     data={{
