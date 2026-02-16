@@ -354,8 +354,7 @@ export default function SPCustomerInsight() {
           end.setHours(23, 59, 59, 999);
         } else { 
           start = new Date(today.getFullYear(), today.getMonth(), 1);
-          end = new Date(today.getFullYear(), today.getMonth() + 1, 0); // Last day of current month
-          end.setHours(23, 59, 59, 999);
+          end = today;
         }
 
       // Yearly filter
@@ -366,8 +365,8 @@ export default function SPCustomerInsight() {
           targetYear = targetYear - 1;
         }
 
-        start = new Date(targetYear, 0, 1); // Jan 1
-        end = new Date(targetYear, 11, 31, 23, 59, 59, 999); // Dec 31
+        start = new Date(targetYear, 0, 1);
+        end = new Date(targetYear, 11, 31, 23, 59, 59, 999);
       }
 
       return { start, end };
