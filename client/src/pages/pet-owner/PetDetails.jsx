@@ -4,7 +4,7 @@ import { supabase } from "../../config/supabase";
 import { 
   Calendar, Weight, Activity, Cat, AlertCircle,
   UploadCloud, FileText, Trash2, Plus, ArrowRight,
-  CreditCard, ArrowLeft, ChevronDown, ChevronUp, X, 
+  CreditCard, ArrowLeft, X, 
   Maximize2, Minus, Tag, Clock, ShieldCheck, CheckCircle
 } from "lucide-react";
 import Header from "../../components/Header/LoggedInNavbar";
@@ -34,7 +34,6 @@ const PetDetails = () => {
   const [petsData, setPetsData] = useState([]);
   const [providerServices, setProviderServices] = useState([]);
   const [availablePetTypes, setAvailablePetTypes] = useState([]);
-  const [showPolicies, setShowPolicies] = useState(false);
   const [loading, setLoading] = useState(true);
   const [showSummaryModal, setShowSummaryModal] = useState(false);
   const [attemptedSubmit, setAttemptedSubmit] = useState(false);
@@ -695,22 +694,6 @@ const getServicePriceAndSize = (serviceId, petType, weight) => {
                   </div>
                 )}
             </div>
-        </div>
-
-        {/* POLICIES SECTION */}
-        <div className="policies-container">
-            <button className="policies-toggle-bar" onClick={() => setShowPolicies(!showPolicies)}>
-                <div className="label-flex"><AlertCircle size={20}/> Booking Policies & Conditions</div>
-                {showPolicies ? <ChevronUp /> : <ChevronDown />}
-            </button>
-            {showPolicies && (
-                <div className="policies-body">
-                    <div className="policy-item"><strong>1. Booking & Vaccination:</strong> All pets must have valid proof of vaccination.</div>
-                    <div className="policy-item"><strong>2. Non-Refundable Down Payment:</strong> 30% down payment is required to secure slot.</div>
-                    <div className="policy-item"><strong>3. Aggressive Behavior:</strong> Owners must accurately disclose pet behavior.</div>
-                    <div className="policy-item"><strong>4. Late Arrivals:</strong> Rescheduling may occur for arrivals 15+ mins late.</div>
-                </div>
-            )}
         </div>
 
        {/* PET FORMS GRID */}
