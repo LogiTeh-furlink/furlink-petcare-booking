@@ -1,6 +1,5 @@
-// /src/pages/pet-owner/ApplyProvider.jsx
 import React, { useState, useEffect } from "react";
-import { X, Upload, FileText, CheckCircle, AlertCircle, Trash2, Plus, MapPin, Users, FileCheck } from "lucide-react";
+import { X, Upload, FileText, CheckCircle, AlertCircle, Trash2, Plus, MapPin, Users, FileCheck, Ban } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import LocationPicker from "../../components/Map/LocationPicker";
 import LoggedInNavbar from "../../components/Header/LoggedInNavbar";
@@ -9,44 +8,34 @@ import { supabase } from "../../config/supabase";
 import "./ApplyProvider.css";
 
 /* =========================================
-   CONFIRMATION MODAL COMPONENT (UPDATED)
+   CONFIRMATION MODAL COMPONENT (UNCHANGED)
    ========================================= */
 const ConfirmationModal = ({ isOpen, onClose, onConfirm, data, files, isSubmitting }) => {
   if (!isOpen) return null;
 
-  // Helper to extract clean filenames
   const getFileName = (fileOrUrl) => {
     if (!fileOrUrl) return "None";
-    // Check if it's a File object (New Upload)
     if (fileOrUrl instanceof File) return fileOrUrl.name;
-    
-    // Check if it's a URL string (Existing)
     if (typeof fileOrUrl === 'string') {
         try {
             const decoded = decodeURIComponent(fileOrUrl);
             const baseName = decoded.split('/').pop(); 
-            // Remove timestamp prefix if present (e.g. 173456_name.jpg)
             return baseName.replace(/^\d+_/, ''); 
         } catch (e) { return "Existing File"; }
     }
     return "File";
   };
 
-  // --- PREPARE DATA LISTS ---
-
-  // 1. Facilities (Combine New Arrays + Existing Objects)
   const finalFacilities = [
     ...(files.existingFacilityImages || []).map(f => ({ name: getFileName(f.image_url), status: 'Existing' })),
     ...(files.facilityImages || []).map(f => ({ name: f.name, status: 'New' }))
   ];
 
-  // 2. Payments
   const finalPayments = [
     ...(files.existingPaymentChannels || []).map(f => ({ name: getFileName(f.file_url), status: 'Existing' })),
     ...(files.paymentChannelFiles || []).map(f => ({ name: f.name, status: 'New' }))
   ];
 
-  // 3. Waiver
   let waiverInfo = { name: "None", status: "" };
   if (files.waiverFile) {
     waiverInfo = { name: files.waiverFile.name, status: "New" };
@@ -54,7 +43,6 @@ const ConfirmationModal = ({ isOpen, onClose, onConfirm, data, files, isSubmitti
     waiverInfo = { name: getFileName(files.existingWaiverUrl), status: "Existing" };
   }
 
-  // 4. Permit
   let permitInfo = { name: "Missing", status: "Missing" };
   if (files.businessPermitFile) {
     permitInfo = { name: files.businessPermitFile.name, status: "New" };
@@ -62,7 +50,6 @@ const ConfirmationModal = ({ isOpen, onClose, onConfirm, data, files, isSubmitti
     permitInfo = { name: getFileName(files.existingPermitUrl), status: "Existing" };
   }
 
-  // 5. Operating Hours Formatting
   const hoursDisplay = (data.operatingHours || []).map(slot => 
     `${slot.days.join(", ")} (${slot.startTime} - ${slot.endTime})`
   ).join("; ");
@@ -71,9 +58,7 @@ const ConfirmationModal = ({ isOpen, onClose, onConfirm, data, files, isSubmitti
     <div className="modal-overlay">
       <div className="modal-container">
         <div className="modal-header">
-          <h2 className="modal-title">
-            Review Application
-          </h2>
+          <h2 className="modal-title">Review Application</h2>
           <button onClick={onClose} disabled={isSubmitting} className="modal-close-btn">
             <X size={20} />
           </button>
@@ -81,25 +66,20 @@ const ConfirmationModal = ({ isOpen, onClose, onConfirm, data, files, isSubmitti
 
         <div className="modal-body">
           <div className="review-grid">
-            
-            {/* SECTION 1: BUSINESS INFO */}
             <div className="review-group">
                 <h4><MapPin size={14}/> Business Details</h4>
                 <div className="review-row"><span className="review-label">Name:</span> <span className="review-value">{data.businessName}</span></div>
                 <div className="review-row"><span className="review-label">Email:</span> <span className="review-value">{data.businessEmail}</span></div>
                 <div className="review-row"><span className="review-label">Mobile:</span> <span className="review-value">{data.businessMobile}</span></div>
                 <div className="review-row"><span className="review-label">Type:</span> <span className="review-value">{data.typeOfService}</span></div>
-                
                 <div className="review-row" style={{display:'block'}}>
                     <span className="review-label">Description:</span>
                     <span className="review-value long-text">{data.description}</span>
                 </div>
-
                 <div className="review-row"><span className="review-label">Hours:</span> <span className="review-value">{hoursDisplay}</span></div>
                 <div className="review-row"><span className="review-label">Social:</span> <span className="review-value">{data.socialMediaUrl || "N/A"}</span></div>
             </div>
 
-            {/* SECTION 2: ADDRESS */}
             <div className="review-group">
               <h4><MapPin size={14}/> Location</h4>
               <div className="review-row"><span className="review-label">Street:</span> <span className="review-value">{data.houseStreet}</span></div>
@@ -108,8 +88,6 @@ const ConfirmationModal = ({ isOpen, onClose, onConfirm, data, files, isSubmitti
               <div className="review-row"><span className="review-label">Province:</span> <span className="review-value">{data.province}</span></div>
               <div className="review-row"><span className="review-label">Postal:</span> <span className="review-value">{data.postalCode}</span></div>
               <div className="review-row"><span className="review-label">Country:</span> <span className="review-value">{data.country}</span></div>
-              
-              {/* ADDED LATITUDE AND LONGITUDE */}
               <div className="review-row">
                   <span className="review-label">Latitude:</span> 
                   <span className="review-value">{data.latitude ? data.latitude.toFixed(6) : "N/A"}</span>
@@ -118,11 +96,9 @@ const ConfirmationModal = ({ isOpen, onClose, onConfirm, data, files, isSubmitti
                   <span className="review-label">Longitude:</span> 
                   <span className="review-value">{data.longitude ? data.longitude.toFixed(6) : "N/A"}</span>
               </div>
-
               <div className="review-row"><span className="review-label">Map Link:</span> <span className="review-value">{data.googleMapUrl || "N/A"}</span></div>
           </div>
 
-            {/* SECTION 3: EMPLOYEES */}
             <div className="review-group">
                 <h4><Users size={14}/> Employees ({(files.employees || []).length})</h4>
                 <ul className="review-list">
@@ -134,11 +110,8 @@ const ConfirmationModal = ({ isOpen, onClose, onConfirm, data, files, isSubmitti
                 </ul>
             </div>
 
-            {/* SECTION 4: ATTACHMENTS */}
             <div className="review-group">
                 <h4><FileCheck size={14}/> Attachments</h4>
-                
-                {/* PERMIT */}
                 <div className="review-row"><span className="review-label">Business Permit:</span></div>
                 <ul className="review-list">
                     <li>
@@ -146,8 +119,6 @@ const ConfirmationModal = ({ isOpen, onClose, onConfirm, data, files, isSubmitti
                         {permitInfo.name}
                     </li>
                 </ul>
-
-                {/* WAIVER */}
                 <div className="review-row" style={{marginTop:'10px'}}><span className="review-label">Waiver:</span></div>
                 <ul className="review-list">
                     {waiverInfo.name !== "None" ? (
@@ -159,8 +130,6 @@ const ConfirmationModal = ({ isOpen, onClose, onConfirm, data, files, isSubmitti
                         <li style={{fontStyle:'italic', color:'#9ca3af'}}>No waiver provided</li>
                     )}
                 </ul>
-
-                {/* FACILITIES */}
                 <div className="review-row" style={{marginTop:'10px'}}><span className="review-label">Facilities ({finalFacilities.length}):</span></div>
                 <ul className="review-list">
                     {finalFacilities.map((f, i) => (
@@ -170,8 +139,6 @@ const ConfirmationModal = ({ isOpen, onClose, onConfirm, data, files, isSubmitti
                         </li>
                     ))}
                 </ul>
-
-                {/* PAYMENTS */}
                 <div className="review-row" style={{marginTop:'10px'}}><span className="review-label">Payment QR ({finalPayments.length}):</span></div>
                 <ul className="review-list">
                     {finalPayments.map((f, i) => (
@@ -191,9 +158,7 @@ const ConfirmationModal = ({ isOpen, onClose, onConfirm, data, files, isSubmitti
         </div>
 
         <div className="modal-footer">
-          <button onClick={onClose} disabled={isSubmitting} className="btn-cancel">
-            Go Back & Edit
-          </button>
+          <button onClick={onClose} disabled={isSubmitting} className="btn-cancel">Go Back & Edit</button>
           <button onClick={onConfirm} disabled={isSubmitting} className="btn-confirm">
             {isSubmitting ? "Submitting..." : "Confirm & Submit"}
           </button>
@@ -222,6 +187,10 @@ export default function ApplyProvider() {
   const [providerId, setProviderId] = useState(null);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [isReapplying, setIsReapplying] = useState(false);
+  
+  // ⭐ SUSPENSION STATE
+  const [isSuspended, setIsSuspended] = useState(false);
+  const [suspensionDate, setSuspensionDate] = useState(null);
 
   const [businessInfo, setBusinessInfo] = useState({
     businessName: "",
@@ -235,9 +204,9 @@ export default function ApplyProvider() {
         days: [], 
         startTime: "09:00", 
         endTime: "17:00",
-        slotDurationHours: 1,      // Added
-        slotDurationMinutes: 0,    // Added
-        capacityPerSlot: 1         // Added
+        slotDurationHours: 1,
+        slotDurationMinutes: 0,
+        capacityPerSlot: 1
     }],
     houseStreet: "",
     barangay: "",
@@ -249,43 +218,27 @@ export default function ApplyProvider() {
 
   const [waiverFile, setWaiverFile] = useState(null);
   const [existingWaiverUrl, setExistingWaiverUrl] = useState(null);
-
   const [facilityImages, setFacilityImages] = useState([]);
   const [existingFacilityImages, setExistingFacilityImages] = useState([]);
-
   const [paymentChannelFiles, setPaymentChannelFiles] = useState([]);
   const [existingPaymentChannels, setExistingPaymentChannels] = useState([]);
-
   const [businessPermitFile, setBusinessPermitFile] = useState(null);
   const [existingPermitUrl, setExistingPermitUrl] = useState(null);
-
   const [employees, setEmployees] = useState([{ fullName: "", position: "" }]);
   const [validationErrors, setValidationErrors] = useState({});
 
   const isWithinPhilippines = (lat, lng) => lat >= 4.0 && lat <= 21.5 && lng >= 116.0 && lng <= 127.0;
 
-  // SYNC 1 & 2: Map Click or URL Paste -> Updates Everything
   const handleLocationChange = async (lat, lng) => {
+    if (isSuspended) return; // Guard
     if (!isWithinPhilippines(lat, lng)) {
       alert("Location must be in the Philippines.");
       return;
     }
-
-    // FIX: Standard Google Maps URL format
     const genUrl = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
-    
-    setBusinessInfo(prev => ({ 
-      ...prev, 
-      latitude: lat, 
-      longitude: lng, 
-      googleMapUrl: genUrl 
-    }));
-
+    setBusinessInfo(prev => ({ ...prev, latitude: lat, longitude: lng, googleMapUrl: genUrl }));
     try {
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&addressdetails=1`,
-        { headers: { 'User-Agent': 'FurLinkPetCareApp/1.0' } }
-      );
+      const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&addressdetails=1`, { headers: { 'User-Agent': 'FurLinkPetCareApp/1.0' } });
       const data = await response.json();
       if (data && data.address) {
         const addr = data.address;
@@ -301,39 +254,22 @@ export default function ApplyProvider() {
     } catch (e) { console.error("Reverse geocoding error:", e); }
   };
 
- // SYNC: Address Fields -> Updates Map & URL
   const updatePinFromAddress = async (updatedInfo) => {
+    if (isSuspended) return; // Guard
     const { houseStreet, barangay, city, province } = updatedInfo;
     if (!houseStreet && !barangay && !city) return;
-
-    // We combine the fields into a single search string
     const query = `${houseStreet}, ${barangay}, ${city}, ${province}, Philippines`;
-    
     try {
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`,
-        {
-          headers: { 'User-Agent': 'FurLinkPetCareApp/1.0' }
-        }
-      );
-      
+      const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`, { headers: { 'User-Agent': 'FurLinkPetCareApp/1.0' } });
       const data = await response.json();
       if (data && data.length > 0) {
         const nLat = parseFloat(data[0].lat);
         const nLng = parseFloat(data[0].lon);
-
         if (isWithinPhilippines(nLat, nLng)) {
-          setBusinessInfo(prev => ({ 
-            ...prev, 
-            latitude: nLat, 
-            longitude: nLng, 
-            googleMapUrl: `https://www.google.com/maps/search/?api=1&query=${nLat},${nLng}` 
-          }));
+          setBusinessInfo(prev => ({ ...prev, latitude: nLat, longitude: nLng, googleMapUrl: `https://www.google.com/maps/search/?api=1&query=${nLat},${nLng}` }));
         }
       }
-    } catch (e) {
-      console.error("Manual address geocoding error:", e);
-    }
+    } catch (e) { console.error("Manual address geocoding error:", e); }
   };
 
   const daysOfWeekShort = ["S", "M", "T", "W", "T", "F", "S"];
@@ -347,21 +283,21 @@ export default function ApplyProvider() {
         const { data: { user } } = await supabase.auth.getUser();
         if(!user) return;
 
-        const { data: providerData } = await supabase
-            .from("service_providers")
-            .select("*")
-            .eq("user_id", user.id)
-            .maybeSingle(); 
+        // ⭐ CHECK SUSPENSION STATUS
+        const { data: profile } = await supabase.from("profiles").select("suspension_end_date").eq("id", user.id).single();
+        if (profile?.suspension_end_date) {
+            const endDate = new Date(profile.suspension_end_date);
+            if (endDate > new Date()) {
+                setIsSuspended(true);
+                setSuspensionDate(endDate);
+            }
+        }
+
+        const { data: providerData } = await supabase.from("service_providers").select("*").eq("user_id", user.id).maybeSingle(); 
 
         if (providerData) {
             setProviderId(providerData.id);
-            
-            // ADD THIS LINE HERE:
             setIsReapplying(providerData.status === 'rejected');
-
-            localStorage.setItem("providerId", providerData.id); 
-            // ... rest of your existing logic
-
             setBusinessInfo(prev => ({
               ...prev,
               businessName: providerData.business_name || "",
@@ -378,79 +314,57 @@ export default function ApplyProvider() {
             }));
 
             if (providerData.waiver_url) setExistingWaiverUrl(providerData.waiver_url);
-
             const { data: hours } = await supabase.from("service_provider_hours").select("*").eq("provider_id", providerData.id);
             if (hours && hours.length > 0) {
               const grouped = {};
               hours.forEach((h) => {
                 const key = `${h.start_time}-${h.end_time}`;
-                if (!grouped[key]) grouped[key] = { days: [], startTime: h.start_time, endTime: h.end_time };
+                if (!grouped[key]) grouped[key] = { days: [], startTime: h.start_time, endTime: h.end_time, slotDurationHours: Math.floor(h.slot_interval_minutes / 60), slotDurationMinutes: h.slot_interval_minutes % 60, capacityPerSlot: h.slot_capacity };
                 grouped[key].days.push(h.day_of_week);
               });
               setBusinessInfo((prev) => ({ ...prev, operatingHours: Object.values(grouped) }));
             }
-
             const { data: imgs } = await supabase.from("service_provider_images").select("*").eq("provider_id", providerData.id);
             if (imgs) setExistingFacilityImages(imgs);
-
             const { data: payments } = await supabase.from("service_provider_payments").select("*").eq("provider_id", providerData.id);
             if (payments) setExistingPaymentChannels(payments);
-
             const { data: permits } = await supabase.from("service_provider_permits").select("*").eq("provider_id", providerData.id);
             if (permits && permits.length > 0) setExistingPermitUrl(permits[0].file_url);
-
             const { data: staff } = await supabase.from("service_provider_staff").select("*").eq("provider_id", providerData.id);
-            if (staff && staff.length > 0) {
-                setEmployees(staff.map(s => ({ fullName: s.full_name, position: s.job_title })));
-            }
+            if (staff && staff.length > 0) setEmployees(staff.map(s => ({ fullName: s.full_name, position: s.job_title })));
         }
-      } catch (err) {
-        console.error("Load error:", err);
-      } finally {
-        setIsLoading(false);
-      }
+      } catch (err) { console.error("Load error:", err); } finally { setIsLoading(false); }
     };
     loadProviderData();
   }, []);
 
-  // Add/Update these inside export default function ApplyProvider()
-
-const handleBusinessChange = (e) => {
-  const { name, value } = e.target;
-
-  // 500 Character Limit Logic
-  if (name === "description") {
-    if (value.length <= 500) {
-      setBusinessInfo((prev) => ({ ...prev, [name]: value }));
+  const handleBusinessChange = (e) => {
+    if (isSuspended) return; // Guard
+    const { name, value } = e.target;
+    if (name === "description" && value.length > 500) return;
+    if (name === "googleMapUrl") {
+        setBusinessInfo(prev => ({ ...prev, [name]: value }));
+        const regex = /@(-?\d+\.\d+),(-?\d+\.\d+)|q=(-?\d+\.\d+),(-?\d+\.\d+)/;
+        const match = value.match(regex);
+        if (match) {
+            const lat = parseFloat(match[1] || match[3]);
+            const lng = parseFloat(match[2] || match[4]);
+            if (isWithinPhilippines(lat, lng)) handleLocationChange(lat, lng);
+        }
+        return;
     }
-    return;
-  }
-
-  if (name === "googleMapUrl") {
-      setBusinessInfo(prev => ({ ...prev, [name]: value }));
-      // Regex to find coords in a Google URL
-      const regex = /@(-?\d+\.\d+),(-?\d+\.\d+)|q=(-?\d+\.\d+),(-?\d+\.\d+)/;
-      const match = value.match(regex);
-      if (match) {
-        const lat = parseFloat(match[1] || match[3]);
-        const lng = parseFloat(match[2] || match[4]);
-        if (isWithinPhilippines(lat, lng)) handleLocationChange(lat, lng);
+    if (name === "businessMobile" || name === "postalCode") {
+      const nums = value.replace(/\D/g, "");
+      if ((name === "businessMobile" && nums.length <= 11) || (name === "postalCode" && nums.length <= 4)) {
+        setBusinessInfo(prev => ({ ...prev, [name]: nums }));
       }
       return;
-  }
-
-  if (name === "businessMobile" || name === "postalCode") {
-    const nums = value.replace(/\D/g, "");
-    if ((name === "businessMobile" && nums.length <= 11) || (name === "postalCode" && nums.length <= 4)) {
-      setBusinessInfo(prev => ({ ...prev, [name]: nums }));
     }
-    return;
-  }
-
-  setBusinessInfo((prev) => ({ ...prev, [name]: value }));
-};
+    setBusinessInfo((prev) => ({ ...prev, [name]: value }));
+  };
 
   const toggleDay = (slotIndex, day) => {
+    if (isSuspended) return;
     setBusinessInfo((prev) => {
       const used = prev.operatingHours.some((s, i) => i !== slotIndex && s.days.includes(day));
       if (used) return prev;
@@ -463,14 +377,16 @@ const handleBusinessChange = (e) => {
     });
   };
 
-  const isDayDisabled = (slotIndex, day) => businessInfo.operatingHours.some((slot, i) => i !== slotIndex && slot.days.includes(day));
-  const addTimeSlot = () => setBusinessInfo((prev) => ({ ...prev, operatingHours: [...prev.operatingHours, { days: [], startTime: "09:00", endTime: "17:00" }] }));
-  const removeTimeSlot = (index) => setBusinessInfo((prev) => ({ ...prev, operatingHours: prev.operatingHours.filter((_, i) => i !== index) }));
+  const isDayDisabled = (slotIndex, day) => isSuspended || businessInfo.operatingHours.some((slot, i) => i !== slotIndex && slot.days.includes(day));
+  const addTimeSlot = () => !isSuspended && setBusinessInfo((prev) => ({ ...prev, operatingHours: [...prev.operatingHours, { days: [], startTime: "09:00", endTime: "17:00", slotDurationHours: 1, slotDurationMinutes: 0, capacityPerSlot: 1 }] }));
+  const removeTimeSlot = (index) => !isSuspended && setBusinessInfo((prev) => ({ ...prev, operatingHours: prev.operatingHours.filter((_, i) => i !== index) }));
   const handleTimeChange = (slotIndex, type, value) => {
+    if (isSuspended) return;
     setBusinessInfo((prev) => ({ ...prev, operatingHours: prev.operatingHours.map((slot, i) => (i === slotIndex ? { ...slot, [type]: value } : slot)) }));
   };
 
   const handleFileSelect = (setter, e, maxSizeMB, fieldName) => {
+    if (isSuspended) return;
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       if (file.size > maxSizeMB * 1024 * 1024) {
@@ -484,134 +400,82 @@ const handleBusinessChange = (e) => {
   };
 
   const handleMultiFileSelect = (setter, currentFiles, e, maxFiles, fieldName, existingCount = 0, maxSizeMB = 2) => {
+    if (isSuspended) return;
     if (e.target.files) {
       const files = Array.from(e.target.files);
-      
       if (currentFiles.length + files.length + existingCount > maxFiles) {
         setValidationErrors((prev) => ({ ...prev, [fieldName]: `You can upload up to ${maxFiles} files total.` }));
         e.target.value = "";
         return;
       }
-
       const invalidFile = files.find(f => f.size > maxSizeMB * 1024 * 1024);
       if (invalidFile) {
         setValidationErrors((prev) => ({ ...prev, [fieldName]: `One or more files exceed the ${maxSizeMB}MB limit.` }));
         e.target.value = "";
         return;
       }
-
       setValidationErrors((prev) => { const u = { ...prev }; delete u[fieldName]; return u; });
       setter((prev) => [...prev, ...files]);
       e.target.value = "";
     }
   };
 
-  const removeFile = (setter, index) => setter((prev) => prev.filter((_, i) => i !== index));
-  const removeSingleFile = (fileSetter, urlSetter) => { fileSetter(null); urlSetter(null); };
+  const removeFile = (setter, index) => !isSuspended && setter((prev) => prev.filter((_, i) => i !== index));
+  const removeSingleFile = (fileSetter, urlSetter) => { if (isSuspended) return; fileSetter(null); urlSetter(null); };
 
-  const handleEmployeeChange = (index, field, value) => setEmployees((prev) => prev.map((emp, i) => (i === index ? { ...emp, [field]: value } : emp)));
-  const addEmployee = () => setEmployees((prev) => [...prev, { fullName: "", position: "" }]);
-  const removeEmployee = (index) => setEmployees((prev) => prev.filter((_, i) => i !== index));
+  const handleEmployeeChange = (index, field, value) => !isSuspended && setEmployees((prev) => prev.map((emp, i) => (i === index ? { ...emp, [field]: value } : emp)));
+  const addEmployee = () => !isSuspended && setEmployees((prev) => [...prev, { fullName: "", position: "" }]);
+  const removeEmployee = (index) => !isSuspended && setEmployees((prev) => prev.filter((_, i) => i !== index));
 
   const validateForm = async () => {
     const errors = {};
-    
-    // 1. Existing validations...
-    if (!businessInfo.businessName.trim()) {
-        errors.businessName = "Business Name is required";
-    } else {
-        // 2. CHECK FOR DUPLICATE BUSINESS NAME
-        // Now 'await' is allowed because the function is 'async'
-        const { data: existingBusiness, error } = await supabase
-            .from("service_providers")
-            .select("id")
-            .eq("business_name", businessInfo.businessName.trim())
-            .neq("id", providerId || "00000000-0000-0000-0000-000000000000") 
-            .maybeSingle();
-
-        if (existingBusiness) {
-            errors.businessName = "This business name is already registered. Please choose another.";
-        }
+    if (!businessInfo.businessName.trim()) { errors.businessName = "Business Name is required"; } 
+    else {
+        const { data: existingBusiness } = await supabase.from("service_providers").select("id").eq("business_name", businessInfo.businessName.trim()).neq("id", providerId || "00000000-0000-0000-0000-000000000000").maybeSingle();
+        if (existingBusiness) { errors.businessName = "This business name is already registered. Please choose another."; }
     }
-
-    if (!businessInfo.description.trim()) errors.description = " ";
-    
+    if (!businessInfo.description.trim()) errors.description = "Description is required";
     if (!businessInfo.businessEmail.trim()) errors.businessEmail = "Email is required";
     if (!/^09\d{9}$/.test(businessInfo.businessMobile)) errors.businessMobile = "Must be a valid PH mobile number";
-
-    if (businessInfo.socialMediaUrl && !/^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?(\?.*)?$/.test(businessInfo.socialMediaUrl)) {
-        errors.socialMediaUrl = "Must be a valid URL";
-    }
-
-    if (!businessInfo.googleMapUrl.trim()) {
-        errors.googleMapUrl = "Google Map Link is required";
-    } else if (!/^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?(\?.*)?$/.test(businessInfo.googleMapUrl)) {
-        errors.googleMapUrl = "Must be a valid URL";
-    }
-
-    if (!businessInfo.operatingHours || businessInfo.operatingHours.length === 0) {
-      errors.operatingHours = "At least one operating hour slot is required";
-    } else {
-        businessInfo.operatingHours.forEach(slot => {
-            if(slot.days.length === 0) errors.operatingHours = "Select at least one day for each slot";
-        });
-    }
-
-    ["houseStreet", "barangay", "city", "province"].forEach((field) => {
-      if (!businessInfo[field] || !businessInfo[field].trim()) errors[field] = "Please provide business address details";
-    });
-
+    if (businessInfo.socialMediaUrl && !/^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?(\?.*)?$/.test(businessInfo.socialMediaUrl)) errors.socialMediaUrl = "Must be a valid URL";
+    if (!businessInfo.googleMapUrl.trim()) { errors.googleMapUrl = "Google Map Link is required"; } 
+    else if (!/^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?(\?.*)?$/.test(businessInfo.googleMapUrl)) { errors.googleMapUrl = "Must be a valid URL"; }
+    if (!businessInfo.operatingHours || businessInfo.operatingHours.length === 0) { errors.operatingHours = "At least one operating hour slot is required"; } 
+    else { businessInfo.operatingHours.forEach(slot => { if(slot.days.length === 0) errors.operatingHours = "Select at least one day for each slot"; }); }
+    ["houseStreet", "barangay", "city", "province"].forEach((field) => { if (!businessInfo[field] || !businessInfo[field].trim()) errors[field] = "Required"; });
     if (!/^\d{4}$/.test(businessInfo.postalCode)) errors.postalCode = "Invalid postal code";
-
-    if (facilityImages.length === 0 && existingFacilityImages.length === 0) errors.facilityImages = "At least 1 facility image required";
-    if (paymentChannelFiles.length === 0 && existingPaymentChannels.length === 0) errors.paymentChannelFiles = "At least 1 payment QR required";
-    if (!businessPermitFile && !existingPermitUrl) errors.businessPermitFile = "Business Permit is required";
-
-    if (employees.length === 0) errors.employees = "At least one employee is required";
-    employees.forEach((emp, i) => {
-      if (!emp.fullName.trim()) errors[`employee_${i}_name`] = "Required";
-      if (!emp.position.trim()) errors[`employee_${i}_pos`] = "Required";
-    });
-
+    if (facilityImages.length === 0 && existingFacilityImages.length === 0) errors.facilityImages = "Required";
+    if (paymentChannelFiles.length === 0 && existingPaymentChannels.length === 0) errors.paymentChannelFiles = "Required";
+    if (!businessPermitFile && !existingPermitUrl) errors.businessPermitFile = "Required";
+    if (employees.length === 0) errors.employees = "Required";
+    employees.forEach((emp, i) => { if (!emp.fullName.trim()) errors[`employee_${i}_name`] = "Required"; if (!emp.position.trim()) errors[`employee_${i}_pos`] = "Required"; });
     setValidationErrors(errors);
     return Object.keys(errors).length === 0;
   };
 
-  // Add 'async' here -------v
   const handleFormSubmit = async (e) => {
       e.preventDefault();
-      
-      // Add 'await' here ---v because validateForm is now async
+      if (isSuspended) return; // Guard
       const isValid = await validateForm(); 
-      
-      if (!isValid) {
-          window.scrollTo({ top: 0, behavior: "smooth" });
-          return;
-      }
-      
+      if (!isValid) { window.scrollTo({ top: 0, behavior: "smooth" }); return; }
       setShowConfirmModal(true);
   };
 
   const getFilePathFromUrl = (url) => {
     if (!url) return null;
-    try {
-      const u = new URL(url);
-      const match = u.pathname.match(/\/storage\/v1\/object\/public\/[^\/]+\/(.+)$/);
-      return match ? decodeURIComponent(match[1]) : null;
-    } catch { return null; }
+    try { const u = new URL(url); const match = u.pathname.match(/\/storage\/v1\/object\/public\/[^\/]+\/(.+)$/); return match ? decodeURIComponent(match[1]) : null; } catch { return null; }
   };
 
   const removeExistingFile = async (type, id, fileUrl) => {
+    if (isSuspended) return;
     if (!window.confirm("Are you sure you want to remove this file?")) return;
     try {
         let tableName = "";
         if (type === "image") tableName = "service_provider_images";
         else if (type === "payment") tableName = "service_provider_payments";
         else if (type === "permit") tableName = "service_provider_permits";
-
         const filePath = getFilePathFromUrl(fileUrl);
         if (filePath) await supabase.storage.from("service_provider_uploads").remove([filePath]);
-
         if (tableName) {
             await supabase.from(tableName).delete().eq("id", id);
             if (type === "image") setExistingFacilityImages(prev => prev.filter(i => i.id !== id));
@@ -630,42 +494,19 @@ const handleBusinessChange = (e) => {
     return data.publicUrl;
   };
 
-    const handleConfirmSubmit = async () => {
+  const handleConfirmSubmit = async () => {
       setIsSubmitting(true);
-
-      // Clear any previous general errors before starting
-      setValidationErrors((prev) => {
-        const newErrors = { ...prev };
-        delete newErrors.general;
-        return newErrors;
-      });
-
+      setValidationErrors((prev) => { const newErrors = { ...prev }; delete newErrors.general; return newErrors; });
       try {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) throw new Error("No user found");
-
-        // 1. Upload files to Supabase Storage
-        const waiverUrl = waiverFile 
-          ? await uploadFileToStorage(user.id, "waivers", waiverFile) 
-          : (existingWaiverUrl || null);
-
-        const permitUrl = businessPermitFile 
-          ? await uploadFileToStorage(user.id, "permits", businessPermitFile) 
-          : (existingPermitUrl || null);
-
+        const waiverUrl = waiverFile ? await uploadFileToStorage(user.id, "waivers", waiverFile) : (existingWaiverUrl || null);
+        const permitUrl = businessPermitFile ? await uploadFileToStorage(user.id, "permits", businessPermitFile) : (existingPermitUrl || null);
         const newFacilityUrls = [];
-        for (const f of facilityImages) {
-          const u = await uploadFileToStorage(user.id, "facilities", f);
-          if (u) newFacilityUrls.push(u);
-        }
-
+        for (const f of facilityImages) { const u = await uploadFileToStorage(user.id, "facilities", f); if (u) newFacilityUrls.push(u); }
         const newPaymentUrls = [];
-        for (const f of paymentChannelFiles) {
-          const u = await uploadFileToStorage(user.id, "payments", f);
-          if (u) newPaymentUrls.push(u);
-        }
+        for (const f of paymentChannelFiles) { const u = await uploadFileToStorage(user.id, "payments", f); if (u) newPaymentUrls.push(u); }
 
-        // 2. Prepare the main provider payload
         const payload = {
           user_id: user.id,
           business_name: businessInfo.businessName,
@@ -682,106 +523,37 @@ const handleBusinessChange = (e) => {
           social_media_url: businessInfo.socialMediaUrl,
           google_map_url: businessInfo.googleMapUrl,
           waiver_url: waiverUrl,
-          status: 'incomplete', // Re-apply logic: Reset to pending for review
-          rejection_reasons: null, // Clear old rejection reasons
+          status: 'pending', 
+          rejection_reasons: null, 
           updated_at: new Date().toISOString(),
         };
 
-        // 3. Upsert the service provider record
-        // NOTE: Requires a UNIQUE constraint on user_id in the database
-        const { data: upsertData, error: upsertError } = await supabase
-          .from("service_providers")
-          .upsert(payload, { onConflict: 'user_id' })
-          .select()
-          .single();
-
+        const { data: upsertData, error: upsertError } = await supabase.from("service_providers").upsert(payload, { onConflict: 'user_id' }).select().single();
         if (upsertError) throw upsertError;
-
         const currentProviderId = upsertData.id;
-        setProviderId(currentProviderId);
-        localStorage.setItem("providerId", currentProviderId);
+        await Promise.all([supabase.from("service_provider_hours").delete().eq("provider_id", currentProviderId), supabase.from("service_provider_staff").delete().eq("provider_id", currentProviderId)]);
 
-        // 4. Clean up old child records to prevent duplicates on resubmission
-        await Promise.all([
-          supabase.from("service_provider_hours").delete().eq("provider_id", currentProviderId),
-          supabase.from("service_provider_staff").delete().eq("provider_id", currentProviderId)
-        ]);
-
-        // 5. Prepare and Insert Operating Hours
         const hoursPayload = [];
         businessInfo.operatingHours.forEach(slot => {
           const totalMinutes = (slot.slotDurationHours * 60) + slot.slotDurationMinutes;
           slot.days.forEach(day => {
-            hoursPayload.push({
-              provider_id: currentProviderId,
-              day_of_week: day,
-              start_time: slot.startTime,
-              end_time: slot.endTime,
-              slot_interval_minutes: totalMinutes,
-              slot_capacity: slot.capacityPerSlot
-            });
+            hoursPayload.push({ provider_id: currentProviderId, day_of_week: day, start_time: slot.startTime, end_time: slot.endTime, slot_interval_minutes: totalMinutes, slot_capacity: slot.capacityPerSlot });
           });
         });
+        if (hoursPayload.length > 0) { const { error: hError } = await supabase.from("service_provider_hours").insert(hoursPayload); if (hError) throw hError; }
+        if (newFacilityUrls.length > 0) { const imgPayload = newFacilityUrls.map(url => ({ provider_id: currentProviderId, image_url: url })); await supabase.from("service_provider_images").insert(imgPayload); }
+        if (newPaymentUrls.length > 0) { const payPayload = newPaymentUrls.map(url => ({ provider_id: currentProviderId, method_type: "QR", file_url: url })); await supabase.from("service_provider_payments").insert(payPayload); }
+        if (businessPermitFile) { await supabase.from("service_provider_permits").delete().eq("provider_id", currentProviderId); await supabase.from("service_provider_permits").insert({ provider_id: currentProviderId, permit_type: "Business Permit", file_url: permitUrl }); }
+        const staffPayload = employees.map(emp => ({ provider_id: currentProviderId, full_name: emp.fullName, job_title: emp.position }));
+        if (staffPayload.length > 0) await supabase.from("service_provider_staff").insert(staffPayload);
 
-        if (hoursPayload.length > 0) {
-          const { error: hError } = await supabase.from("service_provider_hours").insert(hoursPayload);
-          if (hError) throw hError;
-        }
-
-        // 6. Insert new Facility Images
-        if (newFacilityUrls.length > 0) {
-          const imgPayload = newFacilityUrls.map(url => ({ provider_id: currentProviderId, image_url: url }));
-          const { error: imgErr } = await supabase.from("service_provider_images").insert(imgPayload);
-          if (imgErr) throw imgErr;
-        }
-
-        // 7. Insert new Payment QRs
-        if (newPaymentUrls.length > 0) {
-          const payPayload = newPaymentUrls.map(url => ({ provider_id: currentProviderId, method_type: "QR", file_url: url }));
-          const { error: payErr } = await supabase.from("service_provider_payments").insert(payPayload);
-          if (payErr) throw payErr;
-        }
-
-        // 8. Update/Insert Permits (if new file uploaded)
-        if (businessPermitFile) {
-          await supabase.from("service_provider_permits").delete().eq("provider_id", currentProviderId);
-          const { error: permitErr } = await supabase.from("service_provider_permits").insert({
-            provider_id: currentProviderId,
-            permit_type: "Business Permit",
-            file_url: permitUrl
-          });
-          if (permitErr) throw permitErr;
-        }
-
-        // 9. Insert Staff Information
-        const staffPayload = employees.map(emp => ({
-          provider_id: currentProviderId,
-          full_name: emp.fullName,
-          job_title: emp.position
-        }));
-
-        if (staffPayload.length > 0) {
-          const { error: sError } = await supabase.from("service_provider_staff").insert(staffPayload);
-          if (sError) throw sError;
-        }
-
-        // Success: Close modal and redirect
         setShowConfirmModal(false);
         navigate("/service-setup");
-
       } catch (err) {
-        console.error("SUBMISSION FAILED:", err);
-        // Display error in UI instead of alert
-        setValidationErrors((prev) => ({
-          ...prev,
-          general: "Submission failed: " + (err.message || "An unexpected error occurred.")
-        }));
+        setValidationErrors((prev) => ({ ...prev, general: "Submission failed: " + (err.message || "An unexpected error occurred.") }));
         setShowConfirmModal(false);
-        // Scroll to top so user sees the error banner
         window.scrollTo({ top: 0, behavior: "smooth" });
-      } finally {
-        setIsSubmitting(false);
-      }
+      } finally { setIsSubmitting(false); }
   };
 
   if (isLoading) return <div className="loading-screen">Loading Application...</div>;
@@ -792,7 +564,14 @@ const handleBusinessChange = (e) => {
       <div className="apply-provider-wrapper">
         <h1 className="page-title">Service Provider Application</h1>
 
-        {/* Place this right above your <form> tag */}
+        {/* ⭐ SUSPENSION READ-ONLY BANNER */}
+        {isSuspended && (
+          <div className="error-banner" style={{ backgroundColor: '#fff1f2', color: '#be123c', border: '1px solid #fecdd3', marginBottom: '25px' }}>
+            <Ban size={18} />
+            <span><strong>Application Restricted:</strong> Your account is currently suspended until {suspensionDate.toLocaleDateString()}. You can view your current application data but cannot submit or modify it.</span>
+          </div>
+        )}
+
         {validationErrors.general && (
           <div className="error-banner">
             <AlertCircle size={18} />
@@ -811,7 +590,8 @@ const handleBusinessChange = (e) => {
                   name="businessName" 
                   value={businessInfo.businessName} 
                   onChange={handleBusinessChange} 
-                  className={validationErrors.businessName ? "error-input" : ""} 
+                  readOnly={isSuspended}
+                  className={`${validationErrors.businessName ? "error-input" : ""} ${isSuspended ? "input-disabled" : ""}`} 
                 />
                 {validationErrors.businessName && <small className="error">{validationErrors.businessName}</small>}
               </div>
@@ -821,7 +601,6 @@ const handleBusinessChange = (e) => {
               </div>
             </div>
 
-            {/* DESCRIPTION WITH COUNTER */}
             <div className="form-group-full-width">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                 <label style={{ margin: 0 }}>Business Description*</label>
@@ -833,8 +612,9 @@ const handleBusinessChange = (e) => {
                 name="description" 
                 value={businessInfo.description} 
                 onChange={handleBusinessChange} 
+                readOnly={isSuspended}
                 placeholder="Describe your business and services..." 
-                className={validationErrors.description ? "error-input" : ""}
+                className={`${validationErrors.description ? "error-input" : ""} ${isSuspended ? "input-disabled" : ""}`}
               />
               {validationErrors.description && <small className="error">{validationErrors.description}</small>}
             </div>
@@ -847,7 +627,8 @@ const handleBusinessChange = (e) => {
                   name="businessEmail" 
                   value={businessInfo.businessEmail} 
                   onChange={handleBusinessChange} 
-                  className={validationErrors.businessEmail ? "error-input" : ""}
+                  readOnly={isSuspended}
+                  className={`${validationErrors.businessEmail ? "error-input" : ""} ${isSuspended ? "input-disabled" : ""}`}
                 />
                 {validationErrors.businessEmail && <small className="error">{validationErrors.businessEmail}</small>}
               </div>
@@ -858,8 +639,9 @@ const handleBusinessChange = (e) => {
                   name="businessMobile" 
                   value={businessInfo.businessMobile} 
                   onChange={handleBusinessChange} 
+                  readOnly={isSuspended}
                   placeholder="0912 345 6789" 
-                  className={validationErrors.businessMobile ? "error-input" : ""}
+                  className={`${validationErrors.businessMobile ? "error-input" : ""} ${isSuspended ? "input-disabled" : ""}`}
                 />
                 {validationErrors.businessMobile && <small className="error">{validationErrors.businessMobile}</small>}
               </div>
@@ -868,7 +650,7 @@ const handleBusinessChange = (e) => {
             <div className="form-grid-2">
               <div className="form-group">
                 <label>Social Media URL</label>
-                <input type="url" name="socialMediaUrl" value={businessInfo.socialMediaUrl} onChange={handleBusinessChange} placeholder="https://facebook.com/..." />
+                <input type="url" name="socialMediaUrl" value={businessInfo.socialMediaUrl} onChange={handleBusinessChange} readOnly={isSuspended} placeholder="https://facebook.com/..." className={isSuspended ? "input-disabled" : ""}/>
               </div>
               <div className="form-group">
                 <label>Google Map URL*</label>
@@ -877,89 +659,43 @@ const handleBusinessChange = (e) => {
                   name="googleMapUrl" 
                   value={businessInfo.googleMapUrl} 
                   onChange={handleBusinessChange} 
-                  className={validationErrors.googleMapUrl ? "error-input" : ""} 
+                  readOnly={isSuspended}
+                  className={`${validationErrors.googleMapUrl ? "error-input" : ""} ${isSuspended ? "input-disabled" : ""}`} 
                 />
               </div>
             </div>
 
-            {/* PIN LOCATION - Part of Basic Info */}
             <div className="form-group" style={{ marginTop: '20px' }}>
-              <label style={{ fontWeight: '600', marginBottom: '10px', display: 'block' }}>Pin Shop Location*</label>
+              <label style={{ fontWeight: '600', marginBottom: '10px', display: 'block' }}>Shop Location*</label>
               <div style={{ height: "400px", borderRadius: "12px", overflow: "hidden", border: validationErrors.latitude ? "2px solid #ef4444" : "1px solid #dbeafe" }}>
-                <LocationPicker lat={businessInfo.latitude} lng={businessInfo.longitude} onLocationChange={handleLocationChange} previewOnly={false} />
+                <LocationPicker lat={businessInfo.latitude} lng={businessInfo.longitude} onLocationChange={handleLocationChange} previewOnly={isSuspended} />
               </div>
             </div>
           </section>
 
           <section className="form-section">
             <h2>Business Address</h2>
-            <div className="address-helper-note" style={{ background: '#f0f7ff', padding: '12px', borderRadius: '8px', marginBottom: '15px', fontSize: '0.85rem', color: '#003a8c', border: '1px solid #bae0ff', display: 'flex', gap: '8px' }}>
-                <AlertCircle size={16} />
-                <span>Updating address fields will automatically move the map pin once you click out of the box.</span>
-            </div>
             <div className="form-grid-3">
               <div className="form-group">
                 <label>Street*</label>
-                <input 
-                  type="text" 
-                  name="houseStreet" 
-                  value={businessInfo.houseStreet} 
-                  onChange={handleBusinessChange} 
-                  onBlur={() => updatePinFromAddress(businessInfo)} 
-                  className={validationErrors.houseStreet ? "error-input" : ""} 
-                />
+                <input type="text" name="houseStreet" value={businessInfo.houseStreet} onChange={handleBusinessChange} readOnly={isSuspended} onBlur={() => updatePinFromAddress(businessInfo)} className={`${validationErrors.houseStreet ? "error-input" : ""} ${isSuspended ? "input-disabled" : ""}`} />
               </div>
               <div className="form-group">
                 <label>Barangay*</label>
-                <input 
-                  type="text" 
-                  name="barangay" 
-                  value={businessInfo.barangay} 
-                  onChange={handleBusinessChange} 
-                  onBlur={() => updatePinFromAddress(businessInfo)} 
-                  className={validationErrors.barangay ? "error-input" : ""} 
-                />
+                <input type="text" name="barangay" value={businessInfo.barangay} onChange={handleBusinessChange} readOnly={isSuspended} onBlur={() => updatePinFromAddress(businessInfo)} className={`${validationErrors.barangay ? "error-input" : ""} ${isSuspended ? "input-disabled" : ""}`} />
               </div>
               <div className="form-group">
                 <label>City*</label>
-                <input 
-                  type="text" 
-                  name="city" 
-                  value={businessInfo.city} 
-                  onChange={handleBusinessChange} 
-                  onBlur={(e) => {
-                    const f = formatCityStandard(e.target.value);
-                    const updated = { ...businessInfo, city: f };
-                    setBusinessInfo(updated);
-                    updatePinFromAddress(updated);
-                  }} 
-                  className={validationErrors.city ? "error-input" : ""} 
-                />
+                <input type="text" name="city" value={businessInfo.city} onChange={handleBusinessChange} readOnly={isSuspended} onBlur={(e) => { if(!isSuspended) { const f = formatCityStandard(e.target.value); const updated = { ...businessInfo, city: f }; setBusinessInfo(updated); updatePinFromAddress(updated); }}} className={`${validationErrors.city ? "error-input" : ""} ${isSuspended ? "input-disabled" : ""}`} />
               </div>
               <div className="form-group">
                 <label>Province*</label>
-                <input 
-                  type="text" 
-                  name="province" 
-                  value={businessInfo.province} 
-                  onChange={handleBusinessChange} 
-                  onBlur={() => updatePinFromAddress(businessInfo)} 
-                  className={validationErrors.province ? "error-input" : ""}
-                />
+                <input type="text" name="province" value={businessInfo.province} onChange={handleBusinessChange} readOnly={isSuspended} onBlur={() => updatePinFromAddress(businessInfo)} className={`${validationErrors.province ? "error-input" : ""} ${isSuspended ? "input-disabled" : ""}`}/>
               </div>
               <div className="form-group">
                 <label>Postal Code*</label>
-                <input 
-                  type="text" 
-                  name="postalCode" 
-                  value={businessInfo.postalCode} 
-                  onChange={handleBusinessChange} 
-                  maxLength={4} 
-                  onBlur={() => updatePinFromAddress(businessInfo)} 
-                  className={validationErrors.postalCode ? "error-input" : ""} 
-                />
+                <input type="text" name="postalCode" value={businessInfo.postalCode} onChange={handleBusinessChange} readOnly={isSuspended} maxLength={4} onBlur={() => updatePinFromAddress(businessInfo)} className={`${validationErrors.postalCode ? "error-input" : ""} ${isSuspended ? "input-disabled" : ""}`} />
               </div>
-
               <div className="form-group">
                 <label>Country</label>
                 <input type="text" name="country" value={businessInfo.country} disabled className="input-disabled" />
@@ -972,7 +708,6 @@ const handleBusinessChange = (e) => {
             <div className="form-group operating-hours-container">
             {businessInfo.operatingHours.map((slot, i) => (
               <div key={i} className="operating-slot-enhanced">
-                {/* Day Selection Row */}
                 <div className="day-buttons">
                   {daysOfWeekFull.map((d, idx) => (
                     <button key={d} type="button" 
@@ -983,23 +718,22 @@ const handleBusinessChange = (e) => {
                   ))}
                 </div>
 
-                {/* Single Line Configuration Row */}
                 <div className="time-config-row-single">
                   <div className="input-unit">
                     <label>Hours:</label>
                     <div className="time-inputs-compact">
-                      <input type="time" value={slot.startTime} onChange={(e) => handleTimeChange(i, "startTime", e.target.value)} />
+                      <input type="time" value={slot.startTime} onChange={(e) => handleTimeChange(i, "startTime", e.target.value)} readOnly={isSuspended} className={isSuspended ? "input-disabled" : ""}/>
                       <span>-</span>
-                      <input type="time" value={slot.endTime} onChange={(e) => handleTimeChange(i, "endTime", e.target.value)} />
+                      <input type="time" value={slot.endTime} onChange={(e) => handleTimeChange(i, "endTime", e.target.value)} readOnly={isSuspended} className={isSuspended ? "input-disabled" : ""}/>
                     </div>
                   </div>
 
                   <div className="input-unit">
                     <label>Slot Every:</label>
                     <div className="duration-inputs-compact">
-                      <input type="number" min="0" value={slot.slotDurationHours} onChange={(e) => handleTimeChange(i, "slotDurationHours", parseInt(e.target.value) || 0)} />
+                      <input type="number" min="0" value={slot.slotDurationHours} onChange={(e) => handleTimeChange(i, "slotDurationHours", parseInt(e.target.value) || 0)} readOnly={isSuspended} className={isSuspended ? "input-disabled" : ""}/>
                       <span>hr</span>
-                      <input type="number" min="0" value={slot.slotDurationMinutes} onChange={(e) => handleTimeChange(i, "slotDurationMinutes", parseInt(e.target.value) || 0)} />
+                      <input type="number" min="0" value={slot.slotDurationMinutes} onChange={(e) => handleTimeChange(i, "slotDurationMinutes", parseInt(e.target.value) || 0)} readOnly={isSuspended} className={isSuspended ? "input-disabled" : ""}/>
                       <span>min</span>
                     </div>
                   </div>
@@ -1007,12 +741,12 @@ const handleBusinessChange = (e) => {
                   <div className="input-unit">
                     <label>Capacity:</label>
                     <div className="capacity-input-compact">
-                      <input type="number" min="1" value={slot.capacityPerSlot} onChange={(e) => handleTimeChange(i, "capacityPerSlot", parseInt(e.target.value) || 1)} />
+                      <input type="number" min="1" value={slot.capacityPerSlot} onChange={(e) => handleTimeChange(i, "capacityPerSlot", parseInt(e.target.value) || 1)} readOnly={isSuspended} className={isSuspended ? "input-disabled" : ""}/>
                       <span>pets</span>
                     </div>
                   </div>
 
-                  {businessInfo.operatingHours.length > 1 && (
+                  {!isSuspended && businessInfo.operatingHours.length > 1 && (
                     <button type="button" onClick={() => removeTimeSlot(i)} className="remove-inline-btn">
                       <Trash2 size={16} />
                     </button>
@@ -1020,7 +754,7 @@ const handleBusinessChange = (e) => {
                 </div>
               </div>
             ))}
-            <button type="button" className="add-btn" onClick={addTimeSlot}><Plus size={16} /> Add Different Schedule</button>
+            {!isSuspended && <button type="button" className="add-btn" onClick={addTimeSlot}><Plus size={16} /> Add Different Schedule</button>}
           </div>
           </section>
 
@@ -1029,30 +763,84 @@ const handleBusinessChange = (e) => {
             {employees.map((emp, idx) => (
               <div className="employee-row" key={idx}>
                 <div className="form-grid-2">
-                  <div className="form-group"><label>Full Name*</label><input type="text" value={emp.fullName} onChange={(e) => handleEmployeeChange(idx, "fullName", e.target.value)} />{validationErrors[`employee_${idx}_name`] && <small className="error">{validationErrors[`employee_${idx}_name`]}</small>}</div>
-                  <div className="form-group"><label>Position*</label><div className="input-with-btn"><select value={emp.position} onChange={(e) => handleEmployeeChange(idx, "position", e.target.value)}><option value="">Select Position</option>{positionOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}</select>{employees.length > 1 && (<button type="button" onClick={() => removeEmployee(idx)} className="remove-btn"><Trash2 size={16} /></button>)}</div>{validationErrors[`employee_${idx}_pos`] && <small className="error">{validationErrors[`employee_${idx}_pos`]}</small>}</div>
+                  <div className="form-group">
+                    <label>Full Name*</label>
+                    <input type="text" value={emp.fullName} onChange={(e) => handleEmployeeChange(idx, "fullName", e.target.value)} readOnly={isSuspended} className={isSuspended ? "input-disabled" : ""}/>
+                    {validationErrors[`employee_${idx}_name`] && <small className="error">{validationErrors[`employee_${idx}_name`]}</small>}
+                  </div>
+                  <div className="form-group">
+                    <label>Position*</label>
+                    <div className="input-with-btn">
+                      <select value={emp.position} onChange={(e) => handleEmployeeChange(idx, "position", e.target.value)} disabled={isSuspended} className={isSuspended ? "input-disabled" : ""}>
+                        <option value="">Select Position</option>
+                        {positionOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                      </select>
+                      {!isSuspended && employees.length > 1 && (
+                        <button type="button" onClick={() => removeEmployee(idx)} className="remove-btn"><Trash2 size={16} /></button>
+                      )}
+                    </div>
+                    {validationErrors[`employee_${idx}_pos`] && <small className="error">{validationErrors[`employee_${idx}_pos`]}</small>}
+                  </div>
                 </div>
               </div>
             ))}
-            <button type="button" className="add-btn" onClick={addEmployee}><Plus size={16} /> Add Employee</button>
-            {validationErrors.employees && <small className="error">{validationErrors.employees}</small>}
+            {!isSuspended && <button type="button" className="add-btn" onClick={addEmployee}><Plus size={16} /> Add Employee</button>}
           </section>
 
           <section className="form-section">
             <h2>Documents & Uploads</h2>
             <div className="form-grid-2">
-              <div className="form-group"><label>Waiver</label><label className="file-btn"><Upload size={18} /> <span>Select File</span><input type="file" accept=".pdf,.doc,.docx" onChange={(e) => handleFileSelect(setWaiverFile, e, 1, "waiverFile")} hidden /></label><div className="file-preview-small">{waiverFile ? <span>{waiverFile.name} <X size={14} onClick={() => setWaiverFile(null)} /></span> : existingWaiverUrl ? <span><a href={existingWaiverUrl} target="_blank" rel="noreferrer">View Existing</a> <X size={14} onClick={() => removeSingleFile(setWaiverFile, setExistingWaiverUrl)} /></span> : null}</div>{validationErrors.waiverFile && <small className="error">{validationErrors.waiverFile}</small>}</div>
-              <div className="form-group"><label>Business Permit*</label><label className="file-btn"><Upload size={18} /> <span>Select File</span><input type="file" accept=".pdf,.doc,.docx" onChange={(e) => handleFileSelect(setBusinessPermitFile, e, 1, "businessPermitFile")} hidden /></label><div className="file-preview-small">{businessPermitFile ? <span>{businessPermitFile.name} <X size={14} onClick={() => setBusinessPermitFile(null)} /></span> : existingPermitUrl ? <span><a href={existingPermitUrl} target="_blank" rel="noreferrer">View Existing</a> <X size={14} onClick={() => removeSingleFile(setBusinessPermitFile, setExistingPermitUrl)} /></span> : null}</div>{validationErrors.businessPermitFile && <small className="error">{validationErrors.businessPermitFile}</small>}</div>
+              <div className="form-group">
+                <label>Waiver</label>
+                {!isSuspended && (
+                  <label className="file-btn"><Upload size={18} /> <span>Select File</span><input type="file" accept=".pdf,.doc,.docx" onChange={(e) => handleFileSelect(setWaiverFile, e, 1, "waiverFile")} hidden /></label>
+                )}
+                <div className="file-preview-small">
+                  {waiverFile ? <span>{waiverFile.name} {!isSuspended && <X size={14} onClick={() => setWaiverFile(null)} />}</span> : existingWaiverUrl ? <span><a href={existingWaiverUrl} target="_blank" rel="noreferrer">View Existing</a> {!isSuspended && <X size={14} onClick={() => removeSingleFile(setWaiverFile, setExistingWaiverUrl)} />}</span> : null}
+                </div>
+              </div>
+              <div className="form-group">
+                <label>Business Permit*</label>
+                {!isSuspended && (
+                  <label className="file-btn"><Upload size={18} /> <span>Select File</span><input type="file" accept=".pdf,.doc,.docx" onChange={(e) => handleFileSelect(setBusinessPermitFile, e, 1, "businessPermitFile")} hidden /></label>
+                )}
+                <div className="file-preview-small">
+                  {businessPermitFile ? <span>{businessPermitFile.name} {!isSuspended && <X size={14} onClick={() => setBusinessPermitFile(null)} />}</span> : existingPermitUrl ? <span><a href={existingPermitUrl} target="_blank" rel="noreferrer">View Existing</a> {!isSuspended && <X size={14} onClick={() => removeSingleFile(setBusinessPermitFile, setExistingPermitUrl)} />}</span> : null}
+                </div>
+              </div>
             </div>
             <div className="form-grid-2">
-                <div className="form-group"><label>Facility Images*</label><label className="file-btn"><Upload size={18} /> <span>Select Images</span><input type="file" accept=".jpg,.jpeg,.png" multiple onChange={(e) => handleMultiFileSelect(setFacilityImages, facilityImages, e, 3, "facilityImages", existingFacilityImages.length, 2)} hidden /></label><div className="file-list">{existingFacilityImages.map(img => (<div key={img.id} className="file-item"><FileText size={14} /> Existing Img <button type="button" onClick={() => removeExistingFile("image", img.id, img.image_url)}><X size={12} /></button></div>))}{facilityImages.map((f, i) => (<div key={i} className="file-item"><FileText size={14} /> {f.name}<button type="button" onClick={() => removeFile(setFacilityImages, i)}><X size={12} /></button></div>))}</div>{validationErrors.facilityImages && <small className="error">{validationErrors.facilityImages}</small>}</div>
-                <div className="form-group"><label>Payment QR*</label><label className="file-btn"><Upload size={18} /> <span>Select QR Images</span><input type="file" accept=".jpg,.jpeg,.png" multiple onChange={(e) => handleMultiFileSelect(setPaymentChannelFiles, paymentChannelFiles, e, 3, "paymentChannelFiles", existingPaymentChannels.length, 2)} hidden /></label><div className="file-list">{existingPaymentChannels.map(img => (<div key={img.id} className="file-item"><FileText size={14} /> Existing QR <button type="button" onClick={() => removeExistingFile("payment", img.id, img.file_url)}><X size={12} /></button></div>))}{paymentChannelFiles.map((f, i) => (<div key={i} className="file-item"><FileText size={14} /> {f.name}<button type="button" onClick={() => removeFile(setPaymentChannelFiles, i)}><X size={12} /></button></div>))}</div>{validationErrors.paymentChannelFiles && <small className="error">{validationErrors.paymentChannelFiles}</small>}</div>
+                <div className="form-group">
+                  <label>Facility Images*</label>
+                  {!isSuspended && (
+                    <label className="file-btn"><Upload size={18} /> <span>Select Images</span><input type="file" accept=".jpg,.jpeg,.png" multiple onChange={(e) => handleMultiFileSelect(setFacilityImages, facilityImages, e, 3, "facilityImages", existingFacilityImages.length, 2)} hidden /></label>
+                  )}
+                  <div className="file-list">
+                    {existingFacilityImages.map(img => (<div key={img.id} className="file-item"><FileText size={14} /> Existing Img {!isSuspended && <button type="button" onClick={() => removeExistingFile("image", img.id, img.image_url)}><X size={12} /></button>}</div>))}
+                    {facilityImages.map((f, i) => (<div key={i} className="file-item"><FileText size={14} /> {f.name}{!isSuspended && <button type="button" onClick={() => removeFile(setFacilityImages, i)}><X size={12} /></button>}</div>))}
+                  </div>
+                </div>
+                <div className="form-group">
+                  <label>Payment QR*</label>
+                  {!isSuspended && (
+                    <label className="file-btn"><Upload size={18} /> <span>Select QR Images</span><input type="file" accept=".jpg,.jpeg,.png" multiple onChange={(e) => handleMultiFileSelect(setPaymentChannelFiles, paymentChannelFiles, e, 3, "paymentChannelFiles", existingPaymentChannels.length, 2)} hidden /></label>
+                  )}
+                  <div className="file-list">
+                    {existingPaymentChannels.map(img => (<div key={img.id} className="file-item"><FileText size={14} /> Existing QR {!isSuspended && <button type="button" onClick={() => removeExistingFile("payment", img.id, img.file_url)}><X size={12} /></button>}</div>))}
+                    {paymentChannelFiles.map((f, i) => (<div key={i} className="file-item"><FileText size={14} /> {f.name}{!isSuspended && <button type="button" onClick={() => removeFile(setPaymentChannelFiles, i)}><X size={12} /></button>}</div>))}
+                  </div>
+                </div>
             </div>
           </section>
 
           <div className="form-actions">
-            <button type="submit" className="btn-primary" disabled={isSubmitting}>
-              {isSubmitting ? "Processing..." : "Review Application"}
+            <button 
+              type="submit" 
+              className={`btn-primary ${isSuspended ? "btn-suspended" : ""}`} 
+              disabled={isSubmitting || isSuspended}
+              style={isSuspended ? { backgroundColor: '#94a3b8', cursor: 'not-allowed' } : {}}
+            >
+              {isSubmitting ? "Processing..." : isSuspended ? "Application Restricted (Suspended)" : "Review Application"}
             </button>
           </div>
         </form>
@@ -1072,7 +860,6 @@ const handleBusinessChange = (e) => {
           employees
         }}
       />
-
       <Footer />
     </>
   );

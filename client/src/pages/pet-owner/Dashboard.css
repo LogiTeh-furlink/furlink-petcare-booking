@@ -1,11 +1,17 @@
 /* src/pages/auth/Dashboard.css */
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
 
+:root {
+    --brand-blue: #0E2679;
+    --text-main: #1e293b;
+    --border-color: #e2e8f0;
+}
+
 .dashboard-page {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  font-family: 'Poppins', sans-serif; /* Global Poppins application */
+  font-family: 'Poppins', sans-serif;
   background-color: #f8fafc;
 }
 
@@ -19,7 +25,7 @@
 .dashboard-loading {
   text-align: center;
   padding: 4rem;
-  color: #64748b; /* Slate-500 instead of pure gray */
+  color: #64748b;
 }
 
 .dashboard-content {
@@ -28,7 +34,7 @@
 }
 
 .dashboard-title {
-  color: #0E2679; /* Brand Blue */
+  color: #0E2679;
   font-size: 1.75rem;
   font-weight: 700;
   margin-bottom: 2rem;
@@ -43,7 +49,7 @@
 
 .provider-card {
   background: white;
-  border-radius: 16px; /* Slightly rounder for modern look */
+  border-radius: 16px;
   overflow: hidden;
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
   transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s;
@@ -55,6 +61,16 @@
   transform: translateY(-6px);
   box-shadow: 0 12px 20px -5px rgba(14, 38, 121, 0.1);
   border-color: #0E2679;
+}
+
+/* Optional: Visual cue for suspended state */
+.provider-card.suspended-card {
+    opacity: 0.85;
+}
+.provider-card.suspended-card:hover {
+    cursor: not-allowed;
+    transform: none; 
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); 
 }
 
 .provider-image-container {
@@ -94,14 +110,14 @@
 .provider-name {
   font-size: 1.15rem;
   font-weight: 700;
-  color: #0E2679 !important; /* Dark Slate-800 instead of black */
+  color: #0E2679 !important;
   margin: 0;
   flex: 1;
   line-height: 1.3;
 }
 
 .provider-location {
-  color: #0E2679 !important; /* Slate-500 */
+  color: #0E2679 !important;
   font-size: 0.85rem;
   margin: 0.25rem 0;
   display: flex;
@@ -110,13 +126,12 @@
 }
 
 .provider-price {
-  color: #0E2679; /* Brand Blue */
+  color: #0E2679;
   font-size: 0.95rem;
   font-weight: 600;
   margin: 0.5rem 0;
 }
 
-/* Updated Provider Rating Styling */
 .provider-rating {
   display: flex;
   align-items: center;
@@ -127,57 +142,44 @@
 }
 
 .rating-value {
-  color: #fbbf24; /* Brand Blue */
+  color: #fbbf24;
   font-weight: 700;
   font-size: 0.9rem;
-  background-color: #fdffef; /* Very light blue pill background */
+  background-color: #fdffef;
   padding: 2px 8px;
   border-radius: 6px;
 }
 
-/* Empty State Message */
 .dashboard-empty-message {
   text-align: center;
   color: #94a3b8;
   margin-top: 4rem;
   font-weight: 500;
 }
+
 .dashboard-header-flex { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; }
-.filter-wrapper { position: relative; }
+
+/* Filter Styles */
+.filter-wrapper { position: relative; font-family: 'Poppins', sans-serif; }
+
 .filter-toggle-btn {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 8px; /* Adds space between icon and text */
+    gap: 8px;
     padding: 10px 20px;
     border-radius: 25px;
     border: 1px solid #e2e8f0;
     background: white;
-    color: #0E2679; /* Your brand blue */
+    color: #0E2679;
     font-weight: 600;
     cursor: pointer;
     transition: all 0.2s ease;
 }
-.filter-dropdown-card { position: absolute; top: 50px; right: 0; width: 280px; background: white; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); padding: 20px; z-index: 100; }
-.rating-filter-options { display: flex; gap: 5px; }
-.rating-filter-options button.active { background: #0E2679; color: white; }
-
-:root {
-    --brand-blue: #0E2679;
-    --text-main: #1e293b;
-    --border-color: #e2e8f0;
-}
-
-.filter-wrapper { position: relative; font-family: 'Inter', sans-serif; }
 
 .filter-toggle-btn:hover {
     background-color: #f8fafc;
     border-color: #0E2679;
-}
-
-/* Ensure the icon inherits the color */
-.filter-toggle-btn svg {
-    display: block;
 }
 
 .filter-dot {
@@ -235,18 +237,16 @@
 }
 
 /* Price Range */
-/* Container ensures items are pushed to the absolute edges */
 .price-input-container {
   display: flex;
-  justify-content: space-between; /* Pushes Min to far left, Max to far right */
+  justify-content: space-between; 
   align-items: flex-end;
   margin-bottom: 10px;
   width: 100%;
 }
 
-/* Reduced width for the inputs to match coordinate 0 and 5000 */
 .price-field.compact {
-  flex: 0 0 80px; /* Fixed small width */
+  flex: 0 0 80px; 
   font-size: 14px;
   justify-content: space-between;
 }
@@ -261,14 +261,12 @@
   background-color: #f8fafc;
 }
 
-/* Remove spin arrows from number inputs for a cleaner look */
 .price-field.compact input::-webkit-outer-spin-button,
 .price-field.compact input::-webkit-inner-spin-button {
   -webkit-appearance: none;
   margin: 0;
 }
 
-/* Dual Range Slider Container needs to match the input container width */
 .dual-range-slider {
   position: relative;
   width: 100%;
@@ -282,11 +280,10 @@
   width: 100%;
   pointer-events: none;
   background: none;
-  border: none; /* Removed border */
+  border: none; 
   outline: none;
 }
 
-/* Custom Thumb styling */
 .range-input::-webkit-slider-thumb {
   pointer-events: auto;
   width: 16px;
@@ -298,11 +295,65 @@
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
-/* The actual track bar with the fill */
 .slider-track {
   position: absolute;
   width: 100%;
   height: 6px;
   border-radius: 10px;
   z-index: 0;
+}
+
+/* ⭐ UPDATED SUSPENSION MODAL STYLES */
+.modal-overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(14, 38, 121, 0.4);
+    backdrop-filter: blur(3px);
+    display: flex; justify-content: center; align-items: center;
+    z-index: 10000;
+}
+
+.refined-alert {
+    position: relative; /* Crucial for absolute close button */
+    max-width: 400px;
+    padding: 2rem;
+    text-align: center;
+    background: white;
+    border-radius: 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.5rem;
+    animation: alertPop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    box-shadow: 0 15px 40px rgba(0,0,0,0.2);
+}
+
+.alert-icon-container {
+    /* Styles are inline in JSX but can be moved here */
+}
+
+.alert-text-content h3 {
+    font-size: 1.25rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+}
+
+/* Close Button Style */
+.modal-close-x {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    background: none;
+    border: none;
+    color: #94a3b8;
+    cursor: pointer;
+    transition: color 0.2s;
+    padding: 5px;
+}
+.modal-close-x:hover {
+    color: #0E2679;
+}
+
+@keyframes alertPop {
+    from { transform: scale(0.9); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
 }

@@ -10,7 +10,8 @@ import {
   FaExclamationCircle,
   FaCalendarAlt,
   FaUser,
-  FaBars
+  FaBars,
+  FaBan 
 } from "react-icons/fa";
 import { supabase } from "../../config/supabase";
 import "./LoggedInNavbar.css";
@@ -32,8 +33,11 @@ const LoggedInNavbar = () => {
   const [profile, setProfile] = useState(null);
   const [providerData, setProviderData] = useState(null); 
   const [hasServices, setHasServices] = useState(false); 
+  
+  // Suspension State
+  const [suspensionData, setSuspensionData] = useState(null);
 
-  // REFS: Separate refs for desktop and mobile to prevent collision
+  // REFS
   const desktopNotifRef = useRef();
   const mobileNotifRef = useRef();
   const menuRef = useRef();
@@ -61,10 +65,6 @@ const LoggedInNavbar = () => {
   const currentPath = location.pathname;
   const isServiceProviderPage = currentPath.startsWith("/service/");
 
-  /* ==========================
-      PATH-BASED VISIBILITY LOGIC
-     ========================== */
-  
   const hideBecomeProviderAction = [
     "/apply-provider", 
     "/service-setup", 
@@ -86,23 +86,32 @@ const LoggedInNavbar = () => {
 
   useEffect(() => {
     const fetchData = async () => {
-      // Wrap getUser in try/catch to handle 403 errors gracefully
       try {
         const { data, error } = await supabase.auth.getUser();
         if (error || !data?.user) {
           console.warn("Session expired or invalid:", error);
-          // Optional: navigate("/login"); 
           return;
         }
         const user = data.user;
 
-        // 1. Fetch Profile
+        // 1. Fetch Profile 
         const { data: profileData } = await supabase
           .from("profiles")
-          .select("first_name, role")
+          .select("first_name, role, suspension_end_date, is_active") 
           .eq("id", user.id)
           .single();
         setProfile(profileData);
+
+        // CHECK SUSPENSION STATUS
+        if (profileData?.suspension_end_date) {
+            const endDate = new Date(profileData.suspension_end_date);
+            if (endDate > new Date()) {
+                setSuspensionData({
+                    endDate: endDate,
+                    isActive: profileData.is_active
+                });
+            }
+        }
 
         // 2. Fetch Notifications
         const { data: notifData } = await supabase
@@ -172,6 +181,9 @@ const LoggedInNavbar = () => {
   const isApproved = providerStatus === 'approved';
   const isIncomplete = providerStatus === 'incomplete';
   
+  // ⭐ Derived Suspension Boolean
+  const isSuspended = !!suspensionData;
+
   const canManageListing = (userRole === 'service_provider' || userRole === 'both') && isApproved;
 
   const handleProviderClick = () => {
@@ -241,7 +253,6 @@ const LoggedInNavbar = () => {
 
   useEffect(() => {
     const handleClickOutside = (e) => {
-      // Check if click is outside BOTH desktop and mobile notification areas
       const outsideDesktop = desktopNotifRef.current && !desktopNotifRef.current.contains(e.target);
       const outsideMobile = mobileNotifRef.current && !mobileNotifRef.current.contains(e.target);
       
@@ -257,15 +268,10 @@ const LoggedInNavbar = () => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  /* =========================================
-     UPDATED LOGO NAVIGATION LOGIC
-     ========================================= */
   const handleLogoClick = () => {
-    // 1. If currently in the Service Provider section, stay there (go to SP dashboard)
     if (location.pathname.startsWith("/service")) {
       navigate("/service/dashboard");
     } 
-    // 2. Otherwise (Pet Owner section), stay there (go to Pet Owner dashboard)
     else {
       navigate("/dashboard");
     }
@@ -277,7 +283,6 @@ const LoggedInNavbar = () => {
     navigate(path);
   };
 
-  // Reusable Notification Dropdown Component
   const NotificationDropdown = () => (
     <div className="dropdown notif-dropdown">
       <div className="notif-header">
@@ -318,34 +323,64 @@ const LoggedInNavbar = () => {
     </div>
   );
 
+  /* Helper to determine suspension text based on role */
+  const getSuspensionMessage = () => {
+    if (userRole === 'service_provider') {
+        return "You are restricted from accepting new bookings until";
+    } 
+    if (userRole === 'pet_owner') {
+        return "You are restricted from booking services until";
+    }
+    return "You are restricted from booking or accepting services until";
+  };
+
   return (
     <>
-      <header className="loggedin-header">
+      {/* ⭐ GLOBAL SUSPENSION BANNER */}
+      {suspensionData && (
+        <div className="global-suspension-banner">
+            <div className="suspension-content">
+                <FaBan className="suspension-icon" />
+                <span>
+                    <strong>Account Suspended:</strong> {getSuspensionMessage()} 
+                    {' '}{suspensionData.endDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}.
+                </span>
+            </div>
+        </div>
+      )}
+
+      <header className={`loggedin-header ${suspensionData ? 'has-banner' : ''}`}>
         <div className="navbar-container">
           
-          {/* ===========================
-              DESKTOP LAYOUT (Hidden on Mobile)
-              =========================== */}
+          {/* ... (Desktop Layout) ... */}
           <div className="header-left desktop-only-group" onClick={handleLogoClick}>
             <img src={logo} alt="Furlink logo" className="header-logo" />
           </div>
 
           <div className="nav-right desktop-only-group">
-            {/* Provider Buttons */}
             <div className="desktop-btn-group">
-              {isStrictProvider && (
+              
+              {/* ⭐ BUTTON LOGIC: 
+                  1. 'Become a Pet Owner' is hidden if user is a strict Service Provider AND Suspended.
+              */}
+              {isStrictProvider && !isSuspended && (
                 <button className="provider-btn switch-role-btn" onClick={handleSwitchToPetOwner} title="Unlock Pet Owner features">
                   Become a Pet Owner
                 </button>
               )}
-              {!isStrictProvider && !hideBecomeProviderAction && (
+
+              {/* ⭐ BUTTON LOGIC:
+                  2. 'Become a Service Provider' (Application) is hidden if user is a strict Pet Owner AND Suspended.
+                  3. If role is 'both', the button acts as a Switcher, so we KEEP it visible (read-only access).
+              */}
+              {!isStrictProvider && !hideBecomeProviderAction && (userRole !== 'pet_owner' || !isSuspended) && (
                 <button className={`provider-btn ${isApproved ? 'business-mode' : ''}`} onClick={handleProviderClick}>
                   {isApproved ? (isServiceProviderPage ? "Switch to Pet Owner" : `Switch to Service Provider`) : isIncomplete ? "Continue Application" : "Become a Service Provider"} 
                 </button>
               )}
+
             </div>
 
-            {/* Desktop Notifications (Ref: desktopNotifRef) */}
             <div ref={desktopNotifRef} className="notif-wrapper">
               <button className="icon-btn" onClick={() => setShowNotif(!showNotif)}>
                 <FaBell className="icon" />
@@ -356,7 +391,6 @@ const LoggedInNavbar = () => {
               {showNotif && <NotificationDropdown />}
             </div>
 
-            {/* User Menu */}
             <div ref={menuRef} className="profile-wrapper">
               <button className="icon-btn" onClick={() => setShowMenu(!showMenu)}>
                 <FaUserCircle className="icon" />
@@ -387,18 +421,14 @@ const LoggedInNavbar = () => {
             </div>
           </div>
 
-          {/* ===========================
-              MOBILE LAYOUT (Hidden on Desktop)
-              =========================== */}
+          {/* ... (Mobile Layout) ... */}
           <div className="mobile-nav-container mobile-only-group">
             
-            {/* Left Side: Hamburger & Bell */}
             <div className="mobile-left-nav">
               <button className="icon-btn mobile-menu-btn" onClick={() => setShowMobileMenu(true)}>
                 <FaBars className="icon" />
               </button>
               
-              {/* Mobile Notifications (Ref: mobileNotifRef) */}
               <div ref={mobileNotifRef} className="notif-wrapper">
                 <button className="icon-btn" onClick={() => setShowNotif(!showNotif)}>
                   <FaBell className="icon" />
@@ -412,7 +442,6 @@ const LoggedInNavbar = () => {
               </div>
             </div>
 
-            {/* Right Side: Logo */}
             <div className="mobile-right-nav" onClick={handleLogoClick}>
               <img src={logo} alt="Furlink logo" className="header-logo" />
             </div>
@@ -422,7 +451,7 @@ const LoggedInNavbar = () => {
         </div>
       </header>
 
-      {/* === MOBILE DRAWER === */}
+      {/* ... (Mobile Drawer) ... */}
       <div className={`mobile-drawer-overlay ${showMobileMenu ? 'active' : ''}`} onClick={() => setShowMobileMenu(false)}></div>
       
       <div className={`mobile-drawer ${showMobileMenu ? 'active' : ''}`}>
@@ -443,16 +472,18 @@ const LoggedInNavbar = () => {
           </div>
 
           <div className="drawer-section">
-            {isStrictProvider && (
+            {/* Mobile: Same logic applied */}
+            {isStrictProvider && !isSuspended && (
               <button className="drawer-action-btn" onClick={handleSwitchToPetOwner}>
                 Become a Pet Owner
               </button>
             )}
-            {!isStrictProvider && !hideBecomeProviderAction && (
+            
+            {!isStrictProvider && !hideBecomeProviderAction && (userRole !== 'pet_owner' || !isSuspended) && (
               <button className="drawer-action-btn" onClick={handleProviderClick}>
                  {isApproved 
-                    ? (isServiceProviderPage ? "Switch to Pet Owner" : "Switch to Provider") 
-                    : isIncomplete ? "Continue Application" : "Become a Service Provider"}
+                   ? (isServiceProviderPage ? "Switch to Pet Owner" : "Switch to Provider") 
+                   : isIncomplete ? "Continue Application" : "Become a Service Provider"}
               </button>
             )}
           </div>
@@ -483,7 +514,7 @@ const LoggedInNavbar = () => {
         </div>
       </div>
 
-      {/* === MODALS (Unchanged) === */}
+      {/* ... (Modals remain unchanged) ... */}
       {showPendingModal && (
         <div className="modal-overlay">
           <div className="modal-content pending-modal">

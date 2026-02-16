@@ -1,7 +1,6 @@
-// src/pages/auth/Dashboard.jsx
 import React, { useEffect, useState, useMemo, useRef} from "react";
 import { supabase } from "../../config/supabase";
-import { Store, Filter, Star, MapPin, Tag } from "lucide-react"; 
+import { Store, Filter, Star, MapPin, Tag, X, Ban, Info } from "lucide-react"; 
 import { useNavigate } from "react-router-dom"; 
 import Header from "../../components/Header/LoggedInNavbar";
 import Footer from "../../components/Footer/Footer";
@@ -11,12 +10,18 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const filterRef = useRef();
 
-  // 1. INITIALIZE ALL STATES FIRST (Crucial to prevent ReferenceError)
+  // 1. INITIALIZE STATES
   const [currentUser, setCurrentUser] = useState(null);
   const [profile, setProfile] = useState(null);
   const [providers, setProviders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
+  
+  // ⭐ SUSPENSION STATES
+  const [isSuspended, setIsSuspended] = useState(false);
+  const [suspensionDate, setSuspensionDate] = useState(null);
+  const [showSuspendedModal, setShowSuspendedModal] = useState(false);
+
   const [filters, setFilters] = useState({
     city: "All",
     exactRating: "Any",
@@ -24,7 +29,7 @@ const Dashboard = () => {
     maxPrice: 5000,
   });
 
-  // 2. Click Outside Logic (Now showFilterDropdown is initialized)
+  // 2. Click Outside Logic
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (showFilterDropdown && filterRef.current && !filterRef.current.contains(event.target)) {
@@ -35,7 +40,7 @@ const Dashboard = () => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [showFilterDropdown]);
 
-  // 3. Extraction & Filtering Logic (useMemo)
+  // 3. Extraction & Filtering Logic
   const availableCities = useMemo(() => {
     const cities = providers.map(p => p.city).filter(Boolean);
     return ["All", ...new Set(cities)];
@@ -57,12 +62,26 @@ const Dashboard = () => {
     const loadData = async () => {
       setLoading(true);
       try {
-        // Fetch User First
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
-          setCurrentUser(user); // Set the state so handleProviderClick can see it
-          const { data: prof } = await supabase.from("profiles").select("first_name, display_name").eq("id", user.id).single();
-          if (prof) setProfile(prof);
+          setCurrentUser(user);
+          const { data: prof } = await supabase
+            .from("profiles")
+            // ⭐ Updated to fetch 'role' for the modal logic
+            .select("first_name, display_name, suspension_end_date, role") 
+            .eq("id", user.id)
+            .single();
+          
+          if (prof) {
+            setProfile(prof);
+            if (prof.suspension_end_date) {
+                const endDate = new Date(prof.suspension_end_date);
+                if (endDate > new Date()) {
+                    setIsSuspended(true);
+                    setSuspensionDate(endDate);
+                }
+            }
+          }
         }
 
         const { data, error } = await supabase
@@ -82,13 +101,7 @@ const Dashboard = () => {
               if (prices.length > 0) {
                 min = Math.min(...prices);
                 max = Math.max(...prices);
-
-                // Logic for decimal display and range vs single value
-                if (min === max) {
-                  formattedPriceRange = `₱${min.toFixed(2)}`;
-                } else {
-                  formattedPriceRange = `₱${min.toFixed(2)} - ₱${max.toFixed(2)}`;
-                }
+                formattedPriceRange = min === max ? `₱${min.toFixed(2)}` : `₱${min.toFixed(2)} - ₱${max.toFixed(2)}`;
               }
             }
 
@@ -98,7 +111,7 @@ const Dashboard = () => {
             return {
               ...provider,
               numericMinPrice: min,
-              priceRange: formattedPriceRange, // Using the new formatted string
+              priceRange: formattedPriceRange, 
               imageUrl: images?.[0]?.image_url || null,
               rating: stats ? parseFloat(stats.total_combined_avg).toFixed(1) : "0.0"
             };
@@ -114,19 +127,21 @@ const Dashboard = () => {
     loadData();
   }, [navigate]);
 
+  // ⭐ CLICK HANDLER: Intercepts if suspended
   const handleProviderClick = async (providerId, providerOwnerId) => {
-    try {
-      // Use the currentUser state we fetched during loadData
-      const isOwner = currentUser && currentUser.id === providerOwnerId;
+    if (isSuspended) {
+        setShowSuspendedModal(true);
+        return;
+    }
 
+    try {
+      const isOwner = currentUser && currentUser.id === providerOwnerId;
       if (!isOwner) {
-        // Log the click if it's not the owner
         await supabase.rpc('increment_provider_click', { provider_id: providerId });
       }
     } catch (err) {
       console.error("Click handler error:", err);
     } finally {
-      // Redirect happens regardless of whether the RPC call succeeded
       navigate(`/listing/${providerId}`);
     }
   };
@@ -139,125 +154,82 @@ const Dashboard = () => {
       <main className="dashboard-container">
         <div className="dashboard-content">
           <div className="dashboard-header-flex">
-    <h1 className="dashboard-title">Explore Pet Grooming shops</h1>
-      <div className="filter-wrapper" ref={filterRef}>
-        <button className="filter-toggle-btn" onClick={() => setShowFilterDropdown(!showFilterDropdown)}>
-          <Filter size={18} /> {/* Added icon here */}
-          <span>Filters</span>
-          {(filters.city !== "All" || filters.exactRating !== "Any" || filters.minPrice > 0 || filters.maxPrice < 5000) && (
-              <span className="filter-dot" />
-          )}
-      </button>
+            <h1 className="dashboard-title">Explore Pet Grooming shops</h1>
+            <div className="filter-wrapper" ref={filterRef}>
+              <button className="filter-toggle-btn" onClick={() => setShowFilterDropdown(!showFilterDropdown)}>
+                <Filter size={18} /> 
+                <span>Filters</span>
+                {(filters.city !== "All" || filters.exactRating !== "Any" || filters.minPrice > 0 || filters.maxPrice < 5000) && (
+                    <span className="filter-dot" />
+                )}
+              </button>
 
-        {showFilterDropdown && (
-            <div className="filter-dropdown-card">
-                <div className="filter-header">
-                    <h3>Filter Options</h3>
-                    <button 
-                      className="reset-link" 
-                      onClick={() => {
-                        setFilters({ city: "All", exactRating: "Any", minPrice: 0, maxPrice: 5000 });
-                        setShowFilterDropdown(false); // <--- Add this line
-                      }}
-                    >
-                      Reset All
-                    </button>
-                </div>
-
-                <div className="filter-section">
-                    <label><MapPin size={14}/> Location</label>
-                    <select className="filter-select" value={filters.city} onChange={(e) => setFilters({...filters, city: e.target.value})}>
-                        {availableCities.map(city => <option key={city} value={city}>{city}</option>)}
-                    </select>
-                </div>
-
-                <div className="filter-section">
-                    <label><Star size={14}/> Rating (Exact Stars)</label>
-                    <div className="rating-filter-grid">
-                        {["Any", "1", "2", "3", "4"].map(r => (
-                            <button 
-                                key={r} 
-                                className={filters.exactRating === r ? "active" : ""} 
-                                onClick={() => setFilters({...filters, exactRating: r})}
-                            >
-                                {r === "Any" ? "Any" : `${r} ★`}
-                            </button>
-                        ))}
-                    </div>
-                </div>
-
-                <div className="filter-section">
-                  <label><Tag size={14}/> Price Range (₱)</label>
-                  
-                  {/* Input container now matches the width of the slider below */}
-                  <div className="price-input-container">
-                      <div className="price-field compact">
-                          <span>Minimum</span>
-                          <input 
-                              type="number" 
-                              value={filters.minPrice} 
-                              onChange={(e) => setFilters({...filters, minPrice: Math.min(parseInt(e.target.value) || 0, filters.maxPrice)})} 
-                          />
+              {showFilterDropdown && (
+                  <div className="filter-dropdown-card">
+                      <div className="filter-header">
+                          <h3>Filter Options</h3>
+                          <button 
+                            className="reset-link" 
+                            onClick={() => {
+                              setFilters({ city: "All", exactRating: "Any", minPrice: 0, maxPrice: 5000 });
+                              setShowFilterDropdown(false);
+                            }}
+                          >
+                            Reset All
+                          </button>
                       </div>
-                      <div className="price-field compact" style={{ textAlign: 'right' }}>
-                          <span>Maximum</span>
-                          <input 
-                              type="number" 
-                              value={filters.maxPrice} 
-                              onChange={(e) => setFilters({...filters, maxPrice: Math.max(parseInt(e.target.value) || 0, filters.minPrice)})} 
-                          />
+
+                      <div className="filter-section">
+                          <label><MapPin size={14}/> Location</label>
+                          <select className="filter-select" value={filters.city} onChange={(e) => setFilters({...filters, city: e.target.value})}>
+                              {availableCities.map(city => <option key={city} value={city}>{city}</option>)}
+                          </select>
+                      </div>
+
+                      <div className="filter-section">
+                          <label><Star size={14}/> Rating (Exact Stars)</label>
+                          <div className="rating-filter-grid">
+                              {["Any", "1", "2", "3", "4"].map(r => (
+                                  <button key={r} className={filters.exactRating === r ? "active" : ""} onClick={() => setFilters({...filters, exactRating: r})}>
+                                      {r === "Any" ? "Any" : `${r} ★`}
+                                  </button>
+                              ))}
+                          </div>
+                      </div>
+
+                      <div className="filter-section">
+                        <label><Tag size={14}/> Price Range (₱)</label>
+                        <div className="price-input-container">
+                            <div className="price-field compact">
+                                <span>Minimum</span>
+                                <input type="number" value={filters.minPrice} onChange={(e) => setFilters({...filters, minPrice: Math.min(parseInt(e.target.value) || 0, filters.maxPrice)})} />
+                            </div>
+                            <div className="price-field compact" style={{ textAlign: 'right' }}>
+                                <span>Maximum</span>
+                                <input type="number" value={filters.maxPrice} onChange={(e) => setFilters({...filters, maxPrice: Math.max(parseInt(e.target.value) || 0, filters.minPrice)})} />
+                            </div>
+                        </div>
+                        <div className="dual-range-slider">
+                            <div className="slider-track" style={{ background: `linear-gradient(to right, #e2e8f0 ${ (filters.minPrice / 5000) * 100 }%, #0E2679 ${ (filters.minPrice / 5000) * 100 }%, #0E2679 ${ (filters.maxPrice / 5000) * 100 }%, #e2e8f0 ${ (filters.maxPrice / 5000) * 100 }%)` }}></div>
+                            <input type="range" min="0" max="5000" step="100" value={filters.minPrice} onChange={(e) => { const val = parseInt(e.target.value); if (val <= filters.maxPrice) setFilters({...filters, minPrice: val}); }} className="range-input" />
+                            <input type="range" min="0" max="5000" step="100" value={filters.maxPrice} onChange={(e) => { const val = parseInt(e.target.value); if (val >= filters.minPrice) setFilters({...filters, maxPrice: val}); }} className="range-input" />
+                        </div>
                       </div>
                   </div>
-
-                  <div className="dual-range-slider">
-                      {/* Fill color logic */}
-                      <div 
-                          className="slider-track" 
-                          style={{
-                              background: `linear-gradient(to right, #e2e8f0 ${ (filters.minPrice / 5000) * 100 }%, #0E2679 ${ (filters.minPrice / 5000) * 100 }%, #0E2679 ${ (filters.maxPrice / 5000) * 100 }%, #e2e8f0 ${ (filters.maxPrice / 5000) * 100 }%)`
-                          }}
-                      ></div>
-                      
-                      <input 
-                          type="range" min="0" max="5000" step="100" 
-                          value={filters.minPrice} 
-                          onChange={(e) => {
-                              const val = parseInt(e.target.value);
-                              if (val <= filters.maxPrice) setFilters({...filters, minPrice: val});
-                          }} 
-                          className="range-input"
-                      />
-                      <input 
-                          type="range" min="0" max="5000" step="100" 
-                          value={filters.maxPrice} 
-                          onChange={(e) => {
-                              const val = parseInt(e.target.value);
-                              if (val >= filters.minPrice) setFilters({...filters, maxPrice: val});
-                          }} 
-                          className="range-input"
-                      />
-                  </div>
-              </div>
+              )}
             </div>
-        )}
-    </div>
-  </div>
+          </div>
 
           <div className="providers-grid">
             {filteredProviders.map((provider) => (
               <div
                 key={provider.id}
-                className="provider-card"
-                // 4. Pass the provider.user_id (owner ID) to the handler
+                className={`provider-card ${isSuspended ? 'suspended-card' : ''}`}
                 onClick={() => handleProviderClick(provider.id, provider.user_id)}
               >
                 <div className="provider-image-container">
                   {provider.imageUrl ? (
-                    <img
-                      src={provider.imageUrl}
-                      alt={provider.business_name}
-                      className="provider-image"
-                    />
+                    <img src={provider.imageUrl} alt={provider.business_name} className="provider-image" />
                   ) : (
                     <div className="provider-image-placeholder">
                       <Store size={48} strokeWidth={1.5} color="#9ca3af" />
@@ -269,10 +241,8 @@ const Dashboard = () => {
                   <div className="provider-header">
                     <h3 className="provider-name">{provider.business_name}</h3>
                   </div>
-
                   <p className="provider-location">{provider.city}</p>
                   <p className="provider-price">{provider.priceRange}</p>
-
                   <div className="provider-rating">
                     <span className="rating-value">{provider.rating}</span>
                   </div>
@@ -282,12 +252,63 @@ const Dashboard = () => {
           </div>
 
           {providers.length === 0 && (
-            <p className="dashboard-empty-message">
-              No pet grooming shops available yet.
-            </p>
+            <p className="dashboard-empty-message">No pet grooming shops available yet.</p>
           )}
         </div>
       </main>
+
+      {/* ⭐ UPDATED SUSPENSION MODAL */}
+      {showSuspendedModal && (
+        <div className="modal-overlay">
+            <div className="modal-content refined-alert">
+                {/* 1. Close Button (Top Right) */}
+                <button className="modal-close-x" onClick={() => setShowSuspendedModal(false)}>
+                    <X size={24} />
+                </button>
+
+                <div className="alert-icon-container" style={{ backgroundColor: '#fee2e2', color: '#ef4444', margin: '0 auto 20px', width: '70px', height: '70px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Ban size={40} style={{ margin: '0 auto' }}/>
+                </div>
+                
+                <div className="alert-text-content">
+                    <h3 style={{ color: '#0E2679', fontSize: '1.25rem', fontWeight: '700', marginBottom: '10px' }}>
+                        Account Restricted
+                    </h3>
+                    <p style={{ color: '#64748b', fontSize: '0.9rem', lineHeight: '1.6', marginBottom: '25px' }}>
+                        {profile?.role === 'service_provider' 
+                            ? "Your service provider account is currently suspended. You cannot manage your shop, accept new bookings, or view other listings at this time."
+                            : profile?.role === 'both'
+                            ? "Your account is currently suspended. You are restricted from both booking new services and managing your own grooming shop."
+                            : "Your account is currently restricted for policy violations. You cannot view shop details or make bookings at this time."
+                        }
+                    </p>
+                </div>
+
+                <div style={{ backgroundColor: '#f8fafc', padding: '15px', borderRadius: '12px', width: '100%', border: '1px solid #e2e8f0', textAlign: 'left', marginBottom: '20px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <Info color="#0E2679" size={20} />
+                        <div>
+                            <label style={{ fontSize: '0.65rem', fontWeight: 'bold', color: '#94a3b8', textTransform: 'uppercase', display: 'block' }}>Restoration Date</label>
+                            <p style={{ margin: 0, fontWeight: '700', color: '#1e293b' }}>
+                                {suspensionDate?.toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                {/* 2. Text Link at Bottom instead of Button */}
+                <p style={{ fontSize: '0.85rem', color: '#64748b', marginTop: '10px' }}>
+                    Review the <span 
+                        style={{ color: '#0E2679', fontWeight: '600', cursor: 'pointer', textDecoration: 'underline' }} 
+                        onClick={() => navigate('/terms')}
+                    >
+                        terms and conditions here
+                    </span>.
+                </p>
+            </div>
+        </div>
+      )}
+
       <Footer />
     </div>
   );

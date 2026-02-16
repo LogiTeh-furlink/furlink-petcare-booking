@@ -17,7 +17,8 @@ import {
   FaFileInvoiceDollar,
   FaChevronLeft,
   FaChevronRight,
-  FaSearchPlus 
+  FaSearchPlus,
+  FaBan // <--- Added for suspension
 } from "react-icons/fa";
 import "./Appointments.css";
 
@@ -55,12 +56,12 @@ const CalendarModal = ({ bookings, onClose }) => {
       let statusClass = "";
       if (dayBookings.length > 0) {
         if (dateStr < todayStr) {
-          statusClass = "has-past"; // Gray
+          statusClass = "has-past"; 
         } else if (isToday) {
-          statusClass = "has-today"; // Green
+          statusClass = "has-today"; 
         } else {
           const hasPending = dayBookings.some(b => b.status === 'pending');
-          statusClass = hasPending ? "has-pending" : "has-upcoming"; // Yellow vs Blue
+          statusClass = hasPending ? "has-pending" : "has-upcoming"; 
         }
       }
 
@@ -87,57 +88,57 @@ const CalendarModal = ({ bookings, onClose }) => {
           <button className="close-btn" onClick={onClose}><FaTimes/></button>
         </div>
         <div className="calendar-body">
-  {/* LEFT SIDE: The Interactive Calendar */}
-  <div className="calendar-main-column">
-    <div className="cal-nav">
-      <button onClick={handlePrevMonth}><FaChevronLeft/></button>
-      <span className="cal-month-title">{currentDate.toLocaleString('default', { month: 'long', year: 'numeric' })}</span>
-      <button onClick={handleNextMonth}><FaChevronRight/></button>
-    </div>
-    
-    <div className="cal-grid-header">
-      <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
-    </div>
-    <div className="cal-grid">
-      {renderDays()}
-    </div>
-  </div>
-
-  {/* RIGHT SIDE: The Focal Appointment Details */}
-  <div className="cal-details-section">
-  <div className="details-header">
-    <FaCalendarAlt size={16} />
-    <h4>{selectedDate ? new Date(selectedDate).toDateString() : "Daily Schedule"}</h4>
-  </div>
-  
-  <div className="cal-list">
-    {selectedDayBookings.map(b => (
-      <div key={b.id} className="cal-list-item-detailed">
-        <div className="item-main-row">
-          <div className="cal-time-badge">{b.time_slot}</div>
-          <div className={`status-pill ${b.status}`}>{b.status?.toUpperCase()}</div>
-        </div>
-        
-        <div className="item-content-row">
-          <div className="provider-info">
-            <label>Service Provider</label>
-            <strong>{b.service_providers?.business_name}</strong>
+          {/* LEFT SIDE: The Interactive Calendar */}
+          <div className="calendar-main-column">
+            <div className="cal-nav">
+              <button onClick={handlePrevMonth}><FaChevronLeft/></button>
+              <span className="cal-month-title">{currentDate.toLocaleString('default', { month: 'long', year: 'numeric' })}</span>
+              <button onClick={handleNextMonth}><FaChevronRight/></button>
+            </div>
+            
+            <div className="cal-grid-header">
+              <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
+            </div>
+            <div className="cal-grid">
+              {renderDays()}
+            </div>
           </div>
-          <div className="pet-count-info">
-            <span className="count-badge">
-              <FaPaw size={12} /> {b.booking_pets?.length || 0}
-            </span>
+
+          {/* RIGHT SIDE: The Focal Appointment Details */}
+          <div className="cal-details-section">
+          <div className="details-header">
+            <FaCalendarAlt size={16} />
+            <h4>{selectedDate ? new Date(selectedDate).toDateString() : "Daily Schedule"}</h4>
+          </div>
+          
+          <div className="cal-list">
+            {selectedDayBookings.map(b => (
+              <div key={b.id} className="cal-list-item-detailed">
+                <div className="item-main-row">
+                  <div className="cal-time-badge">{b.time_slot}</div>
+                  <div className={`status-pill ${b.status}`}>{b.status?.toUpperCase()}</div>
+                </div>
+                
+                <div className="item-content-row">
+                  <div className="provider-info">
+                    <label>Service Provider</label>
+                    <strong>{b.service_providers?.business_name}</strong>
+                  </div>
+                  <div className="pet-count-info">
+                    <span className="count-badge">
+                      <FaPaw size={12} /> {b.booking_pets?.length || 0}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="pet-names-list">
+                  {b.booking_pets?.map(p => p.pet_name).join(', ')}
+                </div>
+              </div>
+            ))}
           </div>
         </div>
-
-        <div className="pet-names-list">
-          {b.booking_pets?.map(p => p.pet_name).join(', ')}
         </div>
-      </div>
-    ))}
-  </div>
-</div>
-</div>
       </div>
     </div>
   );
@@ -160,21 +161,25 @@ export default function Appointments() {
   const [successTitle, setSuccessTitle] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
   
+  // ⭐ SUSPENSION STATE
+  const [isSuspended, setIsSuspended] = useState(false);
+  const [suspensionDate, setSuspensionDate] = useState(null);
+
   // Reschedule Logic States
   const [reschedForm, setReschedForm] = useState({ date: "", time: "" });
   const [availableSlots, setAvailableSlots] = useState([]); 
-  const [providerHours, setProviderHours] = useState([]);   
-  const [targetDateBookings, setTargetDateBookings] = useState([]); // Stores bookings for the provider on the selected reschedule date
+  const [providerHours, setProviderHours] = useState([]);    
+  const [targetDateBookings, setTargetDateBookings] = useState([]); 
+  
   const calculateIntervalSlots = (workingDay) => {
     if (!workingDay) return [];
     const slots = [];
     let current = new Date(`2000-01-01T${workingDay.start_time}`);
     const end = new Date(`2000-01-01T${workingDay.end_time}`);
-    // Use provider's interval or fallback to 90 (1hr 30m)
     const intervalMinutes = parseInt(workingDay.slot_interval_minutes) || 90;
 
     while (current < end) {
-      slots.push(current.toTimeString().split(' ')[0]); // Format: "09:00:00"
+      slots.push(current.toTimeString().split(' ')[0]);
       current.setMinutes(current.getMinutes() + intervalMinutes);
     }
     return slots;
@@ -186,7 +191,6 @@ export default function Appointments() {
     comment: ""
   });
 
-  // Fetch Provider Hours when Reschedule Modal Opens
   useEffect(() => {
     if (selectedBooking && showRescheduleModal) {
       const fetchProviderHours = async () => {
@@ -201,19 +205,16 @@ export default function Appointments() {
     }
   }, [selectedBooking, showRescheduleModal]);
 
-  // Fetch Existing Bookings for Provider when Reschedule DATE changes
   useEffect(() => {
     const fetchTargetDateBookings = async () => {
         if (!reschedForm.date || !selectedBooking) return;
         
         const { data, error } = await supabase
             .from("bookings")
-            .select("id, time_slot, status") // Added 'id' to the select
+            .select("id, time_slot, status")
             .eq("provider_id", selectedBooking.service_providers.id)
             .eq("booking_date", reschedForm.date)
-            // EXCLUDEterminal statuses
             .not("status", "in", '("cancelled", "declined", "rejected", "void", "voided")')
-            // EXCLUDE the current booking itself so it doesn't block the capacity calculation
             .neq("id", selectedBooking.id); 
 
         if (!error) setTargetDateBookings(data || []);
@@ -232,6 +233,21 @@ export default function Appointments() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return navigate("/login");
+
+      // ⭐ CHECK FOR SUSPENSION
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("suspension_end_date")
+        .eq("id", user.id)
+        .single();
+
+      if (profile?.suspension_end_date) {
+        const endDate = new Date(profile.suspension_end_date);
+        if (endDate > new Date()) {
+          setIsSuspended(true);
+          setSuspensionDate(endDate);
+        }
+      }
 
       const { data, error } = await supabase
         .from("bookings")
@@ -260,7 +276,6 @@ export default function Appointments() {
       if (error) throw error;
       setBookings(data || []);
 
-      // Requirement: Auto-decline if no response within 24 hours
       const now = new Date();
       data?.forEach(async (b) => {
         const submittedAt = new Date(b.created_at);
@@ -275,7 +290,7 @@ export default function Appointments() {
       });
 
     } catch (err) {
-      // Errors handled silently as requested
+      // Handle error
     } finally {
       setLoading(false);
     }
@@ -298,7 +313,6 @@ const handleRescheduleDateChange = async (e) => {
     const newDate = e.target.value;
     if (!newDate || !selectedBooking) return;
 
-    // 1. Check if the provider is even open on this day of the week
     const dayName = new Date(newDate).toLocaleDateString('en-US', { weekday: 'long' });
     const workingDay = providerHours.find(h => h.day_of_week === dayName);
 
@@ -309,7 +323,6 @@ const handleRescheduleDateChange = async (e) => {
       return;
     }
 
-    // 2. Proceed with existing capacity check logic
     const petCount = selectedBooking.booking_pets?.length || 1;
     const { data: dateBookings } = await supabase
       .from("bookings")
@@ -343,7 +356,6 @@ const handleRescheduleDateChange = async (e) => {
     }
   };;
 
-  // --- SLOT AVAILABILITY LOGIC ---
   const getSlotDetails = (timeSlot) => {
     if (!reschedForm.date || !selectedBooking || providerHours.length === 0) return { remaining: 0, isEnough: false };
 
@@ -351,10 +363,8 @@ const handleRescheduleDateChange = async (e) => {
     const workingDay = providerHours.find(h => h.day_of_week === dayName);
     const maxCapacity = workingDay ? parseInt(workingDay.slot_capacity) : 1;
     
-    // Database stores time as HH:mm:ss, but UI uses 12h format
     const time24 = convertTo24Hour(timeSlot) + ":00";
     
-    // Filter targetDateBookings (which already excludes the current booking ID)
     const occupiedByOthers = targetDateBookings.filter(b => b.time_slot === time24).length;
     
     const remaining = maxCapacity - occupiedByOthers;
@@ -393,24 +403,18 @@ const handleRescheduleDateChange = async (e) => {
     const diffTime = bookingDate - today;
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     
-    // Requirement: Must be status pending/paid AND not today or a day before
     return (['pending', 'paid'].includes(booking.status)) && diffDays > 1;
   };
 
   const getFilteredBookings = () => {
     if (!bookings) return [];
-    // Requirement: Display from latest booking request to oldest
     const sorted = [...bookings].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
     switch (activeTab) {
-      case "awaiting": 
-        return sorted.filter(b => b.status === "pending");
-      case "payment": 
-        return sorted.filter(b => b.status === "approved");
-      case "upcoming": 
-        return sorted.filter(b => b.status === "paid");
-      case "rate": 
-        return sorted.filter(b => b.status === "for review");
+      case "awaiting": return sorted.filter(b => b.status === "pending");
+      case "payment": return sorted.filter(b => b.status === "approved");
+      case "upcoming": return sorted.filter(b => b.status === "paid");
+      case "rate": return sorted.filter(b => b.status === "for review");
       default: return [];
     }   
   };
@@ -448,6 +452,7 @@ const handleRescheduleDateChange = async (e) => {
   const handleOpenRateModal = () => setShowFeedbackModal(true); 
 
   const handleSubmitFeedback = async () => {
+    if (isSuspended) return; // Guard
     if (feedbackForm.overallRating === 0 || feedbackForm.staffRating === 0) return;
     setActionLoading(true);
     try {
@@ -470,9 +475,9 @@ const handleRescheduleDateChange = async (e) => {
 
   const confirmReschedule = async (e) => {
     e.preventDefault();
+    if(isSuspended) return; // Guard
     if(!reschedForm.time || !selectedBooking) return;
 
-    // Final verification check for double booking prevention
     const { isEnough } = getSlotDetails(reschedForm.time);
     if (!isEnough) {
         alert("Sorry, this slot was just taken by another user. Please choose another time.");
@@ -496,7 +501,6 @@ const handleRescheduleDateChange = async (e) => {
       await fetchBookings(); 
       handleCloseAll();
 
-      // --- ADD THESE TWO LINES BELOW ---
       setSuccessTitle("Reschedule Successful!");
       setSuccessMessage("Your previous slot has been released and your new appointment is now awaiting approval.");
       
@@ -509,11 +513,10 @@ const handleRescheduleDateChange = async (e) => {
   };
 
   const confirmCancel = async () => {
-    if (!selectedBooking) return;
+    if (isSuspended || !selectedBooking) return; // Guard
 
     setActionLoading(true);
     try {
-      // Direct update to Supabase
       const { error } = await supabase
         .from('bookings')
         .update({ status: 'cancelled' })
@@ -521,12 +524,10 @@ const handleRescheduleDateChange = async (e) => {
 
       if (error) throw error;
 
-      // Update local state to reflect change immediately
       setBookings(prev => prev.map(b => 
         b.id === selectedBooking.id ? { ...b, status: 'cancelled' } : b
       ));
 
-      // Close all modals and show success confirmation
       handleCloseAll();
       setSuccessTitle("Cancelled Successfully");
       setSuccessMessage("The appointment has been removed from your active list.");
@@ -534,7 +535,6 @@ const handleRescheduleDateChange = async (e) => {
 
     } catch (err) {
       console.error("Cancellation Error:", err.message);
-      // Optional: Add a triggerError("Could not cancel booking.") here
     } finally {
       setActionLoading(false);
     }
@@ -545,12 +545,13 @@ const handleRescheduleDateChange = async (e) => {
     const original = new Date(selectedBooking.booking_date);
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
-    
-    // Return whichever is later: tomorrow or the day after original booking
     return original > tomorrow ? original.toISOString().split("T")[0] : tomorrow.toISOString().split("T")[0];
   };
 
-  const handlePayNow = () => navigate(`/payment/${selectedBooking.id}`);
+  const handlePayNow = () => {
+    if (isSuspended) return; // Guard
+    navigate(`/payment/${selectedBooking.id}`);
+  };
   
   if (loading) return <div className="app-loading">Loading...</div>;
 
@@ -590,7 +591,7 @@ const handleRescheduleDateChange = async (e) => {
                       : tab === 'payment' 
                       ? 'For Payment' 
                       : tab === 'rate' 
-                      ? 'To Rate' // Manually set 'rate' to 'To Rate'
+                      ? 'To Rate' 
                       : tab.charAt(0).toUpperCase() + tab.slice(1)}
                   </span>
                 </div>
@@ -636,23 +637,28 @@ const handleRescheduleDateChange = async (e) => {
           <div className="modal-content large-modal" onClick={e => e.stopPropagation()}>
              <div className="modal-header"><h3>Appointment Details</h3><button className="close-btn" onClick={handleCloseAll}><FaTimes/></button></div>
              <div className="modal-body-scroll">
+                {/* ⭐ SUSPENSION WARNING BANNER */}
+                {isSuspended && (
+                  <div className="refund-warning-box" style={{ backgroundColor: '#fff1f2', border: '1px solid #fecdd3', padding: '15px', borderRadius: '12px', color: '#be123c', marginBottom: '20px', display: 'flex', gap: '10px', alignItems: 'center' }}>
+                    <FaBan size={20}/>
+                    <span><strong>Action Restricted:</strong> Your account is currently suspended until {suspensionDate.toLocaleDateString()}. You can view your details but cannot modify this appointment.</span>
+                  </div>
+                )}
+
                 <div className="info-grid">
                    <div className="info-item"><label><FaInfoCircle/> Provider</label><span>{selectedBooking.service_providers?.business_name}</span></div>
                    <div className="info-item"><label><FaClock/> Schedule</label><span>{formatDateTime(selectedBooking.booking_date, selectedBooking.time_slot)}</span></div>
                    <div className="info-item">
                        <label><FaFileInvoiceDollar/> Total Amount</label>
                        <span className="price-tag">{formatCurrency(selectedBooking.total_estimated_price)}</span>
-                       {/* --- ADDED VAT NOTE --- */}
                        <span className="vat-note-small" style={{textAlign: 'left', marginTop: '0'}}>* VAT exclusive</span>
                    </div>
                    <div className="info-item">
                         <label><FaCreditCard/> Downpayment</label>
                         <span className="price-tag">{formatCurrency(selectedBooking.installation_payment)}</span>
-                        {/* --- ADDED VAT NOTE --- */}
                         <span className="vat-note-small" style={{textAlign: 'left', marginTop: '0'}}>* VAT exclusive</span>
                     </div>
 
-                   {/* ⭐ NEW: Balance Row - Only for Paid bookings under the 'Upcoming' tab */}
                     {(selectedBooking.status === 'paid' && activeTab === 'upcoming') && (
                         <div className="info-item">
                             <label>
@@ -697,32 +703,58 @@ const handleRescheduleDateChange = async (e) => {
                   ))}
                 </div>
              </div>
+             
+             {/* ⭐ MODAL FOOTER: BUTTONS ARE DISABLED IF SUSPENDED */}
              <div className="modal-footer">
-              {/* Requirement: Reschedule allowed for 'pending' requests */}
               {selectedBooking.status === 'pending' && (
-                <button className="resched-btn" onClick={() => setShowRescheduleModal(true)}>Reschedule</button>
+                <button 
+                  className="resched-btn" 
+                  onClick={() => !isSuspended && setShowRescheduleModal(true)}
+                  disabled={isSuspended}
+                  style={isSuspended ? { backgroundColor: '#cbd5e1', cursor: 'not-allowed', color: '#64748b' } : {}}
+                >
+                  {isSuspended ? "Reschedule Locked" : "Reschedule"}
+                </button>
               )}
 
-              {/* Requirement: Pay Now only if status is 'approved' */}
               {selectedBooking.status === 'approved' && (
-                <button className="pay-btn" onClick={handlePayNow}>Pay Now</button>
+                <button 
+                  className="pay-btn" 
+                  onClick={handlePayNow}
+                  disabled={isSuspended}
+                  style={isSuspended ? { backgroundColor: '#cbd5e1', cursor: 'not-allowed', color: '#64748b' } : {}}
+                >
+                  {isSuspended ? "Payment Locked" : "Pay Now"}
+                </button>
               )}
 
-              {/* Requirement: Rate only if 'paid' and 4 hours past */}
-              {/* Requirement: Rate only if the service is done (database status is 'for review') */}
               {selectedBooking.status === 'for review' && (
-                <button className="rate-btn" onClick={handleOpenRateModal}>Rate Service</button>
+                <button 
+                  className="rate-btn" 
+                  onClick={handleOpenRateModal}
+                  disabled={isSuspended}
+                  style={isSuspended ? { backgroundColor: '#cbd5e1', cursor: 'not-allowed', color: '#64748b' } : {}}
+                >
+                  {isSuspended ? "Rating Locked" : "Rate Service"}
+                </button>
               )}
 
-              {/* Requirement: Cancellation allowed for pending and paid, but not < 24h before */}
               {isCancellable(selectedBooking) && (
-                <button className="cancel-btn" onClick={() => setShowCancelModal(true)}>Cancel Appointment</button>
+                <button 
+                  className="cancel-btn" 
+                  onClick={() => !isSuspended && setShowCancelModal(true)}
+                  disabled={isSuspended}
+                  style={isSuspended ? { backgroundColor: '#cbd5e1', cursor: 'not-allowed', color: '#64748b' } : {}}
+                >
+                  {isSuspended ? "Cancellation Locked" : "Cancel Appointment"}
+                </button>
               )}
             </div>
           </div>
         </div>
       )}
 
+      {/* Other modals (Reschedule, Cancel, Feedback, Success) remain unchanged visually but logic is guarded */}
       {showRescheduleModal && (
         <div className="modal-overlay">
           <div className="modal-content small-modal">
@@ -741,7 +773,6 @@ const handleRescheduleDateChange = async (e) => {
                   onChange={handleRescheduleDateChange} 
                 />
                 
-                {/* NEW: Show which days are actually available */}
                 {!reschedForm.date && (
                   <div style={{fontSize: '0.75rem', color: '#64748b', marginTop: '-8px', marginBottom: '10px'}}>
                     Available days: {providerHours.map(h => h.day_of_week.slice(0,3)).join(', ')}
@@ -761,16 +792,14 @@ const handleRescheduleDateChange = async (e) => {
                     const { remaining, isEnough } = getSlotDetails(slot);
                     const petCount = selectedBooking.booking_pets?.length || 1;
                     
-                    // Requirement: Detect if this slot is exactly the same as the current booking
                     const isOriginalTime = 
                       reschedForm.date === selectedBooking.booking_date && 
-                      convertTo24Hour(slot) === selectedBooking.time_slot.slice(0, 5); // Slice to match HH:mm
+                      convertTo24Hour(slot) === selectedBooking.time_slot.slice(0, 5); 
 
                     return (
                       <option 
                         key={index} 
                         value={slot} 
-                        // Disable if not enough space OR if it's the original time
                         disabled={!isEnough || isOriginalTime}
                         style={(!isEnough || isOriginalTime) ? { color: '#999', backgroundColor: '#f3f4f6' } : {}}
                       >
@@ -786,7 +815,6 @@ const handleRescheduleDateChange = async (e) => {
                   })}
                 </select>
                 
-                {/* --- DYNAMIC SLOT TEXT DISPLAY --- */}
                 {reschedForm.time && (
                     <div className="slot-availability-text">
                          Available slots for this time: <strong>{getSlotDetails(reschedForm.time).remaining}</strong>
@@ -822,7 +850,6 @@ const handleRescheduleDateChange = async (e) => {
           </div>
 
           <div className="modal-body">
-            {/* Overall Experience Group */}
             <div className="rating-group">
               <label style={{ color: 'var(--brand-blue)', fontWeight: '700' }}>
                 Overall Experience <span className="req" style={{ color: 'var(--brand-red)' }}>*</span>
@@ -844,7 +871,6 @@ const handleRescheduleDateChange = async (e) => {
               </div>
             </div>
 
-            {/* Staff Rating Group */}
             <div className="rating-group" style={{ marginTop: '1.5rem' }}>
               <label style={{ color: 'var(--brand-blue)', fontWeight: '700' }}>
                 Staff Rating <span className="req" style={{ color: 'var(--brand-red)' }}>*</span>
@@ -866,7 +892,6 @@ const handleRescheduleDateChange = async (e) => {
               </div>
             </div>
 
-            {/* Feedback Textarea with Counter */}
             <div className="textarea-group" style={{ marginTop: '1.5rem' }}>
               <label style={{ color: 'var(--brand-blue)', fontWeight: '700', display: 'block', marginBottom: '8px' }}>
                 Comments
@@ -921,7 +946,6 @@ const handleRescheduleDateChange = async (e) => {
                 Are you sure you want to cancel this appointment?
               </p>
               
-              {/* DYNAMIC WARNING MESSAGE */}
               {selectedBooking?.status === 'paid' && (
                 <div className="refund-warning-box" style={{ 
                   backgroundColor: '#fef2f2', 
@@ -963,12 +987,12 @@ const handleRescheduleDateChange = async (e) => {
         <div 
           className="modal-content small-modal" 
           style={{
-            display: 'flex',          // Enable Flexbox
-            flexDirection: 'column',    // Stack items vertically
-            alignItems: 'center',       // Center items horizontally
-            justifyContent: 'center',   // Center items vertically
+            display: 'flex',          
+            flexDirection: 'column',    
+            alignItems: 'center',       
+            justifyContent: 'center',   
             textAlign: 'center', 
-            padding: '3rem 2rem',       // Increased padding for better spacing
+            padding: '3rem 2rem',       
             borderRadius: '16px'
           }}
         >
@@ -977,7 +1001,7 @@ const handleRescheduleDateChange = async (e) => {
               fontSize: '4.5rem', 
               color: 'var(--brand-green)', 
               marginBottom: '1.5rem',
-              display: 'block'          // Ensure it behaves as a centered block
+              display: 'block'          
             }}
           />
           
@@ -992,7 +1016,7 @@ const handleRescheduleDateChange = async (e) => {
           <button 
             className="confirm-btn-yes" 
             onClick={() => setShowSuccessModal(false)} 
-            style={{ width: '100%', maxWidth: '250px' }} // Added maxWidth for a cleaner button look
+            style={{ width: '100%', maxWidth: '250px' }} 
           >
             OK
           </button>

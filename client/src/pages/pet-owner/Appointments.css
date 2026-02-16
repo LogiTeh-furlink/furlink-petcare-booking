@@ -1241,208 +1241,6 @@ button.close-btn:hover {
   border-left: 2px solid var(--brand-blue);
 }
 
-/* --- APPOINTMENT DETAILS MODAL REFINEMENT --- */
-
-/* 1. Modal Container & Scroll Area */
-.modal-content.large-modal {
-  width: 95%;
-  max-width: 850px; /* Standardized width */
-  border-radius: 20px;
-  box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.4);
-}
-
-.modal-body-scroll {
-  padding: 1.5rem 2rem;
-  background-color: #f8fafc; /* Subtle grey background for body */
-  overflow-y: auto;
-}
-
-/* 2. Top Info Banner (Horizontal Highlights) */
-.info-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 1.5rem;
-  margin-bottom: 2rem;
-  background-color: #ffffff;
-  padding: 1.5rem;
-  border-radius: 16px;
-  border: 1px solid var(--border-light);
-  box-shadow: 0 2px 4px rgba(0,0,0,0.02);
-}
-
-.info-item {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.info-item label {
-  font-size: 0.75rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--text-muted);
-}
-
-.info-item span {
-  font-weight: 700;
-  font-size: 1rem;
-  color: var(--brand-blue);
-}
-
-.price-tag {
-  color: var(--brand-blue);
-  font-size: 1.25rem !important;
-  font-weight: 800 !important;
-}
-
-/* 3. Section Title Styling */
-.modal-body-scroll h4 {
-  color: var(--brand-blue);
-  font-weight: 800;
-  font-size: 1rem;
-  text-transform: uppercase;
-  margin-bottom: 1.5rem;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.modal-body-scroll h4::after {
-  content: "";
-  flex: 1;
-  height: 2px;
-  background: var(--border-light);
-}
-
-/* 4. Professional Pet Card */
-.pet-full-card {
-  background-color: #ffffff;
-  border: 1px solid var(--border-light);
-  border-radius: 16px;
-  padding: 1.5rem;
-  margin-bottom: 1.5rem;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.03);
-}
-
-.pet-name-header {
-  margin: 0 0 1.25rem 0;
-  color: var(--brand-blue);
-  font-size: 1.1rem;
-  font-weight: 800;
-  border-bottom: 1px solid #f1f5f9;
-  padding-bottom: 0.75rem;
-}
-
-.pet-specs-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 1rem;
-  margin-bottom: 1.25rem;
-}
-
-.pet-specs-grid div {
-  background: #f8fafc;
-  padding: 8px 12px;
-  border-radius: 8px;
-  font-size: 0.9rem;
-}
-
-.pet-specs-grid .label {
-  font-weight: 700;
-  font-size: 0.75rem;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  display: block;
-  margin-bottom: 2px;
-}
-
-.pet-specs-full {
-  margin-bottom: 0.75rem;
-  padding: 10px;
-  background: #fffbeb; /* Light yellow tint for specifications */
-  border-radius: 8px;
-  border-left: 4px solid var(--brand-yellow);
-  font-size: 0.9rem;
-}
-
-/* 5. Proof Image Attachments (Facebook/Professional Layout) */
-.pet-images-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1rem;
-  margin-top: 1.5rem;
-}
-
-.image-wrapper {
-  background-color: #f1f5f9;
-  padding: 10px;
-  border-radius: 12px;
-  text-align: center;
-  transition: transform 0.2s;
-  border: 1px solid var(--border-light);
-}
-
-.image-wrapper:hover {
-  transform: translateY(-2px);
-  border-color: var(--brand-blue);
-}
-
-.img-label {
-  font-size: 0.75rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  color: var(--text-muted);
-  margin-bottom: 8px;
-}
-
-.proof-image {
-  width: 100%;
-  height: 180px; /* Fixed height for neatness */
-  object-fit: cover;
-  border-radius: 8px;
-  cursor: pointer;
-  background-color: #000;
-}
-
-/* 6. Professional Modal Footer */
-.modal-footer {
-  padding: 1.25rem 2rem;
-  background-color: #ffffff;
-  border-top: 1px solid var(--border-light);
-}
-
-.status-badge {
-  padding: 4px 12px;
-  border-radius: 999px;
-  font-size: 0.75rem;
-  font-weight: 800;
-  letter-spacing: 0.05em;
-}
-
-.status-badge.pending { background: #fef9c3; color: #854d0e; }
-.status-badge.approved, .status-badge.confirmed { background: #dcfce7; color: #166534; }
-.status-badge.paid { background: #dbeafe; color: #1e40af; }
-
-/* 7. Action Button Overrides */
-.cancel-btn {
-  background-color: #fef2f2;
-  color: var(--brand-red);
-  border: 1px solid #fee2e2;
-  transition: all 0.2s;
-}
-
-.cancel-btn:hover {
-  background-color: var(--brand-red);
-  color: white;
-}
-
-@media (max-width: 768px) {
-  .pet-specs-grid { grid-template-columns: 1fr 1fr; }
-  .pet-images-row { grid-template-columns: 1fr; }
-  .modal-body-scroll { padding: 1rem; }
-}
-
 /* Image Preview Lightbox */
 .image-preview-overlay {
     background-color: rgba(0, 0, 0, 0.9) !important;
@@ -1510,4 +1308,18 @@ button.close-btn:hover {
 .slot-availability-text strong {
     color: var(--brand-blue);
     font-weight: 700;
+}
+
+/* ⭐ SUSPENSION BANNER STYLE */
+.refund-warning-box {
+    background-color: #fff1f2;
+    border: 1px solid #fecdd3;
+    padding: 15px;
+    border-radius: 12px;
+    color: #be123c;
+    margin-bottom: 20px;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    font-size: 0.9rem;
 }

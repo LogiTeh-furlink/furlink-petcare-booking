@@ -8,7 +8,7 @@ import LoginPage from "./pages/public/LoginPage";
 import SignUpPage from "./pages/public/SignUpPage";
 import TandC from "./pages/public/TandC"; 
 import PrivacyPolicy from "./pages/public/PrivacyPolicy"; 
-import SuspendedPage from "./pages/public/SuspendedPage"; // ⭐ NEW IMPORT
+// REMOVED: import SuspendedPage from "./pages/public/SuspendedPage"; 
 
 // Pet Owner Pages
 import Dashboard from "./pages/pet-owner/Dashboard";
@@ -40,7 +40,7 @@ import AdminViewBooking from "./pages/admin/AdminViewBooking";
 
 // Route Guards
 import ProtectedRoute from "./components/ProtectedRoute";
-import SuspensionGuard from "./components/SuspensionGuard"; // ⭐ NEW IMPORT
+import SuspensionGuard from "./components/SuspensionGuard"; 
 import RequireNewApplicant from "./components/RequireNewApplicant";
 import RequireProviderApplication from "./components/RequireProviderApplication";
 
@@ -67,10 +67,8 @@ function App() {
 
         <Route element={<ProtectedRoute />}>
 
-          {/* ⭐ SUSPENDED PAGE: Accessible to logged in users, but NOT wrapped by SuspensionGuard */}
-          <Route path="/suspended" element={<SuspendedPage />} />
-
-          {/* ⭐ SUSPENSION GUARD: Wraps all functional pages */}
+          {/* ⭐ SUSPENSION GUARD: Wraps all functional pages to check for Auto-Reactivation */}
+          {/* Note: Suspended users will now pass through here to the dashboard */}
           <Route element={<SuspensionGuard />}>
 
             {/* --- 1. PET OWNER / GENERAL USER SIDE --- */}

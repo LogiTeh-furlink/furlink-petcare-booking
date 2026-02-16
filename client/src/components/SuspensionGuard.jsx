@@ -1,61 +1,54 @@
 import React, { useEffect, useState } from "react";
-import { Navigate, Outlet, useLocation } from "react-router-dom";
+import { Outlet } from "react-router-dom";
 import { supabase } from "../config/supabase";
 
 export default function SuspensionGuard() {
-  const [status, setStatus] = useState("checking"); // checking | allowed | blocked
-  const location = useLocation();
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     checkStatus();
-  }, [location.pathname]);
+  }, []);
 
   const checkStatus = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        setStatus("allowed"); // Let ProtectedRoute handle the redirect to login
+        setLoading(false);
         return;
       }
 
-      // Fetch the columns we need for the logic
+      // Fetch profile to check status
       const { data: profile } = await supabase
         .from("profiles")
         .select("is_active, suspension_end_date")
         .eq("id", user.id)
         .single();
 
-      // CASE 1: User is active. Let them pass.
-      if (profile?.is_active) {
-        setStatus("allowed");
-        return;
-      }
+      // LOGIC: We no longer BLOCK. We only check for REACTIVATION.
 
-      // CASE 2: User is INACTIVE. Check why.
-      // If there is a suspension_end_date, it's an Admin Suspension.
+      // CASE 1: Has a suspension date?
       if (profile?.suspension_end_date) {
         const endDate = new Date(profile.suspension_end_date);
         const now = new Date();
 
-        if (now < endDate) {
-          // SUSPENDED and time is NOT up -> BLOCK
-          setStatus("blocked"); 
-        } else {
-          // SUSPENDED but time IS up -> REACTIVATE AUTOMATICALLY
+        // If suspension time has passed, REACTIVATE them automatically.
+        if (now > endDate) {
           await reactivateUser(user.id);
-          setStatus("allowed");
         }
-      } else {
-        // CASE 3: Inactive but NO suspension date.
-        // This means the user voluntarily deactivated their account previously.
-        // Since they just logged in successfully, we reactivate them now.
+        // If time hasn't passed, we DO NOTHING. 
+        // We let them proceed to the Dashboard (read-only mode handled by UI later).
+      } 
+      
+      // CASE 2: Inactive but NO suspension date (Voluntary Deactivation)
+      // Since they logged in, we assume they want to come back.
+      else if (profile?.is_active === false) {
         await reactivateUser(user.id);
-        setStatus("allowed");
       }
 
     } catch (error) {
       console.error("Suspension check failed:", error);
-      setStatus("allowed"); // Fail-safe: allow access if DB check fails so we don't lock everyone out
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -69,11 +62,9 @@ export default function SuspensionGuard() {
       .eq('id', userId);
   };
 
-  if (status === "checking") return null; // Or return <div className="loading">Checking...</div>
+  if (loading) return null; // Or a simple loading spinner if you prefer
 
-  if (status === "blocked") {
-    return <Navigate to="/suspended" replace />;
-  }
-
+  // ALWAYS render the child routes (Dashboard, etc.)
+  // The UI inside these pages will now be responsible for showing "Restricted" states.
   return <Outlet />;
 }

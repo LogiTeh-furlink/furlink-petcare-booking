@@ -599,6 +599,29 @@ h1.page-title {
   font-family: 'Poppins', sans-serif;
 }
 
+/* ⭐ ERROR BANNER STYLE */
+.error-banner {
+  background-color: #fee2e2;
+  color: #991b1b;
+  padding: 12px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 500;
+  border: 1px solid #fecaca;
+  font-size: 0.9rem;
+}
+
+/* ⭐ SUSPENDED BUTTON STYLE */
+.btn-suspended {
+  background-color: #94a3b8 !important; /* Muted slate */
+  cursor: not-allowed !important;
+  box-shadow: none !important;
+  opacity: 0.8;
+}
+
 @keyframes fadeIn {
   from { opacity: 0; } to { opacity: 1; }
 }

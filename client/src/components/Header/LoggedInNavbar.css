@@ -1,6 +1,40 @@
 /* src/components/Header/LoggedInNavbar.css */
 
-/* ... (Keep all your existing desktop styles above) ... */
+/* ⭐ GLOBAL SUSPENSION BANNER STYLES */
+.global-suspension-banner {
+  background-color: #b91c1c; /* Dark Red */
+  color: white;
+  text-align: center;
+  padding: 10px 20px;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  z-index: 1002; /* Higher than Navbar */
+  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}
+
+.suspension-content {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.9rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.suspension-icon {
+  font-size: 1.1rem;
+}
+
+/* Push the navbar down when the banner is active */
+.loggedin-header.has-banner {
+  top: 40px; 
+}
+
+
+/* ... (Your existing styles start here) ... */
 
 /* ===== Logged-in Header Wrapper ===== */
 .loggedin-header {

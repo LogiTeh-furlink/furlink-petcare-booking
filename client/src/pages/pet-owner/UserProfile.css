@@ -1,3 +1,5 @@
+/* src/pages/pet-owner/UserProfile.css */
+
 /* =========================================
    1. Page Layout & Container
    ========================================= */
@@ -262,7 +264,6 @@
   gap: 10px;
   font-weight: 500;
   border: 1px solid #fecaca;
-  /* Added alignment props to match form layout */
   max-width: 1200px;
   width: 100%;
   margin: 0 auto 20px auto;
@@ -303,8 +304,6 @@
   border-radius: 12px;
   padding: 20px;
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-  
-  /* --- NEW ALIGNMENT PROPERTIES --- */
   max-width: 1200px; /* Match the form body width */
   width: 100%;
   margin: 0 auto 30px auto; /* Center horizontally */
@@ -376,7 +375,6 @@
   display: flex;
   justify-content: flex-end;
   margin-top: 20px;
-  /* Added alignment props to match form layout */
   max-width: 1200px;
   width: 100%;
   margin: 30px auto 0 auto;
@@ -440,19 +438,16 @@
   margin: 0 auto 15px auto;
 }
 
-/* Variant: Warning (Yellow) */
 .modal-icon-wrapper.warn {
   background-color: #fef3c7;
   color: #d97706;
 }
 
-/* Variant: Success (Green) */
 .modal-icon-wrapper.success {
   background-color: #dcfce7;
   color: #16a34a;
 }
 
-/* Variant: Info (Blue) */
 .modal-icon-wrapper.info {
   background-color: #dbeafe;
   color: #3b82f6;
@@ -522,11 +517,6 @@
   margin-bottom: 25px;
   padding-bottom: 10px;
   border-bottom: none; 
-}
-
-/* Action buttons alignment */
-.form-actions {
-  /* (Already updated above in section 6) */
 }
 
 @media (max-width: 1024px) {

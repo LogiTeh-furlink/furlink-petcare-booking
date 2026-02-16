@@ -20,7 +20,7 @@ import {
   FaMoneyBillWave,
   FaCalendarCheck
 } from "react-icons/fa";
-import "./Appointments.css";
+import "./BookingHistory.css"; // Note: Ensure you import the CORRECT CSS file
 
 export default function BookingHistory() {
   const navigate = useNavigate();
@@ -38,10 +38,14 @@ export default function BookingHistory() {
   const [successTitle, setSuccessTitle] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
   
+  // ⭐ SUSPENSION STATES
+  const [isSuspended, setIsSuspended] = useState(false);
+  const [suspensionDate, setSuspensionDate] = useState(null);
+
   // Reschedule Logic States
   const [reschedForm, setReschedForm] = useState({ date: "", time: "" });
   const [availableSlots, setAvailableSlots] = useState([]); 
-  const [providerHours, setProviderHours] = useState([]);   
+  const [providerHours, setProviderHours] = useState([]);    
   const [targetDateBookings, setTargetDateBookings] = useState([]);
 
   const [feedbackForm, setFeedbackForm] = useState({
@@ -94,6 +98,21 @@ export default function BookingHistory() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return navigate("/login");
+
+      // ⭐ CHECK FOR SUSPENSION
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("suspension_end_date")
+        .eq("id", user.id)
+        .single();
+
+      if (profile?.suspension_end_date) {
+        const endDate = new Date(profile.suspension_end_date);
+        if (endDate > new Date()) {
+          setIsSuspended(true);
+          setSuspensionDate(endDate);
+        }
+      }
 
       const { data, error } = await supabase
         .from("bookings")
@@ -274,35 +293,16 @@ export default function BookingHistory() {
     const sorted = [...bookings].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
     switch (activeTab) {
-      case "awaiting": 
-        return sorted.filter(b => b.status === "pending");
-      
-      case "payment": 
-        return sorted.filter(b => b.status === "approved");
-      
-      case "upcoming": 
-        return sorted.filter(b => b.status === "paid" && isUpcomingBooking(b) && !isTodayBooking(b));
-      
-      case "today": 
-        return sorted.filter(b => b.status === "paid" && isTodayBooking(b));
-      
-      case "toRate":
-          return sorted.filter(b => b.status === "for review");
-      
-      case "rated": 
-        return sorted.filter(b => b.status === "rated");
-      
-      case "cancelled": 
-        return sorted.filter(b => b.status === "cancelled");
-      
-      case "denied": 
-        return sorted.filter(b => b.status === "declined");
-      
-      case "void": 
-        return sorted.filter(b => b.status === "void" || b.status === "voided");
-      
-      default: 
-        return [];
+      case "awaiting": return sorted.filter(b => b.status === "pending");
+      case "payment": return sorted.filter(b => b.status === "approved");
+      case "upcoming": return sorted.filter(b => b.status === "paid" && isUpcomingBooking(b) && !isTodayBooking(b));
+      case "today": return sorted.filter(b => b.status === "paid" && isTodayBooking(b));
+      case "toRate": return sorted.filter(b => b.status === "for review");
+      case "rated": return sorted.filter(b => b.status === "rated");
+      case "cancelled": return sorted.filter(b => b.status === "cancelled");
+      case "denied": return sorted.filter(b => b.status === "declined");
+      case "void": return sorted.filter(b => b.status === "void" || b.status === "voided");
+      default: return [];
     }
   };
 
@@ -340,10 +340,14 @@ export default function BookingHistory() {
     setTargetDateBookings([]);
   };
 
-  const handlePayNow = () => navigate(`/payment/${selectedBooking.id}`);
+  const handlePayNow = () => {
+    if (isSuspended) return; // Guard
+    navigate(`/payment/${selectedBooking.id}`);
+  };
 
   const confirmReschedule = async (e) => {
     e.preventDefault();
+    if(isSuspended) return; // Guard
     if(!reschedForm.time || !selectedBooking) return;
 
     const { isEnough } = getSlotDetails(reschedForm.time);
@@ -368,10 +372,8 @@ export default function BookingHistory() {
       
       await fetchBookings(); 
       handleCloseAll();
-
       setSuccessTitle("Reschedule Successful!");
       setSuccessMessage("Your previous slot has been released and your new appointment is now awaiting approval.");
-      
       setShowSuccessModal(true);
     } catch (err) {
       console.error(err);
@@ -381,7 +383,7 @@ export default function BookingHistory() {
   };
 
   const confirmCancel = async () => {
-    if (!selectedBooking) return;
+    if (isSuspended || !selectedBooking) return; // Guard
 
     setActionLoading(true);
     try {
@@ -409,6 +411,7 @@ export default function BookingHistory() {
   };
 
   const handleSubmitFeedback = async () => {
+    if (isSuspended) return; // Guard
     if (feedbackForm.overallRating === 0 || feedbackForm.staffRating === 0) return;
     setActionLoading(true);
     try {
@@ -438,67 +441,63 @@ export default function BookingHistory() {
   return (
     <div className="page-wrapper">
       <LoggedInNavbar />
-      <div className="appointments-wrapper">
-        <div className="appointments-container">
-          <div className="app-header-row">
-             <div className="header-text">
-               <h1>Booking History</h1>
-               <p>View your past and upcoming appointments</p>
-             </div>
-          </div>
-          
-          <div className="status-icons-card">
-            <div className="icons-row">
-              {[
-                { key: 'awaiting', label: 'Awaiting Approval', icon: <FaClock /> },
-                { key: 'payment', label: 'For Payment', icon: <FaCreditCard /> },
-                { key: 'upcoming', label: 'Upcoming', icon: <FaCalendarCheck /> },
-                { key: 'today', label: 'Today', icon: <FaCalendarAlt /> },
-                { key: 'toRate', label: 'To Rate', icon: <FaStar style={{color: '#fbbf24'}} /> },
-                { key: 'rated', label: 'Rated', icon: <FaStar /> },
-                { key: 'cancelled', label: 'Cancelled', icon: <FaBan /> },
-                { key: 'denied', label: 'Denied', icon: <FaTimesCircle /> },
-                { key: 'void', label: 'Void Payments', icon: <FaMoneyBillWave /> }
-              ].map((tab) => (
-                <div key={tab.key} className={`icon-item ${activeTab === tab.key ? 'active' : ''}`} onClick={() => setActiveTab(tab.key)}>
-                  <div className="icon-circle">
-                    {tab.icon}
-                    {counts[tab.key] > 0 && <span className="badge-count">{counts[tab.key]}</span>}
-                  </div>
-                  <span>{tab.label}</span>
+      <div className="history-container">
+        <div className="history-header">
+           <h1>Booking History</h1>
+           <p>View your past and upcoming appointments</p>
+        </div>
+        
+        <div className="history-status-card">
+          <div className="history-icons-row">
+            {[
+              { key: 'awaiting', label: 'Awaiting Approval', icon: <FaClock /> },
+              { key: 'payment', label: 'For Payment', icon: <FaCreditCard /> },
+              { key: 'upcoming', label: 'Upcoming', icon: <FaCalendarCheck /> },
+              { key: 'today', label: 'Today', icon: <FaCalendarAlt /> },
+              { key: 'toRate', label: 'To Rate', icon: <FaStar style={{color: '#fbbf24'}} /> },
+              { key: 'rated', label: 'Rated', icon: <FaStar /> },
+              { key: 'cancelled', label: 'Cancelled', icon: <FaBan /> },
+              { key: 'denied', label: 'Denied', icon: <FaTimesCircle /> },
+              { key: 'void', label: 'Void Payments', icon: <FaMoneyBillWave /> }
+            ].map((tab) => (
+              <div key={tab.key} className={`history-icon-item ${activeTab === tab.key ? 'active' : ''}`} onClick={() => setActiveTab(tab.key)}>
+                <div className="icon-circle">
+                  {tab.icon}
+                  {counts[tab.key] > 0 && <span className="badge-count">{counts[tab.key]}</span>}
                 </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="app-list-section">
-            <div className="bookings-grid">
-              <div className="list-table-header">
-                <div className="col-date">Date & Time</div>
-                <div className="col-pets">No. of Pets</div>
-                <div className="col-service">Service</div>
-                <div className="col-price">Total</div>
-                <div className="col-action">Action</div>
+                <span>{tab.label}</span>
               </div>
-              {getFilteredBookings().length === 0 ? (
-                <div className="no-app-state">
-                  <FaCalendarAlt className="empty-icon" />
-                  <h3>No bookings found.</h3>
-                </div>
-              ) : (
-                getFilteredBookings().map((booking) => (
-                  <div key={booking.id} className="app-row">
-                    <div className="col-date"><strong>{formatDateTime(booking.booking_date, booking.time_slot)}</strong></div>
-                    <div className="col-pets">{booking.booking_pets?.length || 0} Pet/s</div>
-                    <div className="col-service">{getServiceSummary(booking.booking_pets)}</div>
-                    <div className="col-price">
-                        {formatCurrency(booking.total_estimated_price)}
-                    </div>
-                    <div className="col-action"><button className="view-app-btn" onClick={() => handleOpenDetails(booking)}>View Details</button></div>
-                  </div>
-                ))
-              )}
+            ))}
+          </div>
+        </div>
+
+        <div className="history-list-section">
+          <div className="bookings-grid">
+            <div className="list-table-header">
+              <div className="col-date">Date & Time</div>
+              <div className="col-pets">No. of Pets</div>
+              <div className="col-service">Service</div>
+              <div className="col-price">Total</div>
+              <div className="col-action">Action</div>
             </div>
+            {getFilteredBookings().length === 0 ? (
+              <div className="no-app-state">
+                <FaCalendarAlt className="empty-icon" />
+                <h3>No bookings found.</h3>
+              </div>
+            ) : (
+              getFilteredBookings().map((booking) => (
+                <div key={booking.id} className="app-row">
+                  <div className="col-date"><strong>{formatDateTime(booking.booking_date, booking.time_slot)}</strong></div>
+                  <div className="col-pets">{booking.booking_pets?.length || 0} Pet/s</div>
+                  <div className="col-service">{getServiceSummary(booking.booking_pets)}</div>
+                  <div className="col-price">
+                      {formatCurrency(booking.total_estimated_price)}
+                  </div>
+                  <div className="col-action"><button className="view-app-btn" onClick={() => handleOpenDetails(booking)}>View Details</button></div>
+                </div>
+              ))
+            )}
           </div>
         </div>
       </div>
@@ -511,6 +510,14 @@ export default function BookingHistory() {
                <button className="close-btn" onClick={handleCloseAll}><FaTimes/></button>
              </div>
              <div className="modal-body-scroll">
+                {/* ⭐ SUSPENSION WARNING BANNER */}
+                {isSuspended && (
+                  <div className="refund-warning-box" style={{ backgroundColor: '#fff1f2', border: '1px solid #fecdd3', padding: '15px', borderRadius: '12px', color: '#be123c', marginBottom: '20px', display: 'flex', gap: '10px', alignItems: 'center' }}>
+                    <FaBan size={20}/>
+                    <span><strong>Action Restricted:</strong> Your account is currently suspended until {suspensionDate.toLocaleDateString()}. Modification of bookings is locked.</span>
+                  </div>
+                )}
+
                 <div className="info-grid">
                    <div className="info-item">
                      <label><FaInfoCircle/> Provider</label>
@@ -531,7 +538,6 @@ export default function BookingHistory() {
                         <span className="vat-note-small" style={{textAlign: 'left', marginTop: '0'}}>* VAT exclusive</span>
                     </div>
 
-                    {/* ⭐ NEW: Balance Row for Paid Bookings (Upcoming/Today) */}
                     {(selectedBooking.status === 'paid' && (activeTab === 'upcoming' || activeTab === 'today')) && (
                         <div className="info-item">
                             <label>
@@ -551,7 +557,6 @@ export default function BookingHistory() {
                      <label>Status</label>
                      <span className="status-badge">{selectedBooking.status}</span>
                    </div>
-                   {/* Updated logic: Show rejection reason for voided payments AND declined requests */}
                     {selectedBooking.rejection_reason && 
                       (selectedBooking.status === "void" || 
                       selectedBooking.status === "voided" || 
@@ -569,12 +574,6 @@ export default function BookingHistory() {
                           <span style={{ display: 'block', color: '#c53030', fontWeight: '600', marginBottom: '8px' }}>
                             {selectedBooking.rejection_reason}
                           </span>
-                          <p style={{ fontSize: '0.85rem', color: '#4a5568', margin: 0, lineHeight: '1.4' }}>
-                            {selectedBooking.status === "declined" 
-                              ? "We're sorry, but the service provider cannot accommodate this request at the moment. You may try booking another slot or provider."
-                              : "We apologize for the inconvenience. If you believe this is a mistake or if you need help with your payment, please reach out to our support team via email (logiteh045@gmail.com)."
-                            }
-                          </p>
                         </div>
                       </div>
                     )}
@@ -607,34 +606,58 @@ export default function BookingHistory() {
                 </div>
              </div>
              <div className="modal-footer">
-               {/* Reschedule for pending bookings */}
+               {/* ⭐ ACTION BUTTONS DISABLED IF SUSPENDED */}
                {selectedBooking.status === 'pending' && (
-                 <button className="resched-btn" onClick={() => setShowRescheduleModal(true)}>Reschedule</button>
+                 <button 
+                  className="resched-btn" 
+                  onClick={() => !isSuspended && setShowRescheduleModal(true)}
+                  disabled={isSuspended}
+                  style={isSuspended ? { backgroundColor: '#cbd5e1', cursor: 'not-allowed', color: '#64748b', borderColor: '#cbd5e1' } : {}}
+                 >
+                   {isSuspended ? "Reschedule Locked" : "Reschedule"}
+                 </button>
                )}
 
-               {/* Pay Now for approved bookings */}
                {selectedBooking.status === 'approved' && (
-                 <button className="pay-btn" onClick={handlePayNow}>Pay Now</button>
+                 <button 
+                  className="pay-btn" 
+                  onClick={() => !isSuspended && handlePayNow()}
+                  disabled={isSuspended}
+                  style={isSuspended ? { backgroundColor: '#cbd5e1', cursor: 'not-allowed', color: '#64748b' } : {}}
+                 >
+                   {isSuspended ? "Payment Locked" : "Pay Now"}
+                 </button>
                )}
 
-               {/* Rate for paid bookings 4 hours past */}
-               {/* Rate button logic: Only shows if the status is 'for review' (Service is finished) */}
               {selectedBooking.status === 'for review' && (
-                <button className="rate-btn" onClick={() => setShowFeedbackModal(true)}>Rate Service</button>
+                <button 
+                  className="rate-btn" 
+                  onClick={() => !isSuspended && setShowFeedbackModal(true)}
+                  disabled={isSuspended}
+                  style={isSuspended ? { backgroundColor: '#cbd5e1', cursor: 'not-allowed', color: '#64748b' } : {}}
+                >
+                  {isSuspended ? "Rating Locked" : "Rate Service"}
+                </button>
               )}
 
-               {/* Cancel for pending/paid bookings not within 24h */}
                {isCancellable(selectedBooking) && (
-                 <button className="cancel-btn" onClick={() => setShowCancelModal(true)}>Cancel Appointment</button>
+                 <button 
+                  className="cancel-btn" 
+                  onClick={() => !isSuspended && setShowCancelModal(true)}
+                  disabled={isSuspended}
+                  style={isSuspended ? { backgroundColor: '#cbd5e1', cursor: 'not-allowed', color: '#64748b', border: 'none' } : {}}
+                 >
+                   {isSuspended ? "Cancellation Locked" : "Cancel Appointment"}
+                 </button>
                )}
 
-               {/* Always show Close button */}
                <button className="secondary-btn" onClick={handleCloseAll}>Close</button>
              </div>
           </div>
         </div>
       )}
 
+      {/* Reschedule Modal (Logic guarded) */}
       {showRescheduleModal && (
         <div className="modal-overlay">
           <div className="modal-content small-modal">
@@ -642,7 +665,6 @@ export default function BookingHistory() {
             <form onSubmit={confirmReschedule}>
               <div className="modal-body">
                 <p className="modal-instruction">Please select a new date and time.</p>
-                
                 <label className="input-label">New Date</label>
                 <input 
                   type="date" 
@@ -652,13 +674,11 @@ export default function BookingHistory() {
                   value={reschedForm.date} 
                   onChange={handleRescheduleDateChange} 
                 />
-                
                 {!reschedForm.date && (
                   <div style={{fontSize: '0.75rem', color: '#64748b', marginTop: '-8px', marginBottom: '10px'}}>
                     Available days: {providerHours.map(h => h.day_of_week.slice(0,3)).join(', ')}
                   </div>
                 )}
-
                 <label className="input-label">New Time</label>
                 <select 
                   className="input-field" 
@@ -669,49 +689,23 @@ export default function BookingHistory() {
                 >
                   <option value="">Select Time Slot</option>
                   {availableSlots.map((slot, index) => {
-                    const { remaining, isEnough } = getSlotDetails(slot);
-                    const petCount = selectedBooking.booking_pets?.length || 1;
-                    
-                    const isOriginalTime = 
-                      reschedForm.date === selectedBooking.booking_date && 
-                      convertTo24Hour(slot) === selectedBooking.time_slot.slice(0, 5);
-
+                    const { isEnough, remaining } = getSlotDetails(slot);
                     return (
-                      <option 
-                        key={index} 
-                        value={slot} 
-                        disabled={!isEnough || isOriginalTime}
-                        style={(!isEnough || isOriginalTime) ? { color: '#999', backgroundColor: '#f3f4f6' } : {}}
-                      >
-                        {slot} 
-                        {isOriginalTime 
-                          ? " (Current Schedule)" 
-                          : isEnough 
-                            ? `(${remaining} left)` 
-                            : `(Full - needs ${petCount} slots)`
-                        }
-                      </option>
+                      <option key={index} value={slot} disabled={!isEnough}>{slot} ({remaining} left)</option>
                     );
                   })}
                 </select>
-                
-                {reschedForm.time && (
-                    <div className="slot-availability-text">
-                         Available slots for this time: <strong>{getSlotDetails(reschedForm.time).remaining}</strong>
-                    </div>
-                )}
-
-                {reschedForm.date && availableSlots.length === 0 && <div className="warning-text-simple" style={{ color: 'var(--brand-red)', fontSize: '0.85rem', marginTop: '5px' }}><FaExclamationTriangle /> Provider is closed on selected day.</div>}
               </div>
               <div className="modal-footer">
                 <button type="button" className="secondary-btn" onClick={() => setShowRescheduleModal(false)}>Back</button>
-                <button type="submit" className="confirm-btn-yes" disabled={actionLoading || !reschedForm.time || availableSlots.length === 0}>{actionLoading ? "Saving..." : "Confirm"}</button>
+                <button type="submit" className="confirm-btn-yes" disabled={actionLoading}>Confirm</button>
               </div>
             </form>
           </div>
         </div>
       )}
 
+      {/* Cancel Modal (Logic guarded) */}
       {showCancelModal && (
         <div className="modal-overlay">
           <div className="modal-content small-modal">
@@ -721,46 +715,17 @@ export default function BookingHistory() {
               </h3>
             </div>
             <div className="modal-body">
-              <p style={{ fontWeight: '600', marginBottom: '10px' }}>
-                Are you sure you want to cancel this appointment?
-              </p>
-              
-              {selectedBooking?.status === 'paid' && (
-                <div className="refund-warning-box" style={{ 
-                  backgroundColor: '#fef2f2', 
-                  border: '1px solid #fecaca', 
-                  padding: '12px', 
-                  borderRadius: '8px',
-                  color: '#991b1b',
-                  fontSize: '0.85rem'
-                }}>
-                  <strong>Important:</strong> This booking is already <strong>PAID</strong>. 
-                  By cancelling, you acknowledge that the 30% downpayment is 
-                  <strong> non-refundable</strong>.
-                </div>
-              )}
+              <p>Are you sure you want to cancel this appointment?</p>
             </div>
             <div className="modal-footer">
-              <button 
-                className="secondary-btn" 
-                onClick={() => setShowCancelModal(false)}
-                disabled={actionLoading}
-              >
-                No, Keep Booking
-              </button>
-              <button 
-                className="confirm-btn-no" 
-                onClick={confirmCancel} 
-                disabled={actionLoading}
-                style={{ backgroundColor: '#ef4444' }}
-              >
-                {actionLoading ? "Processing..." : "Yes, Cancel Appointment"}
-              </button>
+              <button className="secondary-btn" onClick={() => setShowCancelModal(false)}>No, Keep</button>
+              <button className="confirm-btn-no" onClick={confirmCancel} style={{ backgroundColor: '#ef4444' }}>Yes, Cancel</button>
             </div>
           </div>
         </div>
       )}
 
+      {/* Feedback Modal (Logic guarded) */}
       {showFeedbackModal && (
         <div className="modal-overlay">
           <div className="modal-content small-modal">
@@ -768,86 +733,28 @@ export default function BookingHistory() {
               <h3>Rate Experience</h3>
               <button className="close-btn" onClick={handleCloseAll}><FaTimes/></button>
             </div>
-
             <div className="modal-body">
               <div className="rating-group">
-                <label style={{ color: 'var(--brand-blue)', fontWeight: '700' }}>
-                  Overall Experience <span className="req" style={{ color: 'var(--brand-red)' }}>*</span>
-                </label>
+                <label>Overall Experience *</label>
                 <div className="stars-container">
                   {[1, 2, 3, 4, 5].map(star => (
-                    <FaStar 
-                      key={`overall-${star}`} 
-                      className={`star-icon ${feedbackForm.overallRating >= star ? 'filled' : ''}`} 
-                      onClick={() => setFeedbackForm({...feedbackForm, overallRating: star})} 
-                      style={{ 
-                        cursor: 'pointer', 
-                        fontSize: '2rem', 
-                        color: feedbackForm.overallRating >= star ? 'var(--brand-yellow)' : '#e2e8f0',
-                        marginRight: '5px'
-                      }}
-                    />
+                    <FaStar key={`overall-${star}`} color={feedbackForm.overallRating >= star ? '#fbbf24' : '#e2e8f0'} onClick={() => setFeedbackForm({...feedbackForm, overallRating: star})} style={{cursor:'pointer', fontSize:'1.5rem'}}/>
                   ))}
                 </div>
               </div>
-
-              <div className="rating-group" style={{ marginTop: '1.5rem' }}>
-                <label style={{ color: 'var(--brand-blue)', fontWeight: '700' }}>
-                  Staff Rating <span className="req" style={{ color: 'var(--brand-red)' }}>*</span>
-                </label>
+              <div className="rating-group" style={{marginTop:'1rem'}}>
+                <label>Staff Rating *</label>
                 <div className="stars-container">
                   {[1, 2, 3, 4, 5].map(star => (
-                    <FaStar 
-                      key={`staff-${star}`} 
-                      className={`star-icon ${feedbackForm.staffRating >= star ? 'filled' : ''}`} 
-                      onClick={() => setFeedbackForm({...feedbackForm, staffRating: star})} 
-                      style={{ 
-                        cursor: 'pointer', 
-                        fontSize: '2rem', 
-                        color: feedbackForm.staffRating >= star ? 'var(--brand-yellow)' : '#e2e8f0',
-                        marginRight: '5px'
-                      }}
-                    />
+                    <FaStar key={`staff-${star}`} color={feedbackForm.staffRating >= star ? '#fbbf24' : '#e2e8f0'} onClick={() => setFeedbackForm({...feedbackForm, staffRating: star})} style={{cursor:'pointer', fontSize:'1.5rem'}}/>
                   ))}
                 </div>
               </div>
-
-              <div className="textarea-group" style={{ marginTop: '1.5rem' }}>
-                <label style={{ color: 'var(--brand-blue)', fontWeight: '700', display: 'block', marginBottom: '8px' }}>
-                  Comments
-                </label>
-                <textarea 
-                  className="feedback-textarea" 
-                  placeholder="Tell us about your experience..." 
-                  value={feedbackForm.comment} 
-                  maxLength={500}
-                  onChange={(e) => setFeedbackForm({...feedbackForm, comment: e.target.value})} 
-                  style={{ width: '100%', padding: '12px', borderRadius: '10px', border: '1.5px solid var(--border-light)', minHeight: '100px', fontFamily: 'inherit' }}
-                />
-                <div style={{ textAlign: 'right', fontSize: '0.75rem', color: feedbackForm.comment.length >= 500 ? 'var(--brand-red)' : 'var(--text-muted)', marginTop: '5px', fontWeight: '600' }}>
-                  {feedbackForm.comment.length} / 500
-                </div>
-              </div>
+              <textarea className="input-field" placeholder="Comment" style={{marginTop:'1rem', minHeight:'80px'}} value={feedbackForm.comment} onChange={(e)=>setFeedbackForm({...feedbackForm, comment:e.target.value})} />
             </div>
-
-            <div className="modal-footer" style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '2rem' }}>
+            <div className="modal-footer">
               <button className="secondary-btn" onClick={handleCloseAll}>Cancel</button>
-              <button 
-                className="confirm-btn-yes" 
-                onClick={handleSubmitFeedback} 
-                disabled={actionLoading || feedbackForm.overallRating === 0 || feedbackForm.staffRating === 0}
-                style={{ 
-                  backgroundColor: (feedbackForm.overallRating === 0 || feedbackForm.staffRating === 0) ? '#cbd5e1' : 'var(--brand-blue)',
-                  color: 'white',
-                  padding: '10px 20px',
-                  borderRadius: '8px',
-                  border: 'none',
-                  fontWeight: '700',
-                  cursor: (feedbackForm.overallRating === 0 || feedbackForm.staffRating === 0) ? 'not-allowed' : 'pointer'
-                }}
-              >
-                {actionLoading ? "Submitting..." : "Submit Review"}
-              </button>
+              <button className="confirm-btn-yes" onClick={handleSubmitFeedback} disabled={actionLoading}>Submit</button>
             </div>
           </div>
         </div>
@@ -855,42 +762,11 @@ export default function BookingHistory() {
 
       {showSuccessModal && (
         <div className="modal-overlay">
-          <div 
-            className="modal-content small-modal" 
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              textAlign: 'center', 
-              padding: '3rem 2rem',
-              borderRadius: '16px'
-            }}
-          >
-            <FaCheckCircle 
-              style={{
-                fontSize: '4.5rem', 
-                color: 'var(--brand-green)', 
-                marginBottom: '1.5rem',
-                display: 'block'
-              }}
-            />
-            
-            <h3 style={{ color: 'var(--brand-blue)', fontWeight: '800', marginBottom: '0.5rem' }}>
-              {successTitle}
-            </h3>
-            
-            <p style={{ color: 'var(--text-muted)', marginBottom: '2rem' }}>
-              {successMessage}
-            </p>
-            
-            <button 
-              className="confirm-btn-yes" 
-              onClick={() => setShowSuccessModal(false)} 
-              style={{ width: '100%', maxWidth: '250px' }}
-            >
-              OK
-            </button>
+          <div className="modal-content small-modal success-center" style={{ textAlign: 'center', padding: '2rem' }}>
+            <FaCheckCircle size={50} color="#22c55e" style={{ marginBottom: '1rem' }} />
+            <h3>{successTitle}</h3>
+            <p>{successMessage}</p>
+            <button className="confirm-btn-yes" onClick={() => setShowSuccessModal(false)} style={{ marginTop: '1.5rem' }}>OK</button>
           </div>
         </div>
       )}
