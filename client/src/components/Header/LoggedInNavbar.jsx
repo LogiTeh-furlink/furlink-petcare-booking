@@ -286,6 +286,14 @@ const LoggedInNavbar = () => {
   }, []);
 
   const handleLogoClick = () => {
+    // If the user has NOT set up any services yet, they aren't a functional provider.
+    // We redirect them to the general Pet Owner dashboard regardless of the current path.
+    if (!hasServices) {
+      navigate("/dashboard");
+      return;
+    }
+
+    // If they have services, we use the standard switching logic
     if (location.pathname.startsWith("/service")) {
       navigate("/service/dashboard");
     } 
