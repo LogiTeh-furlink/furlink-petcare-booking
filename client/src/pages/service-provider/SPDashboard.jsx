@@ -36,7 +36,11 @@ const BookingCalendar = ({ bookings = [], onClose }) => {
 
   const isBookingComplete = (b) => ['for review', 'rated'].includes(b.status);
 
-  const getDayStats = (dateStr) => {
+const getDayStats = (dateStr) => {
+    // Check if the date falls within the global custom date range
+    if (dateRange.start && dateStr < dateRange.start) return { total: 0, badge: "" };
+    if (dateRange.end && dateStr > dateRange.end) return { total: 0, badge: "" };
+
     const dayBookings = bookings.filter(b => b.booking_date === dateStr);
     const todayStr = new Date().toISOString().split('T')[0];
     
@@ -45,7 +49,7 @@ const BookingCalendar = ({ bookings = [], onClose }) => {
     let todayCount = 0;
 
     dayBookings.forEach(b => {
-      if (isBookingComplete(b)) {
+      if (['for review', 'rated'].includes(b.status)) {
         completed++;
       } else {
         if (dateStr === todayStr) todayCount++;
@@ -59,7 +63,7 @@ const BookingCalendar = ({ bookings = [], onClose }) => {
     };
   };
 
-  const renderDays = () => {
+const renderDays = () => {
     const days = [];
     for (let i = 0; i < firstDay; i++) {
       days.push(<div key={`empty-${i}`} className="calendar-day empty"></div>);
@@ -70,14 +74,21 @@ const BookingCalendar = ({ bookings = [], onClose }) => {
       const stats = getDayStats(dateStr);
       const isSelected = selectedDate === dateStr;
 
+      // Determine if the day is outside the filtered range
+      const isOutOfRange = (dateRange.start && dateStr < dateRange.start) || 
+                           (dateRange.end && dateStr > dateRange.end);
+
       days.push(
         <div 
           key={d} 
-          className={`calendar-day has-${stats.badge} ${isSelected ? 'selected' : ''}`}
-          onClick={() => setSelectedDate(dateStr)}
+          className={`calendar-day has-${stats.badge} ${isSelected ? 'selected' : ''} ${isOutOfRange ? 'out-of-range' : ''}`}
+          onClick={() => !isOutOfRange && setSelectedDate(dateStr)}
+          style={isOutOfRange ? { opacity: 0.3, cursor: 'not-allowed', backgroundColor: '#f8fafc' } : {}}
         >
-          <span className="day-number">{d}</span>
-          {stats.total > 0 && <span className="day-total-count">{stats.total}</span>}
+          <span className="day-number" style={isOutOfRange ? { color: '#cbd5e1' } : {}}>{d}</span>
+          {stats.total > 0 && !isOutOfRange && (
+            <span className="day-total-count">{stats.total}</span>
+          )}
         </div>
       );
     }
@@ -160,6 +171,15 @@ export default function SPDashboard() {
   
   // Tabs: 'new_request', 'for_verification', 'upcoming', 'completed'
   const [activeTab, setActiveTab] = useState("new_request"); 
+  
+  const [dateRange, setDateRange] = useState({ start: "", end: "" });
+
+  const oldestBookingDate = React.useMemo(() => {
+    if (!bookings || bookings.length === 0) return "";
+    const dates = bookings.map(b => new Date(b.booking_date));
+    return new Date(Math.min(...dates)).toISOString().split('T')[0];
+  }, [bookings]);
+
   const [showCalendar, setShowCalendar] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [bookingReview, setBookingReview] = useState(null);
@@ -341,28 +361,46 @@ export default function SPDashboard() {
     return ['for review', 'rated'].includes(b.status);
   };
 
+ // --- REPLACE THE ENTIRE getFilteredBookings FUNCTION WITH THIS ---
   const getFilteredBookings = () => {
     const now = new Date();
+    let filtered = [];
+
+    // Part A: Standard Status Filtering
     switch(activeTab) {
       case 'new_request':
-        return bookings.filter(b => {
+        filtered = bookings.filter(b => {
           const hoursSinceCreated = (now - new Date(b.created_at)) / (1000 * 60 * 60);
           return b.status === 'pending' && hoursSinceCreated < 24;
         });
+        break;
       case 'for_verification':
-        return bookings.filter(b => {
-          const hoursSinceUpdate = (now - new Date(b.created_at)) / (1000 * 60 * 60);
-          return b.status === 'for review' && hoursSinceUpdate < 24;
-        });
+        filtered = bookings.filter(b => b.status === 'for review');
+        break;
       case 'upcoming':
-        return bookings.filter(b => b.status === 'paid' && !isBookingComplete(b));
+        filtered = bookings.filter(b => b.status === 'paid' && !isBookingComplete(b));
+        break;
       case 'completed':
-        return bookings.filter(b => isBookingComplete(b));
+        filtered = bookings.filter(b => isBookingComplete(b));
+        break;
       case 'cancelled':
-        return bookings.filter(b => b.status === 'cancelled');
+        filtered = bookings.filter(b => b.status === 'cancelled');
+        break;
       default:
-        return [];
+        filtered = [];
     }
+
+    // Part B: The New Date Range Logic
+    if (dateRange.start || dateRange.end) {
+      filtered = filtered.filter(b => {
+        const bDate = b.booking_date; // Assumes 'YYYY-MM-DD'
+        const isAfterStart = dateRange.start ? bDate >= dateRange.start : true;
+        const isBeforeEnd = dateRange.end ? bDate <= dateRange.end : true;
+        return isAfterStart && isBeforeEnd;
+      });
+    }
+
+    return filtered;
   };
 
   const stats = {
@@ -548,8 +586,41 @@ export default function SPDashboard() {
         </div>
 
         <div className="bookings-table-container">
-          <div className="table-header-title">
+          {/* --- REPLACE THIS BLOCK --- */}
+          <div className="table-header-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
               <h2>{activeTab.replace('_', ' ').toUpperCase()}</h2>
+
+              {/* NEW RANGE FILTER UI */}
+              <div className="range-filter-container" style={{ display: 'flex', gap: '15px', alignItems: 'center', background: '#f1f5f9', padding: '8px 15px', borderRadius: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <label style={{ fontSize: '0.7rem', fontWeight: 'bold', color: '#475569' }}>FROM</label>
+                  <input 
+                    type="date" 
+                    min={oldestBookingDate}
+                    value={dateRange.start}
+                    onChange={(e) => setDateRange({ ...dateRange, start: e.target.value })}
+                    style={{ padding: '4px', borderRadius: '5px', border: '1px solid #cbd5e1', fontSize: '0.8rem' }}
+                  />
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <label style={{ fontSize: '0.7rem', fontWeight: 'bold', color: '#475569' }}>TO</label>
+                  <input 
+                    type="date" 
+                    min={dateRange.start || oldestBookingDate}
+                    value={dateRange.end}
+                    onChange={(e) => setDateRange({ ...dateRange, end: e.target.value })}
+                    style={{ padding: '4px', borderRadius: '5px', border: '1px solid #cbd5e1', fontSize: '0.8rem' }}
+                  />
+                </div>
+                {(dateRange.start || dateRange.end) && (
+                  <button 
+                    onClick={() => setDateRange({ start: "", end: "" })}
+                    style={{ border: 'none', background: '#e2e8f0', padding: '4px 8px', borderRadius: '5px', cursor: 'pointer', fontSize: '0.75rem' }}
+                  >
+                    Reset
+                  </button>
+                )}
+              </div>
           </div>
           <table className="sp-table">
             <thead>
