@@ -443,6 +443,18 @@
   line-height: 1.5;
 }
 
+/* ⭐ UPDATED: HYPERLINK STYLING FOR WARNING MODAL */
+.warning-footer-text a {
+  color: #b91c1c; /* Matches the warning red theme */
+  font-weight: 700;
+  text-decoration: underline;
+  transition: color 0.2s;
+}
+
+.warning-footer-text a:hover {
+  color: #7f1d1d; /* Darker red on hover */
+}
+
 .warning-popup-footer {
   padding: 0 30px 30px;
 }

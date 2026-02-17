@@ -33,6 +33,18 @@ const Dashboard = () => {
     maxPrice: 5000,
   });
 
+  // Legal Links Helpers
+  const BASE_URL = `https://mdhudfatvdipxwufcbis.supabase.co/storage/v1/object/public/agreements`;
+  
+  const getTermsLink = () => {
+    // If 'both', we default to SP terms as they differ significantly from PO terms
+    if (profile?.role === "service_provider" || profile?.role === "both") return `${BASE_URL}/terms_sp.pdf`;
+    if (profile?.role === "pet_owner") return `${BASE_URL}/terms_po.pdf`;
+    return `${BASE_URL}/terms_general.pdf`;
+  };
+
+  const getPrivacyPath = () => `${BASE_URL}/privacy_policy.pdf`;
+
   // 2. Click Outside Logic
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -70,7 +82,6 @@ const Dashboard = () => {
         if (user) {
           setCurrentUser(user);
           
-          // A. Fetch Profile
           const { data: prof } = await supabase
             .from("profiles")
             .select("first_name, display_name, suspension_end_date, role") 
@@ -336,18 +347,20 @@ const Dashboard = () => {
                 </div>
 
                 <p style={{ fontSize: '0.85rem', color: '#64748b', marginTop: '10px' }}>
-                    Review the <span 
+                    Review the <a 
+                        href={getTermsLink()}
+                        target="_blank"
+                        rel="noreferrer" 
                         style={{ color: '#0E2679', fontWeight: '600', cursor: 'pointer', textDecoration: 'underline' }} 
-                        onClick={() => navigate('/terms')}
                     >
                         terms and conditions here
-                    </span>.
+                    </a>.
                 </p>
             </div>
         </div>
       )}
 
-      {/* ⭐ WARNING MODAL (NEW) */}
+      {/* ⭐ WARNING MODAL (UPDATED WITH HYPERLINKS) */}
       {showWarningModal && (
         <div className="warning-popup-overlay">
           <div className="warning-popup-content">
@@ -363,7 +376,15 @@ const Dashboard = () => {
                 "{activeWarning?.message}"
               </div>
               <p className="warning-footer-text">
-                Please follow our terms and conditions to avoid further actions, including potential account suspension.
+                Please follow our{" "}
+                <a href={getTermsLink()} target="_blank" rel="noreferrer">
+                  Terms and Conditions
+                </a>{" "}
+                and{" "}
+                <a href={getPrivacyPath()} target="_blank" rel="noreferrer">
+                  Privacy Policy
+                </a>{" "}
+                to avoid further actions, including potential account suspension.
               </p>
             </div>
             <div className="warning-popup-footer">
