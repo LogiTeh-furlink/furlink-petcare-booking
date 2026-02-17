@@ -16,7 +16,7 @@ import {
   FaExclamationTriangle,
   FaStar,
   FaRegStar,
-  FaBan // Added for suspension icon
+  FaBan 
 } from "react-icons/fa";
 import "./SPDashboard.css";
 
@@ -168,6 +168,10 @@ export default function SPDashboard() {
   const [isSuspended, setIsSuspended] = useState(false);
   const [suspensionDate, setSuspensionDate] = useState(null);
 
+  // ⭐ WARNING INTERCEPTOR STATES
+  const [showWarningModal, setShowWarningModal] = useState(false);
+  const [activeWarning, setActiveWarning] = useState(null);
+
   // Actions
   const [declineReason, setDeclineReason] = useState("");
   const [voidReason, setVoidReason] = useState("");
@@ -179,13 +183,13 @@ export default function SPDashboard() {
 
   // Lock Body Scroll when Modal is Open
   useEffect(() => {
-    if (selectedBooking || showCalendar || previewImage || showSuccessModal) {
+    if (selectedBooking || showCalendar || previewImage || showSuccessModal || showWarningModal) {
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = 'unset';
     }
     return () => { document.body.style.overflow = 'unset'; }
-  }, [selectedBooking, showCalendar, previewImage, showSuccessModal]);
+  }, [selectedBooking, showCalendar, previewImage, showSuccessModal, showWarningModal]);
 
   useEffect(() => {
     fetchData();
@@ -210,6 +214,22 @@ export default function SPDashboard() {
           setIsSuspended(true);
           setSuspensionDate(endDate);
         }
+      }
+
+      // ⭐ CHECK FOR UNREAD ADMIN WARNINGS
+      const { data: warningData } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('title', 'Admin Warning')
+        .eq('read', false)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (warningData) {
+        setActiveWarning(warningData);
+        setShowWarningModal(true);
       }
 
       const { data: providerData, error: providerError } = await supabase
@@ -262,6 +282,23 @@ export default function SPDashboard() {
       console.error("Error fetching data:", err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // ⭐ ACKNOWLEDGE WARNING HANDLER
+  const acknowledgeWarning = async () => {
+    if (!activeWarning) return;
+    try {
+      const { error } = await supabase
+        .from('notifications')
+        .update({ read: true })
+        .eq('id', activeWarning.id);
+
+      if (error) throw error;
+      setShowWarningModal(false);
+      setActiveWarning(null);
+    } catch (err) {
+      console.error("Error acknowledging warning:", err);
     }
   };
 
@@ -810,6 +847,36 @@ export default function SPDashboard() {
           </div>
         </div>
       )}
+
+      {/* ⭐ WARNING MODAL */}
+      {showWarningModal && (
+        <div className="warning-popup-overlay">
+          <div className="warning-popup-content">
+            <div className="warning-popup-header">
+              <div className="warning-icon-wrapper">
+                 <FaExclamationTriangle color="#ef4444" size={32} />
+              </div>
+              <h2>Administrative Warning</h2>
+            </div>
+            <div className="warning-popup-body">
+              <p className="warning-meta">Received on: {new Date(activeWarning?.created_at).toLocaleDateString()}</p>
+              <div className="warning-message-box">
+                "{activeWarning?.message}"
+              </div>
+              <p className="warning-footer-text">
+                Please follow our terms and conditions to avoid further actions, including potential account suspension.
+              </p>
+            </div>
+            <div className="warning-popup-footer">
+              <button className="btn-acknowledge" onClick={acknowledgeWarning}>
+                <FaCheckCircle size={18} />
+                I Acknowledge this Warning
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <Footer />
 
       {previewImage && (
