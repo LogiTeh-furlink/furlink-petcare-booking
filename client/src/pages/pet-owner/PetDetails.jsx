@@ -267,37 +267,32 @@ const handleAddPet = () => {
   setPetsData([...petsData, getEmptyPet(availablePetTypes[0])]);
 };
 
-  const validateForm = () => {
+const validateForm = () => {
     setAttemptedSubmit(true);
+    let errorMsg = "";
     
-    const isAllValid = petsData.every(pet => {
-        // VALIDATION: Check against API list + Overrides
-        const isBreedValid = isValidBreed(pet.breed, pet.pet_type);
-        
-        const hasRequiredFields = pet.pet_name.trim() && isBreedValid && pet.vaccine_file;
-        const allServicesMatched = pet.services.every(s => s.id === "" || s.matched !== false);
-        
-        return hasRequiredFields && allServicesMatched;
+    const hasUnmatchedWeight = petsData.some(p => p.services.some(s => s.matched === false));
+    const hasEmptyRequired = petsData.some(pet => {
+      const isBreedValid = isValidBreed(pet.breed, pet.pet_type);
+      return !pet.pet_name.trim() || !isBreedValid || !pet.vaccine_file || pet.services.some(s => !s.id);
     });
 
-    if (!isAllValid) {
-        const hasUnmatched = petsData.some(p => p.services.some(s => s.matched === false));
-        // Check if user filled in a breed but it's invalid
-        const hasInvalidBreedText = petsData.some(p => p.breed.trim() && !isValidBreed(p.breed, p.pet_type));
-        
-        if (hasUnmatched) {
-           triggerError("One or more selected services do not support your pet's weight. Please check the warnings.");
-        } else if (hasInvalidBreedText) {
-           // Do nothing - The inline error in JSX will show the red text "Unrecognized breed..."
-           // We suppressed the alert here as requested.
-        } else {
-           // This handles empty fields (Name empty, Breed empty, Vaccine empty)
-           triggerError("Please complete all required fields.");
-        }
-        return { valid: false };
+    if (hasUnmatchedWeight) {
+      errorMsg = "One or more selected services do not support your pet's weight. Please check the red warnings below.";
+    } else if (hasEmptyRequired) {
+      errorMsg = "Please complete all required fields marked in red before proceeding.";
     }
+
+    if (errorMsg) {
+      triggerError(errorMsg);
+      // Optional: Scroll to the first error
+      const firstError = document.querySelector('.field-error');
+      if (firstError) firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return { valid: false };
+    }
+
     return { valid: true };
-};
+  };
 
   const uploadFile = async (file, path) => {
     const ext = file.name.split('.').pop();
@@ -697,16 +692,24 @@ const getServicePriceAndSize = (serviceId, petType, weight) => {
                 >
                   Proceed to Summary <ArrowRight size={18}/>
                 </button>
-                
-                {/* GLOBAL VALIDATION ERROR TEXT BELOW BUTTON */}
-                {globalError && (
-                  <div className="global-error-text">
-                    <AlertCircle size={16} style={{minWidth: '16px'}}/> 
-                    {globalError}
-                  </div>
-                )}
             </div>
         </div>
+
+        {/* --- FULL WIDTH ACTION REQUIRED BANNER --- */}
+        {globalError && (
+          <div className="validation-alert-banner">
+            <div className="alert-content">
+              <AlertCircle size={28} strokeWidth={2.5} />
+              <div>
+                <strong className="alert-heading">Action Required</strong>
+                <p className="alert-text">{globalError}</p>
+              </div>
+            </div>
+            <button onClick={() => setGlobalError("")} className="close-alert-btn">
+              <X size={20}/>
+            </button>
+          </div>
+        )}
 
        {/* PET FORMS GRID */}
         <div className="pet-cards-grid">
@@ -740,13 +743,15 @@ const getServicePriceAndSize = (serviceId, petType, weight) => {
                           {pet.services.map((service, sIndex) => {
                             const availableOptions = getFilteredOptions(pet, service.id);
                             
-                            // Check if the field should show an error: 
-                            const hasError = attemptedSubmit && (!service.id || service.matched === false);
+                            // Validation flags for individual row styling
+                            const isEmpty = attemptedSubmit && !service.id;
+                            const isMismatched = service.id && service.matched === false;
+                            const hasError = isEmpty || isMismatched;
 
                             return (
-                              <div key={sIndex} className="service-selection-row" style={{ marginBottom: '15px' }}>
+                              <div key={sIndex} className="service-selection-row" style={{ marginBottom: '20px' }}>
                                 <div className={`input-group ${hasError ? 'field-error' : ''}`} style={{ flex: 1 }}>
-                                  <label className="form-label">
+                                  <label className="form-label" style={{ color: hasError ? '#dc2626' : '#0E2679', fontWeight: '700' }}>
                                     {sIndex === 0 && <Tag size={14} className="label-icon" />}
                                     {service.id ? `${service.service_name} (${service.service_type})` : `Select Service ${sIndex + 1} *`}
                                   </label>
@@ -754,7 +759,11 @@ const getServicePriceAndSize = (serviceId, petType, weight) => {
                                   <div className="service-input-group" style={{ display: 'flex', gap: '8px' }}>
                                     <select 
                                       className="form-input" 
-                                      style={{flex: 1}} 
+                                      style={{
+                                        flex: 1,
+                                        border: hasError ? '2px solid #dc2626' : '1px solid #cbd5e1',
+                                        backgroundColor: hasError ? '#fff1f1' : '#fdfdfe'
+                                      }} 
                                       value={service.id} 
                                       onChange={(e) => handleServiceSelect(index, sIndex, e)}
                                     >
@@ -764,42 +773,57 @@ const getServicePriceAndSize = (serviceId, petType, weight) => {
                                       ))}
                                     </select>
 
-                                    <div className="service-row-actions" style={{display: 'flex', gap: '5px'}}>
+                                    <div className="service-row-actions" style={{ display: 'flex', gap: '5px' }}>
                                       {sIndex === pet.services.length - 1 && (
-                                        <button type="button" className="circle-btn add" onClick={() => handleAddServiceRow(index)}><Plus size={14} /></button>
+                                        <button type="button" className="circle-btn add" onClick={() => handleAddServiceRow(index)}>
+                                          <Plus size={14} />
+                                        </button>
                                       )}
                                       {pet.services.length > 1 && (
-                                        <button type="button" className="circle-btn delete" onClick={() => handleRemoveServiceRow(index, sIndex)}><Minus size={14} /></button>
+                                        <button type="button" className="circle-btn delete" onClick={() => handleRemoveServiceRow(index, sIndex)}>
+                                          <Minus size={14} />
+                                        </button>
                                       )}
                                     </div>
                                   </div>
 
-                                  {/* REAL-TIME WEIGHT/PRICE VALIDATION DISPLAY */}
-                                  {service.id && (
-                                    <div style={{ marginTop: '5px' }}>
-                                      {service.matched === false ? (
-                                        <span style={{ 
-                                          color: '#dc2626', 
-                                          fontSize: '0.75rem', 
-                                          display: 'flex', 
-                                          alignItems: 'center', 
-                                          gap: '4px', 
-                                          fontWeight: '600',
-                                          backgroundColor: '#fff1f1',
-                                          padding: '4px 8px',
-                                          borderRadius: '4px'
-                                        }}>
-                                          <AlertCircle size={14} /> 
-                                          {/* If user selected Cat but no match found */}
-                                          {pet.pet_type === "Cat" 
-                                            ? "No cat pricing found for this service." 
-                                            : `Unavailable for ${pet.weight_kg || '0'}kg pets.`}
-                                        </span>
-                                      ) : (
-                                        <div className="service-price-hint" style={{ fontSize: '0.85rem', color: '#2563eb', fontWeight: '700' }}>
-                                          Price: ₱{parseFloat(service.price || 0).toFixed(2)}
-                                        </div>
-                                      )}
+                                  {/* --- INLINE ERROR MESSAGES NEAR FIELD --- */}
+                                  {isEmpty && (
+                                    <div className="error-text" style={{ color: '#dc2626', fontSize: '0.8rem', marginTop: '6px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                      <AlertCircle size={14} /> Please select a service for this slot.
+                                    </div>
+                                  )}
+
+                                  {isMismatched && (
+                                    <div style={{ 
+                                      marginTop: '8px',
+                                      padding: '10px',
+                                      backgroundColor: '#fee2e2',
+                                      border: '1px solid #ef4444',
+                                      borderRadius: '8px',
+                                      animation: 'shake 0.3s ease-in-out'
+                                    }}>
+                                      <span style={{ 
+                                        color: '#991b1b', 
+                                        fontSize: '0.8rem', 
+                                        display: 'flex', 
+                                        alignItems: 'flex-start', 
+                                        gap: '6px', 
+                                        fontWeight: '700',
+                                        lineHeight: '1.4'
+                                      }}>
+                                        <AlertCircle size={16} style={{ marginTop: '2px', minWidth: '16px' }} /> 
+                                        {pet.pet_type === "Cat" 
+                                          ? "This provider has not set cat-specific pricing for this service." 
+                                          : `Service Conflict: Your pet's weight (${pet.weight_kg || '0'}kg) is outside the supported range for this service.`}
+                                      </span>
+                                    </div>
+                                  )}
+
+                                  {/* SUCCESS PRICE HINT */}
+                                  {service.id && service.matched !== false && (
+                                    <div className="service-price-hint" style={{ fontSize: '0.85rem', color: '#059669', fontWeight: '700', marginTop: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                      <CheckCircle size={14} /> Service available: ₱{parseFloat(service.price || 0).toFixed(2)}
                                     </div>
                                   )}
                                 </div>
@@ -807,10 +831,22 @@ const getServicePriceAndSize = (serviceId, petType, weight) => {
                             );
                           })}
                           
-                          {/* INLINE ERROR DISPLAY FOR EMPTY FIELDS */}
+                          {/* ROW ERROR (e.g. Empty dropdown before adding new one) */}
                           {pet.service_error && (
-                            <div style={{ color: '#dc2626', fontSize: '0.8rem', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                              <AlertCircle size={14} /> {pet.service_error}
+                            <div style={{ 
+                              color: '#ffffff', 
+                              backgroundColor: '#dc2626',
+                              padding: '8px 12px',
+                              borderRadius: '6px',
+                              fontSize: '0.85rem', 
+                              marginBottom: '15px', 
+                              display: 'inline-flex', 
+                              alignItems: 'center', 
+                              gap: '8px',
+                              fontWeight: '600',
+                              boxShadow: '0 2px 4px rgba(220, 38, 38, 0.2)'
+                            }}>
+                              <AlertCircle size={16} /> {pet.service_error}
                             </div>
                           )}
                         </div>
@@ -921,20 +957,25 @@ const getServicePriceAndSize = (serviceId, petType, weight) => {
                         <div className="medical-uploads-container">
                             <label className="sub-label">Medical Records</label>
                             <div className="upload-buttons-flex">
-                                <div className={`upload-btn-wrap ${attemptedSubmit && !pet.vaccine_file ? 'upload-error' : ''}`}>
-                                    {!pet.vaccine_preview ? (
-                                        <label className="upload-btn vaccine">
-                                            <input type="file" accept=".png, .jpg, .jpeg" onChange={(e) => handleFileUpload(index, 'vaccine', e)} hidden />
-                                            <UploadCloud size={18} /> Vaccine Record <span className="required-star">*</span>
-                                        </label>
-                                    ) : (
-                                        <div className="preview-container">
-                                            <img src={pet.vaccine_preview} className="mini-preview" onClick={() => setSelectedImage(pet.vaccine_preview)} alt="prev"/>
-                                            <button type="button" className="remove-img-btn" onClick={() => handleRemoveFile(index, 'vaccine')}><X size={14}/></button>
-                                        </div>
-                                    )}
-                                    {attemptedSubmit && !pet.vaccine_file && <span className="error-text" style={{color: 'red', fontSize: '10px', display: 'block', textAlign: 'center'}}>Required</span>}
-                                </div>
+                                <div className={`upload-btn-wrap ${attemptedSubmit && !pet.vaccine_file ? 'upload-error-active' : ''}`}>
+                                  {!pet.vaccine_preview ? (
+                                      <label className={`upload-btn vaccine ${attemptedSubmit && !pet.vaccine_file ? 'urgent-red-bg' : ''}`}>
+                                          <input type="file" accept=".png, .jpg, .jpeg" onChange={(e) => handleFileUpload(index, 'vaccine', e)} hidden />
+                                          <UploadCloud size={18} /> 
+                                          <span>Vaccine Record <span className="required-star">*</span></span>
+                                      </label>
+                                  ) : (
+                                      <div className="preview-container">
+                                          <img src={pet.vaccine_preview} className="mini-preview" onClick={() => setSelectedImage(pet.vaccine_preview)} alt="prev"/>
+                                          <button type="button" className="remove-img-btn" onClick={() => handleRemoveFile(index, 'vaccine')}><X size={14}/></button>
+                                      </div>
+                                  )}
+                                  {attemptedSubmit && !pet.vaccine_file && (
+                                      <div className="urgent-error-label">
+                                          <AlertCircle size={12} /> Vaccination record is required
+                                      </div>
+                                  )}
+                              </div>
 
                                 <div className="upload-btn-wrap">
                                     {!pet.illness_preview ? (
@@ -972,7 +1013,7 @@ const getServicePriceAndSize = (serviceId, petType, weight) => {
                           
                           <div className="ai-warning-box" style={{ backgroundColor: '#fdf2f2', border: '1px solid #fecaca', padding: '12px', borderRadius: '8px', marginBottom: '15px' }}>
                             <p style={{ fontSize: '0.85rem', color: '#991b1b', margin: 0, display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
-                              <AlertCircle size={28} /> 
+                              <AlertCircle size={20} /> 
                               <span>
                                 <strong>Style Preview Info:</strong> The AI generates a preview based <strong>strictly</strong> on your pet's <strong>Type, Breed, Weight</strong>, and <strong>Hairstyle</strong> choice!
                               </span>

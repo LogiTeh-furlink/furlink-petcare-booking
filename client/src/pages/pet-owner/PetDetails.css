@@ -719,3 +719,95 @@
     from { opacity: 0; transform: translateY(-5px); }
     to { opacity: 1; transform: translateY(0); }
 }
+
+/* --- GLOBAL ACTION REQUIRED BANNER --- */
+.validation-alert-banner {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: #fff1f2; /* Light red bg */
+    border: 2px solid #fecdd3;
+    border-left: 8px solid #dc2626; /* Thick red line on left */
+    padding: 1.5rem 2rem;
+    border-radius: 16px;
+    margin-bottom: 2.5rem;
+    box-shadow: 0 4px 15px rgba(220, 38, 38, 0.1);
+    animation: slideDown 0.4s ease-out, shake 0.5s ease-in-out;
+}
+
+.alert-content {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    color: #9f1239;
+}
+
+.alert-heading {
+    font-size: 1.2rem;
+    font-weight: 800;
+    display: block;
+    margin-bottom: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.alert-text {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 500;
+    line-height: 1.4;
+}
+
+.close-alert-btn {
+    background: #fecdd3;
+    color: #9f1239;
+    border: none;
+    border-radius: 50%;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.close-alert-btn:hover {
+    background: #fb7185;
+    color: white;
+}
+
+/* --- VACCINATION URGENT ERROR --- */
+.urgent-red-bg {
+    background-color: #fff1f2 !important;
+    border: 2px dashed #dc2626 !important;
+    color: #dc2626 !important;
+}
+
+.urgent-error-label {
+    background-color: #dc2626;
+    color: white;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-align: center;
+    padding: 4px 8px;
+    border-radius: 4px;
+    margin-top: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    animation: fadeIn 0.3s ease;
+}
+
+/* --- ANIMATIONS --- */
+@keyframes slideDown {
+    from { opacity: 0; transform: translateY(-20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-6px); }
+    75% { transform: translateX(6px); }
+}
