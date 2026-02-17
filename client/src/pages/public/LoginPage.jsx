@@ -254,11 +254,17 @@ const LoginPage = () => {
       }
 
       // 2. Both (Hybrid Logic)
+      // 2. Both (Hybrid Logic)
       if (profile.role === "both") {
         if (provider?.status === "approved") {
           return navigate("/service/dashboard");
+        } else if (provider?.status === "incomplete") {
+          // If business name exists, they finished step 1, send to step 2
+          const target = provider.business_name ? "/service-listing" : "/apply-provider";
+          return navigate(target);
+        } else if (provider?.status === "rejected" || provider?.status === "pending") {
+          return navigate("/dashboard");
         } else {
-          // No entry, pending, incomplete, or rejected - show Hybrid Prompt
           setLoading(false);
           setShowHybridPrompt(true);
           return;
@@ -268,22 +274,29 @@ const LoginPage = () => {
       // 3. Service Provider Only
       if (profile.role === "service_provider") {
         if (provider?.status === "approved") {
-          if (profile.hide_po_promo) return navigate("/service/dashboard"); // SKIP PROMO
+          if (profile.hide_po_promo) return navigate("/service/dashboard");
           setLoading(false);
           setShowPetOwnerPromo(true);
           return;
         } else if (!provider || provider.status === "incomplete") {
-          // NO ENTRY or INCOMPLETE: Send straight to application
-          return navigate("/apply-provider");
+          // Check progress: if business_name is already in DB, skip to listings
+          const target = provider?.business_name ? "/service-listing" : "/apply-provider";
+          return navigate(target);
         } else if (provider.status === "pending" || provider.status === "rejected") {
-          // PENDING or REJECTED: Send to dashboard; Navbar handles the status modals
           return navigate("/dashboard");
         }
       }
 
       // 4. Pet Owner Only
       if (profile.role === "pet_owner") {
-        if (profile.hide_sp_promo) return navigate("/dashboard"); // SKIP PROMO
+        // --- ADDED CHECK FOR PENDING/REJECTED STATUS ---
+        // If they have an existing application, we skip the promo entirely
+        const hasActiveApplication = provider && (provider.status === "pending" || provider.status === "rejected");
+
+        if (profile.hide_sp_promo || hasActiveApplication) {
+          return navigate("/dashboard"); 
+        }
+
         setLoading(false);
         setShowPromoModal(true);
         return;
