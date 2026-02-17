@@ -94,26 +94,58 @@ export default function AdminViewProvider() {
     document.body.removeChild(link);
   };
 
-  const saveStatus = async () => {
-    if (!action) return alert("Select Action first.");
-    setSaving(true);
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      const updates = {
-        status: action === "approve" ? "approved" : "rejected",
-        updated_at: new Date().toISOString(),
-      };
-      if (action === "approve") {
-        updates.approved_by = user.id;
-        updates.approved_at = new Date().toISOString();
-      } else {
-        updates.rejection_reasons = Object.keys(rejectReasons).filter(k => rejectReasons[k]).map(k => reasonMapping[k]);
+const saveStatus = async () => {
+  if (!action) return alert("Select Action first.");
+  setSaving(true);
+  
+  try {
+    const { data: { user: adminUser } } = await supabase.auth.getUser();
+
+    // 1. Prepare updates for the Service Provider Application table
+    const providerUpdates = {
+      status: action === "approve" ? "approved" : "rejected",
+      updated_at: new Date().toISOString(),
+    };
+
+    if (action === "approve") {
+      providerUpdates.approved_by = adminUser.id;
+      providerUpdates.approved_at = new Date().toISOString();
+    } else {
+      providerUpdates.rejection_reasons = Object.keys(rejectReasons)
+        .filter(k => rejectReasons[k])
+        .map(k => reasonMapping[k]);
+    }
+
+    // 2. Update the Service Provider Application status
+    const { error: providerError } = await supabase
+      .from("service_providers")
+      .update(providerUpdates)
+      .eq("id", id);
+
+    if (providerError) throw providerError;
+
+    // 3. IF APPROVED: Update the User's Role in the profiles table
+    if (action === "approve" && provider.user_id) {
+      // We change the role to 'Both' (assuming they were a Pet Owner 'PO' before)
+      // or 'SP' depending on your business logic.
+      const { error: roleError } = await supabase
+        .from("profiles")
+        .update({ role: "both" }) 
+        .eq("id", provider.user_id);
+
+      if (roleError) {
+        console.error("Application approved, but role update failed:", roleError.message);
+        alert("Provider approved, but failed to update user role.");
       }
-      const { error } = await supabase.from("service_providers").update(updates).eq("id", id);
-      if (error) throw error;
-      navigate("/admin-dashboard");
-    } catch (error) { alert(error.message); } finally { setSaving(false); }
-  };
+    }
+
+    navigate("/admin-dashboard");
+  } catch (error) {
+    alert(error.message);
+  } finally {
+    setSaving(false);
+  }
+};
 
   const formatTime = (time) => {
     if (!time) return "Closed";
