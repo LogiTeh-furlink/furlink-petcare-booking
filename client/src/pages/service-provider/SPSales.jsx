@@ -58,7 +58,7 @@ export default function SPSales() {
   const [bookingServices, setBookingServices] = useState([]);
   const [listingVisitors, setListingVisitors] = useState(0);
   const [showReportModal, setShowReportModal] = useState(false);
-  const [selectedYear, setSelectedYear] = useState(savedFilters.selectedYear);
+  const [selectedYear, setSelectedYear] = useState(savedFilters.selectedYear || new Date().getFullYear());
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [listingApprovedDate, setListingApprovedDate] = useState(null);
   const [providerHours, setProviderHours] = useState([]);
@@ -180,36 +180,27 @@ export default function SPSales() {
   // ============================================
   const analytics = useMemo(() => {
     const now = new Date();
-    
-    // Helper to convert time to 24-hour format
-    const convertTo24Hour = (timeStr) => {
-      if (!timeStr) return "00:00";
-      if (timeStr.includes('M')) {
-        const [time, modifier] = timeStr.split(' ');
-        let [hours, minutes] = time.split(':');
-        if (hours === '12') { hours = '00'; }
-        if (modifier === 'PM') { hours = parseInt(hours, 10) + 12; }
-        return `${hours}:${minutes}`;
-      }
-      return timeStr;
+
+    // ============================================
+    // FIX: Parse booking_date as LOCAL midnight, not UTC.
+    // new Date('2025-02-17') parses as UTC midnight which shifts the date
+    // in negative-offset timezones (e.g. UTC-8 becomes Feb 16 at 4pm local).
+    // Splitting into parts and constructing with new Date(y, m, d) uses local time.
+    // ============================================
+    const parseLocalDate = (dateStr) => {
+      const [year, month, day] = dateStr.split('-').map(Number);
+      return new Date(year, month - 1, day);
     };
 
-    // Check if booking slot + interval has passed (matches SQL logic)
-    const hasSlotIntervalPassed = (dateStr, timeStr, slotIntervalMinutes) => {
-      if (!dateStr || !timeStr || !slotIntervalMinutes) return false;
-      
-      try {
-        const bookingDateTime = new Date(`${dateStr}T${convertTo24Hour(timeStr)}`);
-        const completionTime = new Date(bookingDateTime.getTime() + (slotIntervalMinutes * 60 * 1000));
-        return now >= completionTime;
-      } catch (e) {
-        console.error('Error checking slot interval:', e);
-        return false;
-      }
-    };
+    // ============================================
+    // FIX: Cap the end of all non-custom ranges to end-of-today.
+    // This ensures bookings with future dates (e.g. upcoming bookings)
+    // are never counted in cancellation or completion metrics.
+    // ============================================
+    const endOfToday = new Date();
+    endOfToday.setHours(23, 59, 59, 999);
 
     const isBookingComplete = (b) => {
-      // A booking is complete if it's waiting for a review OR if it has already been rated
       return ['for review', 'rated'].includes(b.status);
     };
       
@@ -218,8 +209,8 @@ export default function SPSales() {
       const today = new Date();
 
       if (filter === 'custom' && customDateStart && customDateEnd) {
-        const start = new Date(customDateStart);
-        const end = new Date(customDateEnd);
+        const start = parseLocalDate(customDateStart);
+        const end = parseLocalDate(customDateEnd);
         end.setHours(23, 59, 59, 999);
         
         if (isPrevious) {
@@ -238,12 +229,14 @@ export default function SPSales() {
 
       if (filter === 'weekly') {
         if (isPrevious) { 
-          start.setDate(today.getDate() - 14); 
-          end.setDate(today.getDate() - 7); 
+          start.setDate(today.getDate() - 14);
+          start.setHours(0, 0, 0, 0); // FIX: start at midnight so boundary day is included
+          end.setDate(today.getDate() - 7);
           end.setHours(23, 59, 59, 999);
         } else { 
-          start.setDate(today.getDate() - 7); 
-          end = today;
+          start.setDate(today.getDate() - 7);
+          start.setHours(0, 0, 0, 0); // FIX: start at midnight so boundary day is included
+          end = new Date(endOfToday);
         }
       } else if (filter === 'monthly') {
         if (isPrevious) { 
@@ -254,28 +247,32 @@ export default function SPSales() {
           end.setHours(23, 59, 59, 999);
         } else { 
           start = new Date(today.getFullYear(), today.getMonth(), 1);
-          end = today;
+          end = new Date(endOfToday);
         }
       } else if (filter === 'yearly') {
-        if (selectedYear) {
-          start = new Date(selectedYear, 0, 1);
-          end = new Date(selectedYear, 11, 31, 23, 59, 59, 999);
+        if (selectedYear === null) {
+          // All Years: span from listing approval to today
+          const listingYear = listingApprovedDate
+            ? new Date(listingApprovedDate).getFullYear()
+            : today.getFullYear();
           if (isPrevious) {
-            start = new Date(selectedYear - 1, 0, 1);
-            end = new Date(selectedYear - 1, 11, 31, 23, 59, 59, 999);
+            // No meaningful comparison period for all-years; return empty range
+            start = new Date(listingYear, 0, 1);
+            end = new Date(listingYear, 0, 1);
+          } else {
+            start = new Date(listingYear, 0, 1);
+            end = new Date(endOfToday);
           }
         } else {
-          if (isPrevious) { 
-            start = new Date(today.getFullYear() - 1, 0, 1);
-            if (today.getMonth() === 1 && today.getDate() === 29) {
-              end = new Date(today.getFullYear() - 1, 1, 28);
-            } else {
-              end = new Date(today.getFullYear() - 1, today.getMonth(), today.getDate());
-            }
-            end.setHours(23, 59, 59, 999);
-          } else { 
-            start = new Date(today.getFullYear(), 0, 1);
-            end = today;
+          const targetYear = selectedYear;
+          if (isPrevious) {
+            start = new Date(targetYear - 1, 0, 1);
+            end = new Date(targetYear - 1, 11, 31, 23, 59, 59, 999);
+          } else {
+            start = new Date(targetYear, 0, 1);
+            end = targetYear === today.getFullYear()
+              ? new Date(endOfToday)
+              : new Date(targetYear, 11, 31, 23, 59, 59, 999);
           }
         }
       } else {
@@ -284,7 +281,7 @@ export default function SPSales() {
           end.setFullYear(today.getFullYear() - 1, 11, 31); 
         } else { 
           start = new Date(today.getFullYear(), 0, 1);
-          end = today;
+          end = new Date(endOfToday);
         }
       }
       return { start, end };
@@ -293,16 +290,19 @@ export default function SPSales() {
     const currentRange = getRange(activeFilter);
     const previousRange = getRange(activeFilter, true);
     
-    // Format the date range text - MM DD, YYYY - MM DD, YYYY
+    // Format the date range text
     const rangeText = activeFilter === 'custom' && customDateStart && customDateEnd
-      ? `${new Date(customDateStart).toLocaleDateString(undefined, { month: 'short', day: '2-digit', year: 'numeric' })} - ${new Date(customDateEnd).toLocaleDateString(undefined, { month: 'short', day: '2-digit', year: 'numeric' })}`
+      ? `${parseLocalDate(customDateStart).toLocaleDateString(undefined, { month: 'short', day: '2-digit', year: 'numeric' })} - ${parseLocalDate(customDateEnd).toLocaleDateString(undefined, { month: 'short', day: '2-digit', year: 'numeric' })}`
       : `${currentRange.start.toLocaleDateString(undefined, { month: 'short', day: '2-digit', year: 'numeric' })} - ${now.toLocaleDateString(undefined, { month: 'short', day: '2-digit', year: 'numeric' })}`;
 
-    // Filter bookings by date range
+    // ============================================
+    // FIX: filterByRange now uses parseLocalDate so booking_date strings
+    // are always compared in local time, matching what the user sees.
+    // ============================================
     const filterByRange = (list, range) => {
       return list.filter(b => {
-        const d = new Date(b.booking_date);
-        return d >= range.start && d <= (range.end || now);
+        const d = parseLocalDate(b.booking_date);
+        return d >= range.start && d <= range.end;
       });
     };
 
@@ -346,10 +346,7 @@ export default function SPSales() {
     const current = calculateMetrics(currentValidPets, currentBookings);
     const previous = calculateMetrics(previousValidPets, previousBookings);
 
-    // FIXED: Match SPDashboard cancellation count logic - count from currentBookings within date range
-    const cancellationCount = currentBookings.filter(b => 
-      b.status === 'cancelled' || b.status === 'declined'
-    ).length;
+    const cancellationCount = currentBookings.filter(b => b.status === 'cancelled').length;
 
     // Calculate percentage trend
     const getTrend = (curr, prev) => {
@@ -365,19 +362,16 @@ export default function SPSales() {
     const currentYear = now.getFullYear();
     
     if (activeFilter === 'yearly') {
-      if (selectedYear) {
-        // Show months of selected year
-        timeLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].map(m => `${m} ${selectedYear}`);
-      } else {
-        // Show years from listing approved year to current year
-        const startYear = listingApprovedDate 
-          ? new Date(listingApprovedDate).getFullYear() 
-          : 2020;
-        const years = [];
+      if (selectedYear === null) {
+        // All Years: one label per year from listing approval to now
+        const startYear = listingApprovedDate
+          ? new Date(listingApprovedDate).getFullYear()
+          : currentYear;
         for (let year = startYear; year <= currentYear; year++) {
-          years.push(year.toString());
+          timeLabels.push(year.toString());
         }
-        timeLabels = years;
+      } else {
+        timeLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].map(m => `${m} ${selectedYear}`);
       }
     } else if (activeFilter === 'monthly') {
       const monthName = currentRange.start.toLocaleString('default', { month: 'short' });
@@ -400,58 +394,52 @@ export default function SPSales() {
 
     // ========================================
     // CHART 1: OVERALL SALES PERFORMANCE
-    // Shows total revenue over time + customer count per period
     // ========================================
     const overallSalesData = new Array(timeLabels.length).fill(0);
     const overallCustomerCount = new Array(timeLabels.length).fill(0).map(() => new Set());
     
-    // FIX: Use ALL bookings when NOT in drill-down mode for yearly
-    const bookingsToProcess = (activeFilter === 'yearly' && !selectedYear) 
+    const bookingsToProcess = (activeFilter === 'yearly' && selectedYear === null) 
       ? rawBookings.filter(b => isBookingComplete(b))
       : currentBookings;
     
     bookingsToProcess.forEach(booking => {
       if (!isBookingComplete(booking)) return;
       
-      // Apply pet type filter
       if (petTypeFilter !== 'both') {
         const hasPetType = booking.booking_pets?.some(pet => pet.pet_type === petTypeFilter);
         if (!hasPetType) return;
       }
       
-      const bDate = new Date(booking.booking_date);
+      const bDate = parseLocalDate(booking.booking_date);
       let idx;
       
       if (activeFilter === 'yearly') {
-        if (selectedYear) {
-          // Monthly view of selected year - only show data for that year
-          if (bDate.getFullYear() === selectedYear) {
-            idx = bDate.getMonth();
-          }
+        if (selectedYear !== null) {
+          if (bDate.getFullYear() === selectedYear) idx = bDate.getMonth();
         } else {
-          // Year list view - show ALL years of data
-          const bookingYear = bDate.getFullYear();
-          idx = timeLabels.indexOf(bookingYear.toString());
+          idx = timeLabels.indexOf(bDate.getFullYear().toString());
         }
       } else if (activeFilter === 'monthly') {
         const day = bDate.getDate();
         idx = day <= 7 ? 0 : day <= 14 ? 1 : day <= 21 ? 2 : 3;
+      } else if (activeFilter === 'custom') {
+        const startMs = currentRange.start.getTime();
+        const diffDays = Math.floor((bDate.getTime() - startMs) / (1000 * 60 * 60 * 24));
+        idx = diffDays >= 0 && diffDays < timeLabels.length ? diffDays : -1;
       } else {
         idx = (bDate.getDay() + 6) % 7;
       }
       
-      if (idx !== -1 && overallSalesData[idx] !== undefined) {
+      if (idx !== undefined && idx !== -1 && overallSalesData[idx] !== undefined) {
         overallSalesData[idx] += Number(booking.total_estimated_price) || 0;
         overallCustomerCount[idx].add(booking.user_id);
       }
     });
 
-    // Convert Sets to counts
     const overallCustomerCountArray = overallCustomerCount.map(set => set.size);
 
     // ========================================
     // CHART 2: SALES PERFORMANCE PER SERVICE
-    // Shows revenue for each service type + customer count
     // ========================================
     const serviceRevenueMap = {};
     const serviceCustomerCount = {};
@@ -468,29 +456,23 @@ export default function SPSales() {
       const booking = bs.booking_pets?.bookings;
       if (!booking || !isBookingComplete(booking)) return;
       
-      // Apply pet type filter
       if (petTypeFilter !== 'both' && bs.booking_pets?.pet_type !== petTypeFilter) return;
       
-      const bDate = new Date(booking.booking_date);
+      const bDate = parseLocalDate(booking.booking_date);
       const bookingYear = bDate.getFullYear();
       
-      // FIX: When in year list view, don't filter by currentRange
-      // When drilling down into a specific year, filter by that year
       if (activeFilter === 'yearly') {
-        if (selectedYear) {
-          // In drill-down mode - only show data for selected year
+        if (selectedYear !== null) {
           if (bookingYear !== selectedYear) return;
         }
-        // In year list view - show ALL years (no date range filter)
       } else {
-        // For other filters, use the current range
-        if (bDate < currentRange.start || bDate > (currentRange.end || now)) return;
+        if (bDate < currentRange.start || bDate > currentRange.end) return;
       }
       
       let idx;
       
       if (activeFilter === 'yearly') {
-        if (selectedYear) {
+        if (selectedYear !== null) {
           idx = bDate.getMonth();
         } else {
           idx = timeLabels.indexOf(bookingYear.toString());
@@ -498,17 +480,20 @@ export default function SPSales() {
       } else if (activeFilter === 'monthly') {
         const day = bDate.getDate();
         idx = day <= 7 ? 0 : day <= 14 ? 1 : day <= 21 ? 2 : 3;
+      } else if (activeFilter === 'custom') {
+        const startMs = currentRange.start.getTime();
+        const diffDays = Math.floor((bDate.getTime() - startMs) / (1000 * 60 * 60 * 24));
+        idx = diffDays >= 0 && diffDays < timeLabels.length ? diffDays : -1;
       } else {
         idx = (bDate.getDay() + 6) % 7;
       }
       
-      if (idx !== -1 && serviceRevenueMap[bs.service_id] && serviceRevenueMap[bs.service_id].data[idx] !== undefined) {
+      if (idx !== undefined && idx !== -1 && serviceRevenueMap[bs.service_id] && serviceRevenueMap[bs.service_id].data[idx] !== undefined) {
         serviceRevenueMap[bs.service_id].data[idx] += Number(bs.price) || 0;
         serviceCustomerCount[bs.service_id][idx].add(booking.user_id);
       }
     });
 
-    // Convert customer count Sets to arrays
     const serviceCustomerCountArrays = {};
     Object.keys(serviceCustomerCount).forEach(serviceId => {
       serviceCustomerCountArrays[serviceId] = serviceCustomerCount[serviceId].map(set => set.size);
@@ -516,17 +501,14 @@ export default function SPSales() {
 
     // ========================================
     // CHART 3: NEW VS RETURNING CUSTOMERS REVENUE
-    // Two lines: revenue from new customers vs returning customers + customer counts
     // ========================================
     const newCustomerRevenue = new Array(timeLabels.length).fill(0);
     const returningCustomerRevenue = new Array(timeLabels.length).fill(0);
     const newCustomerCount = new Array(timeLabels.length).fill(0).map(() => new Set());
     const returningCustomerCount = new Array(timeLabels.length).fill(0).map(() => new Set());
     
-    // Track first booking date for each customer
     const customerFirstBooking = {};
     
-    // Sort all bookings by date to identify first booking
     const allCompletedBookings = rawBookings
       .filter(b => isBookingComplete(b))
       .sort((a, b) => new Date(a.booking_date) - new Date(b.booking_date));
@@ -537,34 +519,34 @@ export default function SPSales() {
       }
     });
     
-    const bookingsForCustomerSegmentation = (activeFilter === 'yearly' && !selectedYear)
+    const bookingsForCustomerSegmentation = (activeFilter === 'yearly' && selectedYear === null)
       ? allCompletedBookings
       : currentBookings;
     
     bookingsForCustomerSegmentation.forEach(booking => {
       if (!isBookingComplete(booking)) return;
       
-      // Apply pet type filter
       if (petTypeFilter !== 'both') {
         const hasPetType = booking.booking_pets?.some(pet => pet.pet_type === petTypeFilter);
         if (!hasPetType) return;
       }
       
-      const bDate = new Date(booking.booking_date);
+      const bDate = parseLocalDate(booking.booking_date);
       let idx;
       
       if (activeFilter === 'yearly') {
-        if (selectedYear) {
-          if (bDate.getFullYear() === selectedYear) {
-            idx = bDate.getMonth();
-          }
+        if (selectedYear !== null) {
+          if (bDate.getFullYear() === selectedYear) idx = bDate.getMonth();
         } else {
-          const bookingYear = bDate.getFullYear();
-          idx = timeLabels.indexOf(bookingYear.toString());
+          idx = timeLabels.indexOf(bDate.getFullYear().toString());
         }
       } else if (activeFilter === 'monthly') {
         const day = bDate.getDate();
         idx = day <= 7 ? 0 : day <= 14 ? 1 : day <= 21 ? 2 : 3;
+      } else if (activeFilter === 'custom') {
+        const startMs = currentRange.start.getTime();
+        const diffDays = Math.floor((bDate.getTime() - startMs) / (1000 * 60 * 60 * 24));
+        idx = diffDays >= 0 && diffDays < timeLabels.length ? diffDays : -1;
       } else {
         idx = (bDate.getDay() + 6) % 7;
       }
@@ -572,7 +554,7 @@ export default function SPSales() {
       const isFirstBooking = customerFirstBooking[booking.user_id] === booking.booking_date;
       const revenue = Number(booking.total_estimated_price) || 0;
       
-      if (idx !== -1 && idx !== undefined) {
+      if (idx !== undefined && idx !== -1) {
         if (isFirstBooking) {
           newCustomerRevenue[idx] += revenue;
           newCustomerCount[idx].add(booking.user_id);
@@ -583,51 +565,46 @@ export default function SPSales() {
       }
     });
 
-    // Convert customer count Sets to arrays
     const newCustomerCountArray = newCustomerCount.map(set => set.size);
     const returningCustomerCountArray = returningCustomerCount.map(set => set.size);
 
     // ========================================
     // CHART 4: REVENUE LOSS DUE TO CANCELLATIONS
-    // FIXED: Only count cancellations/declined within the current date range
-    // Two lines: actual revenue earned vs potential revenue without cancellations
+    // Uses currentBookings which is already capped to today via filterByRange fix
     // ========================================
     const actualRevenue = new Array(timeLabels.length).fill(0);
     const potentialRevenue = new Array(timeLabels.length).fill(0);
     const cancellationsPerPeriod = new Array(timeLabels.length).fill(0);
     
-    // FIXED: Only use currentBookings (bookings within the selected date range)
-    const bookingsForCancellations = currentBookings;
-    
-    bookingsForCancellations.forEach(booking => {
-      // Apply pet type filter
+    currentBookings.forEach(booking => {
       if (petTypeFilter !== 'both') {
         const hasPetType = booking.booking_pets?.some(pet => pet.pet_type === petTypeFilter);
         if (!hasPetType) return;
       }
       
-      const bDate = new Date(booking.booking_date);
+      const bDate = parseLocalDate(booking.booking_date);
       let idx;
       
       if (activeFilter === 'yearly') {
-        if (selectedYear) {
-          if (bDate.getFullYear() === selectedYear) {
-            idx = bDate.getMonth();
-          }
+        if (selectedYear !== null) {
+          if (bDate.getFullYear() === selectedYear) idx = bDate.getMonth();
         } else {
-          const bookingYear = bDate.getFullYear();
-          idx = timeLabels.indexOf(bookingYear.toString());
+          idx = timeLabels.indexOf(bDate.getFullYear().toString());
         }
       } else if (activeFilter === 'monthly') {
         const day = bDate.getDate();
         idx = day <= 7 ? 0 : day <= 14 ? 1 : day <= 21 ? 2 : 3;
+      } else if (activeFilter === 'custom') {
+        const startMs = currentRange.start.getTime();
+        const diffDays = Math.floor((bDate.getTime() - startMs) / (1000 * 60 * 60 * 24));
+        idx = diffDays >= 0 && diffDays < timeLabels.length ? diffDays : -1;
       } else {
         idx = (bDate.getDay() + 6) % 7;
       }
       
       const revenue = Number(booking.total_estimated_price) || 0;
       
-      if (idx !== -1 && idx !== undefined) {
+      if (idx !== undefined && idx !== -1) {
         potentialRevenue[idx] += revenue;
         
         if (booking.status === 'cancelled' || booking.status === 'declined') {
@@ -640,12 +617,10 @@ export default function SPSales() {
       }
     });
 
-    // Calculate total loss from cancellations
     const totalLoss = potentialRevenue.reduce((sum, val, idx) => 
       sum + (val - actualRevenue[idx]), 0
     );
 
-    // Calculate total revenue for overall sales chart
     const totalRevenue = overallSalesData.reduce((sum, val) => sum + val, 0);
 
     // ========================================
@@ -694,7 +669,7 @@ export default function SPSales() {
     return { 
       revenue: current.rev, 
       validCount: current.count, 
-      cancellations: cancellationCount, // FIXED: Now matches SPDashboard logic
+      cancellations: cancellationCount,
       avg: new Set(current.validPets.map(p => p.user_id)).size > 0 
         ? Math.round(current.count / new Set(current.validPets.map(p => p.user_id)).size) 
         : 0, 
@@ -862,13 +837,6 @@ export default function SPSales() {
       mode: 'nearest',
       axis: 'x',
       intersect: false
-    },
-    onClick: (event, elements) => {
-      if (activeFilter === 'yearly' && !selectedYear && elements.length > 0) {
-        const index = elements[0].index;
-        const clickedYear = parseInt(analytics.timeLabels[index]);
-        setSelectedYear(clickedYear);
-      }
     }
   };
 
@@ -934,6 +902,32 @@ export default function SPSales() {
                 <option value="yearly">Yearly</option>
                 <option value="custom">Custom Range</option>
               </select>
+
+              {/* Year selector for yearly filter */}
+              {activeFilter === 'yearly' && (
+                <div className="custom-date-range">
+                  <label className="date-label">Year:</label>
+                  <select
+                    className="filter-dropdown"
+                    value={selectedYear === null ? '' : selectedYear}
+                    onChange={(e) => setSelectedYear(e.target.value === '' ? null : Number(e.target.value))}
+                  >
+                    <option value="">All Years</option>
+                    {(() => {
+                      const startYear = listingApprovedDate
+                        ? new Date(listingApprovedDate).getFullYear()
+                        : new Date().getFullYear();
+                      const endYear = new Date().getFullYear();
+                      return Array.from(
+                        { length: endYear - startYear + 1 },
+                        (_, i) => endYear - i
+                      ).map(year => (
+                        <option key={year} value={year}>{year}</option>
+                      ));
+                    })()}
+                  </select>
+                </div>
+              )}
               
               {activeFilter === 'custom' && (
                 <div className="custom-date-range">
@@ -1030,15 +1024,6 @@ export default function SPSales() {
             <div className="sales-charts-grid">
               
               <div className="chart-box">
-                {activeFilter === 'yearly' && selectedYear && (
-                  <button 
-                    className="back-to-years-btn"
-                    onClick={() => setSelectedYear(null)}
-                    title="Back to years view"
-                  >
-                    <FaArrowLeft size={12} />
-                  </button>
-                )}
                 <div className="chart-header-with-btn">
                   <h3 className="chart-title-centered">Overall Sales Performance</h3>
                   <span className="date-range-topright">
@@ -1095,15 +1080,6 @@ export default function SPSales() {
               </div>
 
               <div className="chart-box">
-                {activeFilter === 'yearly' && selectedYear && (
-                  <button 
-                    className="back-to-years-btn"
-                    onClick={() => setSelectedYear(null)}
-                    title="Back to years view"
-                  >
-                    <FaArrowLeft size={12} />
-                  </button>
-                )}
                 <div className="chart-header-with-btn">
                   <h3 className="chart-title-centered">Revenue Loss from Cancellations</h3>
                   <span className="date-range-topright">
@@ -1268,15 +1244,6 @@ export default function SPSales() {
               </div>
 
               <div className="chart-box">
-                {activeFilter === 'yearly' && selectedYear && (
-                  <button 
-                    className="back-to-years-btn"
-                    onClick={() => setSelectedYear(null)}
-                    title="Back to years view"
-                  >
-                    <FaArrowLeft size={12} />
-                  </button>
-                )}
                 <div className="chart-header-with-btn">
                   <h4 className="chart-title-sm">Sales Performance by Service</h4>
                   <span className="date-range-topright">
@@ -1385,7 +1352,9 @@ export default function SPSales() {
                 <div className="report-info-row">
                   <span className="report-label">Report Type:</span>
                   <span className="report-value">
-                    {activeFilter.charAt(0).toUpperCase() + activeFilter.slice(1)} Sales Summary
+                    {activeFilter === 'yearly'
+                      ? `${selectedYear} Yearly Sales Summary`
+                      : `${activeFilter.charAt(0).toUpperCase() + activeFilter.slice(1)} Sales Summary`}
                   </span>
                 </div>
                 <div className="report-info-row">

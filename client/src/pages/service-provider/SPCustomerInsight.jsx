@@ -31,6 +31,7 @@ export default function SPCustomerInsight() {
   const [petTypeFilter, setPetTypeFilter] = useState(savedFilters.petTypeFilter);
   const [customDateStart, setCustomDateStart] = useState(savedFilters.customDateStart);
   const [customDateEnd, setCustomDateEnd] = useState(savedFilters.customDateEnd);
+  const [selectedYear, setSelectedYear] = useState(savedFilters.selectedYear || new Date().getFullYear());
   
   // Data states
   const [loading, setLoading] = useState(true);
@@ -38,7 +39,7 @@ export default function SPCustomerInsight() {
   const [rawReviews, setRawReviews] = useState([]); 
   const [listingVisitors, setListingVisitors] = useState(0);
   const [providerServiceSizes, setProviderServiceSizes] = useState([]); 
-  const [profilesMap, setProfilesMap] = useState({}); // Stores { userId: profileData }
+  const [profilesMap, setProfilesMap] = useState({});
   const [showReportModal, setShowReportModal] = useState(false);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [listingApprovedDate, setListingApprovedDate] = useState(null);
@@ -50,9 +51,9 @@ export default function SPCustomerInsight() {
       petTypeFilter,
       customDateStart,
       customDateEnd,
-      selectedYear: null 
+      selectedYear
     });
-  }, [activeFilter, petTypeFilter, customDateStart, customDateEnd]);
+  }, [activeFilter, petTypeFilter, customDateStart, customDateEnd, selectedYear]);
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -110,7 +111,7 @@ export default function SPCustomerInsight() {
         if (bError) throw bError;
         setRawBookings(bookings || []);
 
-        // 3. Fetch Reviews Data (Includes comment and user_id)
+        // 3. Fetch Reviews Data
         const { data: reviews, error: rError } = await supabase
           .from('reviews')
           .select(`
@@ -128,7 +129,6 @@ export default function SPCustomerInsight() {
         setRawReviews(reviews || []);
 
         // 4. Fetch Profiles Separately
-        // We collect user IDs from both bookings and reviews to be safe
         if (bookings && bookings.length > 0) {
           const bookingUserIds = bookings.map(b => b.user_id);
           const reviewUserIds = reviews ? reviews.map(r => r.user_id) : [];
@@ -160,7 +160,7 @@ export default function SPCustomerInsight() {
   }, [navigate]);
 
   // ============================================
-  // PDF DOWNLOAD FUNCTION (FIXED)
+  // PDF DOWNLOAD FUNCTION
   // ============================================
   const handleDownloadPDF = async () => {
     setIsGeneratingPDF(true);
@@ -174,42 +174,32 @@ export default function SPCustomerInsight() {
         return;
       }
 
-      // 1. Clone the element
       const clone = element.cloneNode(true);
       
-      // 2. MANUALLY COPY CANVAS CONTENT
-      // This is required because cloneNode() does not copy the internal state of <canvas> elements
       const originalCanvases = element.querySelectorAll('canvas');
       const clonedCanvases = clone.querySelectorAll('canvas');
 
       Array.from(originalCanvases).forEach((orig, index) => {
         const dest = clonedCanvases[index];
         const ctx = dest.getContext('2d');
-        // Set dimensions to match original to prevent scaling issues
         dest.width = orig.width;
         dest.height = orig.height;
-        // Draw the original canvas image onto the cloned canvas
         ctx.drawImage(orig, 0, 0);
       });
 
-      // 3. Style the clone for PDF generation
       clone.style.position = 'absolute';
       clone.style.left = '-9999px';
       clone.style.top = '0';
-      clone.style.width = '1000px'; // Fixed width for consistent PDF layout
+      clone.style.width = '1000px';
       clone.style.overflow = 'visible';
       clone.style.maxHeight = 'none';
       clone.style.height = 'auto';
       clone.style.padding = '40px';
       clone.style.backgroundColor = '#ffffff';
       
-      // Append to body temporarily
       document.body.appendChild(clone);
-      
-      // Wait for rendering
       await new Promise(resolve => setTimeout(resolve, 500));
 
-      // Capture the cloned element
       const canvas = await html2canvas(clone, {
         scale: 2,
         useCORS: true,
@@ -219,47 +209,34 @@ export default function SPCustomerInsight() {
         height: clone.scrollHeight
       });
 
-      // Remove the clone
       document.body.removeChild(clone);
 
       const imgData = canvas.toDataURL('image/png', 1.0);
-      
-      // Create PDF with proper dimensions
       const pdf = new jsPDF('p', 'mm', 'a4');
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = pdf.internal.pageSize.getHeight();
       
-      // Calculate image dimensions with margins
       const margin = 10;
       const imgWidth = pdfWidth - (2 * margin);
       const imgHeight = (canvas.height * imgWidth) / canvas.width;
-      
-      // Calculate how many pages we need
       const pageHeight = pdfHeight - (2 * margin);
       const totalPages = Math.ceil(imgHeight / pageHeight);
       
-      // Add content to PDF pages
       for (let page = 0; page < totalPages; page++) {
-        if (page > 0) {
-          pdf.addPage();
-        }
+        if (page > 0) pdf.addPage();
         
-        // Calculate the portion of the image for this page
         const sourceY = page * (pageHeight * canvas.width / imgWidth);
         const sourceHeight = Math.min(
           pageHeight * canvas.width / imgWidth,
           canvas.height - sourceY
         );
         
-        // Only add if there's content to add
         if (sourceHeight > 0) {
-          // Create a temporary canvas for this page slice
           const pageCanvas = document.createElement('canvas');
           pageCanvas.width = canvas.width;
           pageCanvas.height = sourceHeight;
           const pageCtx = pageCanvas.getContext('2d');
           
-          // Draw the slice of the full canvas onto the page canvas
           pageCtx.fillStyle = '#ffffff';
           pageCtx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
           pageCtx.drawImage(
@@ -275,10 +252,7 @@ export default function SPCustomerInsight() {
         }
       }
 
-      // Generate filename with current date
       const fileName = `Customer_Insight_Report_${new Date().toISOString().split('T')[0]}.pdf`;
-      
-      // Save the PDF
       pdf.save(fileName);
       
     } catch (error) {
@@ -290,10 +264,8 @@ export default function SPCustomerInsight() {
   };
 
   const analytics = useMemo(() => {
-    // Utility to normalize strings for comparison 
     const normalize = (str) => str?.toLowerCase().replace(/_/g, ' ').trim() || '';
 
-    // Utility to Format Labels for Display
     const formatLabel = (str) => {
       if (!str) return '';
       return str
@@ -304,19 +276,32 @@ export default function SPCustomerInsight() {
         .join(' ');
     };
 
-    const now = new Date();
-    
     // ============================================
-    // EXACT SAME getRange FUNCTION FROM SPSALES
+    // FIX: Parse booking_date as LOCAL midnight, not UTC.
+    // new Date('2025-02-17') parses as UTC midnight which shifts the date
+    // in negative-offset timezones (e.g. UTC-8 becomes Feb 16 at 4pm local).
+    // Splitting into parts and constructing with new Date(y, m, d) uses local time.
     // ============================================
+    const parseLocalDate = (dateStr) => {
+      const [year, month, day] = dateStr.split('-').map(Number);
+      return new Date(year, month - 1, day);
+    };
+
+    // ============================================
+    // FIX: Cap the end of all non-custom ranges to end-of-today.
+    // This ensures bookings with future dates are never included
+    // in cancellation or completion counts.
+    // ============================================
+    const endOfToday = new Date();
+    endOfToday.setHours(23, 59, 59, 999);
+
     const getRange = (filter, isPrevious = false) => {
       const today = new Date();
 
-      // Custom filter
       if (filter === 'custom' && customDateStart && customDateEnd) {
-        const start = new Date(customDateStart);
-        const end = new Date(customDateEnd);
-        end.setHours(23, 59, 59, 999); // Force end of day
+        const start = parseLocalDate(customDateStart);
+        const end = parseLocalDate(customDateEnd);
+        end.setHours(23, 59, 59, 999);
         
         if (isPrevious) {
           const duration = end - start;
@@ -332,19 +317,16 @@ export default function SPCustomerInsight() {
       let start = new Date();
       let end = new Date();
 
-      // Weekly filter
       if (filter === 'weekly') {
         if (isPrevious) { 
           start.setDate(today.getDate() - 14); 
           end.setDate(today.getDate() - 7); 
           end.setHours(23, 59, 59, 999);
         } else { 
-          start.setDate(today.getDate() - 7); 
-          end = new Date(today);
-          end.setHours(23, 59, 59, 999);
+          start.setDate(today.getDate() - 7);
+          // FIX: explicitly cap to end of today
+          end = new Date(endOfToday);
         }
-
-      // Monthly filter
       } else if (filter === 'monthly') {
         if (isPrevious) { 
           start = new Date(today.getFullYear(), today.getMonth() - 1, 1);
@@ -354,19 +336,34 @@ export default function SPCustomerInsight() {
           end.setHours(23, 59, 59, 999);
         } else { 
           start = new Date(today.getFullYear(), today.getMonth(), 1);
-          end = today;
+          // FIX: explicitly cap to end of today
+          end = new Date(endOfToday);
         }
-
-      // Yearly filter
       } else if (filter === 'yearly') {
-        let targetYear = selectedYear || today.getFullYear();
-        
-        if (isPrevious) {
-          targetYear = targetYear - 1;
+        if (selectedYear === null) {
+          // All Years: span from listing approval to today
+          const listingYear = listingApprovedDate
+            ? new Date(listingApprovedDate).getFullYear()
+            : today.getFullYear();
+          if (isPrevious) {
+            start = new Date(listingYear, 0, 1);
+            end = new Date(listingYear, 0, 1);
+          } else {
+            start = new Date(listingYear, 0, 1);
+            end = new Date(endOfToday);
+          }
+        } else {
+          const targetYear = selectedYear;
+          if (isPrevious) {
+            start = new Date(targetYear - 1, 0, 1);
+            end = new Date(targetYear - 1, 11, 31, 23, 59, 59, 999);
+          } else {
+            start = new Date(targetYear, 0, 1);
+            end = targetYear === today.getFullYear()
+              ? new Date(endOfToday)
+              : new Date(targetYear, 11, 31, 23, 59, 59, 999);
+          }
         }
-
-        start = new Date(targetYear, 0, 1);
-        end = new Date(targetYear, 11, 31, 23, 59, 59, 999);
       }
 
       return { start, end };
@@ -376,13 +373,12 @@ export default function SPCustomerInsight() {
     const previousRange = getRange(activeFilter, true);
     
     // ============================================
-    // EXACT SAME filterByRange FUNCTION FROM SPSALES
+    // FIX: filterByRange now uses parseLocalDate so booking_date strings
+    // are always compared in local time, matching what the user sees.
     // ============================================
     const filterByRange = (list, range) => {
       return list.filter(b => {
-        // Create date at midnight local time (not UTC)
-        const dateParts = b.booking_date.split('-');
-        const d = new Date(dateParts[0], dateParts[1] - 1, dateParts[2]);
+        const d = parseLocalDate(b.booking_date);
         return d >= range.start && d <= range.end;
       });
     };
@@ -391,7 +387,6 @@ export default function SPCustomerInsight() {
     const previousBookings = filterByRange(rawBookings, previousRange);
 
     const isBookingComplete = (b) => {
-      // A booking is complete if it's waiting for a review OR if it has already been rated
       return ['for review', 'rated'].includes(b.status);
     };
 
@@ -438,6 +433,13 @@ export default function SPCustomerInsight() {
     };
 
     const uniqueCustomers = new Set(current.validPets.map(p => p.user_id));
+
+    // ============================================
+    // FIX: Cancellation count uses currentBookings which is already filtered
+    // by the corrected filterByRange (local date parsing + capped to today).
+    // No more special-casing for custom filter — all filters are now consistent.
+    // ============================================
+    const cancellationCount = currentBookings.filter(b => b.status === 'cancelled').length;
 
     // --- CHART LOGIC 1: Most Booked Pet Size ---
     const sizeMap = {};
@@ -489,7 +491,7 @@ export default function SPCustomerInsight() {
       const hasHistory = rawBookings.some(b => 
         b.user_id === userId &&
         isBookingComplete(b) &&
-        new Date(b.booking_date) < currentRange.start &&
+        parseLocalDate(b.booking_date) < currentRange.start &&
         (petTypeFilter === 'both' ? true : b.booking_pets?.some(p => p.pet_type === petTypeFilter))
       );
 
@@ -575,7 +577,6 @@ export default function SPCustomerInsight() {
 
     const validReviews = rawReviews.filter(r => validBookingIdsForReviews.has(r.booking_id));
 
-    // Calculate Ratings
     let totalOverall = 0;
     let totalStaff = 0;
     const reviewCount = validReviews.length;
@@ -588,7 +589,6 @@ export default function SPCustomerInsight() {
     const avgOverall = reviewCount > 0 ? totalOverall / reviewCount : 0;
     const avgStaff = reviewCount > 0 ? totalStaff / reviewCount : 0;
 
-    // Process Recent Comments (Last 3)
     const recentReviews = validReviews
       .filter(r => r.comment && r.comment.trim() !== '')
       .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
@@ -621,7 +621,6 @@ export default function SPCustomerInsight() {
 
     // ========================================
     // PET TYPE BREAKDOWN FOR REPORT
-    // Calculate stats broken down by pet type
     // ========================================
     const calculatePetTypeBreakdown = () => {
       const breakdown = {
@@ -633,14 +632,11 @@ export default function SPCustomerInsight() {
         if (!isBookingComplete(booking)) return;
         
         const bookingRevenue = Number(booking.total_estimated_price) || 0;
-        
-        // Track which pet types are in this booking
         const petTypes = new Set();
         booking.booking_pets?.forEach(pet => {
           petTypes.add(pet.pet_type);
         });
 
-        // If booking has both pet types, split the revenue
         if (petTypes.has('Dog') && petTypes.has('Cat')) {
           const splitRevenue = bookingRevenue / 2;
           breakdown.Dog.revenue += splitRevenue;
@@ -679,9 +675,7 @@ export default function SPCustomerInsight() {
     return { 
       revenue: current.rev, 
       validCount: current.count, 
-      cancellations: activeFilter === 'custom' && customDateStart && customDateEnd && customDateEnd === new Date().toISOString().split('T')[0]
-      ? rawBookings.filter(b => b.status === 'cancelled').length
-      : currentBookings.filter(b => b.status === 'cancelled').length,
+      cancellations: cancellationCount,
       avg: uniqueCustomers.size > 0 ? Math.round(current.count / uniqueCustomers.size) : 0, 
       revTrend: getTrend(current.rev, previous.rev), 
       bookTrend: getTrend(current.count, previous.count),
@@ -693,7 +687,7 @@ export default function SPCustomerInsight() {
       dogBreedsData,
       petTypeBreakdown
     };
-  }, [rawBookings, rawReviews, providerServiceSizes, profilesMap, activeFilter, petTypeFilter, customDateStart, customDateEnd]);
+  }, [rawBookings, rawReviews, providerServiceSizes, profilesMap, activeFilter, petTypeFilter, customDateStart, customDateEnd, selectedYear]);
 
   const TrendIndicator = ({ trend }) => (
     <div className={`kpi-trend ${trend.dir === 'up' ? 'positive' : trend.dir === 'down' ? 'negative' : 'neutral'}`}>
@@ -711,7 +705,6 @@ export default function SPCustomerInsight() {
         <div className="sp-biz-container">
           
           <aside className="sp-biz-sidebar">
-            {/* Back to Dashboard Button */}
             <button 
               className="back-to-dashboard-btn"
               onClick={() => navigate('/service/dashboard')}
@@ -749,6 +742,33 @@ export default function SPCustomerInsight() {
                 <option value="yearly">Yearly</option>
                 <option value="custom">Custom Range</option>
               </select>
+
+              {/* Year selector for yearly filter */}
+              {activeFilter === 'yearly' && (
+                <div className="custom-date-range">
+                  <label className="date-label">Year:</label>
+                  <select
+                    className="filter-dropdown"
+                    value={selectedYear === null ? '' : selectedYear}
+                    onChange={(e) => setSelectedYear(e.target.value === '' ? null : Number(e.target.value))}
+                  >
+                    <option value="">All Years</option>
+                    {(() => {
+                      const startYear = listingApprovedDate
+                        ? new Date(listingApprovedDate).getFullYear()
+                        : new Date().getFullYear();
+                      const endYear = new Date().getFullYear();
+                      return Array.from(
+                        { length: endYear - startYear + 1 },
+                        (_, i) => endYear - i
+                      ).map(year => (
+                        <option key={year} value={year}>{year}</option>
+                      ));
+                    })()}
+                  </select>
+                </div>
+              )}
+
               {activeFilter === 'custom' && (
                 <div className="custom-date-range">
                   <label className="date-label">From:</label>
@@ -793,7 +813,6 @@ export default function SPCustomerInsight() {
                   ))}
                 </div>
 
-                {/* Comments Section */}
                 <div style={{ marginTop: '12px', borderTop: '1px solid #e2e8f0', paddingTop: '8px' }}>
                   <h4 style={{ fontSize: '0.65rem', color: '#64748b', marginBottom: '8px', textTransform: 'uppercase', fontWeight: 600 }}>Recent Comments</h4>
                   {analytics.customerReviewData.recentReviews.length === 0 ? (
@@ -821,13 +840,11 @@ export default function SPCustomerInsight() {
                     ))
                   )}
                 </div>
-
               </div>
             </div>
           </aside>
 
           <main className="sp-biz-main-content">
-            {/* Generate Report Button and As of Date */}
             <div className="report-button-container">
               <div className="as-of-date">
                 As of {new Date().toLocaleDateString('en-US', { 
@@ -1011,7 +1028,6 @@ export default function SPCustomerInsight() {
       {showReportModal && (
         <div className="report-modal-overlay" onClick={() => setShowReportModal(false)}>
           <div className="report-modal-content" onClick={(e) => e.stopPropagation()}>
-            {/* Modal Header */}
             <div className="report-modal-header">
               <div className="report-header-title">
                 <FaFileAlt size={20} />
@@ -1022,14 +1038,14 @@ export default function SPCustomerInsight() {
               </button>
             </div>
 
-            {/* Modal Body - This content will be captured for PDF */}
             <div className="report-modal-body" ref={reportRef}>
-              {/* Report Header Info */}
               <div className="report-info-section">
                 <div className="report-info-row">
                   <span className="report-label">Report Type:</span>
                   <span className="report-value">
-                    {activeFilter.charAt(0).toUpperCase() + activeFilter.slice(1)} Customer Insight Summary
+                    {activeFilter === 'yearly'
+                      ? `${selectedYear} Yearly Customer Insight Summary`
+                      : `${activeFilter.charAt(0).toUpperCase() + activeFilter.slice(1)} Customer Insight Summary`}
                   </span>
                 </div>
                 <div className="report-info-row">
@@ -1050,7 +1066,6 @@ export default function SPCustomerInsight() {
                 </div>
               </div>
 
-              {/* Executive Summary */}
               <div className="report-section">
                 <h3 className="report-section-title">Executive Summary</h3>
                 <div className="report-kpi-grid">
@@ -1095,7 +1110,6 @@ export default function SPCustomerInsight() {
                 </div>
               </div>
 
-              {/* Customer Demographics */}
               <div className="report-section">
                 <h3 className="report-section-title">Customer Demographics</h3>
                 <div className="report-insights">
@@ -1120,7 +1134,6 @@ export default function SPCustomerInsight() {
                 </div>
               </div>
 
-              {/* Top Customers */}
               {analytics.topRebookedCustomers.length > 0 && (
                 <div className="report-section">
                   <h3 className="report-section-title">Top Customers</h3>
@@ -1140,7 +1153,6 @@ export default function SPCustomerInsight() {
                 </div>
               )}
 
-              {/* Customer Reviews */}
               <div className="report-section">
                 <h3 className="report-section-title">Customer Reviews</h3>
                 <div className="pet-distribution">
@@ -1163,7 +1175,6 @@ export default function SPCustomerInsight() {
               </div>
             </div>
 
-            {/* Modal Footer */}
             <div className="report-modal-footer">
               <button 
                 className="btn-download-report" 

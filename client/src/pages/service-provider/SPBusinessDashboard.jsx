@@ -39,7 +39,7 @@ export default function SPBusinessDashboard() {
   const [providerHours, setProviderHours] = useState([]);
   const [listingVisitors, setListingVisitors] = useState(0);
   const [showReportModal, setShowReportModal] = useState(false);
-  const [selectedYear, setSelectedYear] = useState(savedFilters.selectedYear);
+  const [selectedYear, setSelectedYear] = useState(savedFilters.selectedYear || new Date().getFullYear());
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [listingApprovedDate, setListingApprovedDate] = useState(null);
 
@@ -77,7 +77,6 @@ export default function SPBusinessDashboard() {
         setListingVisitors(provider.click_count || 0);
 
         if (provider.created_at) {
-          // Splits "2024-01-15T14:30:00" into "2024-01-15"
           setListingApprovedDate(provider.created_at.split('T')[0]);
         }
 
@@ -159,7 +158,6 @@ export default function SPBusinessDashboard() {
         return;
       }
 
-      // Create a clone of the report content for printing
       const clone = element.cloneNode(true);
       clone.style.position = 'absolute';
       clone.style.left = '-9999px';
@@ -171,13 +169,9 @@ export default function SPBusinessDashboard() {
       clone.style.padding = '24px';
       clone.style.backgroundColor = '#ffffff';
       
-      // Append to body temporarily
       document.body.appendChild(clone);
-      
-      // Wait for rendering
       await new Promise(resolve => setTimeout(resolve, 500));
 
-      // Capture the cloned element
       const canvas = await html2canvas(clone, {
         scale: 2,
         useCORS: true,
@@ -187,73 +181,43 @@ export default function SPBusinessDashboard() {
         height: clone.scrollHeight
       });
 
-      // Remove the clone
       document.body.removeChild(clone);
 
-      console.log('Canvas captured:', { width: canvas.width, height: canvas.height });
-
       const imgData = canvas.toDataURL('image/png', 1.0);
-      
-      // Create PDF with proper dimensions
       const pdf = new jsPDF('p', 'mm', 'a4');
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = pdf.internal.pageSize.getHeight();
       
-      // Calculate image dimensions with margins
       const margin = 10;
       const imgWidth = pdfWidth - (2 * margin);
       const imgHeight = (canvas.height * imgWidth) / canvas.width;
-      
-      // Calculate how many pages we need
       const pageHeight = pdfHeight - (2 * margin);
       const totalPages = Math.ceil(imgHeight / pageHeight);
-      
-      console.log('PDF pages needed:', totalPages);
 
-      // Add content to PDF pages
       for (let page = 0; page < totalPages; page++) {
-        if (page > 0) {
-          pdf.addPage();
-        }
+        if (page > 0) pdf.addPage();
         
-        // Calculate the portion of the image for this page
         const sourceY = page * (pageHeight * canvas.width / imgWidth);
-        const sourceHeight = Math.min(
-          pageHeight * canvas.width / imgWidth,
-          canvas.height - sourceY
-        );
+        const sourceHeight = Math.min(pageHeight * canvas.width / imgWidth, canvas.height - sourceY);
         
-        // Only add if there's content to add
         if (sourceHeight > 0) {
-          // Create a temporary canvas for this page slice
           const pageCanvas = document.createElement('canvas');
           pageCanvas.width = canvas.width;
           pageCanvas.height = sourceHeight;
           const pageCtx = pageCanvas.getContext('2d');
           
-          // Draw the slice of the full canvas onto the page canvas
           pageCtx.fillStyle = '#ffffff';
           pageCtx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
-          pageCtx.drawImage(
-            canvas,
-            0, sourceY, canvas.width, sourceHeight,
-            0, 0, canvas.width, sourceHeight
-          );
+          pageCtx.drawImage(canvas, 0, sourceY, canvas.width, sourceHeight, 0, 0, canvas.width, sourceHeight);
           
           const pageImgData = pageCanvas.toDataURL('image/png', 1.0);
           const pageImgHeight = (sourceHeight * imgWidth) / canvas.width;
-          
           pdf.addImage(pageImgData, 'PNG', margin, margin, imgWidth, pageImgHeight, '', 'FAST');
         }
       }
 
-      // Generate filename with current date
       const fileName = `Business_Report_${new Date().toISOString().split('T')[0]}.pdf`;
-      
-      // Save the PDF
       pdf.save(fileName);
-      
-      console.log('PDF generated successfully');
       
     } catch (error) {
       console.error('Error generating PDF:', error);
@@ -268,9 +232,29 @@ export default function SPBusinessDashboard() {
   // ============================================
   const analytics = useMemo(() => {
     const now = new Date();
-    
-    // === HELPER 1: Force UTC Date Formatting ===
-    // This guarantees '2025-12-20' becomes 'Dec 20' regardless of your timezone
+
+    // ============================================
+    // FIX: Parse booking_date as LOCAL midnight, not UTC.
+    // new Date('2025-02-17') parses as UTC midnight which shifts the date
+    // in timezones offset from UTC. Splitting into parts and constructing
+    // with new Date(y, m-1, d) always uses local midnight.
+    // This single helper replaces ALL instances of new Date(booking_date_string)
+    // throughout this file.
+    // ============================================
+    const parseLocalDate = (dateStr) => {
+      const [year, month, day] = dateStr.split('-').map(Number);
+      return new Date(year, month - 1, day);
+    };
+
+    // ============================================
+    // FIX: Cap the end of all non-custom ranges to end-of-today.
+    // Without this, future-dated bookings leak into the current range,
+    // causing inconsistent counts across weekly/monthly/yearly filters.
+    // ============================================
+    const endOfToday = new Date();
+    endOfToday.setHours(23, 59, 59, 999);
+
+    // Helper to format a local date as "Mon D" label (used for custom range labels)
     const formatLabel = (dateInput) => {
       const d = new Date(dateInput);
       return d.toLocaleDateString('en-US', { 
@@ -286,9 +270,9 @@ export default function SPBusinessDashboard() {
 
       // Custom filter
       if (filter === 'custom' && customDateStart && customDateEnd) {
-        const start = new Date(customDateStart);
-        const end = new Date(customDateEnd);
-        end.setHours(23, 59, 59, 999); // Force end of day
+        const start = parseLocalDate(customDateStart);
+        const end = parseLocalDate(customDateEnd);
+        end.setHours(23, 59, 59, 999);
         
         if (isPrevious) {
           const duration = end - start;
@@ -311,9 +295,9 @@ export default function SPBusinessDashboard() {
           end.setDate(today.getDate() - 7); 
           end.setHours(23, 59, 59, 999);
         } else { 
-          start.setDate(today.getDate() - 7); 
-          end = new Date(today);
-          end.setHours(23, 59, 59, 999);
+          start.setDate(today.getDate() - 7);
+          // FIX: explicitly cap to end of today
+          end = new Date(endOfToday);
         }
 
       // Monthly filter
@@ -326,19 +310,35 @@ export default function SPBusinessDashboard() {
           end.setHours(23, 59, 59, 999);
         } else { 
           start = new Date(today.getFullYear(), today.getMonth(), 1);
-          end = today;
+          end = new Date(endOfToday);
         }
 
       // Yearly filter
       } else if (filter === 'yearly') {
-        let targetYear = selectedYear || today.getFullYear();
-        
-        if (isPrevious) {
-          targetYear = targetYear - 1;
+        if (selectedYear === null) {
+          // All Years: span from listing approval to today
+          const listingYear = listingApprovedDate
+            ? new Date(listingApprovedDate).getFullYear()
+            : today.getFullYear();
+          if (isPrevious) {
+            start = new Date(listingYear, 0, 1);
+            end = new Date(listingYear, 0, 1);
+          } else {
+            start = new Date(listingYear, 0, 1);
+            end = new Date(endOfToday);
+          }
+        } else {
+          const targetYear = selectedYear;
+          if (isPrevious) {
+            start = new Date(targetYear - 1, 0, 1);
+            end = new Date(targetYear - 1, 11, 31, 23, 59, 59, 999);
+          } else {
+            start = new Date(targetYear, 0, 1);
+            end = targetYear === today.getFullYear()
+              ? new Date(endOfToday)
+              : new Date(targetYear, 11, 31, 23, 59, 59, 999);
+          }
         }
-
-        start = new Date(targetYear, 0, 1);
-        end = new Date(targetYear, 11, 31, 23, 59, 59, 999);
       }
 
       return { start, end };
@@ -349,7 +349,7 @@ export default function SPBusinessDashboard() {
     
     // Format the date range text
     const rangeText = activeFilter === 'custom' && customDateStart && customDateEnd
-      ? `${new Date(customDateStart).toLocaleDateString(undefined, { month: 'short', day: '2-digit', year: 'numeric' })} - ${new Date(customDateEnd).toLocaleDateString(undefined, { month: 'short', day: '2-digit', year: 'numeric' })}`
+      ? `${parseLocalDate(customDateStart).toLocaleDateString(undefined, { month: 'short', day: '2-digit', year: 'numeric' })} - ${parseLocalDate(customDateEnd).toLocaleDateString(undefined, { month: 'short', day: '2-digit', year: 'numeric' })}`
       : `${currentRange.start.toLocaleDateString(undefined, { month: 'short', day: '2-digit', year: 'numeric' })} - ${now.toLocaleDateString(undefined, { month: 'short', day: '2-digit', year: 'numeric' })}`;
 
     const convertTo24Hour = (timeStr) => {
@@ -365,15 +365,17 @@ export default function SPBusinessDashboard() {
     };
 
     const isBookingComplete = (b) => {
-      // A booking is complete if it's waiting for a review OR if it has already been rated
       return ['for review', 'rated'].includes(b.status);
     };
 
-    // Filter logic
+    // ============================================
+    // FIX: filterByRange now uses parseLocalDate so booking_date strings
+    // are always compared in local time, not UTC.
+    // ============================================
     const filterByRange = (list, range) => {
       return list.filter(b => {
-        const d = new Date(b.booking_date);
-        return d >= range.start && d <= (range.end || now);
+        const d = parseLocalDate(b.booking_date);
+        return d >= range.start && d <= range.end;
       });
     };
 
@@ -421,79 +423,67 @@ export default function SPBusinessDashboard() {
       return { val: Math.abs(Math.round(diff)), dir: diff > 0 ? 'up' : diff < 0 ? 'down' : 'neutral' };
     };
 
+    const cancellationCount = currentBookings.filter(b => b.status === 'cancelled').length;
+
     // ============================================
     // CHART DATA GENERATION - LABELS
     // ============================================
     let dateLabels = [];
     
-    // === YEARLY VIEW ===
     if (activeFilter === 'yearly') {
-      if (selectedYear) {
-        dateLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].map(m => `${m} ${selectedYear}`);
-      } else {
+      if (selectedYear === null) {
+        // All Years: one label per year from listing approval to now
         const currentYear = new Date().getFullYear();
-        const years = [];
-        // Use listing approval date to determine start year, default to 2020 if not available
-        const startYear = listingApprovedDate 
-          ? new Date(listingApprovedDate).getFullYear() 
-          : 2020;
-        for (let y = startYear; y <= currentYear; y++) years.push(y.toString());
-        dateLabels = years;
+        const startYear = listingApprovedDate
+          ? new Date(listingApprovedDate).getFullYear()
+          : currentYear;
+        for (let y = startYear; y <= currentYear; y++) dateLabels.push(y.toString());
+      } else {
+        dateLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].map(m => `${m} ${selectedYear}`);
       }
-    } 
-    // === MONTHLY VIEW ===
-    else if (activeFilter === 'monthly') {
+    } else if (activeFilter === 'monthly') {
       const monthName = currentRange.start.toLocaleString('default', { month: 'short' });
       const lastDay = new Date(currentRange.start.getFullYear(), currentRange.start.getMonth() + 1, 0).getDate();
       dateLabels = [`${monthName} 1 - 7`, `${monthName} 8 - 14`, `${monthName} 15 - 21`, `${monthName} 22 - ${lastDay}`];
-    } 
-    // === CUSTOM RANGE VIEW (FIXED) ===
-    else if (activeFilter === 'custom' && currentRange.start && currentRange.end) {
-      // Generate strict daily labels using UTC loop
-      const tempDate = new Date(customDateStart); // This is UTC midnight
+    } else if (activeFilter === 'custom' && currentRange.start && currentRange.end) {
+      const tempDate = new Date(customDateStart);
       const endDate = new Date(customDateEnd);
-      
       while (tempDate <= endDate) {
-        // formatLabel uses UTC, so it won't shift
         dateLabels.push(formatLabel(tempDate)); 
-        tempDate.setUTCDate(tempDate.getUTCDate() + 1); // Add exactly 24h
+        tempDate.setUTCDate(tempDate.getUTCDate() + 1);
       }
-    } 
-    // === WEEKLY VIEW ===
-    else {
+    } else {
       dateLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     }
 
     // ============================================
     // CHART DATA GENERATION - VALUES MAPPING
+    // FIX: All new Date(pet.booking_date) calls replaced with parseLocalDate()
     // ============================================
     let dateValuesDog = new Array(dateLabels.length).fill(0);
     let dateValuesCat = new Array(dateLabels.length).fill(0);
     
-    // FIX: Use ALL valid pets when in yearly view without drill-down
-    const petsToProcess = (activeFilter === 'yearly' && !selectedYear) 
+    const petsToProcess = (activeFilter === 'yearly' && selectedYear === null) 
       ? getValidPets(rawBookings.filter(b => isBookingComplete(b)))
       : current.validPets;
     
     petsToProcess.forEach(pet => {
       let idx = -1;
+      const bDate = parseLocalDate(pet.booking_date);
       
-      if (activeFilter === 'yearly' && !selectedYear) {
-        const petYear = new Date(pet.booking_date).getFullYear();
-        idx = dateLabels.indexOf(petYear.toString());
-      } else if (activeFilter === 'yearly' && selectedYear) {
-        const bDate = new Date(pet.booking_date);
+      if (activeFilter === 'yearly' && selectedYear === null) {
+        idx = dateLabels.indexOf(bDate.getFullYear().toString());
+      } else if (activeFilter === 'yearly' && selectedYear !== null) {
         if (bDate.getFullYear() === selectedYear) idx = bDate.getMonth();
       } else if (activeFilter === 'monthly') {
-        const day = new Date(pet.booking_date).getDate();
+        const day = bDate.getDate();
         idx = day <= 7 ? 0 : day <= 14 ? 1 : day <= 21 ? 2 : 3;
       } else if (activeFilter === 'custom') {
-        // === FIX: MATCH USING STRICT UTC FORMATTER ===
-        // This ensures the booking date string matches exactly one of the generated labels
         const label = formatLabel(pet.booking_date);
         idx = dateLabels.indexOf(label);
       } else {
-        idx = (new Date(pet.booking_date).getDay() + 6) % 7;
+        // FIX: use bDate (local) instead of new Date(pet.booking_date) (UTC)
+        idx = (bDate.getDay() + 6) % 7;
       }
       
       if (idx !== -1 && dateValuesDog[idx] !== undefined) {
@@ -504,14 +494,15 @@ export default function SPBusinessDashboard() {
 
     // ============================================
     // CHART DATA GENERATION - PEAK DAYS
+    // FIX: use parseLocalDate instead of new Date() for day-of-week extraction
     // ============================================
     const peakDaysLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     let peakDaysValuesDog = new Array(7).fill(0);
     let peakDaysValuesCat = new Array(7).fill(0);
     
-    // Use the same pets set as the main chart for consistency
     petsToProcess.forEach(pet => {
-      const dayIdx = (new Date(pet.booking_date).getDay() + 6) % 7;
+      // FIX: parseLocalDate ensures correct local day-of-week
+      const dayIdx = (parseLocalDate(pet.booking_date).getDay() + 6) % 7;
       if (pet.pet_type === 'Dog') peakDaysValuesDog[dayIdx]++;
       else if (pet.pet_type === 'Cat') peakDaysValuesCat[dayIdx]++;
     });
@@ -548,7 +539,6 @@ export default function SPBusinessDashboard() {
       
       const vDog = new Array(labels.length).fill(0);
       const vCat = new Array(labels.length).fill(0);
-      // Use the same pets set as the main chart for consistency
       petsToProcess.forEach(pet => {
         const f = formatCleanTime(pet.time_slot);
         const idx = labels.indexOf(f);
@@ -564,20 +554,21 @@ export default function SPBusinessDashboard() {
 
     // ============================================
     // CHART DATA GENERATION - BOOKED SERVICES
+    // FIX: use parseLocalDate instead of new Date() for inRange check
     // ============================================
     const filteredServices = serviceStats.filter(s => {
       const b = s.booking_pets?.bookings;
       if (!b) return false;
       const isComplete = isBookingComplete(b);
       
-      // FIX: For yearly view without drill-down, show ALL years of data
-      if (activeFilter === 'yearly' && !selectedYear) {
+      if (activeFilter === 'yearly' && selectedYear === null) {
         const matchesPet = petTypeFilter === 'both' || s.booking_pets?.pet_type === petTypeFilter;
         return isComplete && matchesPet;
       }
       
-      // For other views, use the current range
-      const inRange = new Date(b.booking_date) >= currentRange.start && new Date(b.booking_date) <= (currentRange.end || now);
+      // FIX: parseLocalDate for correct local date comparison
+      const bDate = parseLocalDate(b.booking_date);
+      const inRange = bDate >= currentRange.start && bDate <= currentRange.end;
       const matchesPet = petTypeFilter === 'both' || s.booking_pets?.pet_type === petTypeFilter;
       return isComplete && inRange && matchesPet;
     });
@@ -643,10 +634,7 @@ export default function SPBusinessDashboard() {
     return { 
       revenue: current.rev, 
       validCount: current.count, 
-      cancellations: activeFilter === 'custom' && customDateStart && customDateEnd && customDateEnd === new Date().toISOString().split('T')[0]
-      ? rawBookings.filter(b => b.status === 'cancelled').length
-      : currentBookings.filter(b => b.status === 'cancelled').length,
-
+      cancellations: cancellationCount,
       avg: new Set(current.validPets.map(p => p.user_id)).size > 0 
         ? Math.round(current.count / new Set(current.validPets.map(p => p.user_id)).size) 
         : 0, 
@@ -715,35 +703,12 @@ export default function SPBusinessDashboard() {
     }
   };
 
-  // Chart options for Average Bookings with drill-down
   const getAverageBookingsChartOptions = () => {
     const baseOptions = petTypeFilter === 'both' ? { ...groupedChartOptions } : { ...commonChartOptions };
-    
-    // Add onClick handler ONLY for yearly view (not drilled down into months)
-    if (activeFilter === 'yearly' && !selectedYear) {
-      baseOptions.onClick = (event, elements) => {
-        if (elements.length > 0) {
-          const clickedIndex = elements[0].index;
-          // Calculate clicked year based on start year from listing approval date
-          const startYear = listingApprovedDate 
-            ? new Date(listingApprovedDate).getFullYear() 
-            : 2020;
-          const clickedYear = startYear + clickedIndex;
-          setSelectedYear(clickedYear);
-        }
-      };
-      // Make cursor pointer to indicate clickability
-      baseOptions.onHover = (event, chartElement) => {
-        event.native.target.style.cursor = chartElement.length > 0 ? 'pointer' : 'default';
-      };
-    } else {
-      // Remove click handler for monthly drill-down view and other filters
-      baseOptions.onClick = null;
-      baseOptions.onHover = (event) => {
-        event.native.target.style.cursor = 'default';
-      };
-    }
-    
+    baseOptions.onClick = null;
+    baseOptions.onHover = (event) => {
+      event.native.target.style.cursor = 'default';
+    };
     return baseOptions;
   };
 
@@ -760,17 +725,16 @@ export default function SPBusinessDashboard() {
   // CHART DATA FUNCTIONS
   // ============================================
   const getAverageBookingsChartData = () => {
-    // Determine bar thickness based on view
     let barThickness;
-    if (activeFilter === 'yearly' && !selectedYear) {
-      barThickness = 20; // Thicker bars for year view
-    } else if (activeFilter === 'yearly' && selectedYear) {
-      barThickness = 8; // Thinner bars for month view
+    if (activeFilter === 'yearly' && selectedYear === null) {
+      barThickness = 20;
+    } else if (activeFilter === 'yearly' && selectedYear !== null) {
+      barThickness = 8;
     } else if (activeFilter === 'monthly') {
       barThickness = 25;
     } else if (activeFilter === 'custom') {
       barThickness = 30;
-    }else {
+    } else {
       barThickness = 35;
     }
     
@@ -851,10 +815,6 @@ export default function SPBusinessDashboard() {
   // ============================================
   if (loading) return <div className="loading-state">Loading Dashboard...</div>;
 
-  // ============================================
-  // MAIN RENDER
-  // ============================================
-  
   return (
     <div className="sp-biz-page-wrapper">
       <LoggedInNavbar />
@@ -865,7 +825,6 @@ export default function SPBusinessDashboard() {
           {/* SIDEBAR - Filters and Doughnut Chart */}
           {/* ============================================ */}
           <aside className="sp-biz-sidebar">
-            {/* Back to Dashboard Button */}
             <button 
               className="back-to-dashboard-btn"
               onClick={() => navigate('/service/dashboard')}
@@ -874,7 +833,6 @@ export default function SPBusinessDashboard() {
               <FaArrowLeft size={18} />
             </button>
 
-            {/* Tab Navigation */}
             <div className="sidebar-tabs-group">
               <button 
                 className={`sidebar-tab-btn ${activeTab === 'sales' ? 'active' : ''}`} 
@@ -896,20 +854,44 @@ export default function SPBusinessDashboard() {
               </button>
             </div>
             
-            {/* Timeframe Filter */}
             <div className="sidebar-section">
               <h3>Timeframe</h3>
               <select className="filter-dropdown" value={activeFilter} onChange={(e) => {
                 setActiveFilter(e.target.value);
-                setSelectedYear(null); // Reset year selection when changing filter
+                setSelectedYear(new Date().getFullYear()); // Reset to current year when changing filter
               }}>
                 <option value="weekly">Weekly</option>
                 <option value="monthly">Monthly</option>
                 <option value="yearly">Yearly</option>
                 <option value="custom">Custom Range</option>
               </select>
+
+              {/* Year selector for yearly filter */}
+              {activeFilter === 'yearly' && (
+                <div className="custom-date-range">
+                  <label className="date-label">Year:</label>
+                  <select
+                    className="filter-dropdown"
+                    value={selectedYear === null ? '' : selectedYear}
+                    onChange={(e) => setSelectedYear(e.target.value === '' ? null : Number(e.target.value))}
+                  >
+                    <option value="">All Years</option>
+                    {(() => {
+                      const startYear = listingApprovedDate
+                        ? new Date(listingApprovedDate).getFullYear()
+                        : new Date().getFullYear();
+                      const endYear = new Date().getFullYear();
+                      return Array.from(
+                        { length: endYear - startYear + 1 },
+                        (_, i) => endYear - i
+                      ).map(year => (
+                        <option key={year} value={year}>{year}</option>
+                      ));
+                    })()}
+                  </select>
+                </div>
+              )}
               
-              {/* Custom Date Range Inputs */}
               {activeFilter === 'custom' && (
                 <div className="custom-date-range">
                   <label className="date-label">From:</label>
@@ -934,7 +916,6 @@ export default function SPBusinessDashboard() {
               )}
             </div>
 
-            {/* Pet Type Filter */}
             <div className="sidebar-section">
               <h3>Pet Type</h3>
               <select className="filter-dropdown" value={petTypeFilter} onChange={(e) => setPetTypeFilter(e.target.value)}>
@@ -944,7 +925,6 @@ export default function SPBusinessDashboard() {
               </select>
             </div>
             
-            {/* Booked Services Doughnut Chart */}
             <div className="sidebar-section doughnut-card">
               <h4 className="chart-title-sm">Booked Services</h4>
               <div className="doughnut-container">
@@ -980,7 +960,6 @@ export default function SPBusinessDashboard() {
           {/* MAIN CONTENT - KPIs and Charts */}
           {/* ============================================ */}
           <main className="sp-biz-main-content">
-            {/* Generate Report Button and As of Date */}
             <div className="report-button-container">
               <div className="as-of-date">
                 As of {new Date().toLocaleDateString('en-US', { 
@@ -995,9 +974,7 @@ export default function SPBusinessDashboard() {
               </button>
             </div>
 
-            {/* KPI Cards Grid */}
             <div className="sp-biz-kpi-grid">
-              {/* Gross Revenue KPI */}
               <div className="kpi-card">
                 <span className="kpi-label">Gross Revenue</span>
                 <div className="kpi-row">
@@ -1010,7 +987,6 @@ export default function SPBusinessDashboard() {
                 </div>
               </div>
               
-              {/* Total Bookings KPI */}
               <div className="kpi-card">
                 <span className="kpi-label">Total Completed Bookings</span>
                 <div className="kpi-row">
@@ -1019,45 +995,25 @@ export default function SPBusinessDashboard() {
                 </div>
               </div>
               
-              {/* Listing Visitors KPI */}
               <div className="kpi-card">
                 <span className="kpi-label">Listing Visitors</span>
                 <span className="kpi-value">{listingVisitors.toLocaleString()}</span>
               </div>
               
-              {/* Average per Customer KPI */}
               <div className="kpi-card">
                 <span className="kpi-label">Avg/Customer</span>
                 <span className="kpi-value">{analytics.avg}</span>
               </div>
               
-              {/* Cancellations KPI */}
               <div className="kpi-card">
                 <span className="kpi-label">Cancellations</span>
                 <span className="kpi-value">{analytics.cancellations.toString().padStart(2, '0')}</span>
               </div>
             </div>
 
-            {/* Average Bookings Chart (Main Chart) */}
             <div className="chart-box main-chart">
               <div className="chart-header">
-                {/* Find this section in your JSX */}
                 <div className="chart-title-wrapper">
-                  {activeFilter === 'yearly' && selectedYear && (
-                    /* WRAP THE BUTTON IN THIS NEW DIV */
-                    <div style={{ display: 'inline-block', marginRight: '15px', position: 'relative' }}>
-                      <button 
-                        className="back-to-years-btn" 
-                        onClick={() => setSelectedYear(null)}
-                        title="Back to years view"
-                        // Ensure the button itself doesn't have spacing, the wrapper handles it
-                        style={{ margin: 0 }} 
-                      >
-                        <FaArrowLeft size={12} />
-                      </button>
-                    </div>
-                  )}
-                  
                   <h3 className="chart-title">
                     Average Bookings ({activeFilter === 'yearly' && selectedYear ? selectedYear : activeFilter})
                   </h3>
@@ -1065,13 +1021,12 @@ export default function SPBusinessDashboard() {
                 <span className="date-range">{analytics.rangeText}</span>
               </div>
 
-              {/* SCROLLABLE CONTAINER */}
               <div 
                 className="chart-scroll-wrapper" 
                 style={{ 
-                  overflowX: 'auto',       // Enable horizontal scrolling
-                  overflowY: 'hidden',     // Hide vertical scrollbar
-                  width: '100%',           // Wrapper fits the card
+                  overflowX: 'auto',
+                  overflowY: 'hidden',
+                  width: '100%',
                   display: 'block'
                 }}
               >
@@ -1080,8 +1035,6 @@ export default function SPBusinessDashboard() {
                   style={{ 
                     height: '300px',
                     position: 'relative',
-                    // FIX: Use 'px' instead of '%' and ensure it takes at least 100% of the view
-                    // 60px per bar is enough space. If total < screen width, '100%' takes over.
                     minWidth: activeFilter === 'custom' 
                       ? `${analytics.dateLabels.length * 60}px` 
                       : '100%'
@@ -1096,7 +1049,6 @@ export default function SPBusinessDashboard() {
                       responsive: true,
                       layout: {
                         padding: {
-                          // Add right padding so the last date label isn't cut off
                           right: activeFilter === 'custom' ? 20 : 0
                         }
                       }
@@ -1106,9 +1058,7 @@ export default function SPBusinessDashboard() {
               </div>
             </div>
             
-            {/* Bottom Charts Grid */}
             <div className="sp-biz-bottom-grid">
-              {/* Peak Days Chart (Static - always shows days of week) */}
               <div className="chart-box">
                 <h4 className="chart-title-sm">Peak Days</h4>
                 <div className="chart-container-small">
@@ -1119,7 +1069,6 @@ export default function SPBusinessDashboard() {
                 </div>
               </div>
               
-              {/* Booked Hours Chart */}
               <div className="chart-box">
                 <h4 className="chart-title-sm">Booked Hours</h4>
                 <div className="chart-container-small">
@@ -1141,7 +1090,6 @@ export default function SPBusinessDashboard() {
       {showReportModal && (
         <div className="report-modal-overlay" onClick={() => setShowReportModal(false)}>
           <div className="report-modal-content" onClick={(e) => e.stopPropagation()}>
-            {/* Modal Header */}
             <div className="report-modal-header">
               <div className="report-header-title">
                 <FaFileAlt size={20} />
@@ -1152,9 +1100,7 @@ export default function SPBusinessDashboard() {
               </button>
             </div>
 
-            {/* Modal Body - This content will be captured for PDF */}
             <div className="report-modal-body" ref={reportRef}>
-              {/* Report Header Info */}
               <div className="report-info-section">
                 <div className="report-info-row">
                   <span className="report-label">Report Period:</span>
@@ -1163,7 +1109,9 @@ export default function SPBusinessDashboard() {
                 <div className="report-info-row">
                   <span className="report-label">Report Type:</span>
                   <span className="report-value">
-                    {activeFilter.charAt(0).toUpperCase() + activeFilter.slice(1)} Summary
+                    {activeFilter === 'yearly'
+                      ? `${selectedYear} Yearly Summary`
+                      : `${activeFilter.charAt(0).toUpperCase() + activeFilter.slice(1)} Summary`}
                   </span>
                 </div>
                 <div className="report-info-row">
@@ -1184,7 +1132,6 @@ export default function SPBusinessDashboard() {
                 </div>
               </div>
 
-              {/* Executive Summary */}
               <div className="report-section">
                 <h3 className="report-section-title">Executive Summary</h3>
                 <div className="report-kpi-grid">
@@ -1229,7 +1176,6 @@ export default function SPBusinessDashboard() {
                 </div>
               </div>
 
-              {/* Performance Analysis */}
               <div className="report-section">
                 <h3 className="report-section-title">Performance Analysis</h3>
                 <div className="report-insights">
@@ -1271,7 +1217,6 @@ export default function SPBusinessDashboard() {
                 </div>
               </div>
 
-              {/* Service Breakdown */}
               {analytics.sLabels.length > 0 && (
                 <div className="report-section">
                   <h3 className="report-section-title">Top Services</h3>
@@ -1296,7 +1241,6 @@ export default function SPBusinessDashboard() {
                 </div>
               )}
 
-              {/* Pet Type Distribution (only show when "both" is selected) - Keep this for simple counts */}
               {petTypeFilter === 'both' && (
                 <div className="report-section">
                   <h3 className="report-section-title">Booking Volume by Pet Type</h3>
@@ -1318,7 +1262,6 @@ export default function SPBusinessDashboard() {
               )}
             </div>
 
-            {/* Modal Footer */}
             <div className="report-modal-footer">
               <button 
                 className="btn-download-report" 
