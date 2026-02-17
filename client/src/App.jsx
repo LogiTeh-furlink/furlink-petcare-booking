@@ -42,6 +42,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import SuspensionGuard from "./components/SuspensionGuard"; 
 import RequireNewApplicant from "./components/RequireNewApplicant";
 import RequireProviderApplication from "./components/RequireProviderApplication";
+import PageNotFoundRedirect from "./components/PageNotFoundRedirect"; // <--- ADD THIS
 
 
 function App() {
@@ -110,7 +111,7 @@ function App() {
 
           </Route> {/* End SuspensionGuard */}
         </Route> {/* End ProtectedRoute */}
-
+         <Route path="*" element={<PageNotFoundRedirect />} /> 
       </Routes>
     </Router>
   );
