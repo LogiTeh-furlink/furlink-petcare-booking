@@ -69,7 +69,6 @@ export default function AdminViewBooking() {
       setUserProfile(profileData);
 
       // 2. Fetch Notification History (Warnings + Suspensions)
-      // We need both to calculate the "Active" count (resets after suspension)
       const { data: notifData, error: notifError } = await supabase
         .from('notifications')
         .select('id, title, message, created_at, read') 
@@ -164,7 +163,6 @@ export default function AdminViewBooking() {
       setWarningMessage(""); 
       
       // 3. Trigger Modal Logic based on NEW count estimate
-      // Since fetchUserData updates state async, we estimate the new count here for immediate UI feedback
       const newCount = warningCount + 1; 
 
       if (newCount >= 3) {
@@ -204,7 +202,6 @@ export default function AdminViewBooking() {
         if (profileError) throw profileError;
 
         // 2. Insert 'Account Suspended' Notification 
-        // (This insertion effectively resets the active warning count logic)
         await supabase.from('notifications').insert({
             user_id: id,
             title: 'Account Suspended',
@@ -295,6 +292,14 @@ export default function AdminViewBooking() {
             {/* 1. Personal Information Card */}
             <section className="provider-card">
               <h2><FaUser /> Personal Information</h2>
+              <div className="info-item">
+                <strong>Role:</strong> 
+                <span style={{textTransform: 'capitalize'}}>
+                    {userProfile?.role === 'both' 
+                      ? "Pet Owner and Service Provider" 
+                      : (userProfile?.role ? userProfile.role.replace(/_/g, " ") : "N/A")}
+                </span>
+              </div>
               <div className="info-item">
                 <strong>Email:</strong> {userProfile?.email || "N/A"}
               </div>

@@ -468,6 +468,13 @@ return (
                 >
                   Service Provider
                 </button>
+                {/* NEW BOTH BUTTON */}
+                <button 
+                  className={`filter-btn ${userRoleFilter === 'both' ? 'active' : ''}`} 
+                  onClick={() => setUserRoleFilter('both')}
+                >
+                  Both
+                </button>
               </div>
             )}
 
