@@ -2,9 +2,9 @@
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
 
 :root {
-    --brand-blue: #0E2679;
-    --text-main: #1e293b;
-    --border-color: #e2e8f0;
+  --brand-blue: #0E2679;
+  --text-main: #1e293b;
+  --border-color: #e2e8f0;
 }
 
 .dashboard-page {
@@ -356,4 +356,117 @@
 @keyframes alertPop {
     from { transform: scale(0.9); opacity: 0; }
     to { transform: scale(1); opacity: 1; }
+}
+
+/* ⭐ NEW WARNING MODAL STYLES (Added) */
+.warning-popup-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(15, 23, 42, 0.85); /* Slightly darker */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 11000; /* Higher than suspension modal */
+  backdrop-filter: blur(4px);
+}
+
+.warning-popup-content {
+  background: white;
+  width: 90%;
+  max-width: 480px;
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  animation: slideUpFade 0.35s ease-out;
+}
+
+@keyframes slideUpFade {
+  from { transform: translateY(30px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.warning-popup-header {
+  padding: 30px 25px 15px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 15px;
+}
+
+.warning-icon-wrapper {
+  background-color: #fee2e2;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.warning-popup-header h2 {
+  color: #b91c1c;
+  margin: 0;
+  font-size: 1.4rem;
+  font-weight: 700;
+}
+
+.warning-popup-body {
+  padding: 10px 30px 20px;
+  text-align: center;
+}
+
+.warning-meta {
+  font-size: 0.8rem;
+  color: #94a3b8;
+  margin-bottom: 15px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.warning-message-box {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  padding: 20px;
+  border-radius: 12px;
+  color: #7f1d1d;
+  font-style: italic;
+  line-height: 1.6;
+  margin-bottom: 20px;
+  font-size: 0.95rem;
+}
+
+.warning-footer-text {
+  font-size: 0.85rem;
+  color: #64748b;
+  line-height: 1.5;
+}
+
+.warning-popup-footer {
+  padding: 0 30px 30px;
+}
+
+.btn-acknowledge {
+  width: 100%;
+  background: #0E2679;
+  color: white;
+  border: none;
+  padding: 14px;
+  border-radius: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-size: 0.95rem;
+}
+
+.btn-acknowledge:hover {
+  background: #fbbf24;
+  color: #0E2679;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(14, 38, 121, 0.2);
 }

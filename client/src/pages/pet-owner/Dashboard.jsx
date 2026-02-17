@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo, useRef} from "react";
 import { supabase } from "../../config/supabase";
-import { Store, Filter, Star, MapPin, Tag, X, Ban, Info } from "lucide-react"; 
+import { Store, Filter, Star, MapPin, Tag, X, Ban, Info, AlertTriangle, CheckCircle } from "lucide-react"; 
 import { useNavigate } from "react-router-dom"; 
 import Header from "../../components/Header/LoggedInNavbar";
 import Footer from "../../components/Footer/Footer";
@@ -21,6 +21,10 @@ const Dashboard = () => {
   const [isSuspended, setIsSuspended] = useState(false);
   const [suspensionDate, setSuspensionDate] = useState(null);
   const [showSuspendedModal, setShowSuspendedModal] = useState(false);
+
+  // ⭐ WARNING INTERCEPTOR STATES
+  const [showWarningModal, setShowWarningModal] = useState(false);
+  const [activeWarning, setActiveWarning] = useState(null);
 
   const [filters, setFilters] = useState({
     city: "All",
@@ -57,7 +61,7 @@ const Dashboard = () => {
     });
   }, [providers, filters]);
 
-  // 4. Data Loading Logic
+  // 4. Data Loading Logic & Warning Check
   useEffect(() => {
     const loadData = async () => {
       setLoading(true);
@@ -65,9 +69,10 @@ const Dashboard = () => {
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
           setCurrentUser(user);
+          
+          // A. Fetch Profile
           const { data: prof } = await supabase
             .from("profiles")
-            // ⭐ Updated to fetch 'role' for the modal logic
             .select("first_name, display_name, suspension_end_date, role") 
             .eq("id", user.id)
             .single();
@@ -82,8 +87,25 @@ const Dashboard = () => {
                 }
             }
           }
+
+          // B. Check for Unread Admin Warnings
+          const { data: warningData } = await supabase
+            .from('notifications')
+            .select('*')
+            .eq('user_id', user.id)
+            .eq('title', 'Admin Warning')
+            .eq('read', false)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .single();
+
+          if (warningData) {
+            setActiveWarning(warningData);
+            setShowWarningModal(true);
+          }
         }
 
+        // C. Fetch Providers
         const { data, error } = await supabase
           .from("service_providers")
           .select(`id, business_name, city, user_id, provider_rating_analytics(total_combined_avg)`) 
@@ -143,6 +165,24 @@ const Dashboard = () => {
       console.error("Click handler error:", err);
     } finally {
       navigate(`/listing/${providerId}`);
+    }
+  };
+
+  // ⭐ ACKNOWLEDGE WARNING HANDLER
+  const acknowledgeWarning = async () => {
+    if (!activeWarning) return;
+  
+    try {
+      const { error } = await supabase
+        .from('notifications')
+        .update({ read: true })
+        .eq('id', activeWarning.id);
+  
+      if (error) throw error;
+      setShowWarningModal(false);
+      setActiveWarning(null);
+    } catch (err) {
+      console.error("Error acknowledging warning:", err);
     }
   };
 
@@ -257,11 +297,10 @@ const Dashboard = () => {
         </div>
       </main>
 
-      {/* ⭐ UPDATED SUSPENSION MODAL */}
+      {/* ⭐ SUSPENSION MODAL */}
       {showSuspendedModal && (
         <div className="modal-overlay">
             <div className="modal-content refined-alert">
-                {/* 1. Close Button (Top Right) */}
                 <button className="modal-close-x" onClick={() => setShowSuspendedModal(false)}>
                     <X size={24} />
                 </button>
@@ -296,7 +335,6 @@ const Dashboard = () => {
                     </div>
                 </div>
 
-                {/* 2. Text Link at Bottom instead of Button */}
                 <p style={{ fontSize: '0.85rem', color: '#64748b', marginTop: '10px' }}>
                     Review the <span 
                         style={{ color: '#0E2679', fontWeight: '600', cursor: 'pointer', textDecoration: 'underline' }} 
@@ -306,6 +344,35 @@ const Dashboard = () => {
                     </span>.
                 </p>
             </div>
+        </div>
+      )}
+
+      {/* ⭐ WARNING MODAL (NEW) */}
+      {showWarningModal && (
+        <div className="warning-popup-overlay">
+          <div className="warning-popup-content">
+            <div className="warning-popup-header">
+              <div className="warning-icon-wrapper">
+                 <AlertTriangle color="#ef4444" size={32} />
+              </div>
+              <h2>Administrative Warning</h2>
+            </div>
+            <div className="warning-popup-body">
+              <p className="warning-meta">Received on: {new Date(activeWarning?.created_at).toLocaleDateString()}</p>
+              <div className="warning-message-box">
+                "{activeWarning?.message}"
+              </div>
+              <p className="warning-footer-text">
+                Please follow our terms and conditions to avoid further actions, including potential account suspension.
+              </p>
+            </div>
+            <div className="warning-popup-footer">
+              <button className="btn-acknowledge" onClick={acknowledgeWarning}>
+                <CheckCircle size={18} />
+                I Acknowledge this Warning
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
