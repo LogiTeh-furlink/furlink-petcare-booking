@@ -1201,7 +1201,7 @@ const getServicePriceAndSize = (serviceId, petType, weight) => {
               <div className="success-icon"><CheckCircle size={64} /></div>
               <h3>Booking Requested!</h3>
               <p>Your appointment request has been submitted. Please wait for the provider to confirm your slot.</p>
-              <button className="done-btn" onClick={handleFinish}>Return to Dashboard</button>
+              <button className="done-btn" onClick={handleFinish}>Return to Home</button>
             </div>
           </div>
         )}
