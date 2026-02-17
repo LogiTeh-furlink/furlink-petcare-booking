@@ -201,6 +201,14 @@ export default function SPDashboard() {
   const [successTitle, setSuccessTitle] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
 
+  // --- ADD THIS HELPER LOGIC ---
+  const isPast = selectedBooking ? (() => {
+      const now = new Date();
+      // Combine date and time (assumes booking_date is YYYY-MM-DD and time_slot is HH:MM)
+      const appointmentDate = new Date(`${selectedBooking.booking_date}T${selectedBooking.time_slot}`);
+      return appointmentDate < now;
+  })() : false;
+
   // Lock Body Scroll when Modal is Open
   useEffect(() => {
     if (selectedBooking || showCalendar || previewImage || showSuccessModal || showWarningModal) {
@@ -358,15 +366,18 @@ export default function SPDashboard() {
   };
 
   const isBookingComplete = (b) => {
-    return ['for review', 'rated'].includes(b.status);
+      const now = new Date();
+      const appointmentDate = new Date(`${b.booking_date}T${b.time_slot}`);
+      
+      // A booking is "Complete" if it's already rated OR 
+      // if it's 'for review' AND the appointment time has already passed.
+      return b.status === 'rated' || (b.status === 'for review' && appointmentDate < now);
   };
 
- // --- REPLACE THE ENTIRE getFilteredBookings FUNCTION WITH THIS ---
-  const getFilteredBookings = () => {
+const getFilteredBookings = () => {
     const now = new Date();
     let filtered = [];
 
-    // Part A: Standard Status Filtering
     switch(activeTab) {
       case 'new_request':
         filtered = bookings.filter(b => {
@@ -374,15 +385,23 @@ export default function SPDashboard() {
           return b.status === 'pending' && hoursSinceCreated < 24;
         });
         break;
+
       case 'for_verification':
-        filtered = bookings.filter(b => b.status === 'for review');
+        // --- EDIT THIS LINE ---
+        // Only show 'for review' if it's NOT considered a completed/rated booking yet
+        // and ensure it stays here only if you are in this specific tab logic
+        filtered = bookings.filter(b => b.status === 'for review' && !isBookingComplete(b));
         break;
+
       case 'upcoming':
         filtered = bookings.filter(b => b.status === 'paid' && !isBookingComplete(b));
         break;
+
       case 'completed':
+        // This tab correctly owns both 'for review' (past dates) and 'rated'
         filtered = bookings.filter(b => isBookingComplete(b));
         break;
+
       case 'cancelled':
         filtered = bookings.filter(b => b.status === 'cancelled');
         break;
@@ -390,10 +409,10 @@ export default function SPDashboard() {
         filtered = [];
     }
 
-    // Part B: The New Date Range Logic
+    // ... (Keep your Date Range logic below this switch)
     if (dateRange.start || dateRange.end) {
       filtered = filtered.filter(b => {
-        const bDate = b.booking_date; // Assumes 'YYYY-MM-DD'
+        const bDate = b.booking_date; 
         const isAfterStart = dateRange.start ? bDate >= dateRange.start : true;
         const isBeforeEnd = dateRange.end ? bDate <= dateRange.end : true;
         return isAfterStart && isBeforeEnd;
@@ -886,34 +905,66 @@ export default function SPDashboard() {
                    </button>
                 </div>
               )}
-              {selectedBooking.status === 'for review' && (
-                <div className="action-row">
-                   <div className="decline-area">
-                      <select value={voidReason} onChange={(e) => setVoidReason(e.target.value)} className="action-select" disabled={isSuspended}>
-                        <option value="">Select Reason for Voiding...</option>
-                        <option value="Invalid Receipt">Invalid Receipt</option>
-                        <option value="Amount Mismatch">Amount Mismatch</option>
-                        <option value="Unclear Image">Unclear Image</option>
-                      </select>
-                      <button 
-                        className="btn-decline" 
-                        disabled={!voidReason || isSuspended} 
-                        onClick={() => handleAction('void_payment')}
-                        style={isSuspended ? { backgroundColor: '#cbd5e1', cursor: 'not-allowed', color: '#64748b' } : {}}
-                      >
-                        {isSuspended ? "Locked" : "Void"}
-                      </button>
-                   </div>
-                   <button 
-                    className="btn-approve" 
-                    onClick={() => handleAction('accept_payment')}
-                    disabled={isSuspended}
-                    style={isSuspended ? { backgroundColor: '#cbd5e1', cursor: 'not-allowed', color: '#64748b' } : {}}
-                   >
-                    {isSuspended ? "Accept Locked" : "Accept Payment"}
-                   </button>
-                </div>
-              )}
+              {/* --- 1. ACTIONABLE VIEW (Under Verify Payment Tab) --- */}
+{/* Removed isPast constraint so you can verify payments for today/future bookings */}
+{selectedBooking.status === 'for review' && 
+ selectedBooking.payment_proof_url !== null && 
+ activeTab === 'for_verification' && (
+  <div className="action-row">
+    <div className="decline-area">
+      <select 
+        value={voidReason} 
+        onChange={(e) => setVoidReason(e.target.value)} 
+        className="action-select" 
+        disabled={isSuspended}
+      >
+        <option value="">Select Reason for Voiding...</option>
+        <option value="Invalid Receipt">Invalid Receipt</option>
+        <option value="Amount Mismatch">Amount Mismatch</option>
+        <option value="Unclear Image">Unclear Image</option>
+      </select>
+      <button 
+        className="btn-decline" 
+        disabled={!voidReason || isSuspended} 
+        onClick={() => handleAction('void_payment')}
+        style={isSuspended ? { backgroundColor: '#cbd5e1', cursor: 'not-allowed', color: '#64748b' } : {}}
+      >
+        {isSuspended ? "Locked" : "Void"}
+      </button>
+    </div>
+    <button 
+      className="btn-approve" 
+      onClick={() => handleAction('accept_payment')}
+      disabled={isSuspended}
+      style={isSuspended ? { backgroundColor: '#cbd5e1', cursor: 'not-allowed', color: '#64748b' } : {}}
+    >
+      {isSuspended ? "Accept Locked" : "Accept Payment"}
+    </button>
+  </div>
+)}
+
+{/* --- 2. READ-ONLY VIEW (Under Completed Tab) --- */}
+{/* This remains the same to show the badge for history */}
+{['for review', 'rated'].includes(selectedBooking.status) && 
+ selectedBooking.payment_proof_url !== null && 
+ activeTab === 'completed' && (
+  <div className="action-row" style={{ justifyContent: 'center' }}>
+    <div style={{ 
+      display: 'flex', 
+      alignItems: 'center', 
+      gap: '8px', 
+      color: '#16a34a', 
+      fontWeight: '700', 
+      fontSize: '0.9rem', 
+      background: '#f0fdf4', 
+      padding: '10px 20px', 
+      borderRadius: '8px', 
+      border: '1px solid #bbf7d0' 
+    }}>
+      <FaCheckCircle /> Payment Verified & Booking Completed
+    </div>
+  </div>
+)}
             </div>
           </div>
         </div>
