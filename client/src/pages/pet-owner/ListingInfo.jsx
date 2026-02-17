@@ -183,9 +183,20 @@ const ListingInfo = () => {
   const [activeTab, setActiveTab] = useState("overview");
   const [selectedImageIndex, setSelectedImageIndex] = useState(null);
   
+  
   // --- BOOKING STATES ---
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const TERMS_URL = "https://mdhudfatvdipxwufcbis.supabase.co/storage/v1/object/public/agreements/terms_po.pdf";
+
+  const uploadWaiver = async (file) => {
+    const { data, error } = await supabase.storage
+      .from('service_provider_uploads')
+      .upload(`waivers/${Date.now()}_${file.name}`, file, {
+        contentType: 'application/pdf', // This forces the browser to try and show it inline
+        cacheControl: '3600',
+        upsert: false
+      });
+  };
 
   const [bookingDate, setBookingDate] = useState(null);
   const [bookingTime, setBookingTime] = useState("");
@@ -312,7 +323,14 @@ useEffect(() => {
     try {
       setLoading(true);
       
-      const { data: providerData } = await supabase.from("service_providers").select("*").eq("id", id).eq("status", "approved").single();
+      const { data: providerData, error: pError } = await supabase
+        .from("service_providers")
+        .select("*, waiver_url") 
+        .eq("id", id)
+        .eq("status", "approved")
+        .single();
+
+      if (pError) throw pError;
       setProvider(providerData || null);
 
       const { data: servicesData } = await supabase.from("services").select(`*, service_options (*)`).eq("provider_id", id);
@@ -906,7 +924,20 @@ const isBookingDisabled =
                 onChange={(e) => setAgreedToTerms(e.target.checked)}
               />
               <label htmlFor="booking-terms">
-                I agree to the <a href={TERMS_URL} target="_blank" rel="noreferrer">Terms and Conditions</a> including policies on <strong>down payments, cancellations, and pet safety.</strong>
+                I agree to the <a href={TERMS_URL} target="_blank" rel="noopener noreferrer">Terms and Conditions</a> 
+                including policies on <strong>down payments, cancellations, and pet safety</strong>
+                {provider.waiver_url ? (
+                  <> 
+                    and to the <strong>{provider.business_name}</strong>{" "}
+                    <a 
+                      href={`https://docs.google.com/gview?url=${encodeURIComponent(provider.waiver_url)}&embedded=true`} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                    >
+                      waiver
+                    </a>.
+                  </>
+                ) : "."}
               </label>
             </div>
           </div>
