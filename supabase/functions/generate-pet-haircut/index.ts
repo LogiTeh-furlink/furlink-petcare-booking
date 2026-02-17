@@ -1,5 +1,5 @@
-// supabase/functions/generate-pet-haircut/index.ts
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -7,16 +7,24 @@ const corsHeaders = {
 }
 
 serve(async (req: Request) => {
+  // 1. Handle CORS Preflight
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
   try {
-    const { hairstyle, petType, breed, groomingSpecs, isRetry } = await req.json()
+    const { hairstyle, petType, breed, groomingSpecs, isRetry, bookingId } = await req.json()
     const HUGGING_FACE_TOKEN = Deno.env.get("HUGGING_FACE_ACCESS_TOKEN");
     
+    // Initialize Supabase Admin for DB saving
+    const supabaseAdmin = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
     const additionalSpecs = groomingSpecs && groomingSpecs.trim() !== "" 
       ? ` Additionally, ${groomingSpecs}.` 
       : "";
 
+    // YOUR EXACT PROMPTS
     let finalPrompt = "";
     if (isRetry) {
       finalPrompt = `I want a completely better result, realistic background like a studio type. Generate an Image of a ${petType} ${breed} in a ${hairstyle}. Make sure it is realistic, it captures the whole body of the pet, no unnecessary elements included like a toy or background clutter.${additionalSpecs}`;
@@ -24,10 +32,13 @@ serve(async (req: Request) => {
       finalPrompt = `Generate an Image of a ${petType} ${breed} in a ${hairstyle}. Make sure it is realistic, it captures the whole body of the pet, no unnecessary elements included like a toy or background clutter.${additionalSpecs}`;
     }
 
+    let finalImageUrl = "";
+    let source = "";
+
     try {
       if (!HUGGING_FACE_TOKEN) throw new Error("Missing HF Token");
 
-      // UPDATED ENDPOINT: Using the new router endpoint
+      // ATTEMPT 1: Hugging Face (New Router Endpoint)
       const hfResponse = await fetch(
         "https://router.huggingface.co/hf-inference/models/stabilityai/stable-diffusion-xl-base-1.0",
         {
@@ -53,38 +64,43 @@ serve(async (req: Request) => {
         for (let i = 0; i < uint8Array.byteLength; i++) {
           binary += String.fromCharCode(uint8Array[i]);
         }
-        const base64String = btoa(binary);
-        const dataUri = `data:image/jpeg;base64,${base64String}`;
-
-        return new Response(JSON.stringify({ 
-          generatedImageUrl: dataUri,
-          description: finalPrompt,
-          source: 'huggingface'
-        }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 200,
-        });
+        finalImageUrl = `data:image/jpeg;base64,${btoa(binary)}`;
+        source = 'huggingface';
+      } else {
+        throw new Error("HF Busy/New Endpoint Error");
       }
-      
-      throw new Error("HF Busy/New Endpoint Error");
 
     } catch (hfError) {
       console.warn("Hugging Face failed, using Pollinations fallback.");
 
+      // ATTEMPT 2: Pollinations Fallback
       const randomSeed = Math.floor(Math.random() * 1000000);
-      const pollinationsUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(finalPrompt)}?width=1024&height=1024&nologo=true&model=flux&seed=${randomSeed}`;
-
-      return new Response(JSON.stringify({ 
-        generatedImageUrl: pollinationsUrl,
-        description: finalPrompt,
-        source: 'pollinations'
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200,
-      });
+      finalImageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(finalPrompt)}?width=1024&height=1024&nologo=true&model=flux&seed=${randomSeed}`;
+      source = 'pollinations';
     }
 
+    // --- DB SAVING LOGIC ---
+    // If bookingId is passed (e.g., from an "Edit" or "Re-generate" action), save to DB immediately
+    if (bookingId && finalImageUrl) {
+      const { error: dbError } = await supabaseAdmin
+        .from('booking_pets')
+        .update({ ai_generated_url: finalImageUrl })
+        .eq('booking_id', bookingId);
+      
+      if (dbError) console.error("Database Update Error:", dbError.message);
+    }
+
+    return new Response(JSON.stringify({ 
+      generatedImageUrl: finalImageUrl,
+      description: finalPrompt,
+      source: source
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 200,
+    });
+
   } catch (error: any) {
+    console.error("Critical Error:", error.message);
     return new Response(JSON.stringify({ error: error.message }), { 
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 400 

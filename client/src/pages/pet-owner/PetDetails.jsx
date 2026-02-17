@@ -330,7 +330,7 @@ const handleAddPet = () => {
   // Down Payment is 30% of the Inclusive Total
   const calculateDownPayment = () => calculateGrandTotal() * 0.30;
 
-  const handleFinalSubmit = async () => {
+const handleFinalSubmit = async () => {
   setLoading(true);
   try {
     const { data: { user } } = await supabase.auth.getUser();
@@ -344,7 +344,7 @@ const handleAddPet = () => {
         provider_id: initialProviderId,
         booking_date: state?.bookingDate,
         time_slot: state?.bookingTime,
-        total_estimated_price: calculateGrandTotal(), // Storing Inclusive Price
+        total_estimated_price: calculateGrandTotal(), 
         status: 'pending'
       }])
       .select().single();
@@ -359,20 +359,32 @@ const handleAddPet = () => {
       const vUrl = await uploadFile(pet.vaccine_file, storagePath);
       const iUrl = pet.illness_file ? await uploadFile(pet.illness_file, storagePath) : null;
 
-      // --- AI PREVIEW PROCESSING ---
+      // --- AI PREVIEW PROCESSING (UPDATED) ---
       let aiUrl = null;
       if (pet.ai_confirmed && pet.ai_generated_preview) {
         try {
-          // Convert the Base64 preview back to a File for storage
-          const res = await fetch(pet.ai_generated_preview);
-          const blob = await res.blob();
-          const aiFile = new File([blob], "ai_haircut.jpg", { type: "image/jpeg" });
-          
-          // Upload to Supabase Storage
-          aiUrl = await uploadFile(aiFile, storagePath);
+          // Check if it's a Base64 string (Hugging Face) or a direct URL (Pollinations)
+          if (pet.ai_generated_preview.startsWith('data:image')) {
+            // Convert Base64 to Blob
+            const base64Data = pet.ai_generated_preview.split(',')[1];
+            const byteCharacters = atob(base64Data);
+            const byteNumbers = new Array(byteCharacters.length);
+            for (let i = 0; i < byteCharacters.length; i++) {
+              byteNumbers[i] = byteCharacters.charCodeAt(i);
+            }
+            const byteArray = new Uint8Array(byteNumbers);
+            const blob = new Blob([byteArray], { type: 'image/jpeg' });
+            
+            const aiFile = new File([blob], "ai_haircut.jpg", { type: "image/jpeg" });
+            aiUrl = await uploadFile(aiFile, storagePath);
+          } else {
+            // It's already a URL (Pollinations fallback), save it directly
+            aiUrl = pet.ai_generated_preview;
+          }
         } catch (aiErr) {
-          console.error("Failed to save AI image, continuing with booking:", aiErr);
-          // We continue even if AI save fails so the booking isn't blocked
+          console.error("Failed to persist AI image:", aiErr);
+          // Fallback: save the string we have even if storage upload fails
+          aiUrl = pet.ai_generated_preview;
         }
       }
 
@@ -391,7 +403,7 @@ const handleAddPet = () => {
           behavior: Array.isArray(pet.behavior) ? pet.behavior.join(', ') : pet.behavior,
           vaccine_card_url: vUrl,
           illness_proof_url: iUrl,
-          ai_generated_url: aiUrl, // <--- New AI field
+          ai_generated_url: aiUrl, // Persisted URL
           grooming_specifications: pet.grooming_specifications, 
           emergency_consent: pet.emergency_consent
         }])
@@ -399,7 +411,7 @@ const handleAddPet = () => {
 
       if (pError) throw pError;
 
-      // 4. Save Each Selected Service to booking_services table
+      // 4. Save Each Selected Service
       for (const srv of pet.services) {
         if (srv.id) {
           const { error: sError } = await supabase
