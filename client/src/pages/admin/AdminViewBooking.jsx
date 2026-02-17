@@ -20,7 +20,9 @@ import {
   FaPaperPlane, 
   FaCheckCircle, 
   FaExclamationCircle, 
-  FaBell 
+  FaBell,
+  FaChevronDown,
+  FaChevronUp
 } from "react-icons/fa";
 import "./AdminViewBooking.css";
 
@@ -32,6 +34,7 @@ export default function AdminViewBooking() {
   const [userProfile, setUserProfile] = useState(null);
   const [bookings, setBookings] = useState([]);
   const [warningCount, setWarningCount] = useState(0); 
+  const [warningHistory, setWarningHistory] = useState([]); 
   const [loading, setLoading] = useState(true);
   
   // Action States
@@ -41,6 +44,7 @@ export default function AdminViewBooking() {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showEligibleModal, setShowEligibleModal] = useState(false); 
   const [successMessage, setSuccessMessage] = useState("");
+  const [showWarningHistory, setShowWarningHistory] = useState(false); 
 
   // Modal States
   const [selectedBooking, setSelectedBooking] = useState(null); 
@@ -64,17 +68,33 @@ export default function AdminViewBooking() {
       if (profileError) throw profileError;
       setUserProfile(profileData);
 
-      // 2. Fetch Warnings Count
-      const { data: warningData, error: countError } = await supabase
+      // 2. Fetch Notification History (Warnings + Suspensions)
+      // We need both to calculate the "Active" count (resets after suspension)
+      const { data: notifData, error: notifError } = await supabase
         .from('notifications')
-        .select('id') 
+        .select('id, title, message, created_at, read') 
         .eq('user_id', id)
-        .eq('title', 'Admin Warning');
+        .in('title', ['Admin Warning', 'Account Suspended']) 
+        .order('created_at', { ascending: false }); 
 
-      if (!countError && warningData) {
-          setWarningCount(warningData.length);
-      } else if (countError) {
-          console.error("Error fetching warning history:", countError);
+      if (!notifError && notifData) {
+          // Calculate Count: Count warnings only since the last suspension
+          let activeCount = 0;
+          for (const notif of notifData) {
+              if (notif.title === 'Account Suspended') {
+                  break; // Stop counting, this resets the cycle
+              }
+              if (notif.title === 'Admin Warning') {
+                  activeCount++;
+              }
+          }
+          setWarningCount(activeCount);
+
+          // For the list view, we still show all historical warnings
+          const warningsOnly = notifData.filter(n => n.title === 'Admin Warning');
+          setWarningHistory(warningsOnly); 
+      } else if (notifError) {
+          console.error("Error fetching notification history:", notifError);
       }
 
       // 3. Fetch ALL Bookings
@@ -138,12 +158,15 @@ export default function AdminViewBooking() {
 
       if (error) throw error;
 
-      // 2. Increment local count (Past + Current)
-      const newCount = warningCount + 1;
-      setWarningCount(newCount);
+      // 2. Refresh Data (This recalculates the count)
+      await fetchUserData();
+
       setWarningMessage(""); 
       
-      // 3. Trigger Modal Logic
+      // 3. Trigger Modal Logic based on NEW count estimate
+      // Since fetchUserData updates state async, we estimate the new count here for immediate UI feedback
+      const newCount = warningCount + 1; 
+
       if (newCount >= 3) {
         setShowEligibleModal(true);
       } else {
@@ -180,7 +203,8 @@ export default function AdminViewBooking() {
 
         if (profileError) throw profileError;
 
-        // 2. Insert Notification
+        // 2. Insert 'Account Suspended' Notification 
+        // (This insertion effectively resets the active warning count logic)
         await supabase.from('notifications').insert({
             user_id: id,
             title: 'Account Suspended',
@@ -195,6 +219,7 @@ export default function AdminViewBooking() {
         setSuccessMessage(`User has been suspended until ${suspensionEnd.toLocaleDateString()}.`);
         setShowSuccessModal(true); 
         
+        // Refreshing here will see the new "Account Suspended" row and reset warningCount to 0
         fetchUserData(); 
 
     } catch (err) {
@@ -258,7 +283,6 @@ export default function AdminViewBooking() {
             {userProfile?.first_name} {userProfile?.last_name}
             {userProfile?.display_name && <span style={{fontSize: '1rem', color:'#64748b', marginLeft:'10px'}}>({userProfile.display_name})</span>}
           </h1>
-          {/* UPDATED: Check for is_active === false */}
           <span className={`badge-status ${!userProfile?.is_active ? 'suspended' : userProfile?.role}`}>
             {!userProfile?.is_active ? 'Suspended/Inactive' : userProfile?.role?.replace(/_/g, " ")}
           </span>
@@ -314,6 +338,38 @@ export default function AdminViewBooking() {
                 >
                     <FaPaperPlane /> Send Notification
                 </button>
+
+                {/* --- WARNING HISTORY TOGGLE (ALWAYS VISIBLE) --- */}
+                <div className="warning-history-section">
+                  <button 
+                    className="btn-toggle-history" 
+                    onClick={() => setShowWarningHistory(!showWarningHistory)}
+                  >
+                    {showWarningHistory ? <FaChevronUp/> : <FaChevronDown/>}
+                    {showWarningHistory ? "Hide Warning History" : `View History (${warningHistory.length})`}
+                  </button>
+                  
+                  {showWarningHistory && (
+                    <div className="warning-history-list">
+                      {warningHistory.length === 0 ? (
+                          <div className="warning-history-empty">
+                              No warnings sent yet.
+                          </div>
+                      ) : (
+                          warningHistory.map((notif) => (
+                            <div key={notif.id} className="warning-history-item">
+                              <div className="warning-date">
+                                {new Date(notif.created_at).toLocaleDateString()}
+                              </div>
+                              <div className="warning-msg-text">
+                                "{notif.message}"
+                              </div>
+                            </div>
+                          ))
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
 
               <hr className="divider" style={{margin: '20px 0'}} />
@@ -450,9 +506,9 @@ export default function AdminViewBooking() {
                       <span className="admin-view-booking-vat-note-small" style={{textAlign: 'left', marginTop: '0'}}>* VAT exclusive</span>
                   </div>
                   <div className="admin-view-booking-info-item">
-                       <label><FaCreditCard/> Downpayment</label>
-                       <span className="admin-view-booking-price-tag">{formatCurrency(selectedBooking.installation_payment)}</span>
-                       <span className="admin-view-booking-vat-note-small" style={{textAlign: 'left', marginTop: '0'}}>* VAT exclusive</span>
+                        <label><FaCreditCard/> Downpayment</label>
+                        <span className="admin-view-booking-price-tag">{formatCurrency(selectedBooking.installation_payment)}</span>
+                        <span className="admin-view-booking-vat-note-small" style={{textAlign: 'left', marginTop: '0'}}>* VAT exclusive</span>
                    </div>
                   <div className="admin-view-booking-info-item">
                     <label>Status</label>
@@ -465,8 +521,8 @@ export default function AdminViewBooking() {
                     <div className="admin-view-booking-info-item">
                       <label>Payment Proof</label>
                       <div className="admin-view-booking-image-wrapper admin-view-booking-clickable-img" onClick={() => setPreviewImage(selectedBooking.payment_proof_url)}>
-                         <div className="admin-view-booking-img-label">View Proof <FaSearchPlus size={12} /></div>
-                         <img src={selectedBooking.payment_proof_url} className="admin-view-booking-proof-image" alt="Payment Proof"/>
+                          <div className="admin-view-booking-img-label">View Proof <FaSearchPlus size={12} /></div>
+                          <img src={selectedBooking.payment_proof_url} className="admin-view-booking-proof-image" alt="Payment Proof"/>
                       </div>
                     </div>
                   )}

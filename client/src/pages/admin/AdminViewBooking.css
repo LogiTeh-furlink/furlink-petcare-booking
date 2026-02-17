@@ -515,6 +515,86 @@
 
 .admin-view-booking-loading-screen { text-align: center; padding: 100px; font-weight: 600; color: #0E2679; }
 
+/* --- Warning History Section (NEW) --- */
+.admin-view-booking-container .warning-history-section {
+    margin-top: 15px;
+    border-top: 1px solid #f1f5f9;
+    padding-top: 10px;
+}
+
+.admin-view-booking-container .btn-toggle-history {
+    background: none;
+    border: none;
+    color: #64748b;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    justify-content: flex-start;
+    padding: 5px 0;
+    transition: color 0.2s;
+}
+
+.admin-view-booking-container .btn-toggle-history:hover {
+    color: #334155;
+}
+
+.admin-view-booking-container .warning-history-list {
+    margin-top: 10px;
+    max-height: 200px;
+    overflow-y: auto;
+    background-color: #f8fafc;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+    padding: 8px 12px;
+}
+
+/* Custom Scrollbar for list */
+.admin-view-booking-container .warning-history-list::-webkit-scrollbar {
+    width: 6px;
+}
+.admin-view-booking-container .warning-history-list::-webkit-scrollbar-track {
+    background: #f1f5f9; 
+}
+.admin-view-booking-container .warning-history-list::-webkit-scrollbar-thumb {
+    background: #cbd5e1; 
+    border-radius: 4px;
+}
+
+.admin-view-booking-container .warning-history-item {
+    border-bottom: 1px solid #e2e8f0;
+    padding: 10px 0;
+}
+
+.admin-view-booking-container .warning-history-item:last-child {
+    border-bottom: none;
+}
+
+.admin-view-booking-container .warning-date {
+    font-size: 0.75rem;
+    color: #94a3b8;
+    margin-bottom: 4px;
+    font-weight: 600;
+}
+
+.admin-view-booking-container .warning-msg-text {
+    font-size: 0.85rem;
+    color: #475569;
+    line-height: 1.4;
+    font-style: italic;
+}
+
+.admin-view-booking-container .warning-history-empty {
+    font-size: 0.8rem;
+    color: #94a3b8;
+    text-align: center;
+    padding: 10px;
+    font-style: italic;
+}
+
 /* Responsive */
 @media (max-width: 1024px) {
   .admin-view-booking-container .view-grid { grid-template-columns: 1fr; }
