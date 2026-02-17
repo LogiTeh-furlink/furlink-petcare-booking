@@ -21,7 +21,7 @@ import {
 import "./SPDashboard.css";
 
 // --- Helper: Enhanced Calendar ---
-const BookingCalendar = ({ bookings = [], onClose }) => {
+const BookingCalendar = ({ bookings = [], onClose, dateRange }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
 
@@ -34,12 +34,10 @@ const BookingCalendar = ({ bookings = [], onClose }) => {
     ? bookings.filter(b => b.booking_date === selectedDate) 
     : [];
 
-  const isBookingComplete = (b) => ['for review', 'rated'].includes(b.status);
-
-const getDayStats = (dateStr) => {
+  const getDayStats = (dateStr) => {
     // Check if the date falls within the global custom date range
-    if (dateRange.start && dateStr < dateRange.start) return { total: 0, badge: "" };
-    if (dateRange.end && dateStr > dateRange.end) return { total: 0, badge: "" };
+    if (dateRange && dateRange.start && dateStr < dateRange.start) return { total: 0, badge: "" };
+    if (dateRange && dateRange.end && dateStr > dateRange.end) return { total: 0, badge: "" };
 
     const dayBookings = bookings.filter(b => b.booking_date === dateStr);
     const todayStr = new Date().toISOString().split('T')[0];
@@ -63,7 +61,7 @@ const getDayStats = (dateStr) => {
     };
   };
 
-const renderDays = () => {
+  const renderDays = () => {
     const days = [];
     for (let i = 0; i < firstDay; i++) {
       days.push(<div key={`empty-${i}`} className="calendar-day empty"></div>);
@@ -75,8 +73,8 @@ const renderDays = () => {
       const isSelected = selectedDate === dateStr;
 
       // Determine if the day is outside the filtered range
-      const isOutOfRange = (dateRange.start && dateStr < dateRange.start) || 
-                           (dateRange.end && dateStr > dateRange.end);
+      const isOutOfRange = (dateRange && dateRange.start && dateStr < dateRange.start) || 
+                           (dateRange && dateRange.end && dateStr > dateRange.end);
 
       days.push(
         <div 
@@ -200,6 +198,11 @@ export default function SPDashboard() {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [successTitle, setSuccessTitle] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+
+  // Agreement Links Helpers
+  const BASE_URL = `https://mdhudfatvdipxwufcbis.supabase.co/storage/v1/object/public/agreements`;
+  const getTermsLink = () => `${BASE_URL}/terms_sp.pdf`;
+  const getPrivacyPath = () => `${BASE_URL}/privacy_policy.pdf`;
 
   // --- ADD THIS HELPER LOGIC ---
   const isPast = selectedBooking ? (() => {
@@ -374,7 +377,7 @@ export default function SPDashboard() {
       return b.status === 'rated' || (b.status === 'for review' && appointmentDate < now);
   };
 
-const getFilteredBookings = () => {
+  const getFilteredBookings = () => {
     const now = new Date();
     let filtered = [];
 
@@ -555,7 +558,7 @@ const getFilteredBookings = () => {
         </div>
       )}
       
-      {showCalendar && <BookingCalendar bookings={bookings} onClose={() => setShowCalendar(false)} />}
+      {showCalendar && <BookingCalendar bookings={bookings} dateRange={dateRange} onClose={() => setShowCalendar(false)} />}
 
       <div className="sp-dashboard-container">
         
@@ -571,13 +574,13 @@ const getFilteredBookings = () => {
           </div>
           
           <button className="top-action-btn" onClick={() => navigate('/service/sales')}>
-             <FaChartLine size={24} />
-             <span>Dashboard</span> {/* <-- Restored "Dashboard" here */}
+              <FaChartLine size={24} />
+              <span>Dashboard</span> {/* <-- Restored "Dashboard" here */}
           </button>
 
           <button className="top-action-btn" onClick={() => setShowCalendar(true)}>
-             <FaCalendarAlt size={24} />
-             <span>Calendar</span>
+              <FaCalendarAlt size={24} />
+              <span>Calendar</span>
           </button>
         </div>
 
@@ -905,66 +908,67 @@ const getFilteredBookings = () => {
                    </button>
                 </div>
               )}
+              
               {/* --- 1. ACTIONABLE VIEW (Under Verify Payment Tab) --- */}
-{/* Removed isPast constraint so you can verify payments for today/future bookings */}
-{selectedBooking.status === 'for review' && 
- selectedBooking.payment_proof_url !== null && 
- activeTab === 'for_verification' && (
-  <div className="action-row">
-    <div className="decline-area">
-      <select 
-        value={voidReason} 
-        onChange={(e) => setVoidReason(e.target.value)} 
-        className="action-select" 
-        disabled={isSuspended}
-      >
-        <option value="">Select Reason for Voiding...</option>
-        <option value="Invalid Receipt">Invalid Receipt</option>
-        <option value="Amount Mismatch">Amount Mismatch</option>
-        <option value="Unclear Image">Unclear Image</option>
-      </select>
-      <button 
-        className="btn-decline" 
-        disabled={!voidReason || isSuspended} 
-        onClick={() => handleAction('void_payment')}
-        style={isSuspended ? { backgroundColor: '#cbd5e1', cursor: 'not-allowed', color: '#64748b' } : {}}
-      >
-        {isSuspended ? "Locked" : "Void"}
-      </button>
-    </div>
-    <button 
-      className="btn-approve" 
-      onClick={() => handleAction('accept_payment')}
-      disabled={isSuspended}
-      style={isSuspended ? { backgroundColor: '#cbd5e1', cursor: 'not-allowed', color: '#64748b' } : {}}
-    >
-      {isSuspended ? "Accept Locked" : "Accept Payment"}
-    </button>
-  </div>
-)}
+              {/* Removed isPast constraint so you can verify payments for today/future bookings */}
+              {selectedBooking.status === 'for review' && 
+               selectedBooking.payment_proof_url !== null && 
+               activeTab === 'for_verification' && (
+                <div className="action-row">
+                  <div className="decline-area">
+                    <select 
+                      value={voidReason} 
+                      onChange={(e) => setVoidReason(e.target.value)} 
+                      className="action-select" 
+                      disabled={isSuspended}
+                    >
+                      <option value="">Select Reason for Voiding...</option>
+                      <option value="Invalid Receipt">Invalid Receipt</option>
+                      <option value="Amount Mismatch">Amount Mismatch</option>
+                      <option value="Unclear Image">Unclear Image</option>
+                    </select>
+                    <button 
+                      className="btn-decline" 
+                      disabled={!voidReason || isSuspended} 
+                      onClick={() => handleAction('void_payment')}
+                      style={isSuspended ? { backgroundColor: '#cbd5e1', cursor: 'not-allowed', color: '#64748b' } : {}}
+                    >
+                      {isSuspended ? "Locked" : "Void"}
+                    </button>
+                  </div>
+                  <button 
+                    className="btn-approve" 
+                    onClick={() => handleAction('accept_payment')}
+                    disabled={isSuspended}
+                    style={isSuspended ? { backgroundColor: '#cbd5e1', cursor: 'not-allowed', color: '#64748b' } : {}}
+                  >
+                    {isSuspended ? "Accept Locked" : "Accept Payment"}
+                  </button>
+                </div>
+              )}
 
-{/* --- 2. READ-ONLY VIEW (Under Completed Tab) --- */}
-{/* This remains the same to show the badge for history */}
-{['for review', 'rated'].includes(selectedBooking.status) && 
- selectedBooking.payment_proof_url !== null && 
- activeTab === 'completed' && (
-  <div className="action-row" style={{ justifyContent: 'center' }}>
-    <div style={{ 
-      display: 'flex', 
-      alignItems: 'center', 
-      gap: '8px', 
-      color: '#16a34a', 
-      fontWeight: '700', 
-      fontSize: '0.9rem', 
-      background: '#f0fdf4', 
-      padding: '10px 20px', 
-      borderRadius: '8px', 
-      border: '1px solid #bbf7d0' 
-    }}>
-      <FaCheckCircle /> Payment Verified & Booking Completed
-    </div>
-  </div>
-)}
+              {/* --- 2. READ-ONLY VIEW (Under Completed Tab) --- */}
+              {/* This remains the same to show the badge for history */}
+              {['for review', 'rated'].includes(selectedBooking.status) && 
+               selectedBooking.payment_proof_url !== null && 
+               activeTab === 'completed' && (
+                <div className="action-row" style={{ justifyContent: 'center' }}>
+                  <div style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: '8px', 
+                    color: '#16a34a', 
+                    fontWeight: '700', 
+                    fontSize: '0.9rem', 
+                    background: '#f0fdf4', 
+                    padding: '10px 20px', 
+                    borderRadius: '8px', 
+                    border: '1px solid #bbf7d0' 
+                  }}>
+                    <FaCheckCircle /> Payment Verified & Booking Completed
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -986,7 +990,15 @@ const getFilteredBookings = () => {
                 "{activeWarning?.message}"
               </div>
               <p className="warning-footer-text">
-                Please follow our terms and conditions to avoid further actions, including potential account suspension.
+                Please follow our{" "}
+                <a href={getTermsLink()} target="_blank" rel="noreferrer">
+                  Terms and Conditions
+                </a>{" "}
+                and{" "}
+                <a href={getPrivacyPath()} target="_blank" rel="noreferrer">
+                  Privacy Policy
+                </a>{" "}
+                to avoid further actions, including potential account suspension.
               </p>
             </div>
             <div className="warning-popup-footer">
