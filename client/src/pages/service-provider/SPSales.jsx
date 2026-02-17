@@ -183,9 +183,6 @@ export default function SPSales() {
 
     // ============================================
     // FIX: Parse booking_date as LOCAL midnight, not UTC.
-    // new Date('2025-02-17') parses as UTC midnight which shifts the date
-    // in negative-offset timezones (e.g. UTC-8 becomes Feb 16 at 4pm local).
-    // Splitting into parts and constructing with new Date(y, m, d) uses local time.
     // ============================================
     const parseLocalDate = (dateStr) => {
       const [year, month, day] = dateStr.split('-').map(Number);
@@ -194,8 +191,6 @@ export default function SPSales() {
 
     // ============================================
     // FIX: Cap the end of all non-custom ranges to end-of-today.
-    // This ensures bookings with future dates (e.g. upcoming bookings)
-    // are never counted in cancellation or completion metrics.
     // ============================================
     const endOfToday = new Date();
     endOfToday.setHours(23, 59, 59, 999);
@@ -230,12 +225,12 @@ export default function SPSales() {
       if (filter === 'weekly') {
         if (isPrevious) { 
           start.setDate(today.getDate() - 14);
-          start.setHours(0, 0, 0, 0); // FIX: start at midnight so boundary day is included
+          start.setHours(0, 0, 0, 0);
           end.setDate(today.getDate() - 7);
           end.setHours(23, 59, 59, 999);
         } else { 
           start.setDate(today.getDate() - 7);
-          start.setHours(0, 0, 0, 0); // FIX: start at midnight so boundary day is included
+          start.setHours(0, 0, 0, 0);
           end = new Date(endOfToday);
         }
       } else if (filter === 'monthly') {
@@ -251,12 +246,10 @@ export default function SPSales() {
         }
       } else if (filter === 'yearly') {
         if (selectedYear === null) {
-          // All Years: span from listing approval to today
           const listingYear = listingApprovedDate
             ? new Date(listingApprovedDate).getFullYear()
             : today.getFullYear();
           if (isPrevious) {
-            // No meaningful comparison period for all-years; return empty range
             start = new Date(listingYear, 0, 1);
             end = new Date(listingYear, 0, 1);
           } else {
@@ -295,10 +288,6 @@ export default function SPSales() {
       ? `${parseLocalDate(customDateStart).toLocaleDateString(undefined, { month: 'short', day: '2-digit', year: 'numeric' })} - ${parseLocalDate(customDateEnd).toLocaleDateString(undefined, { month: 'short', day: '2-digit', year: 'numeric' })}`
       : `${currentRange.start.toLocaleDateString(undefined, { month: 'short', day: '2-digit', year: 'numeric' })} - ${now.toLocaleDateString(undefined, { month: 'short', day: '2-digit', year: 'numeric' })}`;
 
-    // ============================================
-    // FIX: filterByRange now uses parseLocalDate so booking_date strings
-    // are always compared in local time, matching what the user sees.
-    // ============================================
     const filterByRange = (list, range) => {
       return list.filter(b => {
         const d = parseLocalDate(b.booking_date);
@@ -363,7 +352,6 @@ export default function SPSales() {
     
     if (activeFilter === 'yearly') {
       if (selectedYear === null) {
-        // All Years: one label per year from listing approval to now
         const startYear = listingApprovedDate
           ? new Date(listingApprovedDate).getFullYear()
           : currentYear;
@@ -397,6 +385,8 @@ export default function SPSales() {
     // ========================================
     const overallSalesData = new Array(timeLabels.length).fill(0);
     const overallCustomerCount = new Array(timeLabels.length).fill(0).map(() => new Set());
+    // NEW: Track booking count per time period for overall chart
+    const overallBookingCount = new Array(timeLabels.length).fill(0);
     
     const bookingsToProcess = (activeFilter === 'yearly' && selectedYear === null) 
       ? rawBookings.filter(b => isBookingComplete(b))
@@ -433,6 +423,7 @@ export default function SPSales() {
       if (idx !== undefined && idx !== -1 && overallSalesData[idx] !== undefined) {
         overallSalesData[idx] += Number(booking.total_estimated_price) || 0;
         overallCustomerCount[idx].add(booking.user_id);
+        overallBookingCount[idx] += 1; // NEW: increment booking count
       }
     });
 
@@ -443,6 +434,8 @@ export default function SPSales() {
     // ========================================
     const serviceRevenueMap = {};
     const serviceCustomerCount = {};
+    // NEW: Track booking count per service per time period
+    const serviceBookingCount = {};
     
     servicesList.forEach(service => {
       serviceRevenueMap[service.id] = {
@@ -450,6 +443,7 @@ export default function SPSales() {
         data: new Array(timeLabels.length).fill(0)
       };
       serviceCustomerCount[service.id] = new Array(timeLabels.length).fill(0).map(() => new Set());
+      serviceBookingCount[service.id] = new Array(timeLabels.length).fill(0); // NEW
     });
 
     bookingServices.forEach(bs => {
@@ -491,6 +485,7 @@ export default function SPSales() {
       if (idx !== undefined && idx !== -1 && serviceRevenueMap[bs.service_id] && serviceRevenueMap[bs.service_id].data[idx] !== undefined) {
         serviceRevenueMap[bs.service_id].data[idx] += Number(bs.price) || 0;
         serviceCustomerCount[bs.service_id][idx].add(booking.user_id);
+        serviceBookingCount[bs.service_id][idx] += 1; // NEW: increment booking count
       }
     });
 
@@ -506,6 +501,9 @@ export default function SPSales() {
     const returningCustomerRevenue = new Array(timeLabels.length).fill(0);
     const newCustomerCount = new Array(timeLabels.length).fill(0).map(() => new Set());
     const returningCustomerCount = new Array(timeLabels.length).fill(0).map(() => new Set());
+    // NEW: Track booking counts per period for new vs returning
+    const newCustomerBookingCount = new Array(timeLabels.length).fill(0);
+    const returningCustomerBookingCount = new Array(timeLabels.length).fill(0);
     
     const customerFirstBooking = {};
     
@@ -558,9 +556,11 @@ export default function SPSales() {
         if (isFirstBooking) {
           newCustomerRevenue[idx] += revenue;
           newCustomerCount[idx].add(booking.user_id);
+          newCustomerBookingCount[idx] += 1; // NEW
         } else {
           returningCustomerRevenue[idx] += revenue;
           returningCustomerCount[idx].add(booking.user_id);
+          returningCustomerBookingCount[idx] += 1; // NEW
         }
       }
     });
@@ -570,11 +570,13 @@ export default function SPSales() {
 
     // ========================================
     // CHART 4: REVENUE LOSS DUE TO CANCELLATIONS
-    // Uses currentBookings which is already capped to today via filterByRange fix
     // ========================================
     const actualRevenue = new Array(timeLabels.length).fill(0);
     const potentialRevenue = new Array(timeLabels.length).fill(0);
     const cancellationsPerPeriod = new Array(timeLabels.length).fill(0);
+    // NEW: Track completed vs total booking counts per period for cancellation chart
+    const completedBookingCount = new Array(timeLabels.length).fill(0);
+    const totalBookingCount = new Array(timeLabels.length).fill(0);
     
     currentBookings.forEach(booking => {
       if (petTypeFilter !== 'both') {
@@ -606,6 +608,7 @@ export default function SPSales() {
       
       if (idx !== undefined && idx !== -1) {
         potentialRevenue[idx] += revenue;
+        totalBookingCount[idx] += 1; // NEW: count all bookings
         
         if (booking.status === 'cancelled' || booking.status === 'declined') {
           cancellationsPerPeriod[idx] += 1;
@@ -613,6 +616,7 @@ export default function SPSales() {
         
         if (isBookingComplete(booking)) {
           actualRevenue[idx] += revenue;
+          completedBookingCount[idx] += 1; // NEW: count completed bookings
         }
       }
     });
@@ -679,16 +683,22 @@ export default function SPSales() {
       timeLabels,
       overallSalesData,
       overallCustomerCountArray,
+      overallBookingCount,       // NEW
       totalRevenue,
       serviceRevenueMap,
       serviceCustomerCountArrays,
+      serviceBookingCount,       // NEW
       newCustomerRevenue,
       returningCustomerRevenue,
       newCustomerCountArray,
       returningCustomerCountArray,
+      newCustomerBookingCount,   // NEW
+      returningCustomerBookingCount, // NEW
       actualRevenue,
       potentialRevenue,
       cancellationsPerPeriod,
+      completedBookingCount,     // NEW
+      totalBookingCount,         // NEW
       totalLoss,
       petTypeBreakdown
     };
@@ -1023,9 +1033,11 @@ export default function SPSales() {
             {/* ============================================ */}
             <div className="sales-charts-grid">
               
+              {/* CHART 1: OVERALL SALES PERFORMANCE */}
+              {/* Tooltip now shows: Revenue + Customers + Bookings */}
               <div className="chart-box">
                 <div className="chart-header-with-btn">
-                  <h3 className="chart-title-centered">Overall Sales Performance</h3>
+                  <h3 className="chart-title-sm">Overall Sales Performance</h3>
                   <span className="date-range-topright">
                     {activeFilter === 'yearly' && selectedYear 
                       ? `Year ${selectedYear}` 
@@ -1065,8 +1077,13 @@ export default function SPSales() {
                               return label;
                             },
                             afterLabel: function(context) {
-                              const customerCount = analytics.overallCustomerCountArray[context.dataIndex];
-                              return `Customers: ${customerCount}`;
+                              const idx = context.dataIndex;
+                              const bookingCount = analytics.overallBookingCount[idx];
+                              const customerCount = analytics.overallCustomerCountArray[idx];
+                              return [
+                                `Bookings: ${bookingCount}`,
+                                `Customers: ${customerCount}`
+                              ];
                             }
                           }
                         }
@@ -1079,9 +1096,11 @@ export default function SPSales() {
                 </p>
               </div>
 
+              {/* CHART 4: REVENUE LOSS FROM CANCELLATIONS */}
+              {/* Tooltip now shows: Revenue + Bookings (completed/total) + Cancellations + Revenue Lost */}
               <div className="chart-box">
                 <div className="chart-header-with-btn">
-                  <h3 className="chart-title-centered">Revenue Loss from Cancellations</h3>
+                  <h3 className="chart-title-sm">Revenue Loss from Cancellations</h3>
                   <span className="date-range-topright">
                     {activeFilter === 'yearly' && selectedYear 
                       ? `Year ${selectedYear}` 
@@ -1135,10 +1154,16 @@ export default function SPSales() {
                               return label;
                             },
                             afterLabel: function(context) {
+                              const idx = context.dataIndex;
+                              // Only show the extra info once (on the first dataset)
                               if (context.datasetIndex === 0) {
-                                const cancellations = analytics.cancellationsPerPeriod[context.dataIndex];
-                                const loss = analytics.potentialRevenue[context.dataIndex] - analytics.actualRevenue[context.dataIndex];
+                                const totalBookings = analytics.totalBookingCount[idx];
+                                const completedBookings = analytics.completedBookingCount[idx];
+                                const cancellations = analytics.cancellationsPerPeriod[idx];
+                                const loss = analytics.potentialRevenue[idx] - analytics.actualRevenue[idx];
                                 return [
+                                  `Total Bookings: ${totalBookings}`,
+                                  `Completed Bookings: ${completedBookings}`,
                                   `Cancellations: ${cancellations}`,
                                   `Revenue Lost: ₱${formatCurrency(loss)}`
                                 ];
@@ -1163,6 +1188,8 @@ export default function SPSales() {
             {/* ============================================ */}
             <div className="sales-charts-grid">
               
+              {/* CHART 3: NEW VS RETURNING CUSTOMER REVENUE */}
+              {/* Tooltip now shows: Revenue + Bookings + Customers per segment */}
               <div className="chart-box">
                 <div className="chart-header-with-btn">
                   <h4 className="chart-title-sm">New vs Returning Customer Revenue</h4>
@@ -1218,11 +1245,18 @@ export default function SPSales() {
                               return label;
                             },
                             afterLabel: function(context) {
+                              const idx = context.dataIndex;
                               const isNew = context.datasetIndex === 0;
-                              const customerCount = isNew 
-                                ? analytics.newCustomerCountArray[context.dataIndex]
-                                : analytics.returningCustomerCountArray[context.dataIndex];
-                              return `Customers: ${customerCount}`;
+                              const bookingCount = isNew
+                                ? analytics.newCustomerBookingCount[idx]
+                                : analytics.returningCustomerBookingCount[idx];
+                              const customerCount = isNew
+                                ? analytics.newCustomerCountArray[idx]
+                                : analytics.returningCustomerCountArray[idx];
+                              return [
+                                `Bookings: ${bookingCount}`,
+                                `Customers: ${customerCount}`
+                              ];
                             }
                           }
                         }
@@ -1243,6 +1277,8 @@ export default function SPSales() {
                 </div>
               </div>
 
+              {/* CHART 2: SALES PERFORMANCE BY SERVICE */}
+              {/* Tooltip now shows: Revenue + Bookings + Customers per service */}
               <div className="chart-box">
                 <div className="chart-header-with-btn">
                   <h4 className="chart-title-sm">Sales Performance by Service</h4>
@@ -1299,9 +1335,14 @@ export default function SPSales() {
                               return label;
                             },
                             afterLabel: function(context) {
+                              const idx = context.dataIndex;
                               const serviceId = context.dataset.serviceId;
-                              const customerCount = analytics.serviceCustomerCountArrays[serviceId]?.[context.dataIndex] || 0;
-                              return `Customers: ${customerCount}`;
+                              const bookingCount = analytics.serviceBookingCount[serviceId]?.[idx] || 0;
+                              const customerCount = analytics.serviceCustomerCountArrays[serviceId]?.[idx] || 0;
+                              return [
+                                `Bookings: ${bookingCount}`,
+                                `Customers: ${customerCount}`
+                              ];
                             }
                           }
                         }

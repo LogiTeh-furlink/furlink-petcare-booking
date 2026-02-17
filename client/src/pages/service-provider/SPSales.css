@@ -170,22 +170,16 @@
 
 .as-of-date {
   font-size: 0.85rem;
-  color: var(--primary-blue);
-  font-weight: 700;
+  color: #64748b;
+  font-weight: 600;
   text-align: left;
-  flex: 1; /* Allows the text to take up available space on the left */
+  flex: 1;
 }
 
 .report-modal-body.generating-pdf {
   overflow: visible !important;
   max-height: none !important;
   height: auto !important;
-}
-
-.as-of-date {
-  font-size: 0.85rem;
-  color: #64748b;
-  font-weight: 600;
 }
 
 .generate-report-btn {
@@ -304,13 +298,20 @@
   gap: 12px;
 }
 
+/* Unified chart title — used by all four charts */
+.chart-title-sm { 
+  font-size: 0.85rem; 
+  font-weight: bold; 
+  color: var(--primary-blue); 
+  margin: 0 0 10px 0; 
+}
+
+/* Kept for any legacy references but no longer used by the charts */
 .chart-title-centered {
   color: var(--primary-blue); 
-  font-size: 10px;        /* shrink from whatever it is now */
-  white-space: nowrap;
-  flex-shrink: 0;
-  margin-top: 2px;
-  text-align: right;
+  font-size: 0.85rem;
+  font-weight: bold;
+  margin: 0 0 10px 0;
 }
 
 .date-range-topright {
@@ -348,13 +349,6 @@
 .back-to-years-btn:hover {
   background: #fbbf24;
   transform: translateX(-2px);
-}
-
-.chart-title-sm { 
-  font-size: 0.85rem; 
-  font-weight: bold; 
-  color: var(--primary-blue); 
-  margin: 0 0 10px 0; 
 }
 
 .date-range { 
@@ -705,9 +699,8 @@
   }
 }
 
-/* Pet Type Breakdown Styles - Add these to your SPSales.css */
+/* Pet Type Breakdown Styles */
 
-/* Pet Type Breakdown Grid */
 .pet-type-breakdown-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -797,7 +790,7 @@
   color: #1e293b;
 }
 
-/* Pet Filter Notice - for when specific filter is active */
+/* Pet Filter Notice */
 .pet-filter-notice {
   background: #eff6ff;
   border: 2px solid #3b82f6;
