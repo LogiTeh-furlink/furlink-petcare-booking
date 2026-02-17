@@ -1,8 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useEffect  } from "react";
 import { useNavigate } from "react-router-dom";
 import { FaEye, FaEyeSlash, FaCheckCircle, FaExclamationCircle} from "react-icons/fa";
 import { supabase } from "../../config/supabase";
-
 import Header from "../../components/Header/Header";
 import Footer from "../../components/Footer/Footer";
 
@@ -27,38 +26,88 @@ const SignUpPage = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-
-  const [agreedToTerms, setAgreedToTerms] = useState(false);
+  const [agreedToTerms, setAgreedToTerms] = useState(false); 
   const [showHybridWelcomeModal, setShowHybridWelcomeModal] = useState(false);
 
-  // 1. UPDATED VALIDATE FUNCTION
-  const validate = () => {
+  // 1. Move the validation function here
+  const validateForm = () => {
     let newErrors = {};
     if (!formData.firstName.trim()) newErrors.firstName = "First name is required.";
     if (!formData.lastName.trim()) newErrors.lastName = "Last name is required.";
-    if (!formData.email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) newErrors.email = "Invalid email format.";
-    if (!formData.mobile.match(/^9\d{9}$/)) newErrors.mobile = "Mobile must be 10 digits starting with 9.";
-    if (!formData.roleChoice) newErrors.roleChoice = "Please select at least one role.";
     
-    // DOB Validation (Checking MM/DD/YYYY format)
+    if (formData.email && !formData.email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
+      newErrors.email = "Invalid format.";
+    } else if (!formData.email) {
+      newErrors.email = "Required.";
+    }
+
+    if (formData.mobile && !formData.mobile.match(/^9\d{9}$/)) {
+      newErrors.mobile = "Must be 9XXXXXXXXX.";
+    } else if (!formData.mobile) {
+      newErrors.mobile = "Required.";
+    }
+
+    // DOB Validation (Inside validateForm)
     if (!formData.dob.match(/^(0[1-9]|1[0-2])\/(0[1-9]|[12][0-9]|3[01])\/\d{4}$/)) {
-      newErrors.dob = "Format must be MM/DD/YYYY.";
+      newErrors.dob = "Format: MM/DD/YYYY";
     } else {
       const [m, d, y] = formData.dob.split("/").map(Number);
       const dobDate = new Date(y, m - 1, d);
-      const age = new Date().getFullYear() - dobDate.getFullYear();
-      if (age < 13) newErrors.dob = "Must be at least 13 years old.";
+      const today = new Date();
+
+      // 1. Prevent future dates
+      if (dobDate > today) {
+        newErrors.dob = "Birth date cannot be a future date";
+      } else {
+        // 2. Precise Age Calculation
+        let age = today.getFullYear() - dobDate.getFullYear();
+        const monthDiff = today.getMonth() - dobDate.getMonth();
+        
+        // Adjust age if the birthday hasn't happened yet this year
+        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dobDate.getDate())) {
+          age--;
+        }
+
+        if (age < 13) {
+          newErrors.dob = "You must be at least 13 years old.";
+        }
+      }
     }
 
-    if (!formData.password.match(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,12}$/)) {
-      newErrors.password = "Must be 8-12 chars with upper, lower, number & symbol.";
+    if (!formData.roleChoice) newErrors.roleChoice = "Select at least one role.";
+
+    if (formData.password && !formData.password.match(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,12}$/)) {
+      newErrors.password = "Password must be 8-12 characters with uppercase, lowercase, number, and symbol.";
+    } else if (!formData.password) {
+      newErrors.password = "Required.";
     }
 
-    if (formData.password !== formData.confirmPassword) {
-      newErrors.confirmPassword = "Passwords do not match.";
+    if (formData.confirmPassword !== formData.password) {
+      newErrors.confirmPassword = "Passwords must match.";
     }
+
+    if (!agreedToTerms) newErrors.terms = "Agreement required.";
+
     return newErrors;
   };
+
+  // 2. Run validation every time state changes
+  useEffect(() => {
+    const validationErrors = validateForm();
+    
+    // Check if there's an existing general error we should keep
+    if (errors.general) {
+      setErrors({ ...validationErrors, general: errors.general });
+    } else {
+      setErrors(validationErrors);
+    }
+  }, [formData, agreedToTerms]);
+
+  // 3. Define the validity flag
+  // The form is valid if there are no field errors, regardless of previous general failures
+    const isFormValid = Object.keys(errors).filter(key => key !== 'general').length === 0 && 
+                      agreedToTerms && 
+                      formData.firstName !== ""
 
   // 2. NUMERIC ONLY MOBILE HANDLER
   const handleMobileChange = (e) => {
@@ -102,9 +151,17 @@ const SignUpPage = () => {
   };
 
   const handleRegister = async (e) => {
-    e.preventDefault();
-    setSubmitted(true);
-    const validationErrors = validate();
+        e.preventDefault();
+        setSubmitted(true);
+        
+        // Clear any previous general registration errors before trying again
+        setErrors(prev => {
+            const { general, ...rest } = prev;
+            return rest;
+        });
+
+        // CHANGE THIS LINE:
+        const validationErrors = validateForm();
     
     // Add checkbox validation
     if (!agreedToTerms) validationErrors.terms = "You must agree to the terms.";
@@ -141,8 +198,14 @@ const SignUpPage = () => {
             if (formData.roleChoice === "both") setTimeout(() => setShowHybridWelcomeModal(true), 500);
           }
         }
+      // ... existing try logic
       } catch (err) {
-        setErrors({ general: err.message });
+        // Check if it's a "User already registered" error
+        if (err.message.includes("already registered") || err.message.includes("User already exists")) {
+          setErrors({ general: "This email is already associated with an account. Please try logging in instead." });
+        } else {
+          setErrors({ general: err.message });
+        }
       } finally {
         setLoading(false);
       }
@@ -164,8 +227,6 @@ const SignUpPage = () => {
 
 // You can use this for the Privacy Policy link
 const getPrivacyPath = () => `${BASE_URL}/privacy_policy.pdf`;
-
-const isFormValid = Object.keys(validate()).length === 0 && agreedToTerms;
 
   return (
     <div className="signup-page">
@@ -196,21 +257,21 @@ const isFormValid = Object.keys(validate()).length === 0 && agreedToTerms;
               <input 
                 type="text" 
                 placeholder="First Name" 
-                className={submitted && errors.firstName ? "input-error" : ""} 
+                className={errors.firstName ? "input-error" : ""} 
                 value={formData.firstName} 
                 onChange={(e) => setFormData({ ...formData, firstName: e.target.value })} 
               />
-              {submitted && errors.firstName && <span className="field-error-msg"><FaExclamationCircle /> {errors.firstName}</span>}
+              {errors.firstName && <span className="field-error-msg"><FaExclamationCircle /> {errors.firstName}</span>}
             </div>
             <div className="input-wrap">
               <input 
                 type="text" 
                 placeholder="Last Name" 
-                className={submitted && errors.lastName ? "input-error" : ""} 
+                className={errors.lastName ? "input-error" : ""} 
                 value={formData.lastName} 
                 onChange={(e) => setFormData({ ...formData, lastName: e.target.value })} 
               />
-              {submitted && errors.lastName && <span className="field-error-msg"><FaExclamationCircle /> {errors.lastName}</span>}
+              {errors.lastName && <span className="field-error-msg"><FaExclamationCircle /> {errors.lastName}</span>}
             </div>
           </div>
 
@@ -218,15 +279,15 @@ const isFormValid = Object.keys(validate()).length === 0 && agreedToTerms;
             <input 
               type="email" 
               placeholder="Email Address" 
-              className={submitted && errors.email ? "input-error" : ""} 
+              className={errors.email ? "input-error" : ""} 
               value={formData.email} 
               onChange={(e) => setFormData({ ...formData, email: e.target.value })} 
             />
-            {submitted && errors.email && <span className="field-error-msg"><FaExclamationCircle /> {errors.email}</span>}
+            {errors.email && <span className="field-error-msg"><FaExclamationCircle /> {errors.email}</span>}
           </div>
           
           <div className="form-group">
-            <div className={`phone-input-wrapper ${submitted && errors.mobile ? "input-error" : ""}`}>
+            <div className={`phone-input-wrapper ${errors.mobile ? "input-error" : ""}`}>
                <span className="country-code">+63</span>
                <input 
                   type="text" 
@@ -235,7 +296,7 @@ const isFormValid = Object.keys(validate()).length === 0 && agreedToTerms;
                   onChange={handleMobileChange} 
                />
             </div>
-            {submitted && errors.mobile && <span className="field-error-msg"><FaExclamationCircle /> {errors.mobile}</span>}
+            {errors.mobile && <span className="field-error-msg"><FaExclamationCircle /> {errors.mobile}</span>}
           </div>
 
           <div className="form-group" style={{marginTop: '1.25rem'}}>
@@ -243,11 +304,11 @@ const isFormValid = Object.keys(validate()).length === 0 && agreedToTerms;
             <input 
               type="text" 
               placeholder="MM/DD/YYYY"
-              className={submitted && errors.dob ? "input-error" : ""} 
+              className={errors.dob ? "input-error" : ""} 
               value={formData.dob} 
               onChange={handleDobChange} 
             />
-            {submitted && errors.dob && <span className="field-error-msg"><FaExclamationCircle /> {errors.dob}</span>}
+            {errors.dob && <span className="field-error-msg"><FaExclamationCircle /> {errors.dob}</span>}
           </div>
 
           <div className="form-group">
@@ -256,7 +317,7 @@ const isFormValid = Object.keys(validate()).length === 0 && agreedToTerms;
               <button type="button" className={`role-btn ${isPetOwner ? "active" : ""}`} onClick={() => handleRoleToggle("pet_owner")}>Pet Owner</button>
               <button type="button" className={`role-btn ${isProvider ? "active" : ""}`} onClick={() => handleRoleToggle("service_provider")}>Service Provider</button>
             </div>
-            {submitted && errors.roleChoice && <span className="field-error-msg"><FaExclamationCircle /> {errors.roleChoice}</span>}
+            {errors.roleChoice && <span className="field-error-msg"><FaExclamationCircle /> {errors.roleChoice}</span>}
           </div>
 
           <div className="password-group">
@@ -264,7 +325,7 @@ const isFormValid = Object.keys(validate()).length === 0 && agreedToTerms;
               <input 
                 type={showPassword ? "text" : "password"} 
                 placeholder="Password" 
-                className={submitted && errors.password ? "input-error" : ""} 
+                className={errors.password ? "input-error" : ""} 
                 value={formData.password} 
                 onChange={(e) => setFormData({...formData, password: e.target.value})} 
               />
@@ -273,23 +334,23 @@ const isFormValid = Object.keys(validate()).length === 0 && agreedToTerms;
               </button>
             </div>
             {/* The error message is now OUTSIDE the icon's coordinate system */}
-            {submitted && errors.password && <span className="field-error-msg"><FaExclamationCircle /> {errors.password}</span>}
+            {errors.password && <span className="field-error-msg"><FaExclamationCircle /> {errors.password}</span>}
           </div>
 
           <div className="password-group">
              <input 
                 type={showConfirmPassword ? "text" : "password"} 
                 placeholder="Confirm Password" 
-                className={submitted && errors.confirmPassword ? "input-error" : ""} 
+                className={errors.confirmPassword ? "input-error" : ""} 
                 value={formData.confirmPassword} 
                 onChange={(e) => setFormData({...formData, confirmPassword: e.target.value})} 
              />
              <button type="button" className="toggle-btn" onClick={() => setShowConfirmPassword(!showConfirmPassword)}>{showConfirmPassword ? <FaEyeSlash /> : <FaEye />}</button>
-             {submitted && errors.confirmPassword && <span className="field-error-msg"><FaExclamationCircle /> {errors.confirmPassword}</span>}
+             {errors.confirmPassword && <span className="field-error-msg"><FaExclamationCircle /> {errors.confirmPassword}</span>}
           </div>
 
           {/* NEW TERMS CHECKBOX */}
-          <div className={`terms-checkbox-group ${submitted && errors.terms ? "checkbox-error" : ""}`}>
+          <div className={`terms-checkbox-group ${errors.terms ? "checkbox-error" : ""}`}>
             <input 
               type="checkbox" 
               id="terms-checkbox" 
@@ -308,16 +369,20 @@ const isFormValid = Object.keys(validate()).length === 0 && agreedToTerms;
               of Furlink
             </label>
           </div>
-          {submitted && errors.terms && <span className="field-error-msg" style={{marginBottom: '1rem'}}><FaExclamationCircle /> {errors.terms}</span>}
+          {errors.terms && <span className="field-error-msg" style={{marginBottom: '1rem'}}><FaExclamationCircle /> {errors.terms}</span>}
 
           <button 
             className="btn-primary" 
             type="submit" 
             disabled={loading || !isFormValid}
+            style={{ 
+              opacity: isFormValid ? 1 : 0.5, 
+              cursor: isFormValid ? 'pointer' : 'not-allowed',
+            }}
           >
             {loading ? "Processing..." : "Register"}
           </button>
-          
+                    
           <div className="login-redirect">
             <p>Already have an account? <span className="login-link" onClick={() => navigate("/login")}>Login here</span></p>
           </div>
