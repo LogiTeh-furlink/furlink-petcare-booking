@@ -94,7 +94,9 @@ export default function UserProfile() {
         email: user.email, 
         first_name: profileRes.data.first_name || "",
         last_name: profileRes.data.last_name || "",
-        mobile_number: profileRes.data.mobile_number || "" 
+        mobile_number: (profileRes.data.mobile_number || "")
+          .replace("+63", "")
+          .replace(/^0/, "") 
       };
 
       setFormData(profileData);
@@ -174,8 +176,20 @@ export default function UserProfile() {
 
   const handleProfileChange = (e) => {
     if (isSuspended) return;
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-    if (errors[e.target.name]) setErrors(prev => ({ ...prev, [e.target.name]: "" }));
+    const { name, value } = e.target;
+
+    if (name === "mobile_number") {
+      // 1. Remove any non-digit characters
+      const onlyNums = value.replace(/[^0-9]/g, '');
+      // 2. Limit to exactly 10 digits
+      if (onlyNums.length <= 10) {
+        setFormData({ ...formData, mobile_number: onlyNums });
+      }
+    } else {
+      setFormData({ ...formData, [name]: value });
+    }
+
+    if (errors[name]) setErrors(prev => ({ ...prev, [name]: "" }));
   };
 
   const handlePasswordChange = (e) => {
@@ -198,7 +212,7 @@ export default function UserProfile() {
     let isValid = true;
     if (!formData.first_name.trim()) { newErrors.first_name = "First name is required."; isValid = false; }
     if (!formData.last_name.trim()) { newErrors.last_name = "Last name is required."; isValid = false; }
-    const mobileRegex = /^(09|\+639)\d{9}$/;
+    const mobileRegex = /^[0-9]{10}$/;
     if (!formData.mobile_number.trim()) {
       newErrors.mobile_number = "Mobile number is required.";
       isValid = false;
@@ -214,20 +228,25 @@ export default function UserProfile() {
     return isValid;
   };
 
-  const confirmSave = async () => {
+const confirmSave = async () => {
     setSaving(true);
     setShowConfirmModal(false); 
     try {
       const { data: { user } } = await supabase.auth.getUser();
+      
+      // Save as local format: 0 + 9XXXXXXXXX
+      const formattedMobile = `0${formData.mobile_number}`;
+
       const { error: profileError } = await supabase
         .from("profiles")
         .update({
           first_name: formData.first_name,
           last_name: formData.last_name,
-          mobile_number: formData.mobile_number,
+          mobile_number: formattedMobile, 
           updated_at: new Date(),
         })
         .eq("id", user.id);
+
       if (profileError) throw profileError;
       if (passwords.new_password) {
         const { error: authError } = await supabase.auth.updateUser({ password: passwords.new_password });
@@ -372,17 +391,45 @@ export default function UserProfile() {
                     </div>
                   </div>
                   <div className="input-group">
-                      <label><FaPhone className="input-icon"/> Mobile Number</label>
+                    <label><FaPhone className="input-icon"/> Mobile Number</label>
+                    <div className="mobile-input-wrapper" style={{ 
+                      display: 'flex', 
+                      alignItems: 'stretch', 
+                      height: '45px' 
+                    }}>
+                      <span className="ph-prefix" style={{ 
+                        padding: '0 12px', 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        background: '#f1f5f9', 
+                        border: '1px solid #cbd5e1', 
+                        borderRight: 'none',
+                        borderRadius: '8px 0 0 8px',
+                        color: '#64748b',
+                        fontWeight: 'bold',
+                        fontSize: '1rem'
+                      }}>
+                        +63
+                      </span>
                       <input 
-                        type="text" name="mobile_number" 
+                        type="text" 
+                        name="mobile_number" 
                         value={formData.mobile_number} 
                         onChange={handleProfileChange} 
-                        placeholder="09XXXXXXXXX" 
+                        placeholder="9XXXXXXXXX" 
                         readOnly={isSuspended}
+                        style={{ 
+                          borderTopLeftRadius: '0', 
+                          borderBottomLeftRadius: '0', 
+                          flex: 1,
+                          height: '100%',
+                          margin: 0 
+                        }}
                         className={`${errors.mobile_number ? "input-error" : ""} ${isSuspended ? "read-only-input" : ""}`}
                       />
-                      {errors.mobile_number && <span className="field-error-msg">{errors.mobile_number}</span>}
                     </div>
+                    {errors.mobile_number && <span className="field-error-msg">{errors.mobile_number}</span>}
+                  </div>
                   </div> 
 
                   <div className="form-section deactivation-section">
