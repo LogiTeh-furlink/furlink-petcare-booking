@@ -22,6 +22,52 @@ const SignUpPage = () => {
   });
 
   const [errors, setErrors] = useState({});
+  const [touched, setTouched] = useState({});
+
+const handleBlur = async (e) => {
+    const { name, value } = e.target;
+    if (!name) return;
+
+    // 1. Mark the field as touched immediately
+    setTouched((prev) => ({ ...prev, [name]: true }));
+
+    // 2. Clear general error if user is re-editing the email field
+    // This makes the red alert box disappear as they try to fix the email
+    if (name === "email") {
+      setErrors(prev => {
+        const { general, ...rest } = prev;
+        return rest;
+      });
+    }
+
+    // 3. IMMEDIATE EMAIL CHECK (only if format is already valid)
+    if (name === "email" && value && !errors.email) {
+      try {
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("id")
+          .eq("email", value)
+          .maybeSingle();
+
+        if (data) {
+          // If user exists, set the general error for the top alert box
+          setErrors(prev => ({ 
+            ...prev, 
+            general: "This email is already associated with an account. Please try logging in instead." 
+          }));
+        } else {
+          // Explicitly clear general error if the email is confirmed available
+          setErrors(prev => {
+            const { general, ...rest } = prev;
+            return rest;
+          });
+        }
+      } catch (err) {
+        console.error("Error checking email availability:", err);
+      }
+    }
+  };
+
   const [submitted, setSubmitted] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -93,15 +139,17 @@ const SignUpPage = () => {
 
   // 2. Run validation every time state changes
   useEffect(() => {
-    const validationErrors = validateForm();
-    
-    // Check if there's an existing general error we should keep
-    if (errors.general) {
-      setErrors({ ...validationErrors, general: errors.general });
-    } else {
-      setErrors(validationErrors);
-    }
-  }, [formData, agreedToTerms]);
+      const validationErrors = validateForm();
+      
+      setErrors(prev => {
+        // If a general error exists in the current state, keep it 
+        // while updating all the field-level validation errors
+        if (prev.general) {
+          return { ...validationErrors, general: prev.general };
+        }
+        return validationErrors;
+      });
+    }, [formData, agreedToTerms]);
 
   // 3. Define the validity flag
   // The form is valid if there are no field errors, regardless of previous general failures
@@ -148,12 +196,19 @@ const SignUpPage = () => {
     }
 
     setFormData({ ...formData, roleChoice: newRole });
+    setTouched(prev => ({ ...prev, roleChoice: true }));
   };
 
   const handleRegister = async (e) => {
         e.preventDefault();
         setSubmitted(true);
         
+        // ADD THIS: Mark everything as touched so errors show up on click
+        const allFields = ["firstName", "lastName", "email", "mobile", "dob", "password", "confirmPassword", "roleChoice"];
+        const touchAll = {};
+        allFields.forEach(field => touchAll[field] = true);
+        setTouched(touchAll);
+
         // Clear any previous general registration errors before trying again
         setErrors(prev => {
             const { general, ...rest } = prev;
@@ -256,59 +311,69 @@ const getPrivacyPath = () => `${BASE_URL}/privacy_policy.pdf`;
             <div className="input-wrap">
               <input 
                 type="text" 
+                name="firstName"
                 placeholder="First Name" 
-                className={errors.firstName ? "input-error" : ""} 
+                className={`${touched.firstName && errors.firstName ? "input-error" : ""}`}
                 value={formData.firstName} 
                 onChange={(e) => setFormData({ ...formData, firstName: e.target.value })} 
+                onBlur={handleBlur}
               />
-              {errors.firstName && <span className="field-error-msg"><FaExclamationCircle /> {errors.firstName}</span>}
+              {touched.firstName && errors.firstName && <span className="field-error-msg"><FaExclamationCircle /> {errors.firstName}</span>}
             </div>
             <div className="input-wrap">
               <input 
                 type="text" 
+                name="lastName"
                 placeholder="Last Name" 
-                className={errors.lastName ? "input-error" : ""} 
+                className={`${touched.lastName && errors.lastName ? "input-error" : ""}`}
                 value={formData.lastName} 
                 onChange={(e) => setFormData({ ...formData, lastName: e.target.value })} 
+                onBlur={handleBlur}
               />
-              {errors.lastName && <span className="field-error-msg"><FaExclamationCircle /> {errors.lastName}</span>}
+              {touched.lastName && errors.lastName && <span className="field-error-msg"><FaExclamationCircle /> {errors.lastName}</span>}
             </div>
           </div>
 
           <div className="form-group">
             <input 
               type="email" 
+              name="email"
               placeholder="Email Address" 
-              className={errors.email ? "input-error" : ""} 
+              className={`${touched.email && errors.email ? "input-error" : ""}`} 
               value={formData.email} 
               onChange={(e) => setFormData({ ...formData, email: e.target.value })} 
+              onBlur={handleBlur}
             />
-            {errors.email && <span className="field-error-msg"><FaExclamationCircle /> {errors.email}</span>}
+            {touched.email && errors.email && <span className="field-error-msg"><FaExclamationCircle /> {errors.email}</span>}
           </div>
           
           <div className="form-group">
-            <div className={`phone-input-wrapper ${errors.mobile ? "input-error" : ""}`}>
+            <div className={`phone-input-wrapper ${touched.mobile && errors.mobile ? "input-error" : ""}`}>
                <span className="country-code">+63</span>
                <input 
                   type="text" 
+                  name="mobile"
                   placeholder="9XXXXXXXXX" 
                   value={formData.mobile} 
                   onChange={handleMobileChange} 
+                  onBlur={handleBlur}
                />
             </div>
-            {errors.mobile && <span className="field-error-msg"><FaExclamationCircle /> {errors.mobile}</span>}
+            {touched.mobile && errors.mobile && <span className="field-error-msg"><FaExclamationCircle /> {errors.mobile}</span>}
           </div>
 
           <div className="form-group" style={{marginTop: '1.25rem'}}>
             <label className="input-label">Date of Birth</label>
             <input 
               type="text" 
+              name="dob"
               placeholder="MM/DD/YYYY"
-              className={errors.dob ? "input-error" : ""} 
+              className={`${touched.dob && errors.dob ? "input-error" : ""}`} 
               value={formData.dob} 
               onChange={handleDobChange} 
+              onBlur={handleBlur}
             />
-            {errors.dob && <span className="field-error-msg"><FaExclamationCircle /> {errors.dob}</span>}
+            {touched.dob && errors.dob && <span className="field-error-msg"><FaExclamationCircle /> {errors.dob}</span>}
           </div>
 
           <div className="form-group">
@@ -317,45 +382,50 @@ const getPrivacyPath = () => `${BASE_URL}/privacy_policy.pdf`;
               <button type="button" className={`role-btn ${isPetOwner ? "active" : ""}`} onClick={() => handleRoleToggle("pet_owner")}>Pet Owner</button>
               <button type="button" className={`role-btn ${isProvider ? "active" : ""}`} onClick={() => handleRoleToggle("service_provider")}>Service Provider</button>
             </div>
-            {errors.roleChoice && <span className="field-error-msg"><FaExclamationCircle /> {errors.roleChoice}</span>}
+            {touched.roleChoice && errors.roleChoice && <span className="field-error-msg"><FaExclamationCircle /> {errors.roleChoice}</span>}
           </div>
 
           <div className="password-group">
             <div className="input-with-icon" style={{ position: 'relative' }}>
               <input 
                 type={showPassword ? "text" : "password"} 
+                name="password"
                 placeholder="Password" 
-                className={errors.password ? "input-error" : ""} 
+                className={`${touched.password && errors.password ? "input-error" : ""}`} 
                 value={formData.password} 
                 onChange={(e) => setFormData({...formData, password: e.target.value})} 
+                onBlur={handleBlur}
               />
               <button type="button" className="toggle-btn" onClick={() => setShowPassword(!showPassword)}>
                 {showPassword ? <FaEyeSlash /> : <FaEye />}
               </button>
             </div>
             {/* The error message is now OUTSIDE the icon's coordinate system */}
-            {errors.password && <span className="field-error-msg"><FaExclamationCircle /> {errors.password}</span>}
+            {touched.password && errors.password && <span className="field-error-msg"><FaExclamationCircle /> {errors.password}</span>}
           </div>
 
           <div className="password-group">
              <input 
                 type={showConfirmPassword ? "text" : "password"} 
+                name="confirmPassword"
                 placeholder="Confirm Password" 
-                className={errors.confirmPassword ? "input-error" : ""} 
+                className={`${touched.confirmPassword && errors.confirmPassword ? "input-error" : ""}`} 
                 value={formData.confirmPassword} 
                 onChange={(e) => setFormData({...formData, confirmPassword: e.target.value})} 
+                onBlur={handleBlur}
              />
              <button type="button" className="toggle-btn" onClick={() => setShowConfirmPassword(!showConfirmPassword)}>{showConfirmPassword ? <FaEyeSlash /> : <FaEye />}</button>
-             {errors.confirmPassword && <span className="field-error-msg"><FaExclamationCircle /> {errors.confirmPassword}</span>}
+             {touched.confirmPassword && errors.confirmPassword && <span className="field-error-msg"><FaExclamationCircle /> {errors.confirmPassword}</span>}
           </div>
 
           {/* NEW TERMS CHECKBOX */}
-          <div className={`terms-checkbox-group ${errors.terms ? "checkbox-error" : ""}`}>
+          <div className={`terms-checkbox-group ${touched.terms && errors.terms ? "checkbox-error" : ""}`}>
             <input 
               type="checkbox" 
               id="terms-checkbox" 
               checked={agreedToTerms} 
               onChange={(e) => setAgreedToTerms(e.target.checked)} 
+              onBlur={handleBlur}
             />
             <label htmlFor="terms-checkbox">
               I agree to the{" "}
@@ -369,7 +439,7 @@ const getPrivacyPath = () => `${BASE_URL}/privacy_policy.pdf`;
               of Furlink
             </label>
           </div>
-          {errors.terms && <span className="field-error-msg" style={{marginBottom: '1rem'}}><FaExclamationCircle /> {errors.terms}</span>}
+          {touched.terms && errors.terms && <span className="field-error-msg" style={{marginBottom: '1rem'}}><FaExclamationCircle /> {errors.terms}</span>}
 
           <button 
             className="btn-primary" 
