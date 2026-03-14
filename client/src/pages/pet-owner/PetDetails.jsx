@@ -434,7 +434,7 @@ const updatePetInfo = (index, field, value) => {
 
     // 2. Check if a Packaged Service is already in the list
     const hasPackage = currentPet.services.some(s => 
-      s.id !== currentServiceId && s.service_type?.toLowerCase().includes('packaged')
+      s.id !== currentServiceId && s.service_type?.toLowerCase().includes('package')
     );
 
     return providerServices.filter(service => {
@@ -442,7 +442,7 @@ const updatePetInfo = (index, field, value) => {
       if (selectedIds.includes(service.id)) return false;
 
       // Rule B: If a package is picked, hide all other "Packaged Service" options
-      if (hasPackage && service.type?.toLowerCase().includes('packaged')) return false;
+      if (hasPackage && service.type?.toLowerCase().includes('package')) return false;
 
       return true;
     });
@@ -526,7 +526,9 @@ const getServicePriceAndSize = (serviceId, petType, weight) => {
     if (lastService && lastService.id === "") {
       setPetsData(prev => {
         const newPets = [...prev];
-        newPets[petIndex].service_error = "Please select a service before adding another field.";
+        const updatedPet = { ...newPets[petIndex] }; // Fix: Shallow copy the specific pet object to avoid React double-firing mutation
+        updatedPet.service_error = "Please select a service before adding another field.";
+        newPets[petIndex] = updatedPet;
         return newPets;
       });
       return;
@@ -534,11 +536,13 @@ const getServicePriceAndSize = (serviceId, petType, weight) => {
 
     setPetsData(prev => {
       const newPets = [...prev];
-      newPets[petIndex].service_error = null;
-      newPets[petIndex].services = [
-        ...newPets[petIndex].services, 
+      const updatedPet = { ...newPets[petIndex] }; // Fix: Copy pet object so array spread works perfectly inside strict mode
+      updatedPet.service_error = null;
+      updatedPet.services = [
+        ...updatedPet.services, 
         { id: "", service_name: "", service_type: "", price: "0.00" }
       ];
+      newPets[petIndex] = updatedPet;
       return newPets;
     });
   };
@@ -546,8 +550,10 @@ const getServicePriceAndSize = (serviceId, petType, weight) => {
   const handleRemoveServiceRow = (petIndex, serviceIndex) => {
     setPetsData(prev => {
       const newPets = [...prev];
-      newPets[petIndex].services = newPets[petIndex].services.filter((_, idx) => idx !== serviceIndex);
-      newPets[petIndex].total_price = newPets[petIndex].services.reduce((sum, s) => sum + parseFloat(s.price || 0), 0);
+      const updatedPet = { ...newPets[petIndex] }; // Fix: Prevent state mutation in React Strict Mode
+      updatedPet.services = updatedPet.services.filter((_, idx) => idx !== serviceIndex);
+      updatedPet.total_price = updatedPet.services.reduce((sum, s) => sum + parseFloat(s.price || 0), 0);
+      newPets[petIndex] = updatedPet;
       return newPets;
     });
   };
@@ -641,6 +647,12 @@ const getServicePriceAndSize = (serviceId, petType, weight) => {
                           {pet.services.map((service, sIndex) => {
                             const availableOptions = getFilteredOptions(pet, service.id);
                             
+                            // CALCULATE MAX ROWS ALLOWED
+                            // Selected + Available remaining for a hypothetical new row
+                            const selectedCount = pet.services.filter(s => s.id !== "").length;
+                            const optionsForNewRow = getFilteredOptions(pet, "").length;
+                            const maxAllowedRows = selectedCount + optionsForNewRow;
+
                             // Validation flags for individual row styling
                             const isEmpty = attemptedSubmit && !service.id;
                             
@@ -675,7 +687,7 @@ const getServicePriceAndSize = (serviceId, petType, weight) => {
                                     </select>
 
                                     <div className="service-row-actions" style={{ display: 'flex', gap: '5px' }}>
-                                      {sIndex === pet.services.length - 1 && (
+                                      {sIndex === pet.services.length - 1 && pet.services.length < maxAllowedRows && (
                                         <button type="button" className="circle-btn add" onClick={() => handleAddServiceRow(index)}>
                                           <Plus size={14} />
                                         </button>
