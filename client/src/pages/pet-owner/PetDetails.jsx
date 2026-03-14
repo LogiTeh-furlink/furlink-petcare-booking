@@ -47,9 +47,6 @@ const PetDetails = () => {
   // --- Payment Breakdown Toggle State ---
   const [showBreakdown, setShowBreakdown] = useState(false);
 
-  const [showCapacityModal, setShowCapacityModal] = useState(false);
-  const [remainingSpots, setRemainingSpots] = useState(0);
-
   // --- Breed Data State (Full List for Validation) ---
   const [validationBreeds, setValidationBreeds] = useState({ Dog: [], Cat: [] });
 
@@ -105,32 +102,6 @@ const PetDetails = () => {
     if (!dateStr) return "N/A";
     const options = { year: 'numeric', month: 'long', day: 'numeric' };
     return new Date(dateStr).toLocaleDateString('en-US', options);
-  };
-
-  const CapacityWarningModal = ({ isOpen, onClose, limit }) => {
-    if (!isOpen) return null;
-    return (
-      <div className="modal-overlay">
-        <div className="modal-content capacity-modal" style={{ textAlign: 'center', padding: '30px' }}>
-          <div style={{ marginBottom: '20px', color: '#ef4444' }}>
-            <AlertCircle size={48} style={{ margin: '0 auto' }} />
-          </div>
-          <h2 style={{ color: '#0E2679', marginBottom: '10px' }}>Capacity Reached</h2>
-          <p style={{ color: '#64748b', lineHeight: '1.6' }}>
-            We apologize, but this shop only has <strong>{limit} slot(s)</strong> remaining 
-            for your selected time: <br/> 
-            <strong>{formatTime12h(state?.bookingTime)}</strong>.
-          </p>
-          <button 
-            onClick={onClose} 
-            className="btn-modal-confirm" 
-            style={{ marginTop: '20px', width: '100%' }}
-          >
-            Got it
-          </button>
-        </div>
-      </div>
-    );
   };
 
   // State for Full View Modal
@@ -215,6 +186,7 @@ const PetDetails = () => {
       const typeList = Array.from(types);
       setAvailablePetTypes(typeList.length > 0 ? typeList : ["Dog", "Cat"]);
 
+      // strictly follow state.numberOfPets
       const count = state?.numberOfPets || 1;
       setPetsData(Array.from({ length: count }, () => getEmptyPet(typeList[0] || "Dog")));
       setLoading(false);
@@ -222,52 +194,7 @@ const PetDetails = () => {
     fetchData();
   }, [initialProviderId, state]);
 
-  // Inside PetDetails component
-const [maxSlots, setMaxSlots] = useState(1);
-const [occupiedSlots, setOccupiedSlots] = useState(0);
-
-useEffect(() => {
-  const fetchCapacity = async () => {
-    if (!state?.bookingDate || !initialProviderId) return;
-    
-    const dayName = new Date(state.bookingDate).toLocaleDateString('en-US', { weekday: 'long' });
-    
-    // 1. Fetch Max Capacity for this specific day
-    const { data: hourData } = await supabase
-      .from("service_provider_hours")
-      .select("slot_capacity")
-      .eq("provider_id", initialProviderId)
-      .eq("day_of_week", dayName)
-      .single();
-
-    // 2. Fetch existing bookings (Confirmed + Pending) for this exact slot
-    const { data: bookings } = await supabase
-      .from("bookings")
-      .select("id")
-      .eq("provider_id", initialProviderId)
-      .eq("booking_date", state.bookingDate)
-      .eq("time_slot", state.bookingTime)
-      .not("status", "in", '("cancelled", "rejected")');
-
-    setMaxSlots(hourData?.slot_capacity || 1);
-    setOccupiedSlots(bookings?.length || 0);
-  };
-  fetchCapacity();
-}, [initialProviderId, state]);
-
-const handleAddPet = () => {
-  const currentRemaining = maxSlots - occupiedSlots;
-  setRemainingSpots(currentRemaining); // Update state for the modal text
-
-  if (petsData.length >= currentRemaining) {
-    setShowCapacityModal(true); // Trigger Modal
-    return;
-  }
-  
-  setPetsData([...petsData, getEmptyPet(availablePetTypes[0])]);
-};
-
-const validateForm = () => {
+  const validateForm = () => {
     setAttemptedSubmit(true);
     let errorMsg = "";
     
@@ -592,25 +519,6 @@ const getServicePriceAndSize = (serviceId, petType, weight) => {
         : { price: 0, size: "N/A", matched: false };
   };
 
-  const getAvailableOptions = (petIndex, currentServiceRowIndex) => {
-    const currentPet = petsData[petIndex];
-    const currentServiceId = currentPet.services[currentServiceRowIndex]?.id;
-
-    const selectedIds = currentPet.services
-      .map(s => s.id)
-      .filter(id => id !== "" && id !== currentServiceId);
-
-    const hasPackage = currentPet.services.some((s, idx) => 
-      idx !== currentServiceRowIndex && s.service_type?.toLowerCase().includes('packaged')
-    );
-
-    return providerServices.filter(s => {
-      if (selectedIds.includes(s.id)) return false;
-      if (hasPackage && s.type?.toLowerCase().includes('packaged')) return false;
-      return true;
-    });
-  };
-
   const handleAddServiceRow = (petIndex) => {
     const pet = petsData[petIndex];
     const lastService = pet.services[pet.services.length - 1];
@@ -717,19 +625,9 @@ const getServicePriceAndSize = (serviceId, petType, weight) => {
                 <div key={index} className="pet-card-wrapper">
                     <div className="card-top-bar">
                         <span className="pet-count-label">Pet #{index + 1}</span>
-                        {/* Inside the card-actions div */}
                         <div className="card-actions">
                           <span className="individual-price">₱{pet.total_price.toFixed(2)}</span>
-                          
-                          {petsData.length > 1 && (
-                          <button type="button" className="circle-btn delete" onClick={() => setPetsData(petsData.filter((_, i) => i !== index))}>
-                            <Trash2 size={16}/>
-                          </button>
-                        )}
-
-                        <button type="button" className="circle-btn add" onClick={handleAddPet}>
-                          <Plus size={16}/>
-                        </button>
+                          {/* Pet Add/Delete buttons removed to strict-match prior page configuration */}
                       </div>
                     </div>
 
@@ -745,7 +643,10 @@ const getServicePriceAndSize = (serviceId, petType, weight) => {
                             
                             // Validation flags for individual row styling
                             const isEmpty = attemptedSubmit && !service.id;
-                            const isMismatched = service.id && service.matched === false;
+                            
+                            // MODIFIED: Mismatch error now only shows on submit, OR if weight is actively filled out
+                            const isMismatched = service.id && service.matched === false && (attemptedSubmit || (pet.weight_kg && parseFloat(pet.weight_kg) > 0));
+                            
                             const hasError = isEmpty || isMismatched;
 
                             return (
@@ -1054,7 +955,6 @@ const getServicePriceAndSize = (serviceId, petType, weight) => {
                               </div>
                             ) : (
                               <div className="ai-preview-container" style={{ textAlign: 'center' }}>
-                                {/* (Keep existing preview img and confirmed-overlay logic here) */}
                                 <div className="ai-img-frame" style={{ position: 'relative', marginBottom: '10px' }}>
                                     <img src={pet.ai_generated_preview} alt="AI Preview" className="ai-result-img" style={{ width: '100%', borderRadius: '12px', border: '3px solid #0E2679' }} />
                                     {pet.ai_confirmed && <div className="confirmed-overlay" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(14, 38, 121, 0.7)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '12px', fontWeight: 'bold' }}>✓ Style Confirmed</div>}
@@ -1079,7 +979,7 @@ const getServicePriceAndSize = (serviceId, petType, weight) => {
             ))}
         </div>
 
-        {/* NEW: IMAGE FULL VIEW MODAL */}
+        {/* IMAGE FULL VIEW MODAL */}
         {selectedImage && (
           <div className="image-fullview-overlay" onClick={() => setSelectedImage(null)}>
             <div className="fullview-content" onClick={(e) => e.stopPropagation()}>
@@ -1241,11 +1141,6 @@ const getServicePriceAndSize = (serviceId, petType, weight) => {
     </div>
   </div>
 )}
-          <CapacityWarningModal 
-            isOpen={showCapacityModal} 
-            onClose={() => setShowCapacityModal(false)} 
-            limit={remainingSpots} 
-          />
         
         {/* Success Modal (Matching Payment Page) */}
         {showSuccessModal && (
