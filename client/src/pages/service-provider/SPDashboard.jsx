@@ -411,9 +411,49 @@ export default function SPDashboard() {
     return filtered;
   };
 
+  // ============================================
+  // REVENUE RANGE: use active date filter if set, otherwise current month.
+  // ============================================
+  const revenueRange = (() => {
+    const parseLocal = (str) => {
+      const [y, m, d] = str.split('-').map(Number);
+      return new Date(y, m - 1, d);
+    };
+    if (dateRange.start || dateRange.end) {
+      const now = new Date();
+      const start = dateRange.start
+        ? parseLocal(dateRange.start)
+        : new Date(now.getFullYear(), now.getMonth(), 1);
+      const end = dateRange.end
+        ? (() => { const d = parseLocal(dateRange.end); d.setHours(23,59,59,999); return d; })()
+        : new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+      return { start, end };
+    }
+    const now = new Date();
+    return {
+      start: new Date(now.getFullYear(), now.getMonth(), 1),
+      end: new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999),
+    };
+  })();
+
+  // Label shown under the revenue value in the card
+  const revenuePeriodLabel = (() => {
+    const fmt = (d) => d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+    if (dateRange.start && dateRange.end) return `${fmt(revenueRange.start)} – ${fmt(revenueRange.end)}`;
+    if (dateRange.start) return `From ${fmt(revenueRange.start)}`;
+    if (dateRange.end)   return `Until ${fmt(revenueRange.end)}`;
+    return `For the month of ${new Date().toLocaleString('default', { month: 'long', year: 'numeric' })}`;
+  })();
+
   const stats = {
+    // Revenue filtered to revenueRange (respects date filter, defaults to current month)
     revenue: bookings
-      .filter(b => isBookingComplete(b))
+      .filter(b => {
+        if (!isBookingComplete(b)) return false;
+        const [year, month, day] = b.booking_date.split('-').map(Number);
+        const bDate = new Date(year, month - 1, day);
+        return bDate >= revenueRange.start && bDate <= revenueRange.end;
+      })
       .reduce((sum, b) => sum + (parseFloat(b.total_estimated_price) || 0), 0),
     new_request: bookings.filter(b => {
       const now = new Date();
@@ -552,7 +592,7 @@ export default function SPDashboard() {
           <div className="revenue-card">
             <div className="revenue-info">
               <h1>Total Revenue</h1>
-              <p>For the month of {new Date().toLocaleString('default', { month: 'long', year: 'numeric' })}</p>
+              <p>{revenuePeriodLabel}</p>
             </div>
             <div className="revenue-value">
               <span>{formatCurrency(stats.revenue)}</span>
