@@ -35,7 +35,6 @@ const BookingCalendar = ({ bookings = [], onClose, dateRange }) => {
     : [];
 
   const getDayStats = (dateStr) => {
-    // Check if the date falls within the global custom date range
     if (dateRange && dateRange.start && dateStr < dateRange.start) return { total: 0, badge: "" };
     if (dateRange && dateRange.end && dateStr > dateRange.end) return { total: 0, badge: "" };
 
@@ -72,7 +71,6 @@ const BookingCalendar = ({ bookings = [], onClose, dateRange }) => {
       const stats = getDayStats(dateStr);
       const isSelected = selectedDate === dateStr;
 
-      // Determine if the day is outside the filtered range
       const isOutOfRange = (dateRange && dateRange.start && dateStr < dateRange.start) || 
                            (dateRange && dateRange.end && dateStr > dateRange.end);
 
@@ -167,7 +165,6 @@ export default function SPDashboard() {
   const [loading, setLoading] = useState(true);
   const [providerId, setProviderId] = useState(null);
   
-  // Tabs: 'new_request', 'for_verification', 'upcoming', 'completed'
   const [activeTab, setActiveTab] = useState("new_request"); 
   
   const [dateRange, setDateRange] = useState({ start: "", end: "" });
@@ -182,15 +179,12 @@ export default function SPDashboard() {
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [bookingReview, setBookingReview] = useState(null);
   
-  // ⭐ SUSPENSION STATES
   const [isSuspended, setIsSuspended] = useState(false);
   const [suspensionDate, setSuspensionDate] = useState(null);
 
-  // ⭐ WARNING INTERCEPTOR STATES
   const [showWarningModal, setShowWarningModal] = useState(false);
   const [activeWarning, setActiveWarning] = useState(null);
 
-  // Actions
   const [declineReason, setDeclineReason] = useState("");
   const [voidReason, setVoidReason] = useState("");
   const [previewImage, setPreviewImage] = useState(null);
@@ -199,20 +193,16 @@ export default function SPDashboard() {
   const [successTitle, setSuccessTitle] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
 
-  // Agreement Links Helpers
   const BASE_URL = `https://mdhudfatvdipxwufcbis.supabase.co/storage/v1/object/public/agreements`;
   const getTermsLink = () => `${BASE_URL}/terms_sp.pdf`;
   const getPrivacyPath = () => `${BASE_URL}/privacy_policy.pdf`;
 
-  // --- ADD THIS HELPER LOGIC ---
   const isPast = selectedBooking ? (() => {
       const now = new Date();
-      // Combine date and time (assumes booking_date is YYYY-MM-DD and time_slot is HH:MM)
       const appointmentDate = new Date(`${selectedBooking.booking_date}T${selectedBooking.time_slot}`);
       return appointmentDate < now;
   })() : false;
 
-  // Lock Body Scroll when Modal is Open
   useEffect(() => {
     if (selectedBooking || showCalendar || previewImage || showSuccessModal || showWarningModal) {
       document.body.style.overflow = 'hidden';
@@ -232,7 +222,6 @@ export default function SPDashboard() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return navigate("/login");
 
-      // ⭐ CHECK SUSPENSION
       const { data: profile } = await supabase
         .from("profiles")
         .select("suspension_end_date")
@@ -247,7 +236,6 @@ export default function SPDashboard() {
         }
       }
 
-      // ⭐ CHECK FOR UNREAD ADMIN WARNINGS
       const { data: warningData } = await supabase
         .from('notifications')
         .select('*')
@@ -272,6 +260,13 @@ export default function SPDashboard() {
       if (providerError) throw providerError;
       setProviderId(providerData.id);
 
+      // FIX: Changed .order('booking_date', { ascending: false })
+      //      to .order('created_at', { ascending: false }) so that bookings
+      //      are listed by when they were created (newest first), not by
+      //      their scheduled appointment date.
+      //      This means a booking created today for April 18 will appear
+      //      above a booking created yesterday for March 18 — matching
+      //      the expected "most recently created at the top" behavior.
       const { data: bookingsData, error: bookingsError } = await supabase
         .from("bookings")
         .select(`
@@ -282,7 +277,7 @@ export default function SPDashboard() {
           )
         `)
         .eq("provider_id", providerData.id)
-        .order('booking_date', { ascending: false });
+        .order('created_at', { ascending: false });
 
       if (bookingsError) throw bookingsError;
 
@@ -316,7 +311,6 @@ export default function SPDashboard() {
     }
   };
 
-  // ⭐ ACKNOWLEDGE WARNING HANDLER
   const acknowledgeWarning = async () => {
     if (!activeWarning) return;
     try {
@@ -371,9 +365,6 @@ export default function SPDashboard() {
   const isBookingComplete = (b) => {
       const now = new Date();
       const appointmentDate = new Date(`${b.booking_date}T${b.time_slot}`);
-      
-      // A booking is "Complete" if it's already rated OR 
-      // if it's 'for review' AND the appointment time has already passed.
       return b.status === 'rated' || (b.status === 'for review' && appointmentDate < now);
   };
 
@@ -390,9 +381,6 @@ export default function SPDashboard() {
         break;
 
       case 'for_verification':
-        // --- EDIT THIS LINE ---
-        // Only show 'for review' if it's NOT considered a completed/rated booking yet
-        // and ensure it stays here only if you are in this specific tab logic
         filtered = bookings.filter(b => b.status === 'for review' && !isBookingComplete(b));
         break;
 
@@ -401,7 +389,6 @@ export default function SPDashboard() {
         break;
 
       case 'completed':
-        // This tab correctly owns both 'for review' (past dates) and 'rated'
         filtered = bookings.filter(b => isBookingComplete(b));
         break;
 
@@ -412,7 +399,6 @@ export default function SPDashboard() {
         filtered = [];
     }
 
-    // ... (Keep your Date Range logic below this switch)
     if (dateRange.start || dateRange.end) {
       filtered = filtered.filter(b => {
         const bDate = b.booking_date; 
@@ -457,7 +443,7 @@ export default function SPDashboard() {
   };
 
   const handleAction = async (actionType) => {
-    if (!selectedBooking || isSuspended) return; // Guard: Logic Lock
+    if (!selectedBooking || isSuspended) return;
     let newStatus = '';
     let updateData = {};
     let title = "";
@@ -575,7 +561,7 @@ export default function SPDashboard() {
           
           <button className="top-action-btn" onClick={() => navigate('/service/sales')}>
               <FaChartLine size={24} />
-              <span>Dashboard</span> {/* <-- Restored "Dashboard" here */}
+              <span>Dashboard</span>
           </button>
 
           <button className="top-action-btn" onClick={() => setShowCalendar(true)}>
@@ -608,11 +594,9 @@ export default function SPDashboard() {
         </div>
 
         <div className="bookings-table-container">
-          {/* --- REPLACE THIS BLOCK --- */}
           <div className="table-header-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
               <h2>{activeTab.replace('_', ' ').toUpperCase()}</h2>
 
-              {/* NEW RANGE FILTER UI */}
               <div className="range-filter-container" style={{ display: 'flex', gap: '15px', alignItems: 'center', background: '#f1f5f9', padding: '8px 15px', borderRadius: '10px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <label style={{ fontSize: '0.7rem', fontWeight: 'bold', color: '#475569' }}>FROM</label>
@@ -698,7 +682,6 @@ export default function SPDashboard() {
           </div>
           <div className="modal-body-scroll">
             
-            {/* ⭐ PHASE 4: SUSPENSION WARNING IN MODAL */}
             {isSuspended && (
               <div className="refund-warning-box" style={{ backgroundColor: '#fff1f2', border: '1px solid #fecdd3', padding: '15px', borderRadius: '12px', color: '#be123c', marginBottom: '20px', display: 'flex', gap: '10px', alignItems: 'center' }}>
                 <FaBan size={20}/>
@@ -856,7 +839,6 @@ export default function SPDashboard() {
               )}
             </div>
 
-            {/* ⭐ MODAL FOOTER: HANDCUFF ACTIONS IF SUSPENDED */}
             <div className="modal-footer">
               {selectedBooking.status === 'paid' && !isBookingComplete(selectedBooking) && (
                 <div className="cancel-verification-wrapper" style={{ marginTop: '15px', borderTop: '1px solid #f1f5f9', paddingTop: '15px', display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: '12px' }}>
@@ -909,8 +891,6 @@ export default function SPDashboard() {
                 </div>
               )}
               
-              {/* --- 1. ACTIONABLE VIEW (Under Verify Payment Tab) --- */}
-              {/* Removed isPast constraint so you can verify payments for today/future bookings */}
               {selectedBooking.status === 'for review' && 
                selectedBooking.payment_proof_url !== null && 
                activeTab === 'for_verification' && (
@@ -947,8 +927,6 @@ export default function SPDashboard() {
                 </div>
               )}
 
-              {/* --- 2. READ-ONLY VIEW (Under Completed Tab) --- */}
-              {/* This remains the same to show the badge for history */}
               {['for review', 'rated'].includes(selectedBooking.status) && 
                selectedBooking.payment_proof_url !== null && 
                activeTab === 'completed' && (
@@ -974,7 +952,6 @@ export default function SPDashboard() {
         </div>
       )}
 
-      {/* ⭐ WARNING MODAL */}
       {showWarningModal && (
         <div className="warning-popup-overlay">
           <div className="warning-popup-content">
