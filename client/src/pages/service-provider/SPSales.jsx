@@ -32,9 +32,6 @@ ChartJS.register(
   Filler
 );
 
-// ============================================
-// HELPER: Format currency with 2 decimal places
-// ============================================
 const formatCurrency = (value) =>
   value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -43,9 +40,6 @@ export default function SPSales() {
   const reportRef = useRef(null);
   const printableReportRef = useRef(null);
   
-  // ============================================
-  // STATE MANAGEMENT - Load from localStorage
-  // ============================================
   const [activeTab] = useState('sales'); 
   const savedFilters = loadFilters();
   const [activeFilter, setActiveFilter] = useState(savedFilters.activeFilter);
@@ -63,9 +57,6 @@ export default function SPSales() {
   const [listingApprovedDate, setListingApprovedDate] = useState(null);
   const [providerHours, setProviderHours] = useState([]);
 
-  // ============================================
-  // SAVE FILTERS TO LOCALSTORAGE ON CHANGE
-  // ============================================
   useEffect(() => {
     saveFilters({
       activeFilter,
@@ -76,9 +67,6 @@ export default function SPSales() {
     });
   }, [activeFilter, petTypeFilter, customDateStart, customDateEnd, selectedYear]);
 
-  // ============================================
-  // DATA FETCHING
-  // ============================================
   useEffect(() => {
     const fetchSalesData = async () => {
       try {
@@ -99,7 +87,6 @@ export default function SPSales() {
           setListingApprovedDate(provider.created_at.split('T')[0]);
         }
 
-        // Fetch provider hours for slot interval logic
         const { data: hoursData, error: hoursError } = await supabase
           .from("service_provider_hours")
           .select("day_of_week, slot_interval_minutes")
@@ -109,7 +96,6 @@ export default function SPSales() {
           setProviderHours(hoursData);
         }
 
-        // Fetch bookings with related data
         const { data: bookings, error: bError } = await supabase
           .from('bookings')
           .select(`
@@ -129,7 +115,6 @@ export default function SPSales() {
         if (bError) throw bError;
         setRawBookings(bookings || []);
 
-        // Fetch services for this provider
         const { data: services, error: sError } = await supabase
           .from('services')
           .select('id, name, type')
@@ -138,7 +123,6 @@ export default function SPSales() {
         if (sError) throw sError;
         setServicesList(services || []);
 
-        // Fetch booking_services data
         const { data: bServices, error: bsError } = await supabase
           .from('booking_services')
           .select(`
@@ -175,23 +159,22 @@ export default function SPSales() {
     fetchSalesData();
   }, [navigate]);
 
-  // ============================================
-  // ANALYTICS CALCULATIONS
-  // ============================================
   const analytics = useMemo(() => {
     const now = new Date();
 
-    // ============================================
-    // FIX: Parse booking_date as LOCAL midnight, not UTC.
-    // ============================================
     const parseLocalDate = (dateStr) => {
       const [year, month, day] = dateStr.split('-').map(Number);
       return new Date(year, month - 1, day);
     };
 
-    // ============================================
-    // FIX: Cap the end of all non-custom ranges to end-of-today.
-    // ============================================
+    // FIX: PHT-safe end/start of day helpers using local time (browser = PHT for PH users)
+    const endOfDay = (dateStr) => {
+      const d = parseLocalDate(dateStr);
+      d.setHours(23, 59, 59, 999);
+      return d;
+    };
+    const startOfDay = (dateStr) => parseLocalDate(dateStr);
+
     const endOfToday = new Date();
     endOfToday.setHours(23, 59, 59, 999);
 
@@ -199,14 +182,13 @@ export default function SPSales() {
       return ['for review', 'rated'].includes(b.status);
     };
       
-    // Helper function to get date ranges based on filter
     const getRange = (filter, isPrevious = false) => {
       const today = new Date();
 
+      // Custom filter — uses local midnight boundaries (PHT-safe)
       if (filter === 'custom' && customDateStart && customDateEnd) {
-        const start = parseLocalDate(customDateStart);
-        const end = parseLocalDate(customDateEnd);
-        end.setHours(23, 59, 59, 999);
+        const start = startOfDay(customDateStart);
+        const end = endOfDay(customDateEnd);
         
         if (isPrevious) {
           const duration = end - start;
@@ -283,7 +265,6 @@ export default function SPSales() {
     const currentRange = getRange(activeFilter);
     const previousRange = getRange(activeFilter, true);
     
-    // Format the date range text
     const rangeText = activeFilter === 'custom' && customDateStart && customDateEnd
       ? `${parseLocalDate(customDateStart).toLocaleDateString(undefined, { month: 'short', day: '2-digit', year: 'numeric' })} - ${parseLocalDate(customDateEnd).toLocaleDateString(undefined, { month: 'short', day: '2-digit', year: 'numeric' })}`
       : `${currentRange.start.toLocaleDateString(undefined, { month: 'short', day: '2-digit', year: 'numeric' })} - ${now.toLocaleDateString(undefined, { month: 'short', day: '2-digit', year: 'numeric' })}`;
@@ -298,7 +279,6 @@ export default function SPSales() {
     const currentBookings = filterByRange(rawBookings, currentRange);
     const previousBookings = filterByRange(rawBookings, previousRange);
 
-    // Extract valid pets from complete bookings
     const getValidPets = (bookingsList) => {
       const validPets = [];
       bookingsList.forEach(b => {
@@ -324,7 +304,6 @@ export default function SPSales() {
     const currentValidPets = getValidPets(currentBookings);
     const previousValidPets = getValidPets(previousBookings);
 
-    // Calculate metrics (revenue, count)
     const calculateMetrics = (petsList, originalBookings) => {
       const uniqueBookingIds = new Set(petsList.map(p => p.booking_id));
       const uniqueBookings = originalBookings.filter(b => uniqueBookingIds.has(b.id));
@@ -337,16 +316,12 @@ export default function SPSales() {
 
     const cancellationCount = currentBookings.filter(b => b.status === 'cancelled').length;
 
-    // Calculate percentage trend
     const getTrend = (curr, prev) => {
       if (prev === 0) return curr > 0 ? { val: 100, dir: 'up' } : { val: 0, dir: 'neutral' };
       const diff = ((curr - prev) / prev) * 100;
       return { val: Math.abs(Math.round(diff)), dir: diff > 0 ? 'up' : diff < 0 ? 'down' : 'neutral' };
     };
 
-    // ========================================
-    // GENERATE TIME LABELS (X-AXIS)
-    // ========================================
     let timeLabels = [];
     const currentYear = now.getFullYear();
     
@@ -380,12 +355,8 @@ export default function SPSales() {
       timeLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     }
 
-    // ========================================
-    // CHART 1: OVERALL SALES PERFORMANCE
-    // ========================================
     const overallSalesData = new Array(timeLabels.length).fill(0);
     const overallCustomerCount = new Array(timeLabels.length).fill(0).map(() => new Set());
-    // NEW: Track booking count per time period for overall chart
     const overallBookingCount = new Array(timeLabels.length).fill(0);
     
     const bookingsToProcess = (activeFilter === 'yearly' && selectedYear === null) 
@@ -423,18 +394,14 @@ export default function SPSales() {
       if (idx !== undefined && idx !== -1 && overallSalesData[idx] !== undefined) {
         overallSalesData[idx] += Number(booking.total_estimated_price) || 0;
         overallCustomerCount[idx].add(booking.user_id);
-        overallBookingCount[idx] += 1; // NEW: increment booking count
+        overallBookingCount[idx] += 1;
       }
     });
 
     const overallCustomerCountArray = overallCustomerCount.map(set => set.size);
 
-    // ========================================
-    // CHART 2: SALES PERFORMANCE PER SERVICE
-    // ========================================
     const serviceRevenueMap = {};
     const serviceCustomerCount = {};
-    // NEW: Track booking count per service per time period
     const serviceBookingCount = {};
     
     servicesList.forEach(service => {
@@ -443,7 +410,7 @@ export default function SPSales() {
         data: new Array(timeLabels.length).fill(0)
       };
       serviceCustomerCount[service.id] = new Array(timeLabels.length).fill(0).map(() => new Set());
-      serviceBookingCount[service.id] = new Array(timeLabels.length).fill(0); // NEW
+      serviceBookingCount[service.id] = new Array(timeLabels.length).fill(0);
     });
 
     bookingServices.forEach(bs => {
@@ -485,7 +452,7 @@ export default function SPSales() {
       if (idx !== undefined && idx !== -1 && serviceRevenueMap[bs.service_id] && serviceRevenueMap[bs.service_id].data[idx] !== undefined) {
         serviceRevenueMap[bs.service_id].data[idx] += Number(bs.price) || 0;
         serviceCustomerCount[bs.service_id][idx].add(booking.user_id);
-        serviceBookingCount[bs.service_id][idx] += 1; // NEW: increment booking count
+        serviceBookingCount[bs.service_id][idx] += 1;
       }
     });
 
@@ -494,14 +461,10 @@ export default function SPSales() {
       serviceCustomerCountArrays[serviceId] = serviceCustomerCount[serviceId].map(set => set.size);
     });
 
-    // ========================================
-    // CHART 3: NEW VS RETURNING CUSTOMERS REVENUE
-    // ========================================
     const newCustomerRevenue = new Array(timeLabels.length).fill(0);
     const returningCustomerRevenue = new Array(timeLabels.length).fill(0);
     const newCustomerCount = new Array(timeLabels.length).fill(0).map(() => new Set());
     const returningCustomerCount = new Array(timeLabels.length).fill(0).map(() => new Set());
-    // NEW: Track booking counts per period for new vs returning
     const newCustomerBookingCount = new Array(timeLabels.length).fill(0);
     const returningCustomerBookingCount = new Array(timeLabels.length).fill(0);
     
@@ -556,11 +519,11 @@ export default function SPSales() {
         if (isFirstBooking) {
           newCustomerRevenue[idx] += revenue;
           newCustomerCount[idx].add(booking.user_id);
-          newCustomerBookingCount[idx] += 1; // NEW
+          newCustomerBookingCount[idx] += 1;
         } else {
           returningCustomerRevenue[idx] += revenue;
           returningCustomerCount[idx].add(booking.user_id);
-          returningCustomerBookingCount[idx] += 1; // NEW
+          returningCustomerBookingCount[idx] += 1;
         }
       }
     });
@@ -568,13 +531,9 @@ export default function SPSales() {
     const newCustomerCountArray = newCustomerCount.map(set => set.size);
     const returningCustomerCountArray = returningCustomerCount.map(set => set.size);
 
-    // ========================================
-    // CHART 4: REVENUE LOSS DUE TO CANCELLATIONS
-    // ========================================
     const actualRevenue = new Array(timeLabels.length).fill(0);
     const potentialRevenue = new Array(timeLabels.length).fill(0);
     const cancellationsPerPeriod = new Array(timeLabels.length).fill(0);
-    // NEW: Track completed vs total booking counts per period for cancellation chart
     const completedBookingCount = new Array(timeLabels.length).fill(0);
     const totalBookingCount = new Array(timeLabels.length).fill(0);
     
@@ -608,7 +567,7 @@ export default function SPSales() {
       
       if (idx !== undefined && idx !== -1) {
         potentialRevenue[idx] += revenue;
-        totalBookingCount[idx] += 1; // NEW: count all bookings
+        totalBookingCount[idx] += 1;
         
         if (booking.status === 'cancelled' || booking.status === 'declined') {
           cancellationsPerPeriod[idx] += 1;
@@ -616,7 +575,7 @@ export default function SPSales() {
         
         if (isBookingComplete(booking)) {
           actualRevenue[idx] += revenue;
-          completedBookingCount[idx] += 1; // NEW: count completed bookings
+          completedBookingCount[idx] += 1;
         }
       }
     });
@@ -627,9 +586,6 @@ export default function SPSales() {
 
     const totalRevenue = overallSalesData.reduce((sum, val) => sum + val, 0);
 
-    // ========================================
-    // PET TYPE BREAKDOWN FOR REPORT
-    // ========================================
     const calculatePetTypeBreakdown = () => {
       const breakdown = {
         Dog: { revenue: 0, bookings: 0, customers: new Set() },
@@ -683,41 +639,32 @@ export default function SPSales() {
       timeLabels,
       overallSalesData,
       overallCustomerCountArray,
-      overallBookingCount,       // NEW
+      overallBookingCount,
       totalRevenue,
       serviceRevenueMap,
       serviceCustomerCountArrays,
-      serviceBookingCount,       // NEW
+      serviceBookingCount,
       newCustomerRevenue,
       returningCustomerRevenue,
       newCustomerCountArray,
       returningCustomerCountArray,
-      newCustomerBookingCount,   // NEW
-      returningCustomerBookingCount, // NEW
+      newCustomerBookingCount,
+      returningCustomerBookingCount,
       actualRevenue,
       potentialRevenue,
       cancellationsPerPeriod,
-      completedBookingCount,     // NEW
-      totalBookingCount,         // NEW
+      completedBookingCount,
+      totalBookingCount,
       totalLoss,
       petTypeBreakdown
     };
   }, [rawBookings, servicesList, bookingServices, activeFilter, providerHours, petTypeFilter, customDateStart, customDateEnd, selectedYear, listingApprovedDate]);
 
-  // ============================================
-  // PDF DOWNLOAD FUNCTION
-  // ============================================
   const handleDownloadPDF = async () => {
     setIsGeneratingPDF(true);
-    
     try {
       const element = reportRef.current;
-      
-      if (!element) {
-        console.error('Report element not found');
-        setIsGeneratingPDF(false);
-        return;
-      }
+      if (!element) { setIsGeneratingPDF(false); return; }
 
       const clone = element.cloneNode(true);
       clone.style.position = 'absolute';
@@ -734,12 +681,8 @@ export default function SPSales() {
       await new Promise(resolve => setTimeout(resolve, 500));
 
       const canvas = await html2canvas(clone, {
-        scale: 2,
-        useCORS: true,
-        logging: false,
-        backgroundColor: '#ffffff',
-        width: clone.scrollWidth,
-        height: clone.scrollHeight
+        scale: 2, useCORS: true, logging: false,
+        backgroundColor: '#ffffff', width: clone.scrollWidth, height: clone.scrollHeight
       });
 
       document.body.removeChild(clone);
@@ -748,39 +691,30 @@ export default function SPSales() {
       const pdf = new jsPDF('p', 'mm', 'a4');
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = pdf.internal.pageSize.getHeight();
-      
       const margin = 10;
       const imgWidth = pdfWidth - (2 * margin);
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
       const pageHeight = pdfHeight - (2 * margin);
-      const totalPages = Math.ceil(imgHeight / pageHeight);
+      const totalPages = Math.ceil((canvas.height * imgWidth / canvas.width) / pageHeight);
 
       for (let page = 0; page < totalPages; page++) {
         if (page > 0) pdf.addPage();
-        
         const sourceY = page * (pageHeight * canvas.width / imgWidth);
         const sourceHeight = Math.min(pageHeight * canvas.width / imgWidth, canvas.height - sourceY);
-        
         if (sourceHeight > 0) {
           const pageCanvas = document.createElement('canvas');
           pageCanvas.width = canvas.width;
           pageCanvas.height = sourceHeight;
           const pageCtx = pageCanvas.getContext('2d');
-          
           pageCtx.fillStyle = '#ffffff';
           pageCtx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
           pageCtx.drawImage(canvas, 0, sourceY, canvas.width, sourceHeight, 0, 0, canvas.width, sourceHeight);
-          
           const pageImgData = pageCanvas.toDataURL('image/png', 1.0);
           const pageImgHeight = (sourceHeight * imgWidth) / canvas.width;
-          
           pdf.addImage(pageImgData, 'PNG', margin, margin, imgWidth, pageImgHeight, '', 'FAST');
         }
       }
 
-      const fileName = `Sales_Report_${new Date().toISOString().split('T')[0]}.pdf`;
-      pdf.save(fileName);
-      
+      pdf.save(`Sales_Report_${new Date().toISOString().split('T')[0]}.pdf`);
     } catch (error) {
       console.error('Error generating PDF:', error);
       alert('Failed to generate PDF. Please try again.');
@@ -789,32 +723,18 @@ export default function SPSales() {
     }
   };
 
-  // ============================================
-  // CHART OPTIONS
-  // ============================================
   const lineChartOptions = {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
-      legend: {
-        display: true,
-        position: 'top',
-        labels: {
-          boxWidth: 12,
-          padding: 8,
-          font: { size: 10 }
-        }
-      },
+      legend: { display: true, position: 'top', labels: { boxWidth: 12, padding: 8, font: { size: 10 } } },
       tooltip: {
-        mode: 'index',
-        intersect: false,
+        mode: 'index', intersect: false,
         callbacks: {
           label: function(context) {
             let label = context.dataset.label || '';
             if (label) label += ': ';
-            if (context.parsed.y !== null) {
-              label += '₱' + formatCurrency(context.parsed.y);
-            }
+            if (context.parsed.y !== null) label += '₱' + formatCurrency(context.parsed.y);
             return label;
           }
         }
@@ -823,45 +743,20 @@ export default function SPSales() {
     scales: {
       y: {
         beginAtZero: true,
-        ticks: {
-          font: { size: 9 },
-          callback: function(value) {
-            return '₱' + value.toLocaleString();
-          }
-        },
-        grid: {
-          display: true,
-          drawBorder: true
-        }
+        ticks: { font: { size: 9 }, callback: function(value) { return '₱' + value.toLocaleString(); } },
+        grid: { display: true, drawBorder: true }
       },
-      x: {
-        ticks: {
-          font: { size: 9 }
-        },
-        grid: {
-          display: false
-        }
-      }
+      x: { ticks: { font: { size: 9 } }, grid: { display: false } }
     },
-    interaction: {
-      mode: 'nearest',
-      axis: 'x',
-      intersect: false
-    }
+    interaction: { mode: 'nearest', axis: 'x', intersect: false }
   };
 
-  // ============================================
-  // HELPER COMPONENTS
-  // ============================================
   const TrendIndicator = ({ trend }) => (
     <div className={`kpi-trend ${trend.dir === 'up' ? 'positive' : trend.dir === 'down' ? 'negative' : 'neutral'}`}>
       {trend.dir === 'up' ? <FaCaretUp /> : trend.dir === 'down' ? <FaCaretDown /> : <FaMinus />} {trend.val}%
     </div>
   );
 
-  // ============================================
-  // LOADING STATE
-  // ============================================
   if (loading) return <div className="loading-state">Loading...</div>;
 
   return (
@@ -871,37 +766,15 @@ export default function SPSales() {
       <div className="sp-biz-main-layout">
         <div className="sp-biz-container">
           
-          {/* ============================================ */}
-          {/* SIDEBAR - Filters */}
-          {/* ============================================ */}
           <aside className="sp-biz-sidebar">
-            <button 
-              className="back-to-dashboard-btn"
-              onClick={() => navigate('/service/dashboard')}
-              title="Back to Dashboard"
-            >
+            <button className="back-to-dashboard-btn" onClick={() => navigate('/service/dashboard')} title="Back to Dashboard">
               <FaArrowLeft size={18} />
             </button>
 
             <div className="sidebar-tabs-group">
-              <button 
-                className={`sidebar-tab-btn ${activeTab === 'sales' ? 'active' : ''}`} 
-                onClick={() => navigate('/service/sales')}
-              >
-                Sales Performance
-              </button>
-              <button 
-                className={`sidebar-tab-btn ${activeTab === 'business_performance' ? 'active' : ''}`} 
-                onClick={() => navigate('/service/business-dashboard')}
-              >
-                Business Performance
-              </button>
-              <button 
-                className={`sidebar-tab-btn ${activeTab === 'customer_insights' ? 'active' : ''}`} 
-                onClick={() => navigate('/service/customer-insight')}
-              >
-                Customer Insights
-              </button>
+              <button className={`sidebar-tab-btn ${activeTab === 'sales' ? 'active' : ''}`} onClick={() => navigate('/service/sales')}>Sales Performance</button>
+              <button className={`sidebar-tab-btn ${activeTab === 'business_performance' ? 'active' : ''}`} onClick={() => navigate('/service/business-dashboard')}>Business Performance</button>
+              <button className={`sidebar-tab-btn ${activeTab === 'customer_insights' ? 'active' : ''}`} onClick={() => navigate('/service/customer-insight')}>Customer Insights</button>
             </div>
             
             <div className="sidebar-section">
@@ -913,25 +786,15 @@ export default function SPSales() {
                 <option value="custom">Custom Range</option>
               </select>
 
-              {/* Year selector for yearly filter */}
               {activeFilter === 'yearly' && (
                 <div className="custom-date-range">
                   <label className="date-label">Year:</label>
-                  <select
-                    className="filter-dropdown"
-                    value={selectedYear === null ? '' : selectedYear}
-                    onChange={(e) => setSelectedYear(e.target.value === '' ? null : Number(e.target.value))}
-                  >
+                  <select className="filter-dropdown" value={selectedYear === null ? '' : selectedYear} onChange={(e) => setSelectedYear(e.target.value === '' ? null : Number(e.target.value))}>
                     <option value="">All Years</option>
                     {(() => {
-                      const startYear = listingApprovedDate
-                        ? new Date(listingApprovedDate).getFullYear()
-                        : new Date().getFullYear();
+                      const startYear = listingApprovedDate ? new Date(listingApprovedDate).getFullYear() : new Date().getFullYear();
                       const endYear = new Date().getFullYear();
-                      return Array.from(
-                        { length: endYear - startYear + 1 },
-                        (_, i) => endYear - i
-                      ).map(year => (
+                      return Array.from({ length: endYear - startYear + 1 }, (_, i) => endYear - i).map(year => (
                         <option key={year} value={year}>{year}</option>
                       ));
                     })()}
@@ -942,23 +805,9 @@ export default function SPSales() {
               {activeFilter === 'custom' && (
                 <div className="custom-date-range">
                   <label className="date-label">From:</label>
-                  <input 
-                    type="date" 
-                    className="date-input" 
-                    value={customDateStart} 
-                    onChange={(e) => setCustomDateStart(e.target.value)} 
-                    max={customDateEnd || new Date().toISOString().split('T')[0]}
-                    min={listingApprovedDate} 
-                  />
+                  <input type="date" className="date-input" value={customDateStart} onChange={(e) => setCustomDateStart(e.target.value)} max={customDateEnd || new Date().toISOString().split('T')[0]} min={listingApprovedDate} />
                   <label className="date-label">To:</label>
-                  <input 
-                    type="date" 
-                    className="date-input" 
-                    value={customDateEnd} 
-                    onChange={(e) => setCustomDateEnd(e.target.value)} 
-                    min={listingApprovedDate || customDateStart}
-                    max={new Date().toISOString().split('T')[0]} 
-                  />
+                  <input type="date" className="date-input" value={customDateEnd} onChange={(e) => setCustomDateEnd(e.target.value)} min={listingApprovedDate || customDateStart} max={new Date().toISOString().split('T')[0]} />
                 </div>
               )}
             </div>
@@ -973,17 +822,10 @@ export default function SPSales() {
             </div>
           </aside>
 
-          {/* ============================================ */}
-          {/* MAIN CONTENT - KPIs and Charts */}
-          {/* ============================================ */}
           <main className="sp-biz-main-content">
             <div className="report-button-container">
               <div className="as-of-date">
-                As of {new Date().toLocaleDateString('en-US', { 
-                  month: 'long', 
-                  day: 'numeric', 
-                  year: 'numeric' 
-                })}
+                As of {new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
               </div>
               <button className="generate-report-btn" onClick={() => setShowReportModal(true)}>
                 <FaFileAlt size={16} />
@@ -995,15 +837,11 @@ export default function SPSales() {
               <div className="kpi-card">
                 <span className="kpi-label">Gross Revenue</span>
                 <div className="kpi-row">
-                  <span className="kpi-value">
-                    {analytics.revenue >= 1000 
-                      ? `₱${(analytics.revenue / 1000).toFixed(1)}K` 
-                      : `₱${Math.round(analytics.revenue)}`}
-                  </span>
+                  {/* FIX: Show full decimal revenue instead of rounded/abbreviated */}
+                  <span className="kpi-value">{`₱${analytics.revenue.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}</span>
                   <TrendIndicator trend={analytics.revTrend} />
                 </div>
               </div>
-              
               <div className="kpi-card">
                 <span className="kpi-label">Total Completed Bookings</span>
                 <div className="kpi-row">
@@ -1011,38 +849,25 @@ export default function SPSales() {
                   <TrendIndicator trend={analytics.bookTrend} />
                 </div>
               </div>
-              
               <div className="kpi-card">
                 <span className="kpi-label">Listing Visitors</span>
                 <span className="kpi-value">{listingVisitors.toLocaleString()}</span>
               </div>
-              
               <div className="kpi-card">
                 <span className="kpi-label">Avg/Customer</span>
                 <span className="kpi-value">{analytics.avg}</span>
               </div>
-              
               <div className="kpi-card">
                 <span className="kpi-label">Cancellations</span>
                 <span className="kpi-value">{analytics.cancellations.toString().padStart(2, '0')}</span>
               </div>
             </div>
 
-            {/* ============================================ */}
-            {/* TOP CHARTS GRID: OVERALL SALES & REVENUE LOSS */}
-            {/* ============================================ */}
             <div className="sales-charts-grid">
-              
-              {/* CHART 1: OVERALL SALES PERFORMANCE */}
-              {/* Tooltip now shows: Revenue + Customers + Bookings */}
               <div className="chart-box">
                 <div className="chart-header-with-btn">
                   <h3 className="chart-title-sm">Overall Sales Performance</h3>
-                  <span className="date-range-topright">
-                    {activeFilter === 'yearly' && selectedYear 
-                      ? `Year ${selectedYear}` 
-                      : analytics.rangeText}
-                  </span>
+                  <span className="date-range-topright">{activeFilter === 'yearly' && selectedYear ? `Year ${selectedYear}` : analytics.rangeText}</span>
                 </div>
                 <div className="chart-container-large">
                   <Line
@@ -1053,11 +878,7 @@ export default function SPSales() {
                         data: analytics.overallSalesData,
                         borderColor: '#1e3a8a',
                         backgroundColor: 'rgba(30, 58, 138, 0.1)',
-                        tension: 0.4,
-                        fill: true,
-                        borderWidth: 2,
-                        pointRadius: 4,
-                        pointHoverRadius: 6
+                        tension: 0.4, fill: true, borderWidth: 2, pointRadius: 4, pointHoverRadius: 6
                       }]
                     }}
                     options={{
@@ -1065,25 +886,17 @@ export default function SPSales() {
                       plugins: {
                         ...lineChartOptions.plugins,
                         tooltip: {
-                          mode: 'index',
-                          intersect: false,
+                          mode: 'index', intersect: false,
                           callbacks: {
                             label: function(context) {
                               let label = context.dataset.label || '';
                               if (label) label += ': ';
-                              if (context.parsed.y !== null) {
-                                label += '₱' + formatCurrency(context.parsed.y);
-                              }
+                              if (context.parsed.y !== null) label += '₱' + formatCurrency(context.parsed.y);
                               return label;
                             },
                             afterLabel: function(context) {
                               const idx = context.dataIndex;
-                              const bookingCount = analytics.overallBookingCount[idx];
-                              const customerCount = analytics.overallCustomerCountArray[idx];
-                              return [
-                                `Bookings: ${bookingCount}`,
-                                `Customers: ${customerCount}`
-                              ];
+                              return [`Bookings: ${analytics.overallBookingCount[idx]}`, `Customers: ${analytics.overallCustomerCountArray[idx]}`];
                             }
                           }
                         }
@@ -1091,50 +904,21 @@ export default function SPSales() {
                     }}
                   />
                 </div>
-                <p className="chart-insight-text">
-                  Total Revenue: ₱{formatCurrency(analytics.totalRevenue)}
-                </p>
+                <p className="chart-insight-text">Total Revenue: ₱{formatCurrency(analytics.totalRevenue)}</p>
               </div>
 
-              {/* CHART 4: REVENUE LOSS FROM CANCELLATIONS */}
-              {/* Tooltip now shows: Revenue + Bookings (completed/total) + Cancellations + Revenue Lost */}
               <div className="chart-box">
                 <div className="chart-header-with-btn">
                   <h3 className="chart-title-sm">Revenue Loss from Cancellations</h3>
-                  <span className="date-range-topright">
-                    {activeFilter === 'yearly' && selectedYear 
-                      ? `Year ${selectedYear}` 
-                      : analytics.rangeText}
-                  </span>
+                  <span className="date-range-topright">{activeFilter === 'yearly' && selectedYear ? `Year ${selectedYear}` : analytics.rangeText}</span>
                 </div>
                 <div className="chart-container-large">
                   <Line
                     data={{
                       labels: analytics.timeLabels,
                       datasets: [
-                        {
-                          label: 'Potential Revenue',
-                          data: analytics.potentialRevenue,
-                          borderColor: '#10b981',
-                          backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                          tension: 0.4,
-                          fill: false,
-                          borderWidth: 2,
-                          borderDash: [5, 5],
-                          pointRadius: 3,
-                          pointHoverRadius: 5
-                        },
-                        {
-                          label: 'Actual Revenue',
-                          data: analytics.actualRevenue,
-                          borderColor: '#ef4444',
-                          backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                          tension: 0.4,
-                          fill: true,
-                          borderWidth: 2,
-                          pointRadius: 3,
-                          pointHoverRadius: 5
-                        }
+                        { label: 'Potential Revenue', data: analytics.potentialRevenue, borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.1)', tension: 0.4, fill: false, borderWidth: 2, borderDash: [5, 5], pointRadius: 3, pointHoverRadius: 5 },
+                        { label: 'Actual Revenue', data: analytics.actualRevenue, borderColor: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.1)', tension: 0.4, fill: true, borderWidth: 2, pointRadius: 3, pointHoverRadius: 5 }
                       ]
                     }}
                     options={{
@@ -1142,29 +926,22 @@ export default function SPSales() {
                       plugins: {
                         ...lineChartOptions.plugins,
                         tooltip: {
-                          mode: 'index',
-                          intersect: false,
+                          mode: 'index', intersect: false,
                           callbacks: {
                             label: function(context) {
                               let label = context.dataset.label || '';
                               if (label) label += ': ';
-                              if (context.parsed.y !== null) {
-                                label += '₱' + formatCurrency(context.parsed.y);
-                              }
+                              if (context.parsed.y !== null) label += '₱' + formatCurrency(context.parsed.y);
                               return label;
                             },
                             afterLabel: function(context) {
                               const idx = context.dataIndex;
-                              // Only show the extra info once (on the first dataset)
                               if (context.datasetIndex === 0) {
-                                const totalBookings = analytics.totalBookingCount[idx];
-                                const completedBookings = analytics.completedBookingCount[idx];
-                                const cancellations = analytics.cancellationsPerPeriod[idx];
                                 const loss = analytics.potentialRevenue[idx] - analytics.actualRevenue[idx];
                                 return [
-                                  `Total Bookings: ${totalBookings}`,
-                                  `Completed Bookings: ${completedBookings}`,
-                                  `Cancellations: ${cancellations}`,
+                                  `Total Bookings: ${analytics.totalBookingCount[idx]}`,
+                                  `Completed Bookings: ${analytics.completedBookingCount[idx]}`,
+                                  `Cancellations: ${analytics.cancellationsPerPeriod[idx]}`,
                                   `Revenue Lost: ₱${formatCurrency(loss)}`
                                 ];
                               }
@@ -1176,56 +953,23 @@ export default function SPSales() {
                     }}
                   />
                 </div>
-                <p className="chart-insight-text">
-                  Total Loss: ₱{formatCurrency(analytics.totalLoss)}
-                </p>
+                <p className="chart-insight-text">Total Loss: ₱{formatCurrency(analytics.totalLoss)}</p>
               </div>
-
             </div>
 
-            {/* ============================================ */}
-            {/* BOTTOM CHARTS GRID: NEW/RETURNING & SALES BY SERVICE */}
-            {/* ============================================ */}
             <div className="sales-charts-grid">
-              
-              {/* CHART 3: NEW VS RETURNING CUSTOMER REVENUE */}
-              {/* Tooltip now shows: Revenue + Bookings + Customers per segment */}
               <div className="chart-box">
                 <div className="chart-header-with-btn">
                   <h4 className="chart-title-sm">New vs Returning Customer Revenue</h4>
-                  <span className="date-range-topright">
-                    {activeFilter === 'yearly' && selectedYear 
-                      ? `Year ${selectedYear}` 
-                      : analytics.rangeText}
-                  </span>
+                  <span className="date-range-topright">{activeFilter === 'yearly' && selectedYear ? `Year ${selectedYear}` : analytics.rangeText}</span>
                 </div>
                 <div className="chart-container-medium">
                   <Line
                     data={{
                       labels: analytics.timeLabels,
                       datasets: [
-                        {
-                          label: 'New Customers',
-                          data: analytics.newCustomerRevenue,
-                          borderColor: '#10b981',
-                          backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                          tension: 0.4,
-                          fill: true,
-                          borderWidth: 2,
-                          pointRadius: 3,
-                          pointHoverRadius: 5
-                        },
-                        {
-                          label: 'Returning Customers',
-                          data: analytics.returningCustomerRevenue,
-                          borderColor: '#3b82f6',
-                          backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                          tension: 0.4,
-                          fill: true,
-                          borderWidth: 2,
-                          pointRadius: 3,
-                          pointHoverRadius: 5
-                        }
+                        { label: 'New Customers', data: analytics.newCustomerRevenue, borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.1)', tension: 0.4, fill: true, borderWidth: 2, pointRadius: 3, pointHoverRadius: 5 },
+                        { label: 'Returning Customers', data: analytics.returningCustomerRevenue, borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.1)', tension: 0.4, fill: true, borderWidth: 2, pointRadius: 3, pointHoverRadius: 5 }
                       ]
                     }}
                     options={{
@@ -1233,60 +977,35 @@ export default function SPSales() {
                       plugins: {
                         ...lineChartOptions.plugins,
                         tooltip: {
-                          mode: 'index',
-                          intersect: false,
+                          mode: 'index', intersect: false,
                           callbacks: {
                             label: function(context) {
                               let label = context.dataset.label || '';
                               if (label) label += ': ';
-                              if (context.parsed.y !== null) {
-                                label += '₱' + formatCurrency(context.parsed.y);
-                              }
+                              if (context.parsed.y !== null) label += '₱' + formatCurrency(context.parsed.y);
                               return label;
                             },
                             afterLabel: function(context) {
                               const idx = context.dataIndex;
                               const isNew = context.datasetIndex === 0;
-                              const bookingCount = isNew
-                                ? analytics.newCustomerBookingCount[idx]
-                                : analytics.returningCustomerBookingCount[idx];
-                              const customerCount = isNew
-                                ? analytics.newCustomerCountArray[idx]
-                                : analytics.returningCustomerCountArray[idx];
                               return [
-                                `Bookings: ${bookingCount}`,
-                                `Customers: ${customerCount}`
+                                `Bookings: ${isNew ? analytics.newCustomerBookingCount[idx] : analytics.returningCustomerBookingCount[idx]}`,
+                                `Customers: ${isNew ? analytics.newCustomerCountArray[idx] : analytics.returningCustomerCountArray[idx]}`
                               ];
                             }
                           }
                         }
                       },
-                      scales: {
-                        ...lineChartOptions.scales,
-                        x: {
-                          ...lineChartOptions.scales.x,
-                          ticks: {
-                            ...lineChartOptions.scales.x.ticks,
-                            maxRotation: activeFilter === 'yearly' && selectedYear ? 45 : 0,
-                            minRotation: activeFilter === 'yearly' && selectedYear ? 45 : 0
-                          }
-                        }
-                      }
+                      scales: { ...lineChartOptions.scales, x: { ...lineChartOptions.scales.x, ticks: { ...lineChartOptions.scales.x.ticks, maxRotation: activeFilter === 'yearly' && selectedYear ? 45 : 0, minRotation: activeFilter === 'yearly' && selectedYear ? 45 : 0 } } }
                     }}
                   />
                 </div>
               </div>
 
-              {/* CHART 2: SALES PERFORMANCE BY SERVICE */}
-              {/* Tooltip now shows: Revenue + Bookings + Customers per service */}
               <div className="chart-box">
                 <div className="chart-header-with-btn">
                   <h4 className="chart-title-sm">Sales Performance by Service</h4>
-                  <span className="date-range-topright">
-                    {activeFilter === 'yearly' && selectedYear 
-                      ? `Year ${selectedYear}` 
-                      : analytics.rangeText}
-                  </span>
+                  <span className="date-range-topright">{activeFilter === 'yearly' && selectedYear ? `Year ${selectedYear}` : analytics.rangeText}</span>
                 </div>
                 <div className="chart-container-medium">
                   <Line
@@ -1303,19 +1022,7 @@ export default function SPSales() {
                           { border: '#8b5cf6', bg: 'rgba(139, 92, 246, 0.1)' }
                         ];
                         const color = colors[idx % colors.length];
-                        
-                        return {
-                          label: service.name,
-                          data: service.data,
-                          borderColor: color.border,
-                          backgroundColor: color.bg,
-                          tension: 0.4,
-                          fill: false,
-                          borderWidth: 2,
-                          pointRadius: 3,
-                          pointHoverRadius: 5,
-                          serviceId: serviceId
-                        };
+                        return { label: service.name, data: service.data, borderColor: color.border, backgroundColor: color.bg, tension: 0.4, fill: false, borderWidth: 2, pointRadius: 3, pointHoverRadius: 5, serviceId };
                       })
                     }}
                     options={{
@@ -1323,222 +1030,94 @@ export default function SPSales() {
                       plugins: {
                         ...lineChartOptions.plugins,
                         tooltip: {
-                          mode: 'index',
-                          intersect: false,
+                          mode: 'index', intersect: false,
                           callbacks: {
                             label: function(context) {
                               let label = context.dataset.label || '';
                               if (label) label += ': ';
-                              if (context.parsed.y !== null) {
-                                label += '₱' + formatCurrency(context.parsed.y);
-                              }
+                              if (context.parsed.y !== null) label += '₱' + formatCurrency(context.parsed.y);
                               return label;
                             },
                             afterLabel: function(context) {
                               const idx = context.dataIndex;
                               const serviceId = context.dataset.serviceId;
-                              const bookingCount = analytics.serviceBookingCount[serviceId]?.[idx] || 0;
-                              const customerCount = analytics.serviceCustomerCountArrays[serviceId]?.[idx] || 0;
                               return [
-                                `Bookings: ${bookingCount}`,
-                                `Customers: ${customerCount}`
+                                `Bookings: ${analytics.serviceBookingCount[serviceId]?.[idx] || 0}`,
+                                `Customers: ${analytics.serviceCustomerCountArrays[serviceId]?.[idx] || 0}`
                               ];
                             }
                           }
                         }
                       },
-                      scales: {
-                        ...lineChartOptions.scales,
-                        x: {
-                          ...lineChartOptions.scales.x,
-                          ticks: {
-                            ...lineChartOptions.scales.x.ticks,
-                            maxRotation: activeFilter === 'yearly' && selectedYear ? 45 : 0,
-                            minRotation: activeFilter === 'yearly' && selectedYear ? 45 : 0
-                          }
-                        }
-                      }
+                      scales: { ...lineChartOptions.scales, x: { ...lineChartOptions.scales.x, ticks: { ...lineChartOptions.scales.x.ticks, maxRotation: activeFilter === 'yearly' && selectedYear ? 45 : 0, minRotation: activeFilter === 'yearly' && selectedYear ? 45 : 0 } } }
                     }}
                   />
                 </div>
               </div>
-
             </div>
           </main>
         </div>
       </div>
 
-      {/* ============================================ */}
-      {/* SALES REPORT MODAL */}
-      {/* ============================================ */}
       {showReportModal && (
         <div className="report-modal-overlay" onClick={() => setShowReportModal(false)}>
           <div className="report-modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="report-modal-header">
-              <div className="report-header-title">
-                <FaFileAlt size={20} />
-                <h2>Sales Report</h2>
-              </div>
-              <button className="modal-close-btn" onClick={() => setShowReportModal(false)}>
-                <FaTimes />
-              </button>
+              <div className="report-header-title"><FaFileAlt size={20} /><h2>Sales Report</h2></div>
+              <button className="modal-close-btn" onClick={() => setShowReportModal(false)}><FaTimes /></button>
             </div>
-
             <div className="report-modal-body" ref={reportRef}>
               <div className="report-info-section">
-                <div className="report-info-row">
-                  <span className="report-label">Report Period:</span>
-                  <span className="report-value">{analytics.rangeText}</span>
-                </div>
-                <div className="report-info-row">
-                  <span className="report-label">Report Type:</span>
-                  <span className="report-value">
-                    {activeFilter === 'yearly'
-                      ? `${selectedYear} Yearly Sales Summary`
-                      : `${activeFilter.charAt(0).toUpperCase() + activeFilter.slice(1)} Sales Summary`}
-                  </span>
-                </div>
-                <div className="report-info-row">
-                  <span className="report-label">Pet Type Filter:</span>
-                  <span className="report-value">
-                    {petTypeFilter === 'both' ? 'All Pets (Dog & Cat)' : petTypeFilter}
-                  </span>
-                </div>
-                <div className="report-info-row">
-                  <span className="report-label">Generated:</span>
-                  <span className="report-value">
-                    {new Date().toLocaleDateString('en-US', { 
-                      month: 'long', 
-                      day: 'numeric', 
-                      year: 'numeric' 
-                    })}
-                  </span>
-                </div>
+                <div className="report-info-row"><span className="report-label">Report Period:</span><span className="report-value">{analytics.rangeText}</span></div>
+                <div className="report-info-row"><span className="report-label">Report Type:</span><span className="report-value">{activeFilter === 'yearly' ? `${selectedYear} Yearly Sales Summary` : `${activeFilter.charAt(0).toUpperCase() + activeFilter.slice(1)} Sales Summary`}</span></div>
+                <div className="report-info-row"><span className="report-label">Pet Type Filter:</span><span className="report-value">{petTypeFilter === 'both' ? 'All Pets (Dog & Cat)' : petTypeFilter}</span></div>
+                <div className="report-info-row"><span className="report-label">Generated:</span><span className="report-value">{new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</span></div>
               </div>
-
               <div className="report-section">
                 <h3 className="report-section-title">Executive Summary</h3>
                 <div className="report-kpi-grid">
                   <div className="report-kpi-item">
                     <span className="report-kpi-label">Gross Revenue</span>
-                    <span className="report-kpi-value">
-                      {analytics.revenue >= 1000 
-                        ? `₱${(analytics.revenue / 1000).toFixed(1)}K` 
-                        : `₱${Math.round(analytics.revenue)}`}
-                    </span>
+                    {/* FIX: Full decimal display in report modal */}
+                    <span className="report-kpi-value">{`₱${analytics.revenue.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}</span>
                     <div className="report-trend">
-                      {analytics.revTrend.dir === 'up' ? <FaCaretUp /> : 
-                       analytics.revTrend.dir === 'down' ? <FaCaretDown /> : <FaMinus />}
-                      <span className={analytics.revTrend.dir}>
-                        {analytics.revTrend.val}% vs previous period
-                      </span>
+                      {analytics.revTrend.dir === 'up' ? <FaCaretUp /> : analytics.revTrend.dir === 'down' ? <FaCaretDown /> : <FaMinus />}
+                      <span className={analytics.revTrend.dir}>{analytics.revTrend.val}% vs previous period</span>
                     </div>
                   </div>
                   <div className="report-kpi-item">
                     <span className="report-kpi-label">Total Bookings</span>
                     <span className="report-kpi-value">{analytics.validCount}</span>
                     <div className="report-trend">
-                      {analytics.bookTrend.dir === 'up' ? <FaCaretUp /> : 
-                       analytics.bookTrend.dir === 'down' ? <FaCaretDown /> : <FaMinus />}
-                      <span className={analytics.bookTrend.dir}>
-                        {analytics.bookTrend.val}% vs previous period
-                      </span>
+                      {analytics.bookTrend.dir === 'up' ? <FaCaretUp /> : analytics.bookTrend.dir === 'down' ? <FaCaretDown /> : <FaMinus />}
+                      <span className={analytics.bookTrend.dir}>{analytics.bookTrend.val}% vs previous period</span>
                     </div>
                   </div>
-                  <div className="report-kpi-item">
-                    <span className="report-kpi-label">Revenue Loss</span>
-                    <span className="report-kpi-value">₱{analytics.totalLoss.toLocaleString()}</span>
-                  </div>
-                  <div className="report-kpi-item">
-                    <span className="report-kpi-label">Listing Visitors</span>
-                    <span className="report-kpi-value">{listingVisitors.toLocaleString()}</span>
-                  </div>
-                  <div className="report-kpi-item">
-                    <span className="report-kpi-label">Cancellations</span>
-                    <span className="report-kpi-value">{analytics.cancellations}</span>
-                  </div>
+                  <div className="report-kpi-item"><span className="report-kpi-label">Revenue Loss</span><span className="report-kpi-value">₱{analytics.totalLoss.toLocaleString()}</span></div>
+                  <div className="report-kpi-item"><span className="report-kpi-label">Listing Visitors</span><span className="report-kpi-value">{listingVisitors.toLocaleString()}</span></div>
+                  <div className="report-kpi-item"><span className="report-kpi-label">Cancellations</span><span className="report-kpi-value">{analytics.cancellations}</span></div>
                 </div>
               </div>
-
               <div className="report-section">
                 <h3 className="report-section-title">Sales Analysis</h3>
                 <div className="report-insights">
-                  <div className="insight-item">
-                    <strong>Revenue Trend:</strong>
-                    <p>
-                      {analytics.revTrend.dir === 'up' 
-                        ? `Revenue has increased by ${analytics.revTrend.val}% compared to the previous ${activeFilter} period. Keep up the good work!`
-                        : analytics.revTrend.dir === 'down'
-                        ? `Revenue has decreased by ${analytics.revTrend.val}% compared to the previous ${activeFilter} period. Consider reviewing your pricing or marketing strategy.`
-                        : 'Revenue has remained stable compared to the previous period.'}
-                    </p>
-                  </div>
-                  <div className="insight-item">
-                    <strong>Booking Trend:</strong>
-                    <p>
-                      {analytics.bookTrend.dir === 'up'
-                        ? `Bookings have increased by ${analytics.bookTrend.val}%, indicating growing demand for your services.`
-                        : analytics.bookTrend.dir === 'down'
-                        ? `Bookings have decreased by ${analytics.bookTrend.val}%. Consider promotional campaigns to boost customer engagement.`
-                        : 'Booking volume has remained consistent with the previous period.'}
-                    </p>
-                  </div>
-                  <div className="insight-item">
-                    <strong>Cancellation Impact:</strong>
-                    <p>
-                      Cancellations resulted in a revenue loss of ₱{formatCurrency(analytics.totalLoss)} during this period. 
-                      {analytics.totalLoss > 0 
-                        ? ' Consider implementing cancellation policies or improving customer communication.'
-                        : ' Excellent! No revenue was lost to cancellations.'}
-                    </p>
-                  </div>
-                  <div className="insight-item">
-                    <strong>Top Performing Pet Type:</strong>
-                    <p>
-                      {analytics.petTypeBreakdown.Dog.revenue > analytics.petTypeBreakdown.Cat.revenue 
-                        ? `Dog services generated ${((analytics.petTypeBreakdown.Dog.revenue / (analytics.petTypeBreakdown.Dog.revenue + analytics.petTypeBreakdown.Cat.revenue)) * 100).toFixed(0)}% of total revenue`
-                        : `Cat services generated ${((analytics.petTypeBreakdown.Cat.revenue / (analytics.petTypeBreakdown.Dog.revenue + analytics.petTypeBreakdown.Cat.revenue)) * 100).toFixed(0)}% of total revenue`}
-                    </p>
-                  </div>
+                  <div className="insight-item"><strong>Revenue Trend:</strong><p>{analytics.revTrend.dir === 'up' ? `Revenue has increased by ${analytics.revTrend.val}% compared to the previous ${activeFilter} period. Keep up the good work!` : analytics.revTrend.dir === 'down' ? `Revenue has decreased by ${analytics.revTrend.val}% compared to the previous ${activeFilter} period. Consider reviewing your pricing or marketing strategy.` : 'Revenue has remained stable compared to the previous period.'}</p></div>
+                  <div className="insight-item"><strong>Booking Trend:</strong><p>{analytics.bookTrend.dir === 'up' ? `Bookings have increased by ${analytics.bookTrend.val}%, indicating growing demand for your services.` : analytics.bookTrend.dir === 'down' ? `Bookings have decreased by ${analytics.bookTrend.val}%. Consider promotional campaigns to boost customer engagement.` : 'Booking volume has remained consistent with the previous period.'}</p></div>
+                  <div className="insight-item"><strong>Cancellation Impact:</strong><p>Cancellations resulted in a revenue loss of ₱{formatCurrency(analytics.totalLoss)} during this period.{analytics.totalLoss > 0 ? ' Consider implementing cancellation policies or improving customer communication.' : ' Excellent! No revenue was lost to cancellations.'}</p></div>
+                  <div className="insight-item"><strong>Top Performing Pet Type:</strong><p>{analytics.petTypeBreakdown.Dog.revenue > analytics.petTypeBreakdown.Cat.revenue ? `Dog services generated ${((analytics.petTypeBreakdown.Dog.revenue / (analytics.petTypeBreakdown.Dog.revenue + analytics.petTypeBreakdown.Cat.revenue)) * 100).toFixed(0)}% of total revenue` : `Cat services generated ${((analytics.petTypeBreakdown.Cat.revenue / (analytics.petTypeBreakdown.Dog.revenue + analytics.petTypeBreakdown.Cat.revenue)) * 100).toFixed(0)}% of total revenue`}</p></div>
                 </div>
               </div>
-
               <div className="report-section">
                 <h3 className="report-section-title">Customer Segmentation</h3>
                 <div className="pet-distribution">
-                  <div className="pet-dist-item">
-                    <span className="pet-type">New Customers</span>
-                    <span className="pet-count">
-                      ₱{formatCurrency(analytics.newCustomerRevenue.reduce((a, b) => a + b, 0))} revenue
-                    </span>
-                  </div>
-                  <div className="pet-dist-item">
-                    <span className="pet-type">Returning Customers</span>
-                    <span className="pet-count">
-                      ₱{formatCurrency(analytics.returningCustomerRevenue.reduce((a, b) => a + b, 0))} revenue
-                    </span>
-                  </div>
+                  <div className="pet-dist-item"><span className="pet-type">New Customers</span><span className="pet-count">₱{formatCurrency(analytics.newCustomerRevenue.reduce((a, b) => a + b, 0))} revenue</span></div>
+                  <div className="pet-dist-item"><span className="pet-type">Returning Customers</span><span className="pet-count">₱{formatCurrency(analytics.returningCustomerRevenue.reduce((a, b) => a + b, 0))} revenue</span></div>
                 </div>
               </div>
             </div>
-
             <div className="report-modal-footer">
-              <button 
-                className="btn-download-report" 
-                onClick={handleDownloadPDF}
-                disabled={isGeneratingPDF}
-              >
-                {isGeneratingPDF ? (
-                  <>
-                    <FaDownload />
-                    Generating PDF...
-                  </>
-                ) : (
-                  <>
-                    <FaDownload />
-                    Download as PDF
-                  </>
-                )}
+              <button className="btn-download-report" onClick={handleDownloadPDF} disabled={isGeneratingPDF}>
+                {isGeneratingPDF ? <><FaDownload />Generating PDF...</> : <><FaDownload />Download as PDF</>}
               </button>
             </div>
           </div>

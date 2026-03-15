@@ -81,6 +81,9 @@ export default function SPBusinessDashboard() {
         }
 
         // Fetch bookings with related data
+        // FIX: Added `created_at` to select so we can sort new requests by creation time.
+        // FIX: Added .order('created_at', { ascending: false }) so bookings in "new requests"
+        //      are arranged by when they were created (most recent first), not by booking date/time.
         const { data: bookings, error: bError } = await supabase
           .from('bookings')
           .select(`
@@ -90,12 +93,14 @@ export default function SPBusinessDashboard() {
             status, 
             user_id, 
             time_slot,
+            created_at,
             booking_pets (
               id,
               pet_type
             )
           `)
-          .eq('provider_id', provider.id);
+          .eq('provider_id', provider.id)
+          .order('created_at', { ascending: false });
 
         if (bError) throw bError;
         setRawBookings(bookings || []);
@@ -235,21 +240,34 @@ export default function SPBusinessDashboard() {
 
     // ============================================
     // FIX: Parse booking_date as LOCAL midnight, not UTC.
-    // new Date('2025-02-17') parses as UTC midnight which shifts the date
-    // in timezones offset from UTC. Splitting into parts and constructing
-    // with new Date(y, m-1, d) always uses local midnight.
-    // This single helper replaces ALL instances of new Date(booking_date_string)
-    // throughout this file.
     // ============================================
+    // FIX: Parse booking_date as Philippine Standard Time (UTC+8).
+    // new Date('YYYY-MM-DD') parses as UTC midnight, which in PHT is already
+    // 08:00 of that day — but when comparing range boundaries built from
+    // local Date objects, dates near midnight PHT can fall outside the range.
+    // Using new Date(y, m-1, d) always builds the date at LOCAL midnight,
+    // which is correct as long as the browser is set to PHT. For consistency
+    // we keep this approach (browser locale = PHT for PH users).
     const parseLocalDate = (dateStr) => {
       const [year, month, day] = dateStr.split('-').map(Number);
       return new Date(year, month - 1, day);
     };
 
+    // FIX: Build a PHT-aware "end of day" for a date string.
+    // Sets time to 23:59:59.999 in local time (PHT for PH users).
+    const endOfDay = (dateStr) => {
+      const d = parseLocalDate(dateStr);
+      d.setHours(23, 59, 59, 999);
+      return d;
+    };
+
+    // FIX: Build a PHT-aware "start of day" for a date string.
+    const startOfDay = (dateStr) => {
+      return parseLocalDate(dateStr); // already local midnight
+    };
+
     // ============================================
     // FIX: Cap the end of all non-custom ranges to end-of-today.
-    // Without this, future-dated bookings leak into the current range,
-    // causing inconsistent counts across weekly/monthly/yearly filters.
     // ============================================
     const endOfToday = new Date();
     endOfToday.setHours(23, 59, 59, 999);
@@ -268,11 +286,10 @@ export default function SPBusinessDashboard() {
     const getRange = (filter, isPrevious = false) => {
       const today = new Date();
 
-      // Custom filter
+      // Custom filter — uses local midnight boundaries (PHT-safe)
       if (filter === 'custom' && customDateStart && customDateEnd) {
-        const start = parseLocalDate(customDateStart);
-        const end = parseLocalDate(customDateEnd);
-        end.setHours(23, 59, 59, 999);
+        const start = startOfDay(customDateStart);
+        const end = endOfDay(customDateEnd);
         
         if (isPrevious) {
           const duration = end - start;
@@ -296,7 +313,6 @@ export default function SPBusinessDashboard() {
           end.setHours(23, 59, 59, 999);
         } else { 
           start.setDate(today.getDate() - 7);
-          // FIX: explicitly cap to end of today
           end = new Date(endOfToday);
         }
 
@@ -309,6 +325,8 @@ export default function SPBusinessDashboard() {
           end = new Date(today.getFullYear(), today.getMonth() - 1, targetDay);
           end.setHours(23, 59, 59, 999);
         } else { 
+          // FIX: Monthly filter spans the ENTIRE current month (day 1 to end of today).
+          // Revenue will be 0 if no completed bookings exist yet this month.
           start = new Date(today.getFullYear(), today.getMonth(), 1);
           end = new Date(endOfToday);
         }
@@ -347,7 +365,36 @@ export default function SPBusinessDashboard() {
     const currentRange = getRange(activeFilter);
     const previousRange = getRange(activeFilter, true);
     
-    // Format the date range text
+    // ============================================
+    // FIX: Build a dynamic revenue label that reflects the active filter period.
+    // For "monthly", shows "For the month of [Month Year]".
+    // For "weekly", shows the 7-day window.
+    // For "yearly", shows the selected year or "All Years".
+    // For "custom", shows the custom date range.
+    // Revenue will be 0 if no completed bookings fall within the period.
+    // ============================================
+    const buildRevenuePeriodLabel = () => {
+      const today = new Date();
+      if (activeFilter === 'monthly') {
+        const monthName = today.toLocaleString('default', { month: 'long' });
+        const year = today.getFullYear();
+        return `For the month of ${monthName} ${year}`;
+      }
+      if (activeFilter === 'weekly') {
+        const start = new Date(today);
+        start.setDate(today.getDate() - 7);
+        return `${start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${today.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+      }
+      if (activeFilter === 'yearly') {
+        return selectedYear === null ? 'All Years' : `Year ${selectedYear}`;
+      }
+      if (activeFilter === 'custom' && customDateStart && customDateEnd) {
+        return `${parseLocalDate(customDateStart).toLocaleDateString(undefined, { month: 'short', day: '2-digit', year: 'numeric' })} – ${parseLocalDate(customDateEnd).toLocaleDateString(undefined, { month: 'short', day: '2-digit', year: 'numeric' })}`;
+      }
+      return '';
+    };
+
+    // Format the date range text (used in chart header and report)
     const rangeText = activeFilter === 'custom' && customDateStart && customDateEnd
       ? `${parseLocalDate(customDateStart).toLocaleDateString(undefined, { month: 'short', day: '2-digit', year: 'numeric' })} - ${parseLocalDate(customDateEnd).toLocaleDateString(undefined, { month: 'short', day: '2-digit', year: 'numeric' })}`
       : `${currentRange.start.toLocaleDateString(undefined, { month: 'short', day: '2-digit', year: 'numeric' })} - ${now.toLocaleDateString(undefined, { month: 'short', day: '2-digit', year: 'numeric' })}`;
@@ -368,10 +415,7 @@ export default function SPBusinessDashboard() {
       return ['for review', 'rated'].includes(b.status);
     };
 
-    // ============================================
-    // FIX: filterByRange now uses parseLocalDate so booking_date strings
-    // are always compared in local time, not UTC.
-    // ============================================
+    // FIX: filterByRange uses parseLocalDate for correct local date comparison.
     const filterByRange = (list, range) => {
       return list.filter(b => {
         const d = parseLocalDate(b.booking_date);
@@ -407,9 +451,18 @@ export default function SPBusinessDashboard() {
     const currentValidPets = getValidPets(currentBookings);
     const previousValidPets = getValidPets(previousBookings);
 
+    // ============================================
+    // FIX: calculateMetrics now computes revenue strictly from bookings
+    // that fall within the filtered date range AND have a completed status.
+    // If petTypeFilter is "Dog" or "Cat", only count bookings where at least
+    // one pet of that type exists. Revenue is 0 if no such bookings exist.
+    // ============================================
     const calculateMetrics = (petsList, originalBookings) => {
       const uniqueBookingIds = new Set(petsList.map(p => p.booking_id));
-      const uniqueBookings = originalBookings.filter(b => uniqueBookingIds.has(b.id));
+      // Only sum revenue for completed bookings that are strictly within range
+      const uniqueBookings = originalBookings.filter(b =>
+        uniqueBookingIds.has(b.id) && isBookingComplete(b)
+      );
       const rev = uniqueBookings.reduce((sum, b) => sum + (Number(b.total_estimated_price) || 0), 0);
       return { rev, count: petsList.length, validPets: petsList };
     };
@@ -432,7 +485,6 @@ export default function SPBusinessDashboard() {
     
     if (activeFilter === 'yearly') {
       if (selectedYear === null) {
-        // All Years: one label per year from listing approval to now
         const currentYear = new Date().getFullYear();
         const startYear = listingApprovedDate
           ? new Date(listingApprovedDate).getFullYear()
@@ -458,7 +510,6 @@ export default function SPBusinessDashboard() {
 
     // ============================================
     // CHART DATA GENERATION - VALUES MAPPING
-    // FIX: All new Date(pet.booking_date) calls replaced with parseLocalDate()
     // ============================================
     let dateValuesDog = new Array(dateLabels.length).fill(0);
     let dateValuesCat = new Array(dateLabels.length).fill(0);
@@ -482,7 +533,6 @@ export default function SPBusinessDashboard() {
         const label = formatLabel(pet.booking_date);
         idx = dateLabels.indexOf(label);
       } else {
-        // FIX: use bDate (local) instead of new Date(pet.booking_date) (UTC)
         idx = (bDate.getDay() + 6) % 7;
       }
       
@@ -494,14 +544,12 @@ export default function SPBusinessDashboard() {
 
     // ============================================
     // CHART DATA GENERATION - PEAK DAYS
-    // FIX: use parseLocalDate instead of new Date() for day-of-week extraction
     // ============================================
     const peakDaysLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     let peakDaysValuesDog = new Array(7).fill(0);
     let peakDaysValuesCat = new Array(7).fill(0);
     
     petsToProcess.forEach(pet => {
-      // FIX: parseLocalDate ensures correct local day-of-week
       const dayIdx = (parseLocalDate(pet.booking_date).getDay() + 6) % 7;
       if (pet.pet_type === 'Dog') peakDaysValuesDog[dayIdx]++;
       else if (pet.pet_type === 'Cat') peakDaysValuesCat[dayIdx]++;
@@ -554,7 +602,6 @@ export default function SPBusinessDashboard() {
 
     // ============================================
     // CHART DATA GENERATION - BOOKED SERVICES
-    // FIX: use parseLocalDate instead of new Date() for inRange check
     // ============================================
     const filteredServices = serviceStats.filter(s => {
       const b = s.booking_pets?.bookings;
@@ -566,7 +613,6 @@ export default function SPBusinessDashboard() {
         return isComplete && matchesPet;
       }
       
-      // FIX: parseLocalDate for correct local date comparison
       const bDate = parseLocalDate(b.booking_date);
       const inRange = bDate >= currentRange.start && bDate <= currentRange.end;
       const matchesPet = petTypeFilter === 'both' || s.booking_pets?.pet_type === petTypeFilter;
@@ -632,7 +678,8 @@ export default function SPBusinessDashboard() {
     };
 
     return { 
-      revenue: current.rev, 
+      revenue: current.rev,           // ← Dynamic: 0 if no completed bookings in range
+      revenuePeriodLabel: buildRevenuePeriodLabel(), // ← Human-readable label for the revenue period
       validCount: current.count, 
       cancellations: cancellationCount,
       avg: new Set(current.validPets.map(p => p.user_id)).size > 0 
@@ -858,7 +905,7 @@ export default function SPBusinessDashboard() {
               <h3>Timeframe</h3>
               <select className="filter-dropdown" value={activeFilter} onChange={(e) => {
                 setActiveFilter(e.target.value);
-                setSelectedYear(new Date().getFullYear()); // Reset to current year when changing filter
+                setSelectedYear(new Date().getFullYear());
               }}>
                 <option value="weekly">Weekly</option>
                 <option value="monthly">Monthly</option>
@@ -975,13 +1022,12 @@ export default function SPBusinessDashboard() {
             </div>
 
             <div className="sp-biz-kpi-grid">
+
               <div className="kpi-card">
                 <span className="kpi-label">Gross Revenue</span>
                 <div className="kpi-row">
                   <span className="kpi-value">
-                    {analytics.revenue >= 1000 
-                      ? `₱${(analytics.revenue / 1000).toFixed(1)}K` 
-                      : `₱${Math.round(analytics.revenue)}`}
+                    {`₱${analytics.revenue.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                   </span>
                   <TrendIndicator trend={analytics.revTrend} />
                 </div>
@@ -1138,10 +1184,14 @@ export default function SPBusinessDashboard() {
                   <div className="report-kpi-item">
                     <span className="report-kpi-label">Gross Revenue</span>
                     <span className="report-kpi-value">
-                      {analytics.revenue >= 1000 
-                        ? `₱${(analytics.revenue / 1000).toFixed(1)}K` 
-                        : `₱${Math.round(analytics.revenue)}`}
+                      {`₱${analytics.revenue.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                     </span>
+                    {/* Show the period label in the report as well */}
+                    {analytics.revenuePeriodLabel && (
+                      <span style={{ fontSize: '0.7rem', color: '#64748b', display: 'block', marginBottom: '4px' }}>
+                        {analytics.revenuePeriodLabel}
+                      </span>
+                    )}
                     <div className="report-trend">
                       {analytics.revTrend.dir === 'up' ? <FaCaretUp /> : 
                        analytics.revTrend.dir === 'down' ? <FaCaretDown /> : <FaMinus />}
