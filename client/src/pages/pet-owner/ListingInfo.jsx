@@ -5,7 +5,8 @@ import {
   MapPin, X, ChevronDown, 
   ChevronLeft, ChevronRight, Clock, 
   Facebook, Instagram, Globe, ExternalLink,
-  Calendar as CalendarIcon, Users, User
+  Calendar as CalendarIcon, Users, User,
+  AlertCircle
 } from "lucide-react";
 import LocationPicker from "../../components/Map/LocationPicker";
 import { FaStar, FaStarHalfAlt, FaRegStar } from "react-icons/fa";
@@ -18,14 +19,14 @@ import "./ListingInfo.css";
 const MapPreview = ({ lat, lng, businessName }) => {
   if (!lat || !lng) return (
     <div className="no-map-data">
-       <MapPin size={24} style={{marginBottom: '8px', opacity: 0.5}}/>
-       <p>Location coordinates not yet pinned by provider.</p>
+      <MapPin size={24} className="no-map-icon" />
+      <p>Location coordinates not yet pinned by provider.</p>
     </div>
   );
 
   return (
     <div className="listing-map-group">
-      <div style={{ height: "300px", width: "100%", position: "relative" }}>
+      <div className="map-container-300">
         <LocationPicker 
           key={`${lat}-${lng}`} 
           lat={lat} 
@@ -58,16 +59,11 @@ const BookingCalendar = ({ selectedDate, onDateSelect, providerHours }) => {
   const handlePrevMonth = () => setCurrentDate(new Date(year, month - 1, 1));
   const handleNextMonth = () => setCurrentDate(new Date(year, month + 1, 1));
 
-  // Check if a specific date is selectable
   const isDateSelectable = (day) => {
     const dateToCheck = new Date(year, month, day);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-
-    // 1. Disable past dates AND today (Changed < to <= to prevent same-day booking)
     if (dateToCheck <= today) return false;
-
-    // 2. Disable if provider is closed on this day of week
     if (!providerHours || providerHours.length === 0) return false;
     const dayName = dateToCheck.toLocaleDateString('en-US', { weekday: 'long' });
     return providerHours.some(h => h.day_of_week === dayName);
@@ -75,28 +71,20 @@ const BookingCalendar = ({ selectedDate, onDateSelect, providerHours }) => {
 
   const renderDays = () => {
     const days = [];
-    
-    // Empty slots for previous month
     for (let i = 0; i < firstDay; i++) {
       days.push(<div key={`empty-${i}`} className="cal-day empty"></div>);
     }
-
-    // Days of current month
     for (let d = 1; d <= daysInMonth; d++) {
-      const dateToCheck = new Date(year, month, d);
       const isSelectable = isDateSelectable(d);
-      
-      // Check if this specific day is the currently selected one
       const isSelected = selectedDate && 
         selectedDate.getDate() === d &&
         selectedDate.getMonth() === month &&
         selectedDate.getFullYear() === year;
-
       days.push(
         <div 
           key={d} 
           className={`cal-day ${isSelected ? 'selected' : ''} ${!isSelectable ? 'disabled' : ''}`}
-          onClick={() => isSelectable && onDateSelect(dateToCheck)}
+          onClick={() => isSelectable && onDateSelect(new Date(year, month, d))}
         >
           <span className="day-num">{d}</span>
         </div>
@@ -114,11 +102,9 @@ const BookingCalendar = ({ selectedDate, onDateSelect, providerHours }) => {
         </span>
         <button type="button" onClick={handleNextMonth}><ChevronRight size={18}/></button>
       </div>
-
       <div className="cal-grid-header">
         <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
       </div>
-      
       <div className="cal-grid">
         {renderDays()}
       </div>
@@ -131,7 +117,6 @@ const ImageModal = ({ isOpen, onClose, images, currentIndex, onNext, onPrev }) =
   if (!isOpen || !images || images.length === 0) return null;
   const safeIndex = (currentIndex >= 0 && currentIndex < images.length) ? currentIndex : 0;
   const currentUrl = images[safeIndex]?.image_url;
-
   return (
     <div className="image-modal-overlay" onClick={onClose}>
       <button className="image-modal-close" onClick={onClose}><X size={24} color="#153e75" /></button>
@@ -153,17 +138,15 @@ const ImageModal = ({ isOpen, onClose, images, currentIndex, onNext, onPrev }) =
 // --- Star Rating Helper ---
 const StarRating = ({ rating, size = 14 }) => {
   const stars = [];
-  
   for (let i = 1; i <= 5; i++) {
     if (i <= rating) {
       stars.push(<FaStar key={i} size={size} color="#facc15" />);
     } else if (i - 0.5 <= rating) {
       stars.push(<FaStarHalfAlt key={i} size={size} color="#facc15" />);
     } else {
-      stars.push(<FaRegStar key={i} size={size} color="#cbd5e1" />); // Default gray for empty
+      stars.push(<FaRegStar key={i} size={size} color="#cbd5e1" />);
     }
   }
-
   return <div className="stars-wrapper">{stars}</div>;
 };
 
@@ -183,54 +166,44 @@ const ListingInfo = () => {
   const [activeTab, setActiveTab] = useState("overview");
   const [selectedImageIndex, setSelectedImageIndex] = useState(null);
   
-  
   // --- BOOKING STATES ---
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const TERMS_URL = "https://mdhudfatvdipxwufcbis.supabase.co/storage/v1/object/public/agreements/terms_po.pdf";
-
-  const uploadWaiver = async (file) => {
-    const { data, error } = await supabase.storage
-      .from('service_provider_uploads')
-      .upload(`waivers/${Date.now()}_${file.name}`, file, {
-        contentType: 'application/pdf', // This forces the browser to try and show it inline
-        cacheControl: '3600',
-        upsert: false
-      });
-  };
-
   const [bookingDate, setBookingDate] = useState(null);
   const [bookingTime, setBookingTime] = useState("");
   const [numberOfPets, setNumberOfPets] = useState(0);
-
   const [availableTimeSlots, setAvailableTimeSlots] = useState([]);
   const [dateError, setDateError] = useState(null);
   const [bookingError, setBookingError] = useState(null);
 
-  const daysOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+  // --- EXISTING BOOKING MODAL STATES ---
+  const [showExistingBookingModal, setShowExistingBookingModal] = useState(false);
+  const [existingUserBooking, setExistingUserBooking] = useState(null);
 
+  const daysOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
   const [existingBookings, setExistingBookings] = useState([]);
+
   useEffect(() => {
     const fetchDateBookings = async () => {
-        if (!bookingDate || !id) return;
-        const dateStr = bookingDate.toLocaleDateString('en-CA'); // YYYY-MM-DD
-        
-        const { data, error } = await supabase
-            .from("bookings")
-            .select("time_slot, status, booking_pets(id)") // Add booking_pets(id) here
-            .eq("provider_id", id)
-            .eq("booking_date", dateStr)
-            .not("status", "in", '("cancelled", "declined", "rejected", "void", "voided")');
-                if (!error) setExistingBookings(data || []);
-            };
+      if (!bookingDate || !id) return;
+      const dateStr = bookingDate.toLocaleDateString('en-CA');
+      const { data, error } = await supabase
+        .from("bookings")
+        .select("time_slot, status, booking_pets(id)")
+        .eq("provider_id", id)
+        .eq("booking_date", dateStr)
+        .not("status", "in", '("cancelled", "declined", "rejected", "void", "voided")');
+      if (!error) setExistingBookings(data || []);
+    };
     fetchDateBookings();
-}, [bookingDate, id]);
+  }, [bookingDate, id]);
 
   // 1. Fetch User & Data
   useEffect(() => {
     const init = async () => {
-        const { data: { user } } = await supabase.auth.getUser();
-        setUser(user);
-        await fetchAllData();
+      const { data: { user } } = await supabase.auth.getUser();
+      setUser(user);
+      await fetchAllData();
     };
     init();
   }, [id]);
@@ -238,170 +211,100 @@ const ListingInfo = () => {
   // 2. LOAD DRAFT FROM SESSION
   useEffect(() => {
     const loadDraft = async () => {
-        const { data: { user } } = await supabase.auth.getUser();
-        
-        if (user && id) {
-            const storageKey = `booking_draft_${user.id}_${id}`;
-            const savedDraft = sessionStorage.getItem(storageKey);
-            
-            if (savedDraft) {
-                try {
-                    const parsed = JSON.parse(savedDraft);
-                    if (parsed.date) {
-                        const draftDate = new Date(parsed.date);
-                        if (!isNaN(draftDate.getTime())) {
-                            setBookingDate(draftDate);
-                        }
-                    }
-                    if (parsed.time) setBookingTime(parsed.time);
-                    if (parsed.pets) setNumberOfPets(parseInt(parsed.pets, 10));
-                } catch (e) { console.error("Failed to parse booking draft", e); }
-            } else if (location.state) {
-                if (location.state.bookingDate) setBookingDate(new Date(location.state.bookingDate));
-                if (location.state.bookingTime) setBookingTime(location.state.bookingTime);
-                if (location.state.numberOfPets) setNumberOfPets(parseInt(location.state.numberOfPets, 10));
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user && id) {
+        const storageKey = `booking_draft_${user.id}_${id}`;
+        const savedDraft = sessionStorage.getItem(storageKey);
+        if (savedDraft) {
+          try {
+            const parsed = JSON.parse(savedDraft);
+            if (parsed.date) {
+              const draftDate = new Date(parsed.date);
+              if (!isNaN(draftDate.getTime())) setBookingDate(draftDate);
             }
+            if (parsed.time) setBookingTime(parsed.time);
+            if (parsed.pets) setNumberOfPets(parseInt(parsed.pets, 10));
+          } catch (e) { console.error("Failed to parse booking draft", e); }
+        } else if (location.state) {
+          if (location.state.bookingDate) setBookingDate(new Date(location.state.bookingDate));
+          if (location.state.bookingTime) setBookingTime(location.state.bookingTime);
+          if (location.state.numberOfPets) setNumberOfPets(parseInt(location.state.numberOfPets, 10));
         }
+      }
     };
     loadDraft();
   }, [id, location.state]);
 
- // 3. AUTO-GENERATE TIME SLOTS with Capacity Validation
-useEffect(() => {
+  // 3. AUTO-GENERATE TIME SLOTS with Capacity Validation
+  useEffect(() => {
     setAvailableTimeSlots([]);
     if (!bookingDate || hours.length === 0) return;
-
     const dayName = bookingDate.toLocaleDateString('en-US', { weekday: 'long' });
     const workingDay = hours.find(h => h.day_of_week === dayName);
-
     if (workingDay) {
-        const slots = [];
-        const start = new Date(`2000-01-01T${workingDay.start_time}`);
-        const end = new Date(`2000-01-01T${workingDay.end_time}`);
-        const interval = parseInt(workingDay.slot_interval_minutes) || 60;
-        const capacity = parseInt(workingDay.slot_capacity) || 1;
+      const slots = [];
+      const start = new Date(`2000-01-01T${workingDay.start_time}`);
+      const end = new Date(`2000-01-01T${workingDay.end_time}`);
+      const interval = parseInt(workingDay.slot_interval_minutes) || 60;
+      const capacity = parseInt(workingDay.slot_capacity) || 1;
+      while (start < end) {
+        const timeValue = start.toTimeString().split(' ')[0];
+        const displayLabel = start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+        const bookingsAtThisTime = existingBookings.filter(b => b.time_slot === timeValue);
+        const totalPetsOccupied = bookingsAtThisTime.reduce((sum, b) => sum + (b.booking_pets?.length || 0), 0);
+        const remainingSpace = capacity - totalPetsOccupied;
         const requestedPets = parseInt(numberOfPets, 10) || 0;
-
-        while (start < end) {
-            const timeValue = start.toTimeString().split(' ')[0]; // "12:00:00"
-            const displayLabel = start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-
-            // 1. Get ALL active booking records for this specific time slot
-            const bookingsAtThisTime = existingBookings.filter(b => b.time_slot === timeValue);
-
-            // 2. Count EVERY record. This ensures 1 booking with 2 pets = 2 slots taken.
-            const totalPetsOccupied = bookingsAtThisTime.reduce((sum, b) => 
-                sum + (b.booking_pets?.length || 0), 0
-            );
-
-            // 3. Calculate remaining based on the SP's specific slot_capacity
-            const remainingSpace = capacity - totalPetsOccupied;
-            const requestedPets = parseInt(numberOfPets, 10) || 0;
-
-            let slotStatus = "available";
-            if (remainingSpace <= 0) {
-                slotStatus = "full"; 
-            } else if (requestedPets > 0 && requestedPets > remainingSpace) {
-                slotStatus = "insufficient_space"; 
-            }
-
-            slots.push({ 
-                value: timeValue, 
-                label: displayLabel, 
-                status: slotStatus,
-                remaining: Math.max(0, remainingSpace)
-            });
-
-            start.setMinutes(start.getMinutes() + interval);
-        }
-        setAvailableTimeSlots(slots);
+        let slotStatus = "available";
+        if (remainingSpace <= 0) { slotStatus = "full"; }
+        else if (requestedPets > 0 && requestedPets > remainingSpace) { slotStatus = "insufficient_space"; }
+        slots.push({ value: timeValue, label: displayLabel, status: slotStatus, remaining: Math.max(0, remainingSpace) });
+        start.setMinutes(start.getMinutes() + interval);
+      }
+      setAvailableTimeSlots(slots);
     }
-}, [bookingDate, hours, existingBookings, numberOfPets]); 
-// Added numberOfPets to dependencies so slots update when user changes pet count
+  }, [bookingDate, hours, existingBookings, numberOfPets]); 
 
   const fetchAllData = async () => {
     try {
       setLoading(true);
-      
       const { data: providerData, error: pError } = await supabase
         .from("service_providers")
         .select("*, waiver_url") 
         .eq("id", id)
         .eq("status", "approved")
         .single();
-
       if (pError) throw pError;
       setProvider(providerData || null);
-
       const { data: servicesData } = await supabase.from("services").select(`*, service_options (*)`).eq("provider_id", id);
       setServices(servicesData || []);
-
       const { data: hoursData } = await supabase.from("service_provider_hours").select("*").eq("provider_id", id);
       setHours(hoursData || []);
-
       const { data: imagesData } = await supabase.from("service_provider_images").select("*").eq("provider_id", id);
       setImages(imagesData || []);
-
       const { data: reviewsData } = await supabase
-        .from("reviews")
-        .select("*")
-        .eq("provider_id", id)
-        .order("created_at", { ascending: false });
-
+        .from("reviews").select("*").eq("provider_id", id).order("created_at", { ascending: false });
       if (reviewsData && reviewsData.length > 0) {
         setReviews(reviewsData);
-        
         const total = reviewsData.length;
-        const totalService = reviewsData.reduce((acc, r) => acc + r.rating_overall, 0);
-        const totalStaff = reviewsData.reduce((acc, r) => acc + r.rating_staff, 0);
-        
-        const avgService = totalService / total;
-        const avgStaff = totalStaff / total;
-        const avgOverall = (avgService + avgStaff) / 2;
-
-        setReviewStats({
-            count: total,
-            overall: avgOverall,
-            service: avgService,
-            staff: avgStaff
-        });
+        const avgService = reviewsData.reduce((acc, r) => acc + r.rating_overall, 0) / total;
+        const avgStaff = reviewsData.reduce((acc, r) => acc + r.rating_staff, 0) / total;
+        setReviewStats({ count: total, overall: (avgService + avgStaff) / 2, service: avgService, staff: avgStaff });
       } else {
         setReviews([]);
         setReviewStats({ count: 0, overall: 0, service: 0, staff: 0 });
       }
-
     } catch (error) { console.error("Error fetching data:", error); } finally { setLoading(false); }
   };
 
-  // Add this inside your component (e.g., near line 190)
-useEffect(() => {
-  if (!id) return;
-
-  // 1. Create the Real-time Channel
-  const bookingsChannel = supabase
-    .channel('booking-updates')
-    .on(
-      'postgres_changes', 
-      { 
-        event: '*', // Listen for all changes (Insert, Update, Delete)
-        schema: 'public', 
-        table: 'bookings',
-        filter: `provider_id=eq.${id}` // Only listen for this SP's bookings
-      }, 
-      (payload) => {
-        // 2. When a change happens, re-trigger the occupancy fetch
-        console.log("Real-time update received:", payload);
-        fetchDateBookings(); 
-      }
-    )
-    .subscribe();
-
-  // 3. Clean up the listener when the user leaves the page
-  return () => {
-    supabase.removeChannel(bookingsChannel);
-  };
-}, [id, bookingDate]); // Re-subscribe if the SP or Date changes
-
+  useEffect(() => {
+    if (!id) return;
+    const bookingsChannel = supabase
+      .channel('booking-updates')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings', filter: `provider_id=eq.${id}` }, 
+        (payload) => { console.log("Real-time update received:", payload); fetchDateBookings(); })
+      .subscribe();
+    return () => { supabase.removeChannel(bookingsChannel); };
+  }, [id, bookingDate]);
 
   const formatTime = (time) => {
     if (!time) return "";
@@ -435,90 +338,158 @@ useEffect(() => {
     setBookingTime(""); 
   };
 
+  // --- Navigate to pet details (called directly or after modal confirmation) ---
+  const proceedToBooking = () => {
+    const dateStr = bookingDate.toLocaleDateString('en-CA');
+    navigate('/pet-details', {
+      state: {
+        providerId: id,
+        providerName: provider.business_name,
+        bookingDate: dateStr,
+        bookingTime,
+        numberOfPets: parseInt(numberOfPets, 10)
+      }
+    });
+  };
 
-const handleCompleteBooking = async () => {
+  const handleCompleteBooking = async () => {
     setBookingError(null);
     setDateError(null);
 
-    // 1. Initial Validation Guards
-    if (!user) { 
-        setBookingError("You must be logged in to book."); 
-        return; 
-    }
-    if (!bookingDate) { 
-        setDateError("Please select a date."); 
-        return; 
-    }
-    if (!bookingTime) { 
-        setBookingError("Please select a time slot."); 
-        return; 
-    }
-    if (!agreedToTerms) { 
-        setBookingError("Please agree to the Terms and Conditions to proceed.");
-        return; 
-    }
+    if (!user) { setBookingError("You must be logged in to book."); return; }
+    if (!bookingDate) { setDateError("Please select a date."); return; }
+    if (!bookingTime) { setBookingError("Please select a time slot."); return; }
+    if (!agreedToTerms) { setBookingError("Please agree to the Terms and Conditions to proceed."); return; }
 
     const petCount = parseInt(numberOfPets, 10);
-    if (isNaN(petCount) || petCount < 1) { 
-        setBookingError("Please enter a valid number of pets."); 
-        return; 
-    }
+    if (isNaN(petCount) || petCount < 1) { setBookingError("Please enter a valid number of pets."); return; }
 
     try {
-        setLoading(true); // Ensure you have a loading state for the sidebar button
+      setLoading(true);
 
-        // 2. FRESH DB FETCH: Verify actual availability right now
-        const dateStr = bookingDate.toLocaleDateString('en-CA'); // YYYY-MM-DD
-        
-        const { data: freshBookings, error } = await supabase
-            .from("bookings")
-            .select("id, booking_pets(id)") 
-            .eq("provider_id", id)
-            .eq("booking_date", dateStr)
-            .eq("time_slot", bookingTime)
-            .not("status", "in", '("cancelled", "declined", "rejected", "void", "voided")');
+      // Check if this user already has an active booking with this provider
+      const { data: userExistingBookings, error: existingError } = await supabase
+        .from("bookings")
+        .select("id, booking_date, time_slot, status")
+        .eq("user_id", user.id)
+        .eq("provider_id", id)
+        .not("status", "in", '("cancelled","declined","rejected","void","voided","completed")')
+        .order("created_at", { ascending: false })
+        .limit(1);
 
-        if (error) throw error;
+      if (existingError) throw existingError;
 
-        // 3. IDENTIFY CAPACITY: Based on the provider's specific hours for that day
-        const dayName = bookingDate.toLocaleDateString('en-US', { weekday: 'long' });
-        const workingDay = hours.find(h => h.day_of_week === dayName);
-        const maxCapacity = workingDay ? parseInt(workingDay.slot_capacity) : 1;
+      if (userExistingBookings && userExistingBookings.length > 0) {
+        setExistingUserBooking(userExistingBookings[0]);
+        setLoading(false);
+        setShowExistingBookingModal(true);
+        return;
+      }
 
-        // 4. THE MATH: Calculate real-time remaining slots
-        const actualPetsOccupied = freshBookings?.reduce((sum, b) => 
-            sum + (b.booking_pets?.length || 0), 0
-        ) || 0;
-        
-        const finalRemaining = maxCapacity - actualPetsOccupied;
+      // Fresh slot availability check
+      const dateStr = bookingDate.toLocaleDateString('en-CA');
+      const { data: freshBookings, error } = await supabase
+        .from("bookings")
+        .select("id, booking_pets(id)") 
+        .eq("provider_id", id)
+        .eq("booking_date", dateStr)
+        .eq("time_slot", bookingTime)
+        .not("status", "in", '("cancelled", "declined", "rejected", "void", "voided")');
 
-        // 5. FINAL GUARD: Check if the user's pets fit in the remaining slots
-        if (petCount > finalRemaining) {
-            setBookingError(`Conflict: Only ${Math.max(0, finalRemaining)} slot(s) left. Someone else may have just booked.`);
-            setExistingBookings(freshBookings); // Sync UI slots immediately
-            setLoading(false);
-            return;
-        }
+      if (error) throw error;
 
-        // 6. SUCCESS: Navigate to the next step
-        // We bypass the modal here because they checked the box in the sidebar
-        navigate('/pet-details', {
-            state: {
-                providerId: id,
-                providerName: provider.business_name,
-                bookingDate: dateStr,
-                bookingTime,
-                numberOfPets: petCount
-            }
-        });
+      const dayName = bookingDate.toLocaleDateString('en-US', { weekday: 'long' });
+      const workingDay = hours.find(h => h.day_of_week === dayName);
+      const maxCapacity = workingDay ? parseInt(workingDay.slot_capacity) : 1;
+      const actualPetsOccupied = freshBookings?.reduce((sum, b) => sum + (b.booking_pets?.length || 0), 0) || 0;
+      const finalRemaining = maxCapacity - actualPetsOccupied;
+
+      if (petCount > finalRemaining) {
+        setBookingError(`Conflict: Only ${Math.max(0, finalRemaining)} slot(s) left. Someone else may have just booked.`);
+        setExistingBookings(freshBookings);
+        setLoading(false);
+        return;
+      }
+
+      proceedToBooking();
 
     } catch (err) {
-        console.error("Booking verification error:", err);
-        setBookingError("Unable to verify availability. Please try again.");
+      console.error("Booking verification error:", err);
+      setBookingError("Unable to verify availability. Please try again.");
     } finally {
-        setLoading(false);
+      setLoading(false);
     }
-};
+  };
+
+  // --- EXISTING BOOKING CONFIRMATION MODAL ---
+  const ExistingBookingModal = () => {
+    if (!showExistingBookingModal) return null;
+
+    const getStatusClass = (status) => {
+      if (status === 'pending') return 'eb-status-badge eb-status-pending';
+      if (status === 'confirmed' || status === 'approved') return 'eb-status-badge eb-status-confirmed';
+      return 'eb-status-badge eb-status-default';
+    };
+
+    return (
+      <div className="eb-modal-overlay" onClick={() => setShowExistingBookingModal(false)}>
+        <div className="eb-modal-card" onClick={(e) => e.stopPropagation()}>
+
+          <button className="eb-close-btn" onClick={() => setShowExistingBookingModal(false)}>
+            <X size={16} />
+          </button>
+
+          <div className="eb-icon-wrapper">
+            <AlertCircle size={32} color="#d97706" />
+          </div>
+
+          <h3 className="eb-title">Existing Booking Found</h3>
+
+          <p className="eb-subtitle">
+            You already have an active booking with{' '}
+            <strong className="eb-provider-name">{provider?.business_name}</strong>.
+          </p>
+
+          {existingUserBooking && (
+            <div className="eb-details-card">
+              <div className="eb-detail-row">
+                <span className="eb-detail-label">📅 Date</span>
+                <span className="eb-detail-value">{formatDate(existingUserBooking.booking_date)}</span>
+              </div>
+              <div className="eb-divider" />
+              <div className="eb-detail-row">
+                <span className="eb-detail-label">🕐 Time</span>
+                <span className="eb-detail-value">{formatTime(existingUserBooking.time_slot)}</span>
+              </div>
+              <div className="eb-divider" />
+              <div className="eb-detail-row">
+                <span className="eb-detail-label">📋 Status</span>
+                <span className={getStatusClass(existingUserBooking.status)}>
+                  {existingUserBooking.status}
+                </span>
+              </div>
+            </div>
+          )}
+
+          <p className="eb-warning-note">
+            Would you still like to book another appointment with this provider?
+          </p>
+
+          <div className="eb-actions">
+            <button className="eb-btn-cancel" onClick={() => setShowExistingBookingModal(false)}>
+              Cancel
+            </button>
+            <button
+              className="eb-btn-continue"
+              onClick={() => { setShowExistingBookingModal(false); proceedToBooking(); }}
+            >
+              Continue Anyway
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   const ServicesList = () => (
     <>
@@ -536,7 +507,7 @@ const handleCompleteBooking = async () => {
                 <tbody>
                   {service.service_options.map(opt => (
                     <tr key={opt.id}>
-                      <td style={{textTransform:'capitalize'}}>{opt.pet_type === 'dog-cat' ? 'Dog & Cat' : opt.pet_type}</td>
+                      <td className="td-capitalize">{opt.pet_type === 'dog-cat' ? 'Dog & Cat' : opt.pet_type}</td>
                       <td>{opt.size.replace('_', ' ')}</td>
                       <td>{opt.weight_range || '-'}</td>
                       <td>₱{parseFloat(opt.price).toFixed(2)}</td>
@@ -554,9 +525,7 @@ const handleCompleteBooking = async () => {
   if (loading) return (
     <div className="listing-info-page">
       <Header />
-      <main className="listing-container">
-        <p className="loading-text">Loading...</p>
-      </main>
+      <main className="listing-container"><p className="loading-text">Loading...</p></main>
       <Footer />
     </div>
   );
@@ -564,20 +533,12 @@ const handleCompleteBooking = async () => {
   if (!provider) return (
     <div className="listing-info-page">
       <Header />
-      <main className="listing-container">
-        <p className="loading-text">Provider not found.</p>
-      </main>
+      <main className="listing-container"><p className="loading-text">Provider not found.</p></main>
       <Footer />
     </div>
   );
 
-  // Add this helper before the return statement
-const isBookingDisabled = 
-  !bookingDate || 
-  !bookingTime || 
-  parseInt(numberOfPets, 10) < 1 || 
-  !agreedToTerms || 
-  loading;
+  const isBookingDisabled = !bookingDate || !bookingTime || parseInt(numberOfPets, 10) < 1 || !agreedToTerms || loading;
 
   return (
     <div className="listing-info-page">
@@ -615,140 +576,127 @@ const isBookingDisabled =
           ) : <div className="listing-images"><div className="no-images-message">No images available</div></div>}
 
           <div className="listing-content">
+
+            {/* ── OVERVIEW TAB ── */}
             {activeTab === "overview" && (
               <div className="tab-content">
-                  <div className="listing-header-row">
-                    <h1 className="listing-title">{provider.business_name}</h1>
-                    {provider.social_media_url && (
-                      <a href={provider.social_media_url} target="_blank" rel="noopener noreferrer" className="social-link-inline">
-                        {getSocialIcon(provider.social_media_url)}
-                      </a>
-                    )}
-                  </div>
-                  <div className="location-info-block">
-                    <div className="listing-full-location" style={{marginBottom:'1rem'}}>
-                      <MapPin size={24} className="text-primary"/>
-                      <a href={provider.google_map_url || "#"} target="_blank" rel="noopener noreferrer" className={`location-link ${!provider.google_map_url ? 'disabled' : ''}`} style={{fontSize:'1.1rem'}}>
-                        {`${provider.house_street}, ${provider.barangay}, ${provider.city}, ${provider.province}, ${provider.country} ${provider.postal_code}`}
-                        {provider.google_map_url && <ExternalLink size={16} style={{marginLeft:'6px'}}/>}
-                      </a>
-                    </div>
-                    {/* MAP LOCATION FOR OVERVIEW */}
-                    <div className="info-section">
-                      <h3 className="subsection-title">Shop Location</h3>
-                      <div style={{ height: "300px", width: "100%", borderRadius: "12px", overflow: "hidden", border: "1px solid #dbeafe" }}>
-                        <LocationPicker 
-                          lat={provider.latitude} 
-                          lng={provider.longitude} 
-                          onLocationChange={() => {}} 
-                          previewOnly={true} 
-                        />
-                      </div>
-                    </div>
+                <div className="listing-header-row">
+                  <h1 className="listing-title">{provider.business_name}</h1>
+                  {provider.social_media_url && (
+                    <a href={provider.social_media_url} target="_blank" rel="noopener noreferrer" className="social-link-inline">
+                      {getSocialIcon(provider.social_media_url)}
+                    </a>
+                  )}
+                </div>
+                <div className="location-info-block">
+                  <div className="listing-full-location listing-full-location--mb">
+                    <MapPin size={24} className="text-primary"/>
+                    <a
+                      href={provider.google_map_url || "#"}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={`location-link location-link--lg ${!provider.google_map_url ? 'disabled' : ''}`}
+                    >
+                      {`${provider.house_street}, ${provider.barangay}, ${provider.city}, ${provider.province}, ${provider.country} ${provider.postal_code}`}
+                      {provider.google_map_url && <ExternalLink size={16} className="external-link-icon"/>}
+                    </a>
                   </div>
                   <div className="info-section">
-                    <p className="shop-description">{provider.description || <span className="italic-gray">No description provided.</span>}</p>
+                    <h3 className="subsection-title">Shop Location</h3>
+                    <div className="map-container-overview">
+                      <LocationPicker 
+                        lat={provider.latitude} 
+                        lng={provider.longitude} 
+                        onLocationChange={() => {}} 
+                        previewOnly={true} 
+                      />
+                    </div>
                   </div>
-                  <div className="info-section">
-                    <h3 className="subsection-title">Operating Hours</h3>
-                    <div className="hours-horizontal-container">
-                      {daysOrder.map((day) => {
-                        const dayHours = hours.filter(h => h.day_of_week === day);
-                        const isOpen = dayHours.length > 0;
-                        return (
-                          <div key={day} className={`hour-card ${isOpen ? 'open' : 'closed'}`}>
-                            <div className="hour-header">
-                              <Clock size={14} />
-                              <span>{day}</span>
-                            </div>
-                            <div className="hour-body">
-                              {isOpen ? (
-                                dayHours.map((h, i) => (
-                                  <div key={i} className="time-badge">
-                                    {formatTime(h.start_time)} - {formatTime(h.end_time)}
-                                  </div>
-                                ))
-                              ) : (
-                                <span className="closed-text">Closed</span>
-                              )}
-                            </div>
+                </div>
+                <div className="info-section">
+                  <p className="shop-description">{provider.description || <span className="italic-gray">No description provided.</span>}</p>
+                </div>
+                <div className="info-section">
+                  <h3 className="subsection-title">Operating Hours</h3>
+                  <div className="hours-horizontal-container">
+                    {daysOrder.map((day) => {
+                      const dayHours = hours.filter(h => h.day_of_week === day);
+                      const isOpen = dayHours.length > 0;
+                      return (
+                        <div key={day} className={`hour-card ${isOpen ? 'open' : 'closed'}`}>
+                          <div className="hour-header"><Clock size={14} /><span>{day}</span></div>
+                          <div className="hour-body">
+                            {isOpen ? (
+                              dayHours.map((h, i) => (
+                                <div key={i} className="time-badge">{formatTime(h.start_time)} - {formatTime(h.end_time)}</div>
+                              ))
+                            ) : <span className="closed-text">Closed</span>}
                           </div>
-                        );
-                      })}
-                    </div>
+                        </div>
+                      );
+                    })}
                   </div>
-                  <div className="info-section" style={{marginTop:'3rem', borderTop:'1px solid #dbeafe', paddingTop:'2rem'}}>
-                    <h3 className="subsection-title">Service Prices</h3>
-                    <p className="vat-note">* VAT inclusive</p>
-                    <ServicesList />
-                  </div>
+                </div>
+                <div className="info-section service-prices-section">
+                  <h3 className="subsection-title">Service Prices</h3>
+                  <p className="vat-note">* VAT inclusive</p>
+                  <ServicesList />
+                </div>
               </div>
             )}
 
+            {/* ── PRICES TAB ── */}
             {activeTab === "prices" && (
-                <div className="tab-content">
-                    <h2 className="section-title">Service Prices</h2>
-                    <p className="vat-note">* VAT exclusive</p>
-                    <ServicesList />
-                </div>
+              <div className="tab-content">
+                <h2 className="section-title">Service Prices</h2>
+                <p className="vat-note">* VAT exclusive</p>
+                <ServicesList />
+              </div>
             )}
             
+            {/* ── LOCATION TAB ── */}
             {activeTab === "location" && (
-            <div className="tab-content">
-              <h2 className="section-title">Location Details</h2>
-              <div className="location-info-card">
-                <div className="location-address-header" style={{ marginBottom: '15px', display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
-                  <MapPin size={24} className="text-primary" />
-                  <p style={{ margin: 0 }}>
-                    <strong>{provider.business_name}</strong><br/>
-                    {`${provider.house_street}, ${provider.barangay}, ${provider.city}, ${provider.province}`}
-                  </p>
+              <div className="tab-content">
+                <h2 className="section-title">Location Details</h2>
+                <div className="location-info-card">
+                  <div className="location-address-header">
+                    <MapPin size={24} className="text-primary" />
+                    <p className="location-address-text">
+                      <strong>{provider.business_name}</strong><br/>
+                      {`${provider.house_street}, ${provider.barangay}, ${provider.city}, ${provider.province}`}
+                    </p>
+                  </div>
+                  <div className="map-container-300">
+                    <LocationPicker 
+                      lat={provider.latitude} 
+                      lng={provider.longitude} 
+                      onLocationChange={() => {}} 
+                      previewOnly={true} 
+                    />
+                  </div>
+                  <div className="coord-badge-row">
+                    <span className="coord-tag">Lat: {parseFloat(provider.latitude).toFixed(6)}</span>
+                    <span className="coord-tag">Long: {parseFloat(provider.longitude).toFixed(6)}</span>
+                  </div>
+                  {provider.google_map_url && (
+                    <a href={provider.google_map_url} target="_blank" rel="noopener noreferrer" className="external-map-btn">
+                      Open in Google Maps <ExternalLink size={14} />
+                    </a>
+                  )}
                 </div>
-
-                {/* THE ACTUAL MAP */}
-                <div style={{ height: "300px", width: "100%", position: "relative" }}>
-                  <LocationPicker 
-                    lat={provider.latitude} 
-                    lng={provider.longitude} 
-                    onLocationChange={() => {}} 
-                    previewOnly={true} 
-                  />
-                </div>
-
-                {/* Lat/Long Labels */}
-                <div className="coord-badge-row" style={{ marginTop: '10px', display: 'flex', gap: '10px' }}>
-                  <span className="coord-tag">Lat: {parseFloat(provider.latitude).toFixed(6)}</span>
-                  <span className="coord-tag">Long: {parseFloat(provider.longitude).toFixed(6)}</span>
-                </div>
-                
-                {provider.google_map_url && (
-                  <a 
-                    href={provider.google_map_url} 
-                    target="_blank" 
-                    rel="noopener noreferrer" 
-                    className="external-map-btn"
-                    style={{ marginTop: '20px', display: 'inline-block' }}
-                  >
-                    Open in Google Maps <ExternalLink size={14} />
-                  </a>
-                )}
               </div>
-            </div>
-          )}
+            )}
             
+            {/* ── REVIEWS TAB ── */}
             {activeTab === "reviews" && (
               <div className="tab-content">
                 <h2 className="section-title">Reviews</h2>
-                
                 {reviewStats.count > 0 ? (
                   <div className="reviews-container">
-                    {/* UPDATED Summary Card (Clean Light Version) */}
                     <div className="review-summary-card">
                       <div className="summary-main">
                         <span className="summary-score">{reviewStats.overall.toFixed(1)}</span>
-                        <div className="summary-stars">
-                          <StarRating rating={reviewStats.overall} size={24} />
-                        </div>
+                        <div className="summary-stars"><StarRating rating={reviewStats.overall} size={24} /></div>
                         <span className="summary-count">{reviewStats.count} Reviews</span>
                       </div>
                       <div className="summary-details">
@@ -768,15 +716,11 @@ const isBookingDisabled =
                         </div>
                       </div>
                     </div>
-
-                    {/* Reviews List */}
                     <div className="reviews-list">
                       {reviews.map((review) => (
                         <div key={review.id} className="review-card">
                           <div className="review-header">
-                            <div className="review-user-avatar">
-                              <User size={20} color="#153e75" />
-                            </div>
+                            <div className="review-user-avatar"><User size={20} color="#153e75" /></div>
                             <div className="review-meta">
                               <span className="review-user-name">Pet Owner</span>
                               <span className="review-date">{formatDate(review.created_at)}</span>
@@ -787,30 +731,20 @@ const isBookingDisabled =
                                 return (
                                   <>
                                     <StarRating rating={avgRating} size={14} />
-                                    <span className="rating-decimal-text">
-                                      {avgRating.toFixed(1)}
-                                    </span>
+                                    <span className="rating-decimal-text">{avgRating.toFixed(1)}</span>
                                   </>
                                 );
                               })()}
                             </div>
                           </div>
-                          
                           <div className="review-body">
-                             {review.comment ? (
-                               <p className="review-text">{review.comment}</p>
-                             ) : (
-                               <p className="review-text-empty">No comment provided.</p>
-                             )}
+                            {review.comment
+                              ? <p className="review-text">{review.comment}</p>
+                              : <p className="review-text-empty">No comment provided.</p>}
                           </div>
-                          
                           <div className="review-footer">
-                            <div className="mini-rating">
-                              <span>Service: </span> <b>{review.rating_overall}/5</b>
-                            </div>
-                            <div className="mini-rating">
-                              <span>Staff: </span> <b>{review.rating_staff}/5</b>
-                            </div>
+                            <div className="mini-rating"><span>Service: </span> <b>{review.rating_overall}/5</b></div>
+                            <div className="mini-rating"><span>Staff: </span> <b>{review.rating_staff}/5</b></div>
                           </div>
                         </div>
                       ))}
@@ -826,7 +760,7 @@ const isBookingDisabled =
           </div>
         </div>
 
-        {/* --- BOOKING SIDEBAR --- */}
+        {/* ── BOOKING SIDEBAR ── */}
         <div className="booking-sidebar">
           <h3 className="booking-header">Book Appointment</h3>
           
@@ -834,22 +768,16 @@ const isBookingDisabled =
 
           <div className="booking-field">
             <label className="booking-label">
-              <CalendarIcon size={14} style={{marginRight:'6px', marginBottom:'-2px'}}/>
+              <CalendarIcon size={14} className="label-icon"/>
               Select Date
             </label>
-            
-            {/* --- REPLACED DATEPICKER WITH CUSTOM CALENDAR --- */}
-            <BookingCalendar 
-              selectedDate={bookingDate} 
-              onDateSelect={handleDateChange} 
-              providerHours={hours}
-            />
+            <BookingCalendar selectedDate={bookingDate} onDateSelect={handleDateChange} providerHours={hours}/>
             {dateError && <span className="field-error-text">{dateError}</span>}
           </div>
 
           <div className="booking-field">
             <label className="booking-label">
-              <Clock size={14} style={{marginRight:'6px', marginBottom:'-2px'}}/>
+              <Clock size={14} className="label-icon"/>
               Select Time Slot
             </label>
             <div className="booking-select-wrapper">
@@ -858,43 +786,35 @@ const isBookingDisabled =
                 onChange={(e) => setBookingTime(e.target.value)} 
                 className="booking-select"
                 disabled={!bookingDate || availableTimeSlots.length === 0}
-            >
-                <option value="">
-                    {availableTimeSlots.length > 0 ? "Select Time" : "No slots available"}
-                </option>
+              >
+                <option value="">{availableTimeSlots.length > 0 ? "Select Time" : "No slots available"}</option>
                 {availableTimeSlots.map((slot, idx) => {
-                    const isFull = slot.status === "full";
-                    const isTooSmall = slot.status === "insufficient_space";
-                    const isRisk = slot.status === "clash_risk"; // New status check
-                    
-                    return (
-                        <option 
-                            key={idx} 
-                            value={slot.value} 
-                            disabled={isFull || isTooSmall}
-                        >
-                            {slot.label} 
-                            {isFull ? " (Fully Booked)" : 
-                            isTooSmall ? ` (Only ${slot.remaining} left)` : 
-                            isRisk ? ` (${slot.remaining} left - Pending SP Approval)` : // Inform the user
-                            ` (Available Slots: ${slot.remaining})`}
-                        </option>
-                    );
+                  const isFull = slot.status === "full";
+                  const isTooSmall = slot.status === "insufficient_space";
+                  const isRisk = slot.status === "clash_risk";
+                  return (
+                    <option key={idx} value={slot.value} disabled={isFull || isTooSmall}>
+                      {slot.label} 
+                      {isFull ? " (Fully Booked)" : 
+                       isTooSmall ? ` (Only ${slot.remaining} left)` : 
+                       isRisk ? ` (${slot.remaining} left - Pending SP Approval)` : 
+                       ` (Available Slots: ${slot.remaining})`}
+                    </option>
+                  );
                 })}
-            </select>
+              </select>
               <ChevronDown size={20} className="booking-select-icon" />
             </div>
           </div>
 
           <div className="booking-field">
             <label className="booking-label">
-              <Users size={14} style={{marginRight:'6px', marginBottom:'-2px'}}/>
+              <Users size={14} className="label-icon"/>
               Number of Pets
             </label>
             <input 
               type="number" 
               min="1"
-              // Calculate remaining capacity for the current selection for the 'max' attribute
               max={bookingTime ? 
                 (hours.find(h => h.day_of_week === bookingDate?.toLocaleDateString('en-US', { weekday: 'long' }))?.slot_capacity || 1) - 
                 existingBookings.filter(b => b.time_slot === bookingTime).length 
@@ -902,11 +822,10 @@ const isBookingDisabled =
               }
               value={numberOfPets} 
               onChange={(e) => setNumberOfPets(e.target.value)} 
-              className="booking-date-input" 
-              style={{width: '100%', boxSizing: 'border-box'}}
+              className="booking-date-input booking-date-input--full"
             />
             {bookingTime && (
-              <span style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '4px', display: 'block' }}>
+              <span className="slots-available-hint">
                 Available slots for this time: {
                   (hours.find(h => h.day_of_week === bookingDate?.toLocaleDateString('en-US', { weekday: 'long' }))?.slot_capacity || 1) - 
                   existingBookings.filter(b => b.time_slot === bookingTime).length
@@ -929,11 +848,7 @@ const isBookingDisabled =
                 {provider.waiver_url ? (
                   <> 
                     and to the <strong>{provider.business_name}</strong>{" "}
-                    <a 
-                      href={`https://docs.google.com/gview?url=${encodeURIComponent(provider.waiver_url)}&embedded=true`} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                    >
+                    <a href={`https://docs.google.com/gview?url=${encodeURIComponent(provider.waiver_url)}&embedded=true`} target="_blank" rel="noopener noreferrer">
                       waiver
                     </a>.
                   </>
@@ -942,17 +857,23 @@ const isBookingDisabled =
             </div>
           </div>
 
-          <button 
-            onClick={handleCompleteBooking} 
-            className="booking-button"
-            disabled={isBookingDisabled} // Now checks all requirements
-          >
+          <button onClick={handleCompleteBooking} className="booking-button" disabled={isBookingDisabled}>
             {loading ? "Verifying..." : "Complete Booking"}
           </button>
         </div>
       </main>
+
+      {/* ── EXISTING BOOKING MODAL ── */}
+      <ExistingBookingModal />
     
-      <ImageModal isOpen={selectedImageIndex !== null} onClose={() => setSelectedImageIndex(null)} images={images} currentIndex={selectedImageIndex} onNext={() => setSelectedImageIndex((prev) => (prev + 1) % images.length)} onPrev={() => setSelectedImageIndex((prev) => (prev - 1 + images.length) % images.length)}/>
+      <ImageModal 
+        isOpen={selectedImageIndex !== null} 
+        onClose={() => setSelectedImageIndex(null)} 
+        images={images} 
+        currentIndex={selectedImageIndex} 
+        onNext={() => setSelectedImageIndex((prev) => (prev + 1) % images.length)} 
+        onPrev={() => setSelectedImageIndex((prev) => (prev - 1 + images.length) % images.length)}
+      />
 
       <Footer />
     </div>
