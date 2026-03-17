@@ -178,7 +178,7 @@ const ListingInfo = () => {
 
   // --- EXISTING BOOKING MODAL STATES (Same Provider) ---
   const [showExistingBookingModal, setShowExistingBookingModal] = useState(false);
-  const [existingUserBooking, setExistingUserBooking] = useState(null);
+  const [existingUserBookings, setExistingUserBookings] = useState([]); // Changed to an array
 
   // --- DIFFERENT PROVIDER BOOKING MODAL STATES ---
   const [showDiffProviderModal, setShowDiffProviderModal] = useState(false);
@@ -429,20 +429,19 @@ const ListingInfo = () => {
         return;
       }
 
-      // 2. Check Same Provider logic
+      // 2. Check Same Provider logic (Fetch active bookings that are ONLY pending or approved)
       const { data: userExistingBookings, error: existingError } = await supabase
         .from("bookings")
         .select("id, booking_date, time_slot, status")
         .eq("user_id", user.id)
         .eq("provider_id", id)
-        .not("status", "in", '("cancelled","declined","rejected","void","voided","completed")')
-        .order("created_at", { ascending: false })
-        .limit(1);
+        .in("status", ["pending", "approved", "paid"]) // Updated filter here
+        .order("created_at", { ascending: false });
 
       if (existingError) throw existingError;
 
       if (userExistingBookings && userExistingBookings.length > 0) {
-        setExistingUserBooking(userExistingBookings[0]);
+        setExistingUserBookings(userExistingBookings);
         setLoading(false);
         setShowExistingBookingModal(true);
         return;
@@ -468,6 +467,10 @@ const ListingInfo = () => {
       return 'eb-status-badge eb-status-default';
     };
 
+    const bookingCount = existingUserBookings?.length || 0;
+    const isMultiple = bookingCount > 1;
+    const singleBooking = bookingCount === 1 ? existingUserBookings[0] : null;
+
     return (
       <div className="eb-modal-overlay" onClick={() => setShowExistingBookingModal(false)}>
         <div className="eb-modal-card" onClick={(e) => e.stopPropagation()}>
@@ -483,30 +486,38 @@ const ListingInfo = () => {
           <h3 className="eb-title">Existing Booking Found</h3>
 
           <p className="eb-subtitle">
-            You already have an active booking with{' '}
-            <strong className="eb-provider-name">{provider?.business_name}</strong>.
+            {isMultiple 
+              ? <>You have multiple active bookings with <strong className="eb-provider-name">{provider?.business_name}</strong>.</>
+              : <>You already have an active booking with <strong className="eb-provider-name">{provider?.business_name}</strong>.</>
+            }
           </p>
 
-          {existingUserBooking && (
+          {isMultiple ? (
+            <div className="eb-details-card" style={{ display: 'flex', justifyContent: 'center', padding: '1.5rem' }}>
+              <span style={{ fontSize: '1rem', color: '#153e75', fontWeight: '500', textAlign: 'center' }}>
+                You currently have <strong style={{ fontSize: '1.2rem', color: '#2563eb', padding: '0 4px' }}>{bookingCount}</strong> active appointments.
+              </span>
+            </div>
+          ) : singleBooking ? (
             <div className="eb-details-card">
               <div className="eb-detail-row">
                 <span className="eb-detail-label">📅 Date</span>
-                <span className="eb-detail-value">{formatDate(existingUserBooking.booking_date)}</span>
+                <span className="eb-detail-value">{formatDate(singleBooking.booking_date)}</span>
               </div>
               <div className="eb-divider" />
               <div className="eb-detail-row">
                 <span className="eb-detail-label">🕐 Time</span>
-                <span className="eb-detail-value">{formatTime(existingUserBooking.time_slot)}</span>
+                <span className="eb-detail-value">{formatTime(singleBooking.time_slot)}</span>
               </div>
               <div className="eb-divider" />
               <div className="eb-detail-row">
                 <span className="eb-detail-label">📋 Status</span>
-                <span className={getStatusClass(existingUserBooking.status)}>
-                  {existingUserBooking.status}
+                <span className={getStatusClass(singleBooking.status)}>
+                  {singleBooking.status}
                 </span>
               </div>
             </div>
-          )}
+          ) : null}
 
           <p className="eb-warning-note">
             Would you still like to book another appointment with this provider?
