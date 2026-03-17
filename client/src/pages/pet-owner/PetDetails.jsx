@@ -50,6 +50,10 @@ const PetDetails = () => {
   // --- Breed Data State (Full List for Validation) ---
   const [validationBreeds, setValidationBreeds] = useState({ Dog: [], Cat: [] });
 
+  // --- Capacity Data State ---
+  const [maxSlots, setMaxSlots] = useState(1);
+  const [occupiedSlots, setOccupiedSlots] = useState(0);
+
   // --- Fetch Breeds API ---
   useEffect(() => {
     const fetchBreeds = async () => {
@@ -173,8 +177,10 @@ const PetDetails = () => {
     ai_generated_preview: null
   });
 
+  // --- Fetch Initial Data (Services and Capacity) ---
   useEffect(() => {
     const fetchData = async () => {
+      // 1. Fetch Services
       const { data } = await supabase.from('services').select(`*, service_options(*)`).eq('provider_id', initialProviderId);
       setProviderServices(data || []);
 
@@ -186,13 +192,44 @@ const PetDetails = () => {
       const typeList = Array.from(types);
       setAvailablePetTypes(typeList.length > 0 ? typeList : ["Dog", "Cat"]);
 
-      // strictly follow state.numberOfPets
       const count = state?.numberOfPets || 1;
       setPetsData(Array.from({ length: count }, () => getEmptyPet(typeList[0] || "Dog")));
+
+      // 2. Fetch Provider Capacity for specific date/time
+      if (state?.bookingDate && initialProviderId) {
+        const dayName = new Date(state.bookingDate).toLocaleDateString('en-US', { weekday: 'long' });
+        
+        const { data: hourData } = await supabase
+          .from("service_provider_hours")
+          .select("slot_capacity")
+          .eq("provider_id", initialProviderId)
+          .eq("day_of_week", dayName)
+          .single();
+
+        const { data: bookings } = await supabase
+          .from("bookings")
+          .select("id")
+          .eq("provider_id", initialProviderId)
+          .eq("booking_date", state.bookingDate)
+          .eq("time_slot", state.bookingTime)
+          .not("status", "in", '("cancelled", "rejected")');
+
+        setMaxSlots(hourData?.slot_capacity || 1);
+        setOccupiedSlots(bookings?.length || 0);
+      }
+
       setLoading(false);
     };
     fetchData();
   }, [initialProviderId, state]);
+
+  // --- Add a new Pet Form based on capacity ---
+  const handleAddPet = () => {
+    const currentRemaining = maxSlots - occupiedSlots;
+    if (petsData.length < currentRemaining) {
+      setPetsData([...petsData, getEmptyPet(availablePetTypes[0])]);
+    }
+  };
 
   const validateForm = () => {
     setAttemptedSubmit(true);
@@ -633,7 +670,20 @@ const getServicePriceAndSize = (serviceId, petType, weight) => {
                         <span className="pet-count-label">Pet #{index + 1}</span>
                         <div className="card-actions">
                           <span className="individual-price">₱{pet.total_price.toFixed(2)}</span>
-                          {/* Pet Add/Delete buttons removed to strict-match prior page configuration */}
+                          
+                          {/* SHOW DELETE IF MORE THAN 1 PET */}
+                          {petsData.length > 1 && (
+                            <button type="button" className="circle-btn delete" onClick={() => setPetsData(petsData.filter((_, i) => i !== index))}>
+                              <Trash2 size={16}/>
+                            </button>
+                          )}
+
+                          {/* SHOW ADD ONLY IF CURRENT PET COUNT IS LESS THAN AVAILABLE SLOTS */}
+                          {petsData.length < (maxSlots - occupiedSlots) && (
+                            <button type="button" className="circle-btn add" onClick={handleAddPet}>
+                              <Plus size={16}/>
+                            </button>
+                          )}
                       </div>
                     </div>
 
