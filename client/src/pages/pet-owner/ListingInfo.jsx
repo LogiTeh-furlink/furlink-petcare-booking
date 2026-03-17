@@ -176,9 +176,13 @@ const ListingInfo = () => {
   const [dateError, setDateError] = useState(null);
   const [bookingError, setBookingError] = useState(null);
 
-  // --- EXISTING BOOKING MODAL STATES ---
+  // --- EXISTING BOOKING MODAL STATES (Same Provider) ---
   const [showExistingBookingModal, setShowExistingBookingModal] = useState(false);
   const [existingUserBooking, setExistingUserBooking] = useState(null);
+
+  // --- DIFFERENT PROVIDER BOOKING MODAL STATES ---
+  const [showDiffProviderModal, setShowDiffProviderModal] = useState(false);
+  const [existingDiffProviderBooking, setExistingDiffProviderBooking] = useState(null);
 
   const daysOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
   const [existingBookings, setExistingBookings] = useState([]);
@@ -338,7 +342,7 @@ const ListingInfo = () => {
     setBookingTime(""); 
   };
 
-  // --- Navigate to pet details (called directly or after modal confirmation) ---
+  // --- Navigate to pet details ---
   const proceedToBooking = () => {
     const dateStr = bookingDate.toLocaleDateString('en-CA');
     navigate('/pet-details', {
@@ -350,6 +354,39 @@ const ListingInfo = () => {
         numberOfPets: parseInt(numberOfPets, 10)
       }
     });
+  };
+
+  // --- Check for conflicts with a DIFFERENT provider on the SAME date ---
+  const checkDiffProviderAndProceed = async () => {
+    setLoading(true);
+    const dateStr = bookingDate.toLocaleDateString('en-CA');
+    
+    try {
+      const { data: diffBookings, error: diffError } = await supabase
+        .from("bookings")
+        .select("id, time_slot, status")
+        .eq("user_id", user.id)
+        .eq("booking_date", dateStr)
+        .neq("provider_id", id) // Checking for different providers
+        .not("status", "in", '("cancelled","declined","rejected","void","voided","completed")')
+        .limit(1);
+
+      if (diffError) throw diffError;
+
+      if (diffBookings && diffBookings.length > 0) {
+        setExistingDiffProviderBooking(diffBookings[0]);
+        setShowDiffProviderModal(true);
+        setLoading(false);
+        return;
+      }
+
+      // If no conflict, proceed immediately
+      proceedToBooking();
+    } catch (err) {
+      console.error("Error checking different provider conflicts:", err);
+      setBookingError("Unable to verify schedule. Please try again.");
+      setLoading(false);
+    }
   };
 
   const handleCompleteBooking = async () => {
@@ -367,26 +404,7 @@ const ListingInfo = () => {
     try {
       setLoading(true);
 
-      // Check if this user already has an active booking with this provider
-      const { data: userExistingBookings, error: existingError } = await supabase
-        .from("bookings")
-        .select("id, booking_date, time_slot, status")
-        .eq("user_id", user.id)
-        .eq("provider_id", id)
-        .not("status", "in", '("cancelled","declined","rejected","void","voided","completed")')
-        .order("created_at", { ascending: false })
-        .limit(1);
-
-      if (existingError) throw existingError;
-
-      if (userExistingBookings && userExistingBookings.length > 0) {
-        setExistingUserBooking(userExistingBookings[0]);
-        setLoading(false);
-        setShowExistingBookingModal(true);
-        return;
-      }
-
-      // Fresh slot availability check
+      // 1. Fresh slot capacity check (Done first to ensure slot is open before prompts)
       const dateStr = bookingDate.toLocaleDateString('en-CA');
       const { data: freshBookings, error } = await supabase
         .from("bookings")
@@ -411,17 +429,36 @@ const ListingInfo = () => {
         return;
       }
 
-      proceedToBooking();
+      // 2. Check Same Provider logic (Active booking any date)
+      const { data: userExistingBookings, error: existingError } = await supabase
+        .from("bookings")
+        .select("id, booking_date, time_slot, status")
+        .eq("user_id", user.id)
+        .eq("provider_id", id)
+        .not("status", "in", '("cancelled","declined","rejected","void","voided","completed")')
+        .order("created_at", { ascending: false })
+        .limit(1);
+
+      if (existingError) throw existingError;
+
+      if (userExistingBookings && userExistingBookings.length > 0) {
+        setExistingUserBooking(userExistingBookings[0]);
+        setLoading(false);
+        setShowExistingBookingModal(true);
+        return;
+      }
+
+      // 3. If passed capacity & same provider checks, run different provider checks
+      await checkDiffProviderAndProceed();
 
     } catch (err) {
       console.error("Booking verification error:", err);
       setBookingError("Unable to verify availability. Please try again.");
-    } finally {
       setLoading(false);
     }
   };
 
-  // --- EXISTING BOOKING CONFIRMATION MODAL ---
+  // --- EXISTING BOOKING MODAL (Same Provider) ---
   const ExistingBookingModal = () => {
     if (!showExistingBookingModal) return null;
 
@@ -481,7 +518,76 @@ const ListingInfo = () => {
             </button>
             <button
               className="eb-btn-continue"
-              onClick={() => { setShowExistingBookingModal(false); proceedToBooking(); }}
+              onClick={() => { setShowExistingBookingModal(false); checkDiffProviderAndProceed(); }}
+            >
+              Continue Anyway
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // --- DIFFERENT PROVIDER CONFLICT MODAL (Same Date) ---
+  const DiffProviderModal = () => {
+    if (!showDiffProviderModal) return null;
+
+    const getStatusClass = (status) => {
+      if (status === 'pending') return 'eb-status-badge eb-status-pending';
+      if (status === 'confirmed' || status === 'approved') return 'eb-status-badge eb-status-confirmed';
+      return 'eb-status-badge eb-status-default';
+    };
+
+    return (
+      <div className="eb-modal-overlay" onClick={() => setShowDiffProviderModal(false)}>
+        <div className="eb-modal-card" onClick={(e) => e.stopPropagation()}>
+
+          <button className="eb-close-btn" onClick={() => setShowDiffProviderModal(false)}>
+            <X size={16} />
+          </button>
+
+          <div className="eb-icon-wrapper">
+            <AlertCircle size={32} color="#d97706" />
+          </div>
+
+          <h3 className="eb-title">Schedule Conflict Warning</h3>
+
+          <p className="eb-subtitle">
+            You already have an active appointment on this exact date with a <strong>different provider</strong>.
+          </p>
+
+          {existingDiffProviderBooking && (
+            <div className="eb-details-card">
+              <div className="eb-detail-row">
+                <span className="eb-detail-label">📅 Date</span>
+                <span className="eb-detail-value">{formatDate(bookingDate.toLocaleDateString('en-CA'))}</span>
+              </div>
+              <div className="eb-divider" />
+              <div className="eb-detail-row">
+                <span className="eb-detail-label">🕐 Time</span>
+                <span className="eb-detail-value">{formatTime(existingDiffProviderBooking.time_slot)}</span>
+              </div>
+              <div className="eb-divider" />
+              <div className="eb-detail-row">
+                <span className="eb-detail-label">📋 Status</span>
+                <span className={getStatusClass(existingDiffProviderBooking.status)}>
+                  {existingDiffProviderBooking.status}
+                </span>
+              </div>
+            </div>
+          )}
+
+          <p className="eb-warning-note">
+            Are you sure you want to proceed and double-book your schedule?
+          </p>
+
+          <div className="eb-actions">
+            <button className="eb-btn-cancel" onClick={() => setShowDiffProviderModal(false)}>
+              Cancel
+            </button>
+            <button
+              className="eb-btn-continue"
+              onClick={() => { setShowDiffProviderModal(false); proceedToBooking(); }}
             >
               Continue Anyway
             </button>
@@ -522,7 +628,7 @@ const ListingInfo = () => {
     </>
   );
 
-  if (loading) return (
+  if (loading && !provider) return (
     <div className="listing-info-page">
       <Header />
       <main className="listing-container"><p className="loading-text">Loading...</p></main>
@@ -530,7 +636,7 @@ const ListingInfo = () => {
     </div>
   );
 
-  if (!provider) return (
+  if (!provider && !loading) return (
     <div className="listing-info-page">
       <Header />
       <main className="listing-container"><p className="loading-text">Provider not found.</p></main>
@@ -863,8 +969,9 @@ const ListingInfo = () => {
         </div>
       </main>
 
-      {/* ── EXISTING BOOKING MODAL ── */}
+      {/* ── MODALS ── */}
       <ExistingBookingModal />
+      <DiffProviderModal />
     
       <ImageModal 
         isOpen={selectedImageIndex !== null} 
