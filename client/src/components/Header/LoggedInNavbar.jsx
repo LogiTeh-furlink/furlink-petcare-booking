@@ -82,6 +82,8 @@ const LoggedInNavbar = () => {
   const currentPath = location.pathname;
   const isServiceProviderPage = currentPath.startsWith("/service/");
 
+  const hideMyPetsOption = currentPath === "/my-pets";
+
   const hideBecomeProviderAction = [
     "/apply-provider", 
     "/service-setup", 
@@ -499,6 +501,11 @@ const LoggedInNavbar = () => {
                       <FaCalendarAlt className="menu-icon" /> Manage Bookings
                     </button>
                   )}
+                  {(userRole === 'pet_owner' || userRole === 'both') && !hideMyPetsOption && (
+                    <button className="menu-item-btn" onClick={() => { navigate("/my-pets"); setShowMenu(false); }}>
+                      <FaListUl className="menu-icon" /> Manage Pet
+                    </button>
+                  )}
                   <button className="logout-btn" onClick={handleLogout}>
                     <FaSignOutAlt className="menu-icon" /> Logout
                   </button>
@@ -590,6 +597,11 @@ const LoggedInNavbar = () => {
                   <FaCalendarAlt /> Manage Bookings
                 </button>
              )}
+             {(userRole === 'pet_owner' || userRole === 'both') && !hideMyPetsOption && (
+                <button className="drawer-link-item" onClick={() => handleNavClick("/my-pets")}>
+                  <FaListUl /> Manage Pet
+                </button>
+              )}
           </div>
 
           <div className="drawer-footer">

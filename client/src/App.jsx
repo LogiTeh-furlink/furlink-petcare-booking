@@ -18,6 +18,7 @@ import ListingInfo from "./pages/pet-owner/ListingInfo";
 import PetDetails from "./pages/pet-owner/PetDetails"; 
 import Appointments from "./pages/pet-owner/Appointments"; 
 import BookingHistory from "./pages/pet-owner/BookingHistory";
+import MyPets from "./pages/pet-owner/MyPets";
 import UserProfile from "./pages/pet-owner/UserProfile";
 import Payment from "./pages/pet-owner/Payment"; 
 
@@ -77,6 +78,7 @@ function App() {
             <Route path="/pet-details" element={<PetDetails />} />
             <Route path="/appointments" element={<Appointments />} />
             <Route path="/booking-history" element={<BookingHistory />} />
+            <Route path="/my-pets" element={<MyPets />} />
             <Route path="/profile" element={<UserProfile />} />
             <Route path="/payment/:id" element={<Payment />} />
             
