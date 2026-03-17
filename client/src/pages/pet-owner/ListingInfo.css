@@ -876,22 +876,27 @@
   to { transform: scale(1); opacity: 1; }
 }
 
-/* View Appointments button — matches Cancel button styling */
-.eb-btn-view {
-  flex: 1; 
-  padding: 0.85rem; 
-  border-radius: 10px;
-  border: 1.5px solid #cce0ff; 
-  background: white;
-  color: #153e75; 
-  font-weight: 600; 
-  cursor: pointer;
-  font-size: 0.9rem; 
-  font-family: 'Poppins', sans-serif;
-  transition: all 0.2s;
+/* Inline Link inside Modal Text */
+.eb-inline-link-container {
+  display: block;
+  margin-top: 8px;
+  font-size: 0.85rem;
+  color: #64748b;
 }
 
-.eb-btn-view:hover { 
-  background: #eff6ff; 
-  border-color: #153e75; 
+.eb-inline-link {
+  background: none;
+  border: none;
+  padding: 0;
+  color: #2563eb;
+  text-decoration: underline;
+  cursor: pointer;
+  font-weight: 600;
+  font-family: 'Poppins', sans-serif;
+  font-size: inherit;
+  transition: color 0.2s ease;
+}
+
+.eb-inline-link:hover {
+  color: #1e40af;
 }

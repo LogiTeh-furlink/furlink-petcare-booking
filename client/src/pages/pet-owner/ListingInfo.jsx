@@ -182,7 +182,7 @@ const ListingInfo = () => {
 
   // --- DIFFERENT PROVIDER BOOKING MODAL STATES ---
   const [showDiffProviderModal, setShowDiffProviderModal] = useState(false);
-  const [existingDiffProviderBookings, setExistingDiffProviderBookings] = useState([]); // Changed to an array
+  const [existingDiffProviderBookings, setExistingDiffProviderBookings] = useState([]); 
 
   const daysOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
   const [existingBookings, setExistingBookings] = useState([]);
@@ -367,10 +367,8 @@ const ListingInfo = () => {
         .select("id, time_slot, status")
         .eq("user_id", user.id)
         .eq("booking_date", dateStr)
-        .neq("provider_id", id) // Checking for different providers
-        .in("status", ["pending", "approved"]) // ONLY pending or approved
-        // Removed .limit(1) to get all conflicts on this date
-        ;
+        .neq("provider_id", id) 
+        .in("status", ["pending", "approved"]);
 
       if (diffError) throw diffError;
 
@@ -430,13 +428,13 @@ const ListingInfo = () => {
         return;
       }
 
-      // 2. Check Same Provider logic (Fetch active bookings that are ONLY pending or approved)
+      // 2. Check Same Provider logic
       const { data: userExistingBookings, error: existingError } = await supabase
         .from("bookings")
         .select("id, booking_date, time_slot, status")
         .eq("user_id", user.id)
         .eq("provider_id", id)
-        .in("status", ["pending", "approved"]) // ONLY pending or approved
+        .in("status", ["pending", "approved"]) 
         .order("created_at", { ascending: false });
 
       if (existingError) throw existingError;
@@ -522,17 +520,22 @@ const ListingInfo = () => {
 
           <p className="eb-warning-note">
             Would you still like to book another appointment with this provider?
+            <br />
+            <span className="eb-inline-link-container">
+              To review your schedule,{" "}
+              <button 
+                type="button" 
+                className="eb-inline-link" 
+                onClick={() => { setShowExistingBookingModal(false); navigate('/appointments'); }}
+              >
+                click here to check your appointments
+              </button>.
+            </span>
           </p>
 
           <div className="eb-actions">
             <button className="eb-btn-cancel" onClick={() => setShowExistingBookingModal(false)}>
               Cancel
-            </button>
-            <button 
-              className="eb-btn-view" 
-              onClick={() => navigate('/appointments')}
-            >
-              View Appointments
             </button>
             <button
               className="eb-btn-continue"
@@ -610,17 +613,22 @@ const ListingInfo = () => {
 
           <p className="eb-warning-note">
             Are you sure you want to proceed and double-book your schedule?
+            <br />
+            <span className="eb-inline-link-container">
+              To review your existing bookings,{" "}
+              <button 
+                type="button" 
+                className="eb-inline-link" 
+                onClick={() => { setShowDiffProviderModal(false); navigate('/appointments'); }}
+              >
+                click here to check your appointments
+              </button>.
+            </span>
           </p>
 
           <div className="eb-actions">
             <button className="eb-btn-cancel" onClick={() => setShowDiffProviderModal(false)}>
               Cancel
-            </button>
-            <button 
-              className="eb-btn-view" 
-              onClick={() => navigate('/appointments')}
-            >
-              View Appointments
             </button>
             <button
               className="eb-btn-continue"
