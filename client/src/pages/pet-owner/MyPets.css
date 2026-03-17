@@ -1,0 +1,508 @@
+/* --- Root Container & Background --- */
+.my-pets-page {
+    background-color: #f8fafc;
+    min-height: 100vh;
+}
+
+.pets-main-container {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem;
+}
+
+/* --- Header Section --- */
+.pets-header-section {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-bottom: 2.5rem;
+    gap: 1rem;
+}
+
+.pets-header-section h1 {
+    color: #0E2679;
+    font-size: 2rem;
+    margin: 0;
+}
+
+.pets-header-section .subtitle {
+    color: #64748b;
+    margin: 0.5rem 0 0 0;
+}
+
+.btn-primary-add {
+    background-color: #0E2679;
+    color: white;
+    border: none;
+    padding: 0.8rem 1.5rem;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 12px rgba(14, 38, 121, 0.2);
+}
+
+.btn-primary-add:hover {
+    background-color: #1a3a9e;
+    transform: translateY(-2px);
+}
+
+/* --- Empty State --- */
+.empty-pets-container {
+    background: white;
+    border-radius: 24px;
+    padding: 4rem 2rem;
+    text-align: center;
+    border: 2px dashed #cbd5e1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-top: 2rem;
+}
+
+.empty-illustration {
+    background-color: #f1f5f9;
+    color: #94a3b8;
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 1.5rem;
+}
+
+.empty-pets-container h2 {
+    color: #0E2679;
+    margin-bottom: 1rem;
+}
+
+.empty-pets-container p {
+    color: #64748b;
+    max-width: 400px;
+    margin-bottom: 2rem;
+}
+
+.btn-initial-register {
+    background-color: #0E2679;
+    color: white;
+    border: none;
+    padding: 1rem 2.5rem;
+    border-radius: 50px;
+    font-size: 1.1rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: 0.3s ease;
+}
+
+/* --- Pet Grid & Cards --- */
+.pets-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1.5rem;
+}
+
+.pet-master-card {
+    background: white;
+    border-radius: 20px;
+    padding: 1.5rem;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+    border: 1px solid #e2e8f0;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.pet-master-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.08);
+}
+
+.pet-master-card .card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 1rem;
+}
+
+.card-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.action-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.action-btn.edit { background-color: #eff6ff; color: #2563eb; }
+.action-btn.delete { background-color: #fff1f2; color: #dc2626; }
+
+.action-btn:hover { filter: brightness(0.95); }
+
+.card-body h3 {
+    margin: 0 0 0.5rem 0;
+    color: #1e293b;
+    font-size: 1.25rem;
+}
+
+.pet-meta-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #64748b;
+    font-size: 0.9rem;
+    margin-top: 0.4rem;
+}
+
+/* --- Registration Form --- */
+.pet-form-wrapper {
+    background: white;
+    border-radius: 24px;
+    padding: 2rem;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+}
+
+.btn-back-text {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: none;
+    border: none;
+    color: #64748b;
+    font-weight: 600;
+    cursor: pointer;
+    margin-bottom: 1.5rem;
+    padding: 0;
+}
+
+.registration-form-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.form-group label {
+    font-weight: 700;
+    color: #334155;
+    font-size: 0.9rem;
+}
+
+.form-group input, 
+.form-group select, 
+.form-group textarea {
+    padding: 0.8rem 1rem;
+    border: 2px solid #e2e8f0;
+    border-radius: 12px;
+    font-size: 1rem;
+    transition: border-color 0.2s;
+}
+
+.form-group input:focus, 
+.form-group select:focus {
+    outline: none;
+    border-color: #0E2679;
+}
+
+.form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+}
+
+.form-group textarea {
+    min-height: 100px;
+    resize: vertical;
+}
+
+.btn-submit-pet {
+    background-color: #0E2679;
+    color: white;
+    border: none;
+    width: 100%;
+    padding: 1rem;
+    border-radius: 12px;
+    font-size: 1.1rem;
+    font-weight: 700;
+    cursor: pointer;
+    margin-top: 1rem;
+}
+
+.btn-submit-pet:disabled {
+    background-color: #94a3b8;
+    cursor: not-allowed;
+}
+
+/* --- Mobile Responsiveness --- */
+@media (max-width: 768px) {
+    .pets-header-section {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .btn-primary-add {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .form-row {
+        grid-template-columns: 1fr;
+    }
+
+    .pet-form-wrapper {
+        padding: 1.5rem;
+    }
+
+    .pets-grid {
+        grid-template-columns: 1fr;
+    }
+}
+.behavior-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 5px;
+}
+
+.behavior-tag {
+    padding: 8px 16px;
+    border-radius: 50px;
+    border: 2px solid #e2e8f0;
+    background: white;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: all 0.2s;
+}
+
+.behavior-tag.active {
+    background: #0E2679;
+    color: white;
+    border-color: #0E2679;
+}
+
+.upload-section {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    margin: 1rem 0;
+}
+
+.file-upload-box {
+    border: 2px dashed #cbd5e1;
+    border-radius: 12px;
+    height: 150px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    overflow: hidden;
+    color: #64748b;
+    background: #f8fafc;
+}
+
+.file-preview {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.checkbox-group {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    background: #eff6ff;
+    padding: 1rem;
+    border-radius: 12px;
+    font-size: 0.85rem;
+    line-height: 1.4;
+}
+
+.checkbox-group input { width: 18px; height: 18px; margin-top: 2px; }
+
+/* Container adjustments */
+.modal-content.summary-modal {
+    max-width: 800px; /* Balanced width for 2 columns */
+    padding: 30px;
+    border-radius: 24px;
+}
+
+.summary-grid-layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr; /* Two equal columns */
+    gap: 15px;
+}
+
+.summary-box {
+    background: #f8fafc;
+    padding: 16px;
+    border-radius: 14px;
+    border: 1px solid #e2e8f0;
+}
+
+/* Typography for labels and values */
+.info-item-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    border-bottom: 1px dashed #cbd5e1;
+    padding-bottom: 4px;
+}
+
+.info-item-row label {
+    font-size: 0.8rem;
+    color: #64748b;
+    font-weight: 500;
+}
+
+.info-item-row span {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #0E2679;
+}
+
+/* Behavior and Grooming containers */
+.behavior-summary-box, .grooming-summary-box {
+    margin-top: 10px;
+}
+
+.behavior-summary-box label, .grooming-summary-box label, .summary-box h4 {
+    font-size: 0.75rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    color: #94a3b8;
+    margin-bottom: 8px;
+    display: block;
+}
+
+.mini-tag-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.summary-tag {
+    background: #0E2679;
+    color: white;
+    font-size: 0.7rem;
+    padding: 2px 8px;
+    border-radius: 4px;
+}
+
+.grooming-summary-box p {
+    font-size: 0.8rem;
+    color: #334155;
+    line-height: 1.3;
+    margin: 0;
+}
+
+/* Image styling for Bottom boxes */
+.summary-image-container {
+    width: 100%;
+    height: 120px; /* Fixed height for "one look" consistency */
+    border-radius: 8px;
+    overflow: hidden;
+    background: #f1f5f9;
+}
+
+.summary-image-container img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.no-data-placeholder {
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    color: #94a3b8;
+    font-style: italic;
+}
+
+/* Slim Footer */
+.emergency-consent-footer {
+    margin-top: 15px;
+    padding: 10px;
+    background: #f1f5f9;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #1e293b;
+}
+
+/* Mobile: Stack to single column if screen is narrow */
+@media (max-width: 600px) {
+    .summary-grid-layout {
+        grid-template-columns: 1fr;
+    }
+    .modal-content.summary-modal {
+        overflow-y: auto;
+        max-height: 90vh;
+    }
+}
+.preview-container {
+    position: relative;
+    width: 100%;
+    height: 100%;
+}
+
+.btn-remove-photo {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background-color: rgba(239, 68, 68, 0.9); /* Red */
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    z-index: 10;
+}
+
+.btn-remove-photo:hover {
+    background-color: #dc2626;
+    transform: scale(1.1);
+}
+.form-row-dense {
+    display: grid;
+    /* 1fr for short inputs, 1.5fr for the Date to prevent clipping */
+    grid-template-columns: 1fr 1fr 1.5fr 1fr; 
+    gap: 15px;
+    width: 100%;
+    margin-bottom: 1rem;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+}
+
+.form-group input, .form-group select {
+    width: 100%;
+    box-sizing: border-box; /* Crucial for maximizing space without overflow */
+}
