@@ -404,7 +404,7 @@ const ListingInfo = () => {
     try {
       setLoading(true);
 
-      // 1. Fresh slot capacity check (Done first to ensure slot is open before prompts)
+      // 1. Fresh slot capacity check
       const dateStr = bookingDate.toLocaleDateString('en-CA');
       const { data: freshBookings, error } = await supabase
         .from("bookings")
@@ -429,7 +429,7 @@ const ListingInfo = () => {
         return;
       }
 
-      // 2. Check Same Provider logic (Active booking any date)
+      // 2. Check Same Provider logic
       const { data: userExistingBookings, error: existingError } = await supabase
         .from("bookings")
         .select("id, booking_date, time_slot, status")
@@ -516,6 +516,12 @@ const ListingInfo = () => {
             <button className="eb-btn-cancel" onClick={() => setShowExistingBookingModal(false)}>
               Cancel
             </button>
+            <button 
+              className="eb-btn-view" 
+              onClick={() => navigate('/appointments')}
+            >
+              View Appointments
+            </button>
             <button
               className="eb-btn-continue"
               onClick={() => { setShowExistingBookingModal(false); checkDiffProviderAndProceed(); }}
@@ -584,6 +590,12 @@ const ListingInfo = () => {
           <div className="eb-actions">
             <button className="eb-btn-cancel" onClick={() => setShowDiffProviderModal(false)}>
               Cancel
+            </button>
+            <button 
+              className="eb-btn-view" 
+              onClick={() => navigate('/appointments')}
+            >
+              View Appointments
             </button>
             <button
               className="eb-btn-continue"
