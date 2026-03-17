@@ -178,11 +178,11 @@ const ListingInfo = () => {
 
   // --- EXISTING BOOKING MODAL STATES (Same Provider) ---
   const [showExistingBookingModal, setShowExistingBookingModal] = useState(false);
-  const [existingUserBookings, setExistingUserBookings] = useState([]); // Changed to an array
+  const [existingUserBookings, setExistingUserBookings] = useState([]); 
 
   // --- DIFFERENT PROVIDER BOOKING MODAL STATES ---
   const [showDiffProviderModal, setShowDiffProviderModal] = useState(false);
-  const [existingDiffProviderBooking, setExistingDiffProviderBooking] = useState(null);
+  const [existingDiffProviderBookings, setExistingDiffProviderBookings] = useState([]); // Changed to an array
 
   const daysOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
   const [existingBookings, setExistingBookings] = useState([]);
@@ -368,13 +368,14 @@ const ListingInfo = () => {
         .eq("user_id", user.id)
         .eq("booking_date", dateStr)
         .neq("provider_id", id) // Checking for different providers
-        .not("status", "in", '("cancelled","declined","rejected","void","voided","completed")')
-        .limit(1);
+        .in("status", ["pending", "approved"]) // ONLY pending or approved
+        // Removed .limit(1) to get all conflicts on this date
+        ;
 
       if (diffError) throw diffError;
 
       if (diffBookings && diffBookings.length > 0) {
-        setExistingDiffProviderBooking(diffBookings[0]);
+        setExistingDiffProviderBookings(diffBookings);
         setShowDiffProviderModal(true);
         setLoading(false);
         return;
@@ -435,7 +436,7 @@ const ListingInfo = () => {
         .select("id, booking_date, time_slot, status")
         .eq("user_id", user.id)
         .eq("provider_id", id)
-        .in("status", ["pending", "approved", "paid"]) // Updated filter here
+        .in("status", ["pending", "approved"]) // ONLY pending or approved
         .order("created_at", { ascending: false });
 
       if (existingError) throw existingError;
@@ -555,6 +556,10 @@ const ListingInfo = () => {
       return 'eb-status-badge eb-status-default';
     };
 
+    const bookingCount = existingDiffProviderBookings?.length || 0;
+    const isMultiple = bookingCount > 1;
+    const singleBooking = bookingCount === 1 ? existingDiffProviderBookings[0] : null;
+
     return (
       <div className="eb-modal-overlay" onClick={() => setShowDiffProviderModal(false)}>
         <div className="eb-modal-card" onClick={(e) => e.stopPropagation()}>
@@ -570,10 +575,19 @@ const ListingInfo = () => {
           <h3 className="eb-title">Schedule Conflict Warning</h3>
 
           <p className="eb-subtitle">
-            You already have an active appointment on this exact date with a <strong>different provider</strong>.
+            {isMultiple
+              ? <>You already have multiple active appointments on this exact date with <strong>different providers</strong>.</>
+              : <>You already have an active appointment on this exact date with a <strong>different provider</strong>.</>
+            }
           </p>
 
-          {existingDiffProviderBooking && (
+          {isMultiple ? (
+            <div className="eb-details-card" style={{ display: 'flex', justifyContent: 'center', padding: '1.5rem' }}>
+              <span style={{ fontSize: '1rem', color: '#153e75', fontWeight: '500', textAlign: 'center' }}>
+                You currently have <strong style={{ fontSize: '1.2rem', color: '#2563eb', padding: '0 4px' }}>{bookingCount}</strong> active appointments on this date.
+              </span>
+            </div>
+          ) : singleBooking ? (
             <div className="eb-details-card">
               <div className="eb-detail-row">
                 <span className="eb-detail-label">📅 Date</span>
@@ -582,17 +596,17 @@ const ListingInfo = () => {
               <div className="eb-divider" />
               <div className="eb-detail-row">
                 <span className="eb-detail-label">🕐 Time</span>
-                <span className="eb-detail-value">{formatTime(existingDiffProviderBooking.time_slot)}</span>
+                <span className="eb-detail-value">{formatTime(singleBooking.time_slot)}</span>
               </div>
               <div className="eb-divider" />
               <div className="eb-detail-row">
                 <span className="eb-detail-label">📋 Status</span>
-                <span className={getStatusClass(existingDiffProviderBooking.status)}>
-                  {existingDiffProviderBooking.status}
+                <span className={getStatusClass(singleBooking.status)}>
+                  {singleBooking.status}
                 </span>
               </div>
             </div>
-          )}
+          ) : null}
 
           <p className="eb-warning-note">
             Are you sure you want to proceed and double-book your schedule?
