@@ -38,6 +38,9 @@ const PetDetails = () => {
   const [showSummaryModal, setShowSummaryModal] = useState(false);
   const [attemptedSubmit, setAttemptedSubmit] = useState(false);
 
+  const [registeredPets, setRegisteredPets] = useState([]);
+  const [showAutofillMenu, setShowAutofillMenu] = useState(null); // Tracks which pet index is opening the menu
+
   // --- NEW: Global Error State for Validation ---
   const [globalError, setGlobalError] = useState("");
 
@@ -90,6 +93,61 @@ const PetDetails = () => {
     };
     fetchBreeds();
   }, []);
+
+  useEffect(() => {
+    const fetchRegisteredPets = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from("registered_pets")
+        .select("*")
+        .eq("owner_id", user.id);
+
+      if (!error) setRegisteredPets(data || []);
+    };
+    fetchRegisteredPets();
+  }, []);
+  
+  const handleAutofill = (petIndex, selectedPet) => {
+    setPetsData(prev => {
+      const newPets = [...prev];
+      newPets[petIndex] = {
+        ...newPets[petIndex],
+        registered_pet_id: selectedPet.id,
+        pet_name: selectedPet.name,
+        pet_type: selectedPet.pet_type,
+        breed: selectedPet.breed,
+        gender: selectedPet.gender,
+        birth_date: selectedPet.birth_date,
+        weight_kg: selectedPet.weight_kg.toString(),
+        behavior: selectedPet.behavior ? selectedPet.behavior.split(", ") : [],
+        vaccine_preview: selectedPet.vaccine_card_url,
+        vaccine_file: null, // We mark file as null because we are using the URL reference
+        illness_preview: selectedPet.illness_proof_url,
+        illness_file: null,
+        grooming_specifications: selectedPet.grooming_specifications || "",
+        emergency_consent: selectedPet.emergency_consent || false,
+      };
+      
+      // Trigger the weight-based price calculation immediately for the selected pet
+      const currentWeight = selectedPet.weight_kg;
+      const currentType = selectedPet.pet_type;
+      
+      newPets[petIndex].services = newPets[petIndex].services.map(srv => {
+        if (!srv.id) return srv;
+        const result = getServicePriceAndSize(srv.id, currentType, currentWeight);
+        if (result.matched && result.size !== "N/A") {
+          newPets[petIndex].calculated_size = result.size.toUpperCase();
+        }
+        return { ...srv, price: result.price, matched: result.matched };
+      });
+
+      newPets[petIndex].total_price = newPets[petIndex].services.reduce((sum, s) => sum + parseFloat(s.price || 0), 0);
+      return newPets;
+    });
+    setShowAutofillMenu(null);
+  };
 
   // Check if breed is valid based on API lists (Case Insensitive)
   const isValidBreed = (breedInput, type) => {
@@ -165,6 +223,7 @@ const PetDetails = () => {
   };
 
   const getEmptyPet = (type = "Dog") => ({
+    registered_pet_id: null,
     services: [{ id: "", service_name: "", service_type: "", price: "0.00" }],
     pet_name: "", pet_type: type, breed: "", gender: "Male", birth_date: "", weight_kg: "",
     calculated_size: "Auto-calc", behavior: [], vaccine_file: null, vaccine_preview: null,
@@ -238,7 +297,11 @@ const PetDetails = () => {
     const hasUnmatchedWeight = petsData.some(p => p.services.some(s => s.matched === false));
     const hasEmptyRequired = petsData.some(pet => {
       const isBreedValid = isValidBreed(pet.breed, pet.pet_type);
-      return !pet.pet_name.trim() || !isBreedValid || !pet.vaccine_file || pet.services.some(s => !s.id);
+      
+      // ⭐ FIX: Check for vaccine_file OR vaccine_preview (which holds the autofilled URL)
+      const hasVaccine = pet.vaccine_file || pet.vaccine_preview;
+      
+      return !pet.pet_name.trim() || !isBreedValid || !hasVaccine || pet.services.some(s => !s.id);
     });
 
     if (hasUnmatchedWeight) {
@@ -314,9 +377,14 @@ const handleFinalSubmit = async () => {
     for (const [i, pet] of petsData.entries()) {
       const storagePath = `${user.id}/${booking.id}/pet_${i}`;
       
-      // Upload standard records
-      const vUrl = await uploadFile(pet.vaccine_file, storagePath);
-      const iUrl = pet.illness_file ? await uploadFile(pet.illness_file, storagePath) : null;
+      // Inside handleFinalSubmit loop (around line 258):
+      const vUrl = pet.vaccine_file 
+        ? await uploadFile(pet.vaccine_file, storagePath) 
+        : pet.vaccine_preview; // If no new file, use the preview URL (autofilled string)
+
+      const iUrl = pet.illness_file 
+        ? await uploadFile(pet.illness_file, storagePath) 
+        : pet.illness_preview;
 
       // --- AI PREVIEW PROCESSING (UPDATED) ---
       let aiUrl = null;
@@ -352,6 +420,7 @@ const handleFinalSubmit = async () => {
         .from('booking_pets')
         .insert([{
           booking_id: booking.id,
+          registered_pet_id: pet.registered_pet_id || null,
           pet_name: pet.pet_name,
           pet_type: pet.pet_type,
           breed: pet.breed,
@@ -459,8 +528,9 @@ const updatePetInfo = (index, field, value) => {
         return;
     }
 
-    updatePetInfo(index, `${field}_file`, file);
+    // ⭐ Important: Clear the preview first to ensure the system treats this as a NEW file
     updatePetInfo(index, `${field}_preview`, URL.createObjectURL(file));
+    updatePetInfo(index, `${field}_file`, file);
   };
 
   const getFilteredOptions = (currentPet, currentServiceId) => {
@@ -816,6 +886,29 @@ const getServicePriceAndSize = (serviceId, petType, weight) => {
 
                         <hr style={{ margin: '20px 0', border: '0', borderTop: '1px solid #eee' }} />
 
+                        {registeredPets.length > 0 && (
+                          <div className="autofill-container">
+                            <div className="autofill-left-group">
+                              {/* <div className="autofill-badge">
+                                <span>Choose from your registered pets</span>
+                              </div> */}
+                              <select 
+                                className="autofill-select"
+                                onChange={(e) => {
+                                  const pet = registeredPets.find(p => p.id === e.target.value);
+                                  if (pet) handleAutofill(index, pet);
+                                }}
+                                value=""
+                              >
+                                <option value="" disabled>Select Registered Pet...</option>
+                                {registeredPets.map(p => (
+                                  <option key={p.id} value={p.id}>{p.name} ({p.breed})</option>
+                                ))}
+                              </select>
+                            </div>
+                          </div>
+                        )}
+
                         {/* --- PET INFORMATION SECTION --- */}
                         <div className="form-section-label" style={{ fontWeight: '600', marginBottom: '10px', color: '#0E2679' }}>
                             Pet Information
@@ -920,25 +1013,27 @@ const getServicePriceAndSize = (serviceId, petType, weight) => {
                         <div className="medical-uploads-container">
                             <label className="sub-label">Medical Records</label>
                             <div className="upload-buttons-flex">
-                                <div className={`upload-btn-wrap ${attemptedSubmit && !pet.vaccine_file ? 'upload-error-active' : ''}`}>
+                                {/* Replace the current upload-btn-wrap logic with this */}
+                                <div className={`upload-btn-wrap ${attemptedSubmit && !pet.vaccine_file && !pet.vaccine_preview ? 'upload-error-active' : ''}`}>
                                   {!pet.vaccine_preview ? (
-                                      <label className={`upload-btn vaccine ${attemptedSubmit && !pet.vaccine_file ? 'urgent-red-bg' : ''}`}>
+                                      <label className={`upload-btn vaccine ${attemptedSubmit && !pet.vaccine_file && !pet.vaccine_preview ? 'urgent-red-bg' : ''}`}>
                                           <input type="file" accept=".png, .jpg, .jpeg" onChange={(e) => handleFileUpload(index, 'vaccine', e)} hidden />
                                           <UploadCloud size={18} /> 
                                           <span>Vaccine Record <span className="required-star">*</span></span>
                                       </label>
                                   ) : (
                                       <div className="preview-container">
+                                          {/* This will now correctly show the autofilled URL image */}
                                           <img src={pet.vaccine_preview} className="mini-preview" onClick={() => setSelectedImage(pet.vaccine_preview)} alt="prev"/>
                                           <button type="button" className="remove-img-btn" onClick={() => handleRemoveFile(index, 'vaccine')}><X size={14}/></button>
                                       </div>
                                   )}
-                                  {attemptedSubmit && !pet.vaccine_file && (
+                                  {attemptedSubmit && !pet.vaccine_file && !pet.vaccine_preview && (
                                       <div className="urgent-error-label">
                                           <AlertCircle size={12} /> Vaccination record is required
                                       </div>
                                   )}
-                              </div>
+                                </div>
 
                                 <div className="upload-btn-wrap">
                                     {!pet.illness_preview ? (

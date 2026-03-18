@@ -811,3 +811,63 @@
     25% { transform: translateX(-6px); }
     75% { transform: translateX(6px); }
 }
+
+.autofill-container {
+    padding: 15px 25px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.autofill-left-group {
+    display: flex;
+    align-items: right;
+    gap: 12px;
+}
+
+.autofill-select {
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    border: 2px solid #cbd5e1;
+    background-color: white;
+    color: #0E2679;
+    font-weight: 600;
+    cursor: pointer;
+    min-width: 250px;
+    transition: all 0.2s ease;
+    outline: none;
+    margin-left: auto; 
+}
+
+.autofill-select:hover {
+    border-color: #0E2679;
+    box-shadow: 0 2px 4px rgba(14, 38, 121, 0.1);
+}
+
+/* .autofill-badge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background-color: #0E2679;
+    color: white;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+} */
+
+.autofill-hint {
+    font-size: 0.75rem;
+    color: #64748b;
+    margin: 0;
+    font-style: italic;
+}
+
+/* Optional: Make the select look a bit more like a button */
+.autofill-select:focus {
+    border-color: #0E2679;
+    background-color: #fdfdfe;
+}

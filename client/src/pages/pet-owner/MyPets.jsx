@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "../../config/supabase";
 import { 
   Plus, Trash2, Edit2, PawPrint, Calendar, Dog, Cat, 
@@ -142,19 +143,48 @@ const DeleteSuccessModal = ({ isOpen, onClose, petName }) => {
 const PetBookingHistoryView = ({ pet, onBack }) => {
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate(); // Add this to handle redirection
 
   useEffect(() => {
     const fetchBookings = async () => {
       setLoading(true);
       try {
-        // Adjust the table/column names to match your actual bookings schema
         const { data, error } = await supabase
           .from("bookings")
-          .select("*")
-          .eq("pet_id", pet.id)
-          .order("created_at", { ascending: false });
+          .select(`
+            id,
+            booking_date,
+            time_slot,
+            status,
+            service_providers ( business_name ),
+            booking_pets!inner (
+              id,
+              registered_pet_id,
+              booking_services (
+                service_name,
+                price
+              )
+            )
+          `)
+          .eq("booking_pets.registered_pet_id", pet.id)
+          .order("booking_date", { ascending: false });
+
         if (error) throw error;
-        setBookings(data || []);
+
+        // ⭐ Calculation Logic: Sum only the services for THIS specific pet
+        const formattedData = (data || []).map(b => {
+          const petEntry = b.booking_pets.find(bp => bp.registered_pet_id === pet.id);
+          const petServices = petEntry?.booking_services || [];
+          const petTotal = petServices.reduce((sum, s) => sum + parseFloat(s.price || 0), 0);
+
+          return {
+            ...b,
+            petSpecificServices: petServices,
+            petSpecificTotal: petTotal
+          };
+        });
+
+        setBookings(formattedData);
       } catch (err) {
         console.error("Failed to fetch bookings:", err.message);
         setBookings([]);
@@ -168,18 +198,24 @@ const PetBookingHistoryView = ({ pet, onBack }) => {
   const formatDate = (dateStr) => {
     if (!dateStr) return "—";
     return new Date(dateStr).toLocaleDateString("en-US", {
-      year: "numeric", month: "long", day: "numeric"
+      weekday: 'short', year: "numeric", month: "short", day: "numeric"
     });
   };
 
+  const formatTime = (timeStr) => {
+    if (!timeStr) return "";
+    const [h, m] = timeStr.split(':');
+    const hr = parseInt(h);
+    const ampm = hr >= 12 ? 'PM' : 'AM';
+    return `${hr % 12 || 12}:${m} ${ampm}`;
+  };
+
   const getStatusClass = (status) => {
-    const map = {
-      completed: "status-completed",
-      confirmed: "status-confirmed",
-      pending: "status-pending",
-      cancelled: "status-cancelled",
-    };
-    return map[(status || "").toLowerCase()] || "status-pending";
+    const s = (status || "").toLowerCase();
+    if (s === "completed") return "status-completed";
+    if (s === "confirmed" || s === "paid") return "status-confirmed";
+    if (s === "cancelled" || s === "rejected" || s === "void") return "status-cancelled";
+    return "status-pending";
   };
 
   return (
@@ -193,7 +229,7 @@ const PetBookingHistoryView = ({ pet, onBack }) => {
           {pet.pet_type === "Dog" ? <Dog size={32} color="#0E2679" /> : <Cat size={32} color="#0E2679" />}
         </div>
         <div>
-          <h2>{pet.name}'s Booking History</h2>
+          <h2>{pet.name}'s History</h2>
           <p className="subtitle">{pet.breed} · {pet.gender}</p>
         </div>
       </div>
@@ -201,33 +237,55 @@ const PetBookingHistoryView = ({ pet, onBack }) => {
       {loading ? (
         <div className="bookings-loading">
           <div className="loading-spinner" />
-          <p>Loading bookings...</p>
+          <p>Retrieving past visits...</p>
         </div>
       ) : bookings.length === 0 ? (
         <div className="empty-bookings-container">
           <ClipboardList size={72} strokeWidth={1} style={{ opacity: 0.2, marginBottom: "1rem" }} />
-          <h3>No Bookings Yet</h3>
-          <p>{pet.name} hasn't been booked for any services yet. Once you make a booking, it will appear here.</p>
+          <h3>No records found</h3>
+          <p>Once {pet.name} visits a service provider, the history will appear here.</p>
         </div>
       ) : (
         <div className="bookings-list">
           {bookings.map((booking) => (
-            <div key={booking.id} className="booking-card">
-              <div className="booking-card-left">
-                <div className={`booking-status-badge ${getStatusClass(booking.status)}`}>
-                  {booking.status || "Pending"}
+            <div 
+              key={booking.id} 
+              className="history-card clickable-history-card"
+              onClick={() => navigate("/booking-history")} 
+              title="Click to view full booking details"
+            >
+              <div className="history-card-top">
+                <div className={`status-pill ${getStatusClass(booking.status)}`}>
+                  {booking.status?.toUpperCase() || "PENDING"}
                 </div>
-                <div className="booking-service-name">{booking.service_type || "Grooming Service"}</div>
-                <div className="booking-date">
-                  <Calendar size={13} />
-                  <span>{formatDate(booking.booking_date || booking.created_at)}</span>
+                <div className="history-time-meta">
+                  <Calendar size={14} /> <span>{formatDate(booking.booking_date)}</span>
+                  <Clock size={14} style={{ marginLeft: '12px' }} /> <span>{formatTime(booking.time_slot)}</span>
                 </div>
               </div>
-              <div className="booking-card-right">
-                {booking.total_price != null && (
-                  <span className="booking-price">₱{parseFloat(booking.total_price).toFixed(2)}</span>
-                )}
-                <ChevronRight size={16} color="#94a3b8" />
+
+              <div className="history-card-main">
+                <div className="provider-info-block">
+                  <label>Service Provider</label>
+                  <h4>{booking.service_providers?.business_name || "FurLink Partner"}</h4>
+                </div>
+
+                <div className="services-info-block">
+                  <label>Services Availed</label>
+                  <div className="history-tags-container">
+                    {booking.petSpecificServices.map((s, idx) => (
+                      <span key={idx} className="history-service-tag">{s.service_name}</span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="history-card-footer">
+                <span className="total-label">Pet Service Total:</span>
+                <span className="total-value">₱{booking.petSpecificTotal.toFixed(2)}</span>
+                <div className="view-details-hint">
+                   <span>View Details</span> <ChevronRight size={14} />
+                </div>
               </div>
             </div>
           ))}
