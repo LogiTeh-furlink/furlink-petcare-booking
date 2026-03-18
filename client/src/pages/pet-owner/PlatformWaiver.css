@@ -1,0 +1,105 @@
+/* PlatformWaiver.css */
+
+.platform-waiver-wrapper {
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 2.5rem;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.03);
+  color: #334155;
+  font-family: 'Poppins', sans-serif;
+  max-width: 100%;
+}
+
+.platform-waiver-header {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  margin-bottom: 2rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 2px solid #f1f5f9;
+}
+
+.waiver-shield-icon {
+  color: #2563eb;
+  background-color: #eff6ff;
+  padding: 12px;
+  border-radius: 12px;
+  width: 60px;
+  height: 60px;
+}
+
+.waiver-title {
+  margin: 0 0 0.25rem 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #0E2679;
+}
+
+.waiver-subtitle {
+  margin: 0;
+  font-size: 0.95rem;
+  color: #64748b;
+}
+
+.waiver-alert-box {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background-color: #f8fafc;
+  border-left: 4px solid #94a3b8;
+  padding: 1.25rem;
+  border-radius: 0 8px 8px 0;
+  margin-bottom: 2.5rem;
+}
+
+.waiver-alert-box .info-icon {
+  color: #64748b;
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+.waiver-alert-box p {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: #475569;
+}
+
+.waiver-alert-box strong {
+  color: #334155;
+}
+
+.platform-waiver-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+}
+
+.waiver-section h3 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #0E2679;
+  margin: 0 0 0.5rem 0;
+}
+
+.waiver-section p {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: #4a5568;
+  text-align: justify;
+}
+
+/* Responsive adjustments */
+@media (max-width: 640px) {
+  .platform-waiver-wrapper {
+    padding: 1.5rem;
+  }
+  
+  .platform-waiver-header {
+    flex-direction: column;
+    text-align: center;
+    gap: 1rem;
+  }
+}
