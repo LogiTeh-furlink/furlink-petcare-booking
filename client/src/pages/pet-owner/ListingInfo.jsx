@@ -6,7 +6,7 @@ import {
   ChevronLeft, ChevronRight, Clock, 
   Facebook, Instagram, Globe, ExternalLink,
   Calendar as CalendarIcon, Users, User,
-  AlertCircle, FileText
+  AlertCircle, FileText, ShieldCheck
 } from "lucide-react";
 import LocationPicker from "../../components/Map/LocationPicker";
 import { FaStar, FaStarHalfAlt, FaRegStar } from "react-icons/fa";
@@ -784,9 +784,20 @@ const ListingInfo = () => {
                       <FileText size={16} /> View Shop Waiver
                     </a>
                   ) : (
-                    <p style={{ color: '#64748b', fontSize: '0.9rem', fontStyle: 'italic', margin: 0 }}>
-                      This shop has not uploaded a specific waiver. Standard platform policies apply.
-                    </p>
+                    <>
+                      <p style={{ color: '#64748b', fontSize: '0.9rem', fontStyle: 'italic', margin: '0 0 15px 0' }}>
+                        This shop has not uploaded a specific waiver. Standard platform policies apply.
+                      </p>
+                      <a 
+                        href="/platform-waiver" 
+                        target="_blank" 
+                        rel="noopener noreferrer" 
+                        className="external-map-btn"
+                        style={{ marginTop: 0 }}
+                      >
+                        <FileText size={16} /> View Platform Waiver
+                      </a>
+                    </>
                   )}
                 </div>
 

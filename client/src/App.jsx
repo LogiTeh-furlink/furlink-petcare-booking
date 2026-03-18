@@ -6,6 +6,7 @@ import LandingPage from "./pages/public/LandingPage";
 import AboutPage from "./pages/public/AboutPage";
 import LoginPage from "./pages/public/LoginPage";
 import SignUpPage from "./pages/public/SignUpPage";
+import PlatformWaiver from "./pages/public/PlatformWaiver"; // <--- ADDED IMPORT
 
 // REMOVED: import SuspendedPage from "./pages/public/SuspendedPage"; 
 
@@ -43,7 +44,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import SuspensionGuard from "./components/SuspensionGuard"; 
 import RequireNewApplicant from "./components/RequireNewApplicant";
 import RequireProviderApplication from "./components/RequireProviderApplication";
-import PageNotFoundRedirect from "./components/PageNotFoundRedirect"; // <--- ADD THIS
+import PageNotFoundRedirect from "./components/PageNotFoundRedirect";
 
 
 function App() {
@@ -59,6 +60,9 @@ function App() {
         <Route path="/about" element={<AboutPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignUpPage />} />
+        
+        {/* --- ADDED PLATFORM WAIVER ROUTE --- */}
+        <Route path="/platform-waiver" element={<PlatformWaiver />} />
 
         {/* ==========================
             PROTECTED ROUTES (Logged In)
