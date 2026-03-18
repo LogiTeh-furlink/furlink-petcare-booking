@@ -1,5 +1,5 @@
 import React, { useState, useEffect  } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { FaEye, FaEyeSlash, FaCheckCircle, FaExclamationCircle} from "react-icons/fa";
 import { supabase } from "../../config/supabase";
 import Header from "../../components/Header/Header";
@@ -271,18 +271,6 @@ const handleBlur = async (e) => {
   const isProvider = formData.roleChoice === "service_provider" || formData.roleChoice === "both";
   const isBoth = formData.roleChoice === "both";
 
-  const SUPABASE_PROJECT_ID = "mdhudfatvdipxwufcbis"; 
-  const BASE_URL = `https://mdhudfatvdipxwufcbis.supabase.co/storage/v1/object/public/agreements`;
-
-  const getTermsLink = () => {
-    if (formData.roleChoice === "service_provider") return `${BASE_URL}/terms_sp.pdf`;
-    if (formData.roleChoice === "pet_owner") return `${BASE_URL}/terms_po.pdf`;
-    return `${BASE_URL}/terms_general.pdf`;
-  };
-
-// You can use this for the Privacy Policy link
-const getPrivacyPath = () => `${BASE_URL}/privacy_policy.pdf`;
-
   return (
     <div className="signup-page">
       <Header hideSignup={true} />
@@ -418,7 +406,7 @@ const getPrivacyPath = () => `${BASE_URL}/privacy_policy.pdf`;
              {touched.confirmPassword && errors.confirmPassword && <span className="field-error-msg"><FaExclamationCircle /> {errors.confirmPassword}</span>}
           </div>
 
-          {/* NEW TERMS CHECKBOX */}
+          {/* UPDATED TERMS CHECKBOX */}
           <div className={`terms-checkbox-group ${touched.terms && errors.terms ? "checkbox-error" : ""}`}>
             <input 
               type="checkbox" 
@@ -429,13 +417,13 @@ const getPrivacyPath = () => `${BASE_URL}/privacy_policy.pdf`;
             />
             <label htmlFor="terms-checkbox">
               I agree to the{" "}
-              <a href={getTermsLink()} target="_blank" rel="noreferrer">
+              <Link to="/terms-and-conditions" target="_blank" rel="noreferrer" className="legal-link">
                 Terms and Conditions
-              </a>{" "}
+              </Link>{" "}
               and{" "}
-              <a href={getPrivacyPath()} target="_blank" rel="noreferrer">
+              <Link to="/privacy-policy" target="_blank" rel="noreferrer" className="legal-link">
                 Privacy Policy
-              </a>{" "}
+              </Link>{" "}
               of Furlink
             </label>
           </div>

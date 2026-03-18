@@ -6,7 +6,9 @@ import LandingPage from "./pages/public/LandingPage";
 import AboutPage from "./pages/public/AboutPage";
 import LoginPage from "./pages/public/LoginPage";
 import SignUpPage from "./pages/public/SignUpPage";
-import PlatformWaiver from "./pages/public/PlatformWaiver"; // <--- ADDED IMPORT
+import PlatformWaiver from "./pages/public/PlatformWaiver";
+import PlatformTerms from "./pages/public/PlatformTerms";     // <--- ADDED IMPORT
+import PlatformPrivacy from "./pages/public/PlatformPrivacy"; // <--- ADDED IMPORT
 
 // REMOVED: import SuspendedPage from "./pages/public/SuspendedPage"; 
 
@@ -61,8 +63,10 @@ function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignUpPage />} />
         
-        {/* --- ADDED PLATFORM WAIVER ROUTE --- */}
+        {/* --- ADDED PLATFORM LEGAL ROUTES --- */}
         <Route path="/platform-waiver" element={<PlatformWaiver />} />
+        <Route path="/terms-and-conditions" element={<PlatformTerms />} />
+        <Route path="/privacy-policy" element={<PlatformPrivacy />} />
 
         {/* ==========================
             PROTECTED ROUTES (Logged In)

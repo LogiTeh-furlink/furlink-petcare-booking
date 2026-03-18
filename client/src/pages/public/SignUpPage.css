@@ -1,5 +1,5 @@
 /* ===========================
-    SIGNUP PAGE LAYOUT
+   SIGNUP PAGE LAYOUT
 =========================== */
 .signup-page {
     display: flex;
@@ -48,7 +48,7 @@
 }
 
 /* ===========================
-    INPUT GROUPS & UTILITIES
+   INPUT GROUPS & UTILITIES
 =========================== */
 .form-group {
     margin-bottom: 1.25rem;
@@ -99,7 +99,7 @@
 }
 
 /* ===========================
-    SPECIAL INPUTS (Phone & Roles)
+   SPECIAL INPUTS (Phone & Roles)
 =========================== */
 .phone-input-wrapper {
     display: flex;
@@ -158,7 +158,7 @@
 }
 
 /* ===========================
-    PASSWORD FIELDS
+   PASSWORD FIELDS
 =========================== */
 .password-group {
     position: relative;
@@ -197,7 +197,7 @@
 }
 
 /* ===========================
-    MODAL SYSTEM
+   MODAL SYSTEM
 =========================== */
 .modal-overlay {
     position: fixed;
@@ -339,7 +339,7 @@
 }
 
 /* ===========================
-    BUTTONS
+   BUTTONS
 =========================== */
 .btn-primary {
     width: 100%;
@@ -388,7 +388,7 @@
 .btn-continue-modal:disabled { background: #cbd5e1; }
 
 /* ===========================
-    REDIRECTS
+   REDIRECTS
 =========================== */
 .redirect-text {
     text-align: center;
@@ -405,7 +405,7 @@
 }
 
 /* ===========================
-    RESPONSIVE
+   RESPONSIVE
 =========================== */
 @media (max-width: 800px) {
     /* Stack modals on tablet/mobile */
@@ -486,10 +486,17 @@
     margin-top: 2px;
 }
 
-.terms-checkbox-group label a {
+.terms-checkbox-group label a,
+.terms-checkbox-group label .legal-link {
     color: #0E2679;
     font-weight: 700;
     text-decoration: underline;
+    transition: color 0.2s ease;
+}
+
+.terms-checkbox-group label a:hover,
+.terms-checkbox-group label .legal-link:hover {
+    color: #FDBF00;
 }
 
 .checkbox-error {
