@@ -506,3 +506,435 @@
     width: 100%;
     box-sizing: border-box; /* Crucial for maximizing space without overflow */
 }
+
+/* Inline Error Highlighting */
+.field-error input, 
+.field-error select, 
+.field-error textarea {
+    border: 2px solid #ef4444 !important;
+    background-color: #fef2f2 !important;
+}
+
+.upload-error {
+    border: 2px dashed #ef4444 !important;
+    background-color: #fef2f2 !important;
+}
+
+/* Success Modal Styling */
+.status-modal {
+    text-align: center;
+    max-width: 400px !important;
+    padding: 40px !important;
+}
+
+.success-icon-wrapper {
+    margin-bottom: 20px;
+    animation: scaleIn 0.3s ease-out;
+}
+
+@keyframes scaleIn {
+    0% { transform: scale(0); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+.status-modal h2 {
+    color: #0E2679;
+    margin-bottom: 10px;
+}
+
+.status-modal p {
+    color: #64748b;
+    margin-bottom: 25px;
+}
+/* When the parent has an error, give the behavior tags a subtle red border */
+.field-error .behavior-tag:not(.active) {
+    border-color: #fca5a5;
+    background-color: #fff1f1;
+}
+
+/* Ensure the hint text looks consistent */
+.error-hint {
+    font-weight: 600;
+    animation: shake 0.2s ease-in-out;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}
+.label-with-counter {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    margin-bottom: 5px;
+}
+
+.char-counter {
+    font-size: 0.75rem;
+    color: #64748b;
+    font-weight: 600;
+}
+
+.char-counter.limit-reached {
+    color: #dc2626;
+}
+/* =============================================
+   ADDITIONS TO MyPets.css
+   Append these rules to the bottom of your
+   existing MyPets.css file.
+   ============================================= */
+
+/* --- Clickable Pet Card --- */
+.pet-master-card--clickable {
+  cursor: pointer;
+}
+
+.pet-master-card--clickable:focus {
+  outline: 2px solid #0E2679;
+  outline-offset: 3px;
+}
+
+.card-footer-hint {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid #f1f5f9;
+  font-size: 0.75rem;
+  color: #94a3b8;
+  font-weight: 500;
+  transition: color 0.2s;
+}
+
+.pet-master-card--clickable:hover .card-footer-hint {
+  color: #0E2679;
+}
+
+/* --- Delete Confirm Modal --- */
+.delete-confirm-modal {
+  max-width: 420px !important;
+}
+
+.delete-icon-wrapper {
+  margin-bottom: 20px;
+  animation: scaleIn 0.3s ease-out;
+}
+
+.delete-confirm-modal h2 {
+  color: #1e293b;
+  margin-bottom: 10px;
+}
+
+.delete-confirm-modal p {
+  color: #64748b;
+  margin-bottom: 25px;
+  line-height: 1.5;
+}
+
+.delete-confirm-modal strong {
+  color: #1e293b;
+}
+
+.modal-footer-row {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.btn-delete-confirm {
+  background-color: #ef4444;
+  color: white;
+  border: none;
+  padding: 0.75rem 2rem;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: background-color 0.2s, transform 0.15s;
+}
+
+.btn-delete-confirm:hover {
+  background-color: #dc2626;
+  transform: translateY(-1px);
+}
+
+.btn-delete-confirm:disabled {
+  background-color: #fca5a5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* --- Booking History View --- */
+.booking-history-wrapper {
+  background: white;
+  border-radius: 24px;
+  padding: 2rem;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
+}
+
+.booking-history-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 2rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 2px solid #f1f5f9;
+}
+
+.booking-pet-avatar {
+  background: #eff6ff;
+  border-radius: 16px;
+  width: 64px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.booking-history-header h2 {
+  color: #0E2679;
+  font-size: 1.6rem;
+  margin: 0 0 4px 0;
+}
+
+.booking-history-header .subtitle {
+  color: #64748b;
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+/* Empty state for bookings */
+.empty-bookings-container {
+  text-align: center;
+  padding: 4rem 2rem;
+  color: #94a3b8;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.empty-bookings-container h3 {
+  color: #1e293b;
+  font-size: 1.3rem;
+  margin-bottom: 0.5rem;
+}
+
+.empty-bookings-container p {
+  max-width: 380px;
+  line-height: 1.5;
+  font-size: 0.9rem;
+  color: #64748b;
+}
+
+/* Loading state */
+.bookings-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  padding: 3rem;
+  color: #64748b;
+}
+
+.loading-spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid #e2e8f0;
+  border-top-color: #0E2679;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Bookings list */
+.bookings-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.booking-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.25rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  transition: box-shadow 0.2s, transform 0.2s;
+}
+
+.booking-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+  transform: translateY(-1px);
+}
+
+.booking-card-left {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.booking-card-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.booking-service-name {
+  font-weight: 700;
+  color: #1e293b;
+  font-size: 0.95rem;
+}
+
+.booking-date {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #64748b;
+  font-size: 0.82rem;
+}
+
+.booking-price {
+  font-weight: 700;
+  color: #0E2679;
+  font-size: 0.95rem;
+}
+
+/* Booking status badges */
+.booking-status-badge {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 50px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  width: fit-content;
+}
+
+.status-completed {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.status-confirmed {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.status-pending {
+  background: #fef9c3;
+  color: #854d0e;
+}
+
+.status-cancelled {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+/* Modal base (ensure these exist in your CSS or add here) */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+  backdrop-filter: blur(4px);
+}
+
+.modal-content {
+  background: white;
+  border-radius: 20px;
+  padding: 2rem;
+  width: 100%;
+  max-width: 500px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+  animation: slideUp 0.25s ease-out;
+}
+
+@keyframes slideUp {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.modal-header h2 {
+  color: #0E2679;
+  margin: 0;
+}
+
+.close-x {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #94a3b8;
+  display: flex;
+  padding: 4px;
+}
+
+.close-x:hover { color: #64748b; }
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 1.5rem;
+}
+
+.btn-cancel {
+  background: #f1f5f9;
+  color: #64748b;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-cancel:hover { background: #e2e8f0; }
+
+.btn-confirm {
+  background-color: #0E2679;
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.btn-confirm:hover { background-color: #1a3a9e; }
+.btn-confirm:disabled { background-color: #94a3b8; cursor: not-allowed; }
+
+@media (max-width: 640px) {
+  .booking-history-wrapper {
+    padding: 1.25rem;
+  }
+  .modal-footer-row {
+    flex-direction: column;
+  }
+  .btn-cancel, .btn-delete-confirm {
+    width: 100%;
+    text-align: center;
+  }
+}
