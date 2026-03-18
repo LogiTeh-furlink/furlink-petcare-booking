@@ -180,8 +180,14 @@ const LoggedInNavbar = () => {
             table: 'notifications',
             filter: `user_id=eq.${user.id}`,
           },
+          // Inside subscribeNotifications function
           (payload) => {
-            setNotifications((prev) => [payload.new, ...prev]);
+            setNotifications((prev) => {
+              // ⭐ Check if notification already exists in the list to prevent duplicates
+              const exists = prev.find(n => n.id === payload.new.id);
+              if (exists) return prev; 
+              return [payload.new, ...prev];
+            });
           }
         )
         .subscribe();
@@ -270,21 +276,43 @@ const LoggedInNavbar = () => {
     return str.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
   };
 
+ // Inside LoggedInNavbar useEffect for Notifications:
   useEffect(() => {
-    const handleClickOutside = (e) => {
-      const outsideDesktop = desktopNotifRef.current && !desktopNotifRef.current.contains(e.target);
-      const outsideMobile = mobileNotifRef.current && !mobileNotifRef.current.contains(e.target);
-      
-      if (outsideDesktop && outsideMobile) {
-        setShowNotif(false);
-      }
+    let channel;
 
-      if (menuRef.current && !menuRef.current.contains(e.target)) {
-        setShowMenu(false);
-      }
+    const subscribeNotifications = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // ⭐ Use a unique channel name per user to prevent cross-talk
+      channel = supabase
+        .channel(`navbar-notifs-${user.id}`) 
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'notifications',
+            filter: `user_id=eq.${user.id}`,
+          },
+          (payload) => {
+            setNotifications((prev) => {
+              // ⭐ CHECK: Prevent adding the same notification ID twice
+              const exists = prev.find(n => n.id === payload.new.id);
+              if (exists) return prev; 
+              return [payload.new, ...prev];
+            });
+          }
+        )
+        .subscribe();
     };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+
+    subscribeNotifications();
+
+    // ⭐ CLEANUP: Correctly unsubscribe when the component unmounts
+    return () => {
+      if (channel) supabase.removeChannel(channel);
+    };
   }, []);
 
   const handleLogoClick = () => {
