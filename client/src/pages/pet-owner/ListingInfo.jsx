@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from "react";
-import { useParams, useNavigate, useLocation } from "react-router-dom"; 
+import { useParams, useNavigate, useLocation, Link } from "react-router-dom"; 
 import { supabase } from "../../config/supabase";
 import { 
   MapPin, X, ChevronDown, 
   ChevronLeft, ChevronRight, Clock, 
   Facebook, Instagram, Globe, ExternalLink,
   Calendar as CalendarIcon, Users, User,
-  AlertCircle, FileText, ShieldCheck
+  AlertCircle
 } from "lucide-react";
 import LocationPicker from "../../components/Map/LocationPicker";
 import { FaStar, FaStarHalfAlt, FaRegStar } from "react-icons/fa";
@@ -167,8 +167,7 @@ const ListingInfo = () => {
   const [selectedImageIndex, setSelectedImageIndex] = useState(null);
   
   // --- BOOKING STATES ---
-  const TERMS_URL = "https://mdhudfatvdipxwufcbis.supabase.co/storage/v1/object/public/agreements/terms_po.pdf";
-  const PRIVACY_URL = "https://mdhudfatvdipxwufcbis.supabase.co/storage/v1/object/public/agreements/privacy_policy.pdf";
+  const [agreedToWaiver, setAgreedToWaiver] = useState(false);
   const [bookingDate, setBookingDate] = useState(null);
   const [bookingTime, setBookingTime] = useState("");
   const [numberOfPets, setNumberOfPets] = useState(0);
@@ -395,6 +394,12 @@ const ListingInfo = () => {
     if (!user) { setBookingError("You must be logged in to book."); return; }
     if (!bookingDate) { setDateError("Please select a date."); return; }
     if (!bookingTime) { setBookingError("Please select a time slot."); return; }
+    
+    // UPDATED VALIDATION LOGIC: Agreeing to a waiver is now mandatory for ALL shops
+    if (!agreedToWaiver) { 
+      setBookingError(provider?.waiver_url ? "Please agree to the shop's waiver to proceed." : "Please agree to the platform's standard waiver to proceed."); 
+      return; 
+    }
 
     const petCount = parseInt(numberOfPets, 10);
     if (isNaN(petCount) || petCount < 1) { setBookingError("Please enter a valid number of pets."); return; }
@@ -688,7 +693,7 @@ const ListingInfo = () => {
     </div>
   );
 
-  const isBookingDisabled = !bookingDate || !bookingTime || parseInt(numberOfPets, 10) < 1 || loading;
+  const isBookingDisabled = !bookingDate || !bookingTime || parseInt(numberOfPets, 10) < 1 || !agreedToWaiver || loading;
 
   return (
     <div className="listing-info-page">
@@ -765,40 +770,6 @@ const ListingInfo = () => {
                 </div>
                 <div className="info-section">
                   <p className="shop-description">{provider.description || <span className="italic-gray">No description provided.</span>}</p>
-                </div>
-
-                {/* --- WAIVER SECTION --- */}
-                <div className="info-section" style={{ backgroundColor: '#f0f7ff', padding: '20px', borderRadius: '12px', border: '1px solid #cce0ff' }}>
-                  <h3 className="subsection-title" style={{ marginTop: 0 }}>Shop Policies & Waiver</h3>
-                  <p style={{ color: '#4a6fa5', fontSize: '0.95rem', marginBottom: '15px', lineHeight: '1.5' }}>
-                    For your pet's safety and to ensure a smooth service experience, please take a moment to read the shop's guidelines and waiver.
-                  </p>
-                  {provider.waiver_url ? (
-                    <a 
-                      href={`https://docs.google.com/gview?url=${encodeURIComponent(provider.waiver_url)}&embedded=true`} 
-                      target="_blank" 
-                      rel="noopener noreferrer" 
-                      className="external-map-btn"
-                      style={{ marginTop: 0 }}
-                    >
-                      <FileText size={16} /> View Shop Waiver
-                    </a>
-                  ) : (
-                    <>
-                      <p style={{ color: '#64748b', fontSize: '0.9rem', fontStyle: 'italic', margin: '0 0 15px 0' }}>
-                        This shop has not uploaded a specific waiver. Standard platform policies apply.
-                      </p>
-                      <a 
-                        href="/platform-waiver" 
-                        target="_blank" 
-                        rel="noopener noreferrer" 
-                        className="external-map-btn"
-                        style={{ marginTop: 0 }}
-                      >
-                        <FileText size={16} /> View Platform Waiver
-                      </a>
-                    </>
-                  )}
                 </div>
 
                 <div className="info-section">
@@ -1019,6 +990,34 @@ const ListingInfo = () => {
             )}
           </div>
 
+          <div className="booking-field">
+            <div className="terms-checkbox-container">
+              <input 
+                type="checkbox" 
+                id="booking-waiver" 
+                checked={agreedToWaiver}
+                onChange={(e) => setAgreedToWaiver(e.target.checked)}
+              />
+              <label htmlFor="booking-waiver">
+                {provider?.waiver_url ? (
+                  <>
+                    I agree to the <strong>{provider.business_name}</strong>{" "}
+                    <a href={`https://docs.google.com/gview?url=${encodeURIComponent(provider.waiver_url)}&embedded=true`} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
+                      waiver
+                    </a>.
+                  </>
+                ) : (
+                  <>
+                    I agree to the Platform's Standard{" "}
+                    <Link to="/platform-waiver" target="_blank" className="legal-link" onClick={(e) => e.stopPropagation()}>
+                      Pet Care Waiver
+                    </Link>.
+                  </>
+                )}
+              </label>
+            </div>
+          </div>
+
           <button onClick={handleCompleteBooking} className="booking-button" disabled={isBookingDisabled}>
             {loading ? "Verifying..." : "Complete Booking"}
           </button>
@@ -1026,7 +1025,7 @@ const ListingInfo = () => {
           <div className="terms-checkbox-container" style={{ marginTop: '12px', marginBottom: '0', justifyContent: 'center' }}>
             <label style={{ textAlign: 'center', width: '100%', fontSize: '0.75rem' }}>
               By completing this booking, you agree to our <br/>
-              <a href={`https://docs.google.com/gview?url=${encodeURIComponent(TERMS_URL)}&embedded=true`} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>Terms and Conditions</a> and <a href={`https://docs.google.com/gview?url=${encodeURIComponent(PRIVACY_URL)}&embedded=true`} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}><strong>Privacy Policy</strong></a>.
+              <Link to="/terms-and-conditions" target="_blank" className="legal-link" onClick={(e) => e.stopPropagation()}>Terms and Conditions</Link> and <Link to="/privacy-policy" target="_blank" className="legal-link" onClick={(e) => e.stopPropagation()}><strong>Privacy Policy</strong></Link>.
             </label>
           </div>
         </div>

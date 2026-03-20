@@ -773,8 +773,8 @@
 
 .terms-checkbox-container label { font-size: 0.85rem; line-height: 1.4; color: #475569; }
 .terms-checkbox-container label strong { color: #153e75; }
-.terms-checkbox-container label a { color: #153e75; font-weight: 700; text-decoration: underline; }
-.terms-checkbox-container label a:hover { color: #FDBF00; }
+.terms-checkbox-container label a, .terms-checkbox-container label .legal-link { color: #153e75; font-weight: 700; text-decoration: underline; transition: color 0.2s ease;}
+.terms-checkbox-container label a:hover, .terms-checkbox-container label .legal-link:hover { color: #FDBF00; }
 .terms-checkbox-container input[type="checkbox"] { width: 18px; height: 18px; margin-top: 2px; cursor: pointer; flex-shrink: 0; }
 
 /* =========================================
