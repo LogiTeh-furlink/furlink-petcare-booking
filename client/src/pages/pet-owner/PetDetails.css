@@ -133,13 +133,52 @@
     grid-template-columns: repeat(auto-fit, minmax(480px, 1fr));
     gap: 2.5rem;
 }
+
+/* PET CARD CONTAINER & EXTERNAL ADD BUTTON */
+.pet-card-container {
+    display: flex;
+    flex-direction: column;
+}
+
+.external-add-wrapper {
+    display: flex;
+    justify-content: flex-end;
+    min-height: 45px; /* Reserves space so all cards perfectly align top-to-bottom */
+    margin-bottom: 8px;
+    align-items: flex-end;
+}
+
+.btn-add-pet-external {
+    background: var(--primary-blue);
+    color: white;
+    border: none;
+    padding: 8px 20px;
+    border-radius: 12px;
+    font-weight: 700;
+    font-size: 0.9rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 4px 10px rgba(14, 38, 121, 0.15);
+    transition: transform 0.2s, background-color 0.2s;
+}
+
+.btn-add-pet-external:hover {
+    transform: translateY(-2px);
+    background: var(--accent-blue);
+    color: #fbbf24;
+}
+
 .pet-card-wrapper { 
     background: white; 
     border: 1px solid var(--border-color); 
     border-radius: 24px; 
     padding: 1.8rem; 
     box-shadow: 0 10px 25px rgba(0,0,0,0.02); 
+    flex: 1; /* Fills remaining height to maintain grid structure */
 }
+
 .card-top-bar { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 1.2rem; margin-bottom: 1.8rem; }
 .pet-count-label { background: var(--primary-blue); color: white; padding: 5px 15px; border-radius: 10px; font-weight: 700; font-size: 0.9rem; }
 
@@ -844,20 +883,6 @@
     border-color: #0E2679;
     box-shadow: 0 2px 4px rgba(14, 38, 121, 0.1);
 }
-
-/* .autofill-badge {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    background-color: #0E2679;
-    color: white;
-    padding: 6px 12px;
-    border-radius: 20px;
-    font-size: 0.75rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-} */
 
 .autofill-hint {
     font-size: 0.75rem;

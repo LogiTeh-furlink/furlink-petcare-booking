@@ -735,401 +735,403 @@ const getServicePriceAndSize = (serviceId, petType, weight) => {
        {/* PET FORMS GRID */}
         <div className="pet-cards-grid">
             {petsData.map((pet, index) => (
-                <div key={index} className="pet-card-wrapper">
-                    <div className="card-top-bar">
-                        <span className="pet-count-label">Pet #{index + 1}</span>
-                        <div className="card-actions">
-                          <span className="individual-price">₱{pet.total_price.toFixed(2)}</span>
-                          
-                          {/* SHOW DELETE IF MORE THAN 1 PET */}
-                          {petsData.length > 1 && (
-                            <button type="button" className="circle-btn delete" onClick={() => setPetsData(petsData.filter((_, i) => i !== index))}>
-                              <Trash2 size={16}/>
+                <div key={index} className="pet-card-container">
+                    
+                    {/* EXTERNAL ADD BUTTON WRAPPER - Above the most recently added form */}
+                    <div className="external-add-wrapper">
+                        {index === petsData.length - 1 && petsData.length < (maxSlots - occupiedSlots) && (
+                            <button type="button" className="btn-add-pet-external" onClick={handleAddPet}>
+                                <Plus size={18}/> Add a pet
                             </button>
-                          )}
-
-                          {/* SHOW ADD ONLY IF CURRENT PET COUNT IS LESS THAN AVAILABLE SLOTS */}
-                          {petsData.length < (maxSlots - occupiedSlots) && (
-                            <button type="button" className="circle-btn add" onClick={handleAddPet}>
-                              <Plus size={16}/>
-                            </button>
-                          )}
-                      </div>
+                        )}
                     </div>
 
-                    <div className="card-form-body">
-                        {/* --- SERVICE SELECTION SECTION --- */}
-                        <div className="form-section-label" style={{ fontWeight: '600', marginBottom: '10px', color: '#0E2679' }}>
-                            Service Selection
+                    <div className="pet-card-wrapper">
+                        <div className="card-top-bar">
+                            <span className="pet-count-label">Pet #{index + 1}</span>
+                            <div className="card-actions">
+                              <span className="individual-price">₱{pet.total_price.toFixed(2)}</span>
+                              
+                              {/* SHOW DELETE IF MORE THAN 1 PET */}
+                              {petsData.length > 1 && (
+                                <button type="button" className="circle-btn delete" onClick={() => setPetsData(petsData.filter((_, i) => i !== index))}>
+                                  <Trash2 size={16}/>
+                                </button>
+                              )}
+                          </div>
                         </div>
 
-                        <div className="service-rows-container">
-                          {pet.services.map((service, sIndex) => {
-                            const availableOptions = getFilteredOptions(pet, service.id);
-                            
-                            // CALCULATE MAX ROWS ALLOWED
-                            // Selected + Available remaining for a hypothetical new row
-                            const selectedCount = pet.services.filter(s => s.id !== "").length;
-                            const optionsForNewRow = getFilteredOptions(pet, "").length;
-                            const maxAllowedRows = selectedCount + optionsForNewRow;
+                        <div className="card-form-body">
+                            {/* --- SERVICE SELECTION SECTION --- */}
+                            <div className="form-section-label" style={{ fontWeight: '600', marginBottom: '10px', color: '#0E2679' }}>
+                                Service Selection
+                            </div>
 
-                            // Validation flags for individual row styling
-                            const isEmpty = attemptedSubmit && !service.id;
-                            
-                            // MODIFIED: Mismatch error now only shows on submit, OR if weight is actively filled out
-                            const isMismatched = service.id && service.matched === false && (attemptedSubmit || (pet.weight_kg && parseFloat(pet.weight_kg) > 0));
-                            
-                            const hasError = isEmpty || isMismatched;
+                            <div className="service-rows-container">
+                              {pet.services.map((service, sIndex) => {
+                                const availableOptions = getFilteredOptions(pet, service.id);
+                                
+                                // CALCULATE MAX ROWS ALLOWED
+                                // Selected + Available remaining for a hypothetical new row
+                                const selectedCount = pet.services.filter(s => s.id !== "").length;
+                                const optionsForNewRow = getFilteredOptions(pet, "").length;
+                                const maxAllowedRows = selectedCount + optionsForNewRow;
 
-                            return (
-                              <div key={sIndex} className="service-selection-row" style={{ marginBottom: '20px' }}>
-                                <div className={`input-group ${hasError ? 'field-error' : ''}`} style={{ flex: 1 }}>
-                                  <label className="form-label" style={{ color: hasError ? '#dc2626' : '#0E2679', fontWeight: '700' }}>
-                                    {sIndex === 0 && <Tag size={14} className="label-icon" />}
-                                    {service.id ? `${service.service_name} (${service.service_type})` : `Select Service ${sIndex + 1} *`}
-                                  </label>
+                                // Validation flags for individual row styling
+                                const isEmpty = attemptedSubmit && !service.id;
+                                
+                                // MODIFIED: Mismatch error now only shows on submit, OR if weight is actively filled out
+                                const isMismatched = service.id && service.matched === false && (attemptedSubmit || (pet.weight_kg && parseFloat(pet.weight_kg) > 0));
+                                
+                                const hasError = isEmpty || isMismatched;
 
-                                  <div className="service-input-group" style={{ display: 'flex', gap: '8px' }}>
-                                    <select 
-                                      className="form-input" 
-                                      style={{
-                                        flex: 1,
-                                        border: hasError ? '2px solid #dc2626' : '1px solid #cbd5e1',
-                                        backgroundColor: hasError ? '#fff1f1' : '#fdfdfe'
-                                      }} 
-                                      value={service.id} 
-                                      onChange={(e) => handleServiceSelect(index, sIndex, e)}
-                                    >
-                                      <option value="">Choose a Service</option>
-                                      {availableOptions.map(s => (
-                                        <option key={s.id} value={s.id}>{s.name} ({s.type})</option>
-                                      ))}
-                                    </select>
+                                return (
+                                  <div key={sIndex} className="service-selection-row" style={{ marginBottom: '20px' }}>
+                                    <div className={`input-group ${hasError ? 'field-error' : ''}`} style={{ flex: 1 }}>
+                                      <label className="form-label" style={{ color: hasError ? '#dc2626' : '#0E2679', fontWeight: '700' }}>
+                                        {sIndex === 0 && <Tag size={14} className="label-icon" />}
+                                        {service.id ? `${service.service_name} (${service.service_type})` : `Select Service ${sIndex + 1} *`}
+                                      </label>
 
-                                    <div className="service-row-actions" style={{ display: 'flex', gap: '5px' }}>
-                                      {sIndex === pet.services.length - 1 && pet.services.length < maxAllowedRows && (
-                                        <button type="button" className="circle-btn add" onClick={() => handleAddServiceRow(index)}>
-                                          <Plus size={14} />
-                                        </button>
+                                      <div className="service-input-group" style={{ display: 'flex', gap: '8px' }}>
+                                        <select 
+                                          className="form-input" 
+                                          style={{
+                                            flex: 1,
+                                            border: hasError ? '2px solid #dc2626' : '1px solid #cbd5e1',
+                                            backgroundColor: hasError ? '#fff1f1' : '#fdfdfe'
+                                          }} 
+                                          value={service.id} 
+                                          onChange={(e) => handleServiceSelect(index, sIndex, e)}
+                                        >
+                                          <option value="">Choose a Service</option>
+                                          {availableOptions.map(s => (
+                                            <option key={s.id} value={s.id}>{s.name} ({s.type})</option>
+                                          ))}
+                                        </select>
+
+                                        <div className="service-row-actions" style={{ display: 'flex', gap: '5px' }}>
+                                          {sIndex === pet.services.length - 1 && pet.services.length < maxAllowedRows && (
+                                            <button type="button" className="circle-btn add" onClick={() => handleAddServiceRow(index)}>
+                                              <Plus size={14} />
+                                            </button>
+                                          )}
+                                          {pet.services.length > 1 && (
+                                            <button type="button" className="circle-btn delete" onClick={() => handleRemoveServiceRow(index, sIndex)}>
+                                              <Minus size={14} />
+                                            </button>
+                                          )}
+                                        </div>
+                                      </div>
+
+                                      {/* --- INLINE ERROR MESSAGES NEAR FIELD --- */}
+                                      {isEmpty && (
+                                        <div className="error-text" style={{ color: '#dc2626', fontSize: '0.8rem', marginTop: '6px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                          <AlertCircle size={14} /> Please select a service for this slot.
+                                        </div>
                                       )}
-                                      {pet.services.length > 1 && (
-                                        <button type="button" className="circle-btn delete" onClick={() => handleRemoveServiceRow(index, sIndex)}>
-                                          <Minus size={14} />
-                                        </button>
+
+                                      {isMismatched && (
+                                        <div style={{ 
+                                          marginTop: '8px',
+                                          padding: '10px',
+                                          backgroundColor: '#fee2e2',
+                                          border: '1px solid #ef4444',
+                                          borderRadius: '8px',
+                                          animation: 'shake 0.3s ease-in-out'
+                                        }}>
+                                          <span style={{ 
+                                            color: '#991b1b', 
+                                            fontSize: '0.8rem', 
+                                            display: 'flex', 
+                                            alignItems: 'flex-start', 
+                                            gap: '6px', 
+                                            fontWeight: '700',
+                                            lineHeight: '1.4'
+                                          }}>
+                                            <AlertCircle size={16} style={{ marginTop: '2px', minWidth: '16px' }} /> 
+                                            {pet.pet_type === "Cat" 
+                                              ? "This provider has not set cat-specific pricing for this service." 
+                                              : `Service Conflict: Your pet's weight (${pet.weight_kg || '0'}kg) is outside the supported range for this service.`}
+                                          </span>
+                                        </div>
+                                      )}
+
+                                      {/* SUCCESS PRICE HINT */}
+                                      {service.id && service.matched !== false && (
+                                        <div className="service-price-hint" style={{ fontSize: '0.85rem', color: '#059669', fontWeight: '700', marginTop: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                          <CheckCircle size={14} /> Service available: ₱{parseFloat(service.price || 0).toFixed(2)}
+                                        </div>
                                       )}
                                     </div>
                                   </div>
-
-                                  {/* --- INLINE ERROR MESSAGES NEAR FIELD --- */}
-                                  {isEmpty && (
-                                    <div className="error-text" style={{ color: '#dc2626', fontSize: '0.8rem', marginTop: '6px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                      <AlertCircle size={14} /> Please select a service for this slot.
-                                    </div>
-                                  )}
-
-                                  {isMismatched && (
-                                    <div style={{ 
-                                      marginTop: '8px',
-                                      padding: '10px',
-                                      backgroundColor: '#fee2e2',
-                                      border: '1px solid #ef4444',
-                                      borderRadius: '8px',
-                                      animation: 'shake 0.3s ease-in-out'
-                                    }}>
-                                      <span style={{ 
-                                        color: '#991b1b', 
-                                        fontSize: '0.8rem', 
-                                        display: 'flex', 
-                                        alignItems: 'flex-start', 
-                                        gap: '6px', 
-                                        fontWeight: '700',
-                                        lineHeight: '1.4'
-                                      }}>
-                                        <AlertCircle size={16} style={{ marginTop: '2px', minWidth: '16px' }} /> 
-                                        {pet.pet_type === "Cat" 
-                                          ? "This provider has not set cat-specific pricing for this service." 
-                                          : `Service Conflict: Your pet's weight (${pet.weight_kg || '0'}kg) is outside the supported range for this service.`}
-                                      </span>
-                                    </div>
-                                  )}
-
-                                  {/* SUCCESS PRICE HINT */}
-                                  {service.id && service.matched !== false && (
-                                    <div className="service-price-hint" style={{ fontSize: '0.85rem', color: '#059669', fontWeight: '700', marginTop: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                      <CheckCircle size={14} /> Service available: ₱{parseFloat(service.price || 0).toFixed(2)}
-                                    </div>
-                                  )}
+                                );
+                              })}
+                              
+                              {/* ROW ERROR (e.g. Empty dropdown before adding new one) */}
+                              {pet.service_error && (
+                                <div style={{ 
+                                  color: '#ffffff', 
+                                  backgroundColor: '#dc2626',
+                                  padding: '8px 12px',
+                                  borderRadius: '6px',
+                                  fontSize: '0.85rem', 
+                                  marginBottom: '15px', 
+                                  display: 'inline-flex', 
+                                  alignItems: 'center', 
+                                  gap: '8px',
+                                  fontWeight: '600',
+                                  boxShadow: '0 2px 4px rgba(220, 38, 38, 0.2)'
+                                }}>
+                                  <AlertCircle size={16} /> {pet.service_error}
                                 </div>
-                              </div>
-                            );
-                          })}
-                          
-                          {/* ROW ERROR (e.g. Empty dropdown before adding new one) */}
-                          {pet.service_error && (
-                            <div style={{ 
-                              color: '#ffffff', 
-                              backgroundColor: '#dc2626',
-                              padding: '8px 12px',
-                              borderRadius: '6px',
-                              fontSize: '0.85rem', 
-                              marginBottom: '15px', 
-                              display: 'inline-flex', 
-                              alignItems: 'center', 
-                              gap: '8px',
-                              fontWeight: '600',
-                              boxShadow: '0 2px 4px rgba(220, 38, 38, 0.2)'
-                            }}>
-                              <AlertCircle size={16} /> {pet.service_error}
+                              )}
                             </div>
-                          )}
-                        </div>
 
-                        <hr style={{ margin: '20px 0', border: '0', borderTop: '1px solid #eee' }} />
+                            <hr style={{ margin: '20px 0', border: '0', borderTop: '1px solid #eee' }} />
 
-                        {registeredPets.length > 0 && (
-                          <div className="autofill-container">
-                            <div className="autofill-left-group">
-                              {/* <div className="autofill-badge">
-                                <span>Choose from your registered pets</span>
-                              </div> */}
-                              <select 
-                                className="autofill-select"
-                                onChange={(e) => {
-                                  const pet = registeredPets.find(p => p.id === e.target.value);
-                                  if (pet) handleAutofill(index, pet);
-                                }}
-                                value=""
-                              >
-                                <option value="" disabled>Select Registered Pet...</option>
-                                {registeredPets.map(p => (
-                                  <option key={p.id} value={p.id}>{p.name} ({p.breed})</option>
-                                ))}
-                              </select>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* --- PET INFORMATION SECTION --- */}
-                        <div className="form-section-label" style={{ fontWeight: '600', marginBottom: '10px', color: '#0E2679' }}>
-                            Pet Information
-                        </div>
-
-                        <div className="form-row-2">
-                            <div className="input-group">
-                                <label>Pet Type <span className="required-star">*</span></label>
-                                <select value={pet.pet_type} onChange={(e) => updatePetInfo(index, 'pet_type', e.target.value)}>
-                                    {availablePetTypes.map(t => <option key={t} value={t}>{t}</option>)}
-                                </select>
-                            </div>
-                            <div className={`input-group ${attemptedSubmit && !pet.pet_name.trim() ? 'field-error' : ''}`}>
-                                <label>Pet's Name <span className="required-star">*</span></label>
-                                <input type="text" placeholder="Pet Name" value={pet.pet_name} onChange={(e) => updatePetInfo(index, 'pet_name', e.target.value)} />
-                                {attemptedSubmit && !pet.pet_name.trim() && <span className="error-text" style={{color: 'red', fontSize: '11px'}}>Name is required</span>}
-                            </div>
-                        </div>
-
-                        <div className="form-row-2">
-                            {/* UPDATED BREED FIELD - FREE TEXT WITH LIMITED DATALIST */}
-                            <div className={`input-group ${attemptedSubmit && (!pet.breed.trim() || !isValidBreed(pet.breed, pet.pet_type)) ? 'field-error' : ''}`}>
-                                <label>Breed <span className="required-star">*</span></label>
-                                <input 
-                                  list={`breed-suggestions-${index}`} 
-                                  type="text" 
-                                  placeholder={pet.pet_type === "Cat" ? "e.g. Siamese or Puspin" : "e.g. Beagle or Aspin"} 
-                                  value={pet.breed} 
-                                  onChange={(e) => updatePetInfo(index, 'breed', e.target.value)} 
-                                />
-                                {/* Datalist only shows basic fallbacks + local options */}
-                                <datalist id={`breed-suggestions-${index}`}>
-                                  <option value="Mixed Breed" />
-                                  <option value="Unknown" />
-                                  {pet.pet_type === "Dog" ? (
-                                      <>
-                                          <option value="Aspin" />
-                                          <option value="Askal" />
-                                      </>
-                                  ) : (
-                                      <>
-                                          <option value="Puspin" />
-                                          <option value="Pusakal" />
-                                      </>
-                                  )}
-                                </datalist>
-                                {attemptedSubmit && !pet.breed.trim() && <span className="error-text" style={{color: 'red', fontSize: '11px'}}>Breed is required</span>}
-                                {attemptedSubmit && pet.breed.trim() && !isValidBreed(pet.breed, pet.pet_type) && <span className="error-text" style={{color: 'red', fontSize: '11px'}}>Unrecognized breed. Check spelling or use 'Mixed Breed'.</span>}
-                            </div>
-                            <div className="input-group">
-                                <label>Gender <span className="required-star">*</span></label>
-                                <select value={pet.gender} onChange={(e) => updatePetInfo(index, 'gender', e.target.value)}>
-                                    <option value="Male">Male</option>
-                                    <option value="Female">Female</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <div className="form-row-2">
-                            <div className={`input-group ${attemptedSubmit && !pet.birth_date ? 'field-error' : ''}`}>
-                                <label>Date of Birth <span className="required-star">*</span></label>
-                                <input type="date" max={new Date().toISOString().split("T")[0]} value={pet.birth_date} onChange={(e) => updatePetInfo(index, 'birth_date', e.target.value)} />
-                                {attemptedSubmit && !pet.birth_date && <span className="error-text" style={{color: 'red', fontSize: '11px'}}>DOB is required</span>}
-                            </div>
-                            <div className={`input-group ${attemptedSubmit && (!pet.weight_kg || parseFloat(pet.weight_kg) <= 0) ? 'field-error' : ''}`}>
-                                <label>Weight (kg) <span className="required-star">*</span></label>
-                                <input 
-                                  type="number" 
-                                  placeholder="0.0" 
-                                  value={pet.weight_kg} 
-                                  onChange={(e) => updatePetInfo(index, 'weight_kg', e.target.value)} 
-                                />
-                                {attemptedSubmit && (!pet.weight_kg || parseFloat(pet.weight_kg) <= 0) && <span className="error-text" style={{color: 'red', fontSize: '11px'}}>Valid weight is required</span>}
-                            </div>
-                        </div>
-
-                        <div className="realtime-size-display">
-                            Calculated Size: <span>{pet.calculated_size}</span>
-                        </div>
-
-                        <div className="behavior-container">
-                            <label className="sub-label">Pet Behavior <span className="required-star">*</span></label>
-                            <div className="behavior-row-5">
-                                {BEHAVIOR_OPTIONS.map(opt => (
-                                    <label key={opt} className="check-item">
-                                        <input 
-                                            type="checkbox" 
-                                            checked={(pet.behavior || []).includes(opt)} 
-                                            onChange={(e) => {
-                                                const currentBehavior = Array.isArray(pet.behavior) ? pet.behavior : [];
-                                                const newBehavior = e.target.checked 
-                                                    ? [...currentBehavior, opt] 
-                                                    : currentBehavior.filter(b => b !== opt);
-                                                updatePetInfo(index, 'behavior', newBehavior);
-                                            }} 
-                                        /> {opt}
-                                    </label>
-                                ))}
-                            </div>
-                        </div>
-
-                        <div className="medical-uploads-container">
-                            <label className="sub-label">Medical Records</label>
-                            <div className="upload-buttons-flex">
-                                {/* Replace the current upload-btn-wrap logic with this */}
-                                <div className={`upload-btn-wrap ${attemptedSubmit && !pet.vaccine_file && !pet.vaccine_preview ? 'upload-error-active' : ''}`}>
-                                  {!pet.vaccine_preview ? (
-                                      <label className={`upload-btn vaccine ${attemptedSubmit && !pet.vaccine_file && !pet.vaccine_preview ? 'urgent-red-bg' : ''}`}>
-                                          <input type="file" accept=".png, .jpg, .jpeg" onChange={(e) => handleFileUpload(index, 'vaccine', e)} hidden />
-                                          <UploadCloud size={18} /> 
-                                          <span>Vaccine Record <span className="required-star">*</span></span>
-                                      </label>
-                                  ) : (
-                                      <div className="preview-container">
-                                          {/* This will now correctly show the autofilled URL image */}
-                                          <img src={pet.vaccine_preview} className="mini-preview" onClick={() => setSelectedImage(pet.vaccine_preview)} alt="prev"/>
-                                          <button type="button" className="remove-img-btn" onClick={() => handleRemoveFile(index, 'vaccine')}><X size={14}/></button>
-                                      </div>
-                                  )}
-                                  {attemptedSubmit && !pet.vaccine_file && !pet.vaccine_preview && (
-                                      <div className="urgent-error-label">
-                                          <AlertCircle size={12} /> Vaccination record is required
-                                      </div>
-                                  )}
-                                </div>
-
-                                <div className="upload-btn-wrap">
-                                    {!pet.illness_preview ? (
-                                        <label className="upload-btn illness">
-                                            <input type="file" accept=".png, .jpg, .jpeg" onChange={(e) => handleFileUpload(index, 'illness', e)} hidden />
-                                            <FileText size={18} /> Illness Record
-                                        </label>
-                                    ) : (
-                                        <div className="preview-container">
-                                            <img src={pet.illness_preview} className="mini-preview" onClick={() => setSelectedImage(pet.illness_preview)} alt="prev"/>
-                                            <button type="button" className="remove-img-btn" onClick={() => handleRemoveFile(index, 'illness')}><X size={14}/></button>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* --- AI HAIRCUT GENERATOR SECTION --- */}
-                        <div className="ai-section-divider">
-                          <div className="specifications-container" style={{ marginTop: '20px' }}>
-                            <label className="sub-label">Grooming Specifications</label>
-                            <textarea 
-                              className="spec-textarea" 
-                              maxLength={500} 
-                              placeholder="e.g., leave the tail fluffy, trim short around eyes..."
-                              value={pet.grooming_specifications || ""} 
-                              onChange={(e) => updatePetInfo(index, 'grooming_specifications', e.target.value)} 
-                              style={{ width: '100%', minHeight: '100px', padding: '12px', borderRadius: '8px', border: '1px solid #ddd' }} 
-                            />
-                          </div>
-
-                          <label className="sub-label" style={{ color: '#0E2679', fontWeight: '700', marginTop: '15px', display: 'block' }}>
-                            AI Pet Haircut Generator
-                          </label>
-                          
-                          <div className="ai-warning-box" style={{ backgroundColor: '#fdf2f2', border: '1px solid #fecaca', padding: '12px', borderRadius: '8px', marginBottom: '15px' }}>
-                            <p style={{ fontSize: '0.85rem', color: '#991b1b', margin: 0, display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
-                              <AlertCircle size={20} /> 
-                              <span>
-                                <strong>Style Preview Info:</strong> The AI generates a preview based <strong>strictly</strong> on your pet's <strong>Type, Breed, Weight</strong>, and <strong>Hairstyle</strong> choice!
-                              </span>
-                            </p>
-                          </div>
-
-                          <div className="ai-card-box">
-                            {!pet.ai_generated_preview ? (
-                              <div className="ai-setup-simple" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                <div className="style-select-group">
-                                  <label className="form-label" style={{fontSize: '0.8rem', fontWeight: '600'}}>Desired Style:</label>
+                            {registeredPets.length > 0 && (
+                              <div className="autofill-container">
+                                <div className="autofill-left-group">
                                   <select 
-                                    className="form-input" 
-                                    value={pet.ai_selected_style} 
-                                    onChange={(e) => updatePetInfo(index, 'ai_selected_style', e.target.value)}
+                                    className="autofill-select"
+                                    onChange={(e) => {
+                                      const pet = registeredPets.find(p => p.id === e.target.value);
+                                      if (pet) handleAutofill(index, pet);
+                                    }}
+                                    value=""
                                   >
-                                    {(pet.pet_type === "Cat" ? CAT_HAIRSTYLES : DOG_HAIRSTYLES).map(s => (
-                                      <option key={s} value={s}>{s}</option>
+                                    <option value="" disabled>Select Registered Pet...</option>
+                                    {registeredPets.map(p => (
+                                      <option key={p.id} value={p.id}>{p.name} ({p.breed})</option>
                                     ))}
                                   </select>
                                 </div>
-
-                                {pet.ai_error && (
-                                  <div style={{ color: '#dc2626', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: '#fef2f2', padding: '8px', borderRadius: '6px' }}>
-                                    <AlertCircle size={14} /> <span>{pet.ai_error}</span>
-                                  </div>
-                                )}
-
-                                <button 
-                                  type="button" 
-                                  className="btn-ai-gen" 
-                                  onClick={() => handleGenerateAIHaircut(index)}
-                                  disabled={pet.ai_loading}
-                                  style={{ backgroundColor: '#0E2679', color: 'white', border: 'none', padding: '12px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}
-                                >
-                                  {pet.ai_loading ? "AI is Designing..." : "Generate AI Style Preview"}
-                                </button>
-                              </div>
-                            ) : (
-                              <div className="ai-preview-container" style={{ textAlign: 'center' }}>
-                                <div className="ai-img-frame" style={{ position: 'relative', marginBottom: '10px' }}>
-                                    <img src={pet.ai_generated_preview} alt="AI Preview" className="ai-result-img" style={{ width: '100%', borderRadius: '12px', border: '3px solid #0E2679' }} />
-                                    {pet.ai_confirmed && <div className="confirmed-overlay" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(14, 38, 121, 0.7)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '12px', fontWeight: 'bold' }}>✓ Style Confirmed</div>}
-                                  </div>
-                                  <div className="ai-button-group" style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
-                                      <button type="button" className="ai-btn retry" onClick={() => updatePetInfo(index, 'ai_generated_preview', null)}>Reset</button>
-                                      {!pet.ai_confirmed && <button type="button" className="ai-btn confirm" onClick={() => updatePetInfo(index, 'ai_confirmed', true)} style={{backgroundColor: '#28a745', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '6px'}}>Confirm</button>}
-                                  </div>
                               </div>
                             )}
-                          </div>
-                        </div>
 
-                        <div className="emergency-consent-container" style={{ marginTop: '15px' }}>
-                            <label style={{ display: 'flex', gap: '10px', fontSize: '13px' }}>
-                                <input type="checkbox" checked={pet.emergency_consent} onChange={(e) => updatePetInfo(index, 'emergency_consent', e.target.checked)} />
-                                <span>I agree that in a critical emergency, the Provider has permission to transport my pet to the nearest emergency facility.</span>
-                            </label>
+                            {/* --- PET INFORMATION SECTION --- */}
+                            <div className="form-section-label" style={{ fontWeight: '600', marginBottom: '10px', color: '#0E2679' }}>
+                                Pet Information
+                            </div>
+
+                            <div className="form-row-2">
+                                <div className="input-group">
+                                    <label>Pet Type <span className="required-star">*</span></label>
+                                    <select value={pet.pet_type} onChange={(e) => updatePetInfo(index, 'pet_type', e.target.value)}>
+                                        {availablePetTypes.map(t => <option key={t} value={t}>{t}</option>)}
+                                    </select>
+                                </div>
+                                <div className={`input-group ${attemptedSubmit && !pet.pet_name.trim() ? 'field-error' : ''}`}>
+                                    <label>Pet's Name <span className="required-star">*</span></label>
+                                    <input type="text" placeholder="Pet Name" value={pet.pet_name} onChange={(e) => updatePetInfo(index, 'pet_name', e.target.value)} />
+                                    {attemptedSubmit && !pet.pet_name.trim() && <span className="error-text" style={{color: 'red', fontSize: '11px'}}>Name is required</span>}
+                                </div>
+                            </div>
+
+                            <div className="form-row-2">
+                                {/* UPDATED BREED FIELD - FREE TEXT WITH LIMITED DATALIST */}
+                                <div className={`input-group ${attemptedSubmit && (!pet.breed.trim() || !isValidBreed(pet.breed, pet.pet_type)) ? 'field-error' : ''}`}>
+                                    <label>Breed <span className="required-star">*</span></label>
+                                    <input 
+                                      list={`breed-suggestions-${index}`} 
+                                      type="text" 
+                                      placeholder={pet.pet_type === "Cat" ? "e.g. Siamese or Puspin" : "e.g. Beagle or Aspin"} 
+                                      value={pet.breed} 
+                                      onChange={(e) => updatePetInfo(index, 'breed', e.target.value)} 
+                                    />
+                                    {/* Datalist only shows basic fallbacks + local options */}
+                                    <datalist id={`breed-suggestions-${index}`}>
+                                      <option value="Mixed Breed" />
+                                      <option value="Unknown" />
+                                      {pet.pet_type === "Dog" ? (
+                                          <>
+                                              <option value="Aspin" />
+                                              <option value="Askal" />
+                                          </>
+                                      ) : (
+                                          <>
+                                              <option value="Puspin" />
+                                              <option value="Pusakal" />
+                                          </>
+                                      )}
+                                    </datalist>
+                                    {attemptedSubmit && !pet.breed.trim() && <span className="error-text" style={{color: 'red', fontSize: '11px'}}>Breed is required</span>}
+                                    {attemptedSubmit && pet.breed.trim() && !isValidBreed(pet.breed, pet.pet_type) && <span className="error-text" style={{color: 'red', fontSize: '11px'}}>Unrecognized breed. Check spelling or use 'Mixed Breed'.</span>}
+                                </div>
+                                <div className="input-group">
+                                    <label>Gender <span className="required-star">*</span></label>
+                                    <select value={pet.gender} onChange={(e) => updatePetInfo(index, 'gender', e.target.value)}>
+                                        <option value="Male">Male</option>
+                                        <option value="Female">Female</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div className="form-row-2">
+                                <div className={`input-group ${attemptedSubmit && !pet.birth_date ? 'field-error' : ''}`}>
+                                    <label>Date of Birth <span className="required-star">*</span></label>
+                                    <input type="date" max={new Date().toISOString().split("T")[0]} value={pet.birth_date} onChange={(e) => updatePetInfo(index, 'birth_date', e.target.value)} />
+                                    {attemptedSubmit && !pet.birth_date && <span className="error-text" style={{color: 'red', fontSize: '11px'}}>DOB is required</span>}
+                                </div>
+                                <div className={`input-group ${attemptedSubmit && (!pet.weight_kg || parseFloat(pet.weight_kg) <= 0) ? 'field-error' : ''}`}>
+                                    <label>Weight (kg) <span className="required-star">*</span></label>
+                                    <input 
+                                      type="number" 
+                                      placeholder="0.0" 
+                                      value={pet.weight_kg} 
+                                      onChange={(e) => updatePetInfo(index, 'weight_kg', e.target.value)} 
+                                    />
+                                    {attemptedSubmit && (!pet.weight_kg || parseFloat(pet.weight_kg) <= 0) && <span className="error-text" style={{color: 'red', fontSize: '11px'}}>Valid weight is required</span>}
+                                </div>
+                            </div>
+
+                            <div className="realtime-size-display">
+                                Calculated Size: <span>{pet.calculated_size}</span>
+                            </div>
+
+                            <div className="behavior-container">
+                                <label className="sub-label">Pet Behavior <span className="required-star">*</span></label>
+                                <div className="behavior-row-5">
+                                    {BEHAVIOR_OPTIONS.map(opt => (
+                                        <label key={opt} className="check-item">
+                                            <input 
+                                                type="checkbox" 
+                                                checked={(pet.behavior || []).includes(opt)} 
+                                                onChange={(e) => {
+                                                    const currentBehavior = Array.isArray(pet.behavior) ? pet.behavior : [];
+                                                    const newBehavior = e.target.checked 
+                                                        ? [...currentBehavior, opt] 
+                                                        : currentBehavior.filter(b => b !== opt);
+                                                    updatePetInfo(index, 'behavior', newBehavior);
+                                                }} 
+                                            /> {opt}
+                                        </label>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div className="medical-uploads-container">
+                                <label className="sub-label">Medical Records</label>
+                                <div className="upload-buttons-flex">
+                                    {/* Replace the current upload-btn-wrap logic with this */}
+                                    <div className={`upload-btn-wrap ${attemptedSubmit && !pet.vaccine_file && !pet.vaccine_preview ? 'upload-error-active' : ''}`}>
+                                      {!pet.vaccine_preview ? (
+                                          <label className={`upload-btn vaccine ${attemptedSubmit && !pet.vaccine_file && !pet.vaccine_preview ? 'urgent-red-bg' : ''}`}>
+                                              <input type="file" accept=".png, .jpg, .jpeg" onChange={(e) => handleFileUpload(index, 'vaccine', e)} hidden />
+                                              <UploadCloud size={18} /> 
+                                              <span>Vaccine Record <span className="required-star">*</span></span>
+                                          </label>
+                                      ) : (
+                                          <div className="preview-container">
+                                              {/* This will now correctly show the autofilled URL image */}
+                                              <img src={pet.vaccine_preview} className="mini-preview" onClick={() => setSelectedImage(pet.vaccine_preview)} alt="prev"/>
+                                              <button type="button" className="remove-img-btn" onClick={() => handleRemoveFile(index, 'vaccine')}><X size={14}/></button>
+                                          </div>
+                                      )}
+                                      {attemptedSubmit && !pet.vaccine_file && !pet.vaccine_preview && (
+                                          <div className="urgent-error-label">
+                                              <AlertCircle size={12} /> Vaccination record is required
+                                          </div>
+                                      )}
+                                    </div>
+
+                                    <div className="upload-btn-wrap">
+                                        {!pet.illness_preview ? (
+                                            <label className="upload-btn illness">
+                                                <input type="file" accept=".png, .jpg, .jpeg" onChange={(e) => handleFileUpload(index, 'illness', e)} hidden />
+                                                <FileText size={18} /> Illness Record
+                                            </label>
+                                        ) : (
+                                            <div className="preview-container">
+                                                <img src={pet.illness_preview} className="mini-preview" onClick={() => setSelectedImage(pet.illness_preview)} alt="prev"/>
+                                                <button type="button" className="remove-img-btn" onClick={() => handleRemoveFile(index, 'illness')}><X size={14}/></button>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* --- AI HAIRCUT GENERATOR SECTION --- */}
+                            <div className="ai-section-divider">
+                              <div className="specifications-container" style={{ marginTop: '20px' }}>
+                                <label className="sub-label">Grooming Specifications</label>
+                                <textarea 
+                                  className="spec-textarea" 
+                                  maxLength={500} 
+                                  placeholder="e.g., leave the tail fluffy, trim short around eyes..."
+                                  value={pet.grooming_specifications || ""} 
+                                  onChange={(e) => updatePetInfo(index, 'grooming_specifications', e.target.value)} 
+                                  style={{ width: '100%', minHeight: '100px', padding: '12px', borderRadius: '8px', border: '1px solid #ddd' }} 
+                                />
+                              </div>
+
+                              <label className="sub-label" style={{ color: '#0E2679', fontWeight: '700', marginTop: '15px', display: 'block' }}>
+                                AI Pet Haircut Generator
+                              </label>
+                              
+                              <div className="ai-warning-box" style={{ backgroundColor: '#fdf2f2', border: '1px solid #fecaca', padding: '12px', borderRadius: '8px', marginBottom: '15px' }}>
+                                <p style={{ fontSize: '0.85rem', color: '#991b1b', margin: 0, display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                                  <AlertCircle size={20} /> 
+                                  <span>
+                                    <strong>Style Preview Info:</strong> The AI generates a preview based <strong>strictly</strong> on your pet's <strong>Type, Breed, Weight</strong>, and <strong>Hairstyle</strong> choice!
+                                  </span>
+                                </p>
+                              </div>
+
+                              <div className="ai-card-box">
+                                {!pet.ai_generated_preview ? (
+                                  <div className="ai-setup-simple" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                    <div className="style-select-group">
+                                      <label className="form-label" style={{fontSize: '0.8rem', fontWeight: '600'}}>Desired Style:</label>
+                                      <select 
+                                        className="form-input" 
+                                        value={pet.ai_selected_style} 
+                                        onChange={(e) => updatePetInfo(index, 'ai_selected_style', e.target.value)}
+                                      >
+                                        {(pet.pet_type === "Cat" ? CAT_HAIRSTYLES : DOG_HAIRSTYLES).map(s => (
+                                          <option key={s} value={s}>{s}</option>
+                                        ))}
+                                      </select>
+                                    </div>
+
+                                    {pet.ai_error && (
+                                      <div style={{ color: '#dc2626', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: '#fef2f2', padding: '8px', borderRadius: '6px' }}>
+                                        <AlertCircle size={14} /> <span>{pet.ai_error}</span>
+                                      </div>
+                                    )}
+
+                                    <button 
+                                      type="button" 
+                                      className="btn-ai-gen" 
+                                      onClick={() => handleGenerateAIHaircut(index)}
+                                      disabled={pet.ai_loading}
+                                      style={{ backgroundColor: '#0E2679', color: 'white', border: 'none', padding: '12px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}
+                                    >
+                                      {pet.ai_loading ? "AI is Designing..." : "Generate AI Style Preview"}
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <div className="ai-preview-container" style={{ textAlign: 'center' }}>
+                                    <div className="ai-img-frame" style={{ position: 'relative', marginBottom: '10px' }}>
+                                        <img src={pet.ai_generated_preview} alt="AI Preview" className="ai-result-img" style={{ width: '100%', borderRadius: '12px', border: '3px solid #0E2679' }} />
+                                        {pet.ai_confirmed && <div className="confirmed-overlay" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(14, 38, 121, 0.7)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '12px', fontWeight: 'bold' }}>✓ Style Confirmed</div>}
+                                      </div>
+                                      <div className="ai-button-group" style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+                                          <button type="button" className="ai-btn retry" onClick={() => updatePetInfo(index, 'ai_generated_preview', null)}>Reset</button>
+                                          {!pet.ai_confirmed && <button type="button" className="ai-btn confirm" onClick={() => updatePetInfo(index, 'ai_confirmed', true)} style={{backgroundColor: '#28a745', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '6px'}}>Confirm</button>}
+                                      </div>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="emergency-consent-container" style={{ marginTop: '15px' }}>
+                                <label style={{ display: 'flex', gap: '10px', fontSize: '13px' }}>
+                                    <input type="checkbox" checked={pet.emergency_consent} onChange={(e) => updatePetInfo(index, 'emergency_consent', e.target.checked)} />
+                                    <span>I agree that in a critical emergency, the Provider has permission to transport my pet to the nearest emergency facility.</span>
+                                </label>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1268,12 +1270,12 @@ const getServicePriceAndSize = (serviceId, petType, weight) => {
           {showBreakdown && (
             <div className="breakdown-panel" style={{ background: '#f8fafc', padding: '10px', borderRadius: '8px', marginBottom: '10px' }}>
                <div className="summary-row" style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem', color: '#64748b' }}>
-                  <span>Base Price:</span>
-                  <span>₱{calculateBasePrice().toFixed(2)}</span>
+                 <span>Base Price:</span>
+                 <span>₱{calculateBasePrice().toFixed(2)}</span>
                </div>
                <div className="summary-row" style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem', color: '#64748b', marginTop: '4px' }}>
-                  <span>VAT (12%):</span>
-                  <span>₱{calculateVAT().toFixed(2)}</span>
+                 <span>VAT (12%):</span>
+                 <span>₱{calculateVAT().toFixed(2)}</span>
                </div>
             </div>
           )}
