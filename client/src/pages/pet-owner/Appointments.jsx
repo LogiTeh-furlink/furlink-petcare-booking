@@ -18,7 +18,7 @@ import {
   FaChevronLeft,
   FaChevronRight,
   FaSearchPlus,
-  FaBan // <--- Added for suspension
+  FaBan
 } from "react-icons/fa";
 import "./Appointments.css";
 
@@ -44,7 +44,7 @@ const CalendarModal = ({ bookings, onClose }) => {
   const handlePrevMonth = () => setCurrentDate(new Date(year, month - 1, 1));
   const handleNextMonth = () => setCurrentDate(new Date(year, month + 1, 1));
 
-    const renderDays = () => {
+  const renderDays = () => {
     const days = [];
     const todayStr = new Date().toISOString().split('T')[0];
 
@@ -60,7 +60,7 @@ const CalendarModal = ({ bookings, onClose }) => {
         } else if (isToday) {
           statusClass = "has-today"; 
         } else {
-          const hasPending = dayBookings.some(b => b.status === 'pending');
+          const hasPending = dayBookings.some(b => b.status === 'for approval');
           statusClass = hasPending ? "has-pending" : "has-upcoming"; 
         }
       }
@@ -88,7 +88,6 @@ const CalendarModal = ({ bookings, onClose }) => {
           <button className="close-btn" onClick={onClose}><FaTimes/></button>
         </div>
         <div className="calendar-body">
-          {/* LEFT SIDE: The Interactive Calendar */}
           <div className="calendar-main-column">
             <div className="cal-nav">
               <button onClick={handlePrevMonth}><FaChevronLeft/></button>
@@ -104,40 +103,39 @@ const CalendarModal = ({ bookings, onClose }) => {
             </div>
           </div>
 
-          {/* RIGHT SIDE: The Focal Appointment Details */}
           <div className="cal-details-section">
-          <div className="details-header">
-            <FaCalendarAlt size={16} />
-            <h4>{selectedDate ? new Date(selectedDate).toDateString() : "Daily Schedule"}</h4>
-          </div>
-          
-          <div className="cal-list">
-            {selectedDayBookings.map(b => (
-              <div key={b.id} className="cal-list-item-detailed">
-                <div className="item-main-row">
-                  <div className="cal-time-badge">{b.time_slot}</div>
-                  <div className={`status-pill ${b.status}`}>{b.status?.toUpperCase()}</div>
-                </div>
-                
-                <div className="item-content-row">
-                  <div className="provider-info">
-                    <label>Service Provider</label>
-                    <strong>{b.service_providers?.business_name}</strong>
+            <div className="details-header">
+              <FaCalendarAlt size={16} />
+              <h4>{selectedDate ? new Date(selectedDate).toDateString() : "Daily Schedule"}</h4>
+            </div>
+            
+            <div className="cal-list">
+              {selectedDayBookings.map(b => (
+                <div key={b.id} className="cal-list-item-detailed">
+                  <div className="item-main-row">
+                    <div className="cal-time-badge">{b.time_slot}</div>
+                    <div className={`status-pill ${b.status}`}>{b.status?.toUpperCase()}</div>
                   </div>
-                  <div className="pet-count-info">
-                    <span className="count-badge">
-                      <FaPaw size={12} /> {b.booking_pets?.length || 0}
-                    </span>
+                  
+                  <div className="item-content-row">
+                    <div className="provider-info">
+                      <label>Service Provider</label>
+                      <strong>{b.service_providers?.business_name}</strong>
+                    </div>
+                    <div className="pet-count-info">
+                      <span className="count-badge">
+                        <FaPaw size={12} /> {b.booking_pets?.length || 0}
+                      </span>
+                    </div>
                   </div>
-                </div>
 
-                <div className="pet-names-list">
-                  {b.booking_pets?.map(p => p.pet_name).join(', ')}
+                  <div className="pet-names-list">
+                    {b.booking_pets?.map(p => p.pet_name).join(', ')}
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
         </div>
       </div>
     </div>
@@ -161,11 +159,9 @@ export default function Appointments() {
   const [successTitle, setSuccessTitle] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
   
-  // ⭐ SUSPENSION STATE
   const [isSuspended, setIsSuspended] = useState(false);
   const [suspensionDate, setSuspensionDate] = useState(null);
 
-  // Reschedule Logic States
   const [reschedForm, setReschedForm] = useState({ date: "", time: "" });
   const [availableSlots, setAvailableSlots] = useState([]); 
   const [providerHours, setProviderHours] = useState([]);    
@@ -207,21 +203,21 @@ export default function Appointments() {
 
   useEffect(() => {
     const fetchTargetDateBookings = async () => {
-        if (!reschedForm.date || !selectedBooking) return;
-        
-        const { data, error } = await supabase
-            .from("bookings")
-            .select("id, time_slot, status")
-            .eq("provider_id", selectedBooking.service_providers.id)
-            .eq("booking_date", reschedForm.date)
-            .not("status", "in", '("cancelled", "declined", "rejected", "void", "voided")')
-            .neq("id", selectedBooking.id); 
+      if (!reschedForm.date || !selectedBooking) return;
+      
+      const { data, error } = await supabase
+        .from("bookings")
+        .select("id, time_slot, status")
+        .eq("provider_id", selectedBooking.service_providers.id)
+        .eq("booking_date", reschedForm.date)
+        .not("status", "in", '("cancelled", "declined", "rejected", "void", "voided")')
+        .neq("id", selectedBooking.id); 
 
-        if (!error) setTargetDateBookings(data || []);
+      if (!error) setTargetDateBookings(data || []);
     };
 
     if (showRescheduleModal) {
-        fetchTargetDateBookings();
+      fetchTargetDateBookings();
     }
   }, [reschedForm.date, selectedBooking, showRescheduleModal]);
 
@@ -234,7 +230,6 @@ export default function Appointments() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return navigate("/login");
 
-      // ⭐ CHECK FOR SUSPENSION
       const { data: profile } = await supabase
         .from("profiles")
         .select("suspension_end_date")
@@ -276,19 +271,6 @@ export default function Appointments() {
       if (error) throw error;
       setBookings(data || []);
 
-      const now = new Date();
-      data?.forEach(async (b) => {
-        const submittedAt = new Date(b.created_at);
-        const hoursDiff = (now - submittedAt) / (1000 * 60 * 60);
-        
-        if (b.status === 'pending' && hoursDiff >= 24) {
-          await supabase.from('bookings').update({ 
-            status: 'declined', 
-            rejection_reason: 'Service Provider did not respond to booking requests' 
-          }).eq('id', b.id);
-        }
-      });
-
     } catch (err) {
       // Handle error
     } finally {
@@ -300,7 +282,6 @@ export default function Appointments() {
     if (!dateString || providerHours.length === 0) return [];
     const dayName = new Date(dateString).toLocaleDateString('en-US', { weekday: 'long' });
     const daySchedule = providerHours.find(h => h.day_of_week === dayName);
-
     return calculateIntervalSlots(daySchedule).map(time => {
       const tempDate = new Date(`2000-01-01T${time}`);
       return tempDate.toLocaleTimeString('en-US', { 
@@ -309,7 +290,7 @@ export default function Appointments() {
     });
   };
 
-const handleRescheduleDateChange = async (e) => {
+  const handleRescheduleDateChange = async (e) => {
     const newDate = e.target.value;
     if (!newDate || !selectedBooking) return;
 
@@ -348,13 +329,13 @@ const handleRescheduleDateChange = async (e) => {
       setTargetDateBookings(dateBookings || []);
       
       const displaySlots = potentialSlots.map(t => {
-          const [h, m] = t.split(':');
-          const hr = parseInt(h);
-          return `${hr % 12 || 12}:${m} ${hr >= 12 ? 'PM' : 'AM'}`;
+        const [h, m] = t.split(':');
+        const hr = parseInt(h);
+        return `${hr % 12 || 12}:${m} ${hr >= 12 ? 'PM' : 'AM'}`;
       });
       setAvailableSlots(displaySlots);
     }
-  };;
+  };
 
   const getSlotDetails = (timeSlot) => {
     if (!reschedForm.date || !selectedBooking || providerHours.length === 0) return { remaining: 0, isEnough: false };
@@ -364,15 +345,13 @@ const handleRescheduleDateChange = async (e) => {
     const maxCapacity = workingDay ? parseInt(workingDay.slot_capacity) : 1;
     
     const time24 = convertTo24Hour(timeSlot) + ":00";
-    
     const occupiedByOthers = targetDateBookings.filter(b => b.time_slot === time24).length;
-    
     const remaining = maxCapacity - occupiedByOthers;
     const petCount = selectedBooking.booking_pets?.length || 0;
     
     return {
-        remaining: Math.max(0, remaining),
-        isEnough: remaining >= petCount
+      remaining: Math.max(0, remaining),
+      isEnough: remaining >= petCount
     };
   };
 
@@ -399,11 +378,10 @@ const handleRescheduleDateChange = async (e) => {
     const bookingDate = new Date(booking.booking_date);
     const today = new Date();
     today.setHours(0,0,0,0);
-    
     const diffTime = bookingDate - today;
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    
-    return (['pending', 'paid'].includes(booking.status)) && diffDays > 1;
+    // ✅ Only 'for approval' bookings can be cancelled (removed 'paid' since payment is full upfront now)
+    return booking.status === 'for approval' && diffDays > 1;
   };
 
   const getFilteredBookings = () => {
@@ -411,19 +389,20 @@ const handleRescheduleDateChange = async (e) => {
     const sorted = [...bookings].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
     switch (activeTab) {
-      case "awaiting": return sorted.filter(b => b.status === "pending");
-      case "payment": return sorted.filter(b => b.status === "approved");
+      // ✅ "Awaiting Approval" now shows 'for approval' status
+      case "awaiting": return sorted.filter(b => b.status === "for approval");
+      // ✅ "Upcoming" remains 'paid' — provider approved and full payment already collected
       case "upcoming": return sorted.filter(b => b.status === "paid");
-      case "rate": return sorted.filter(b => b.status === "for review");
-      default: return [];
+      case "rate":     return sorted.filter(b => b.status === "for review");
+      default:         return [];
     }   
   };
 
+  // ✅ Removed 'payment' count — only 3 tabs now
   const counts = {
-    awaiting: bookings.filter(b => b.status === "pending").length,
-    payment: bookings.filter(b => b.status === "approved").length,
-    upcoming: bookings.filter(b => b.status === "paid").length,
-    rate: bookings.filter(b => b.status === "for review").length,
+    awaiting: bookings.filter(b => b.status === "for approval").length,
+    upcoming:  bookings.filter(b => b.status === "paid").length,
+    rate:      bookings.filter(b => b.status === "for review").length,
   };
 
   const getServiceSummary = (pets) => {
@@ -452,7 +431,7 @@ const handleRescheduleDateChange = async (e) => {
   const handleOpenRateModal = () => setShowFeedbackModal(true); 
 
   const handleSubmitFeedback = async () => {
-    if (isSuspended) return; // Guard
+    if (isSuspended) return;
     if (feedbackForm.overallRating === 0 || feedbackForm.staffRating === 0) return;
     setActionLoading(true);
     try {
@@ -475,13 +454,13 @@ const handleRescheduleDateChange = async (e) => {
 
   const confirmReschedule = async (e) => {
     e.preventDefault();
-    if(isSuspended) return; // Guard
-    if(!reschedForm.time || !selectedBooking) return;
+    if (isSuspended) return;
+    if (!reschedForm.time || !selectedBooking) return;
 
     const { isEnough } = getSlotDetails(reschedForm.time);
     if (!isEnough) {
-        alert("Sorry, this slot was just taken by another user. Please choose another time.");
-        return;
+      alert("Sorry, this slot was just taken by another user. Please choose another time.");
+      return;
     }
 
     setActionLoading(true);
@@ -492,7 +471,7 @@ const handleRescheduleDateChange = async (e) => {
         .update({
           booking_date: reschedForm.date,
           time_slot: time24,
-          status: 'pending' 
+          status: 'for approval' 
         })
         .eq('id', selectedBooking.id);
 
@@ -503,7 +482,6 @@ const handleRescheduleDateChange = async (e) => {
 
       setSuccessTitle("Reschedule Successful!");
       setSuccessMessage("Your previous slot has been released and your new appointment is now awaiting approval.");
-      
       setShowSuccessModal(true);
     } catch (err) {
       console.error(err);
@@ -513,7 +491,7 @@ const handleRescheduleDateChange = async (e) => {
   };
 
   const confirmCancel = async () => {
-    if (isSuspended || !selectedBooking) return; // Guard
+    if (isSuspended || !selectedBooking) return;
 
     setActionLoading(true);
     try {
@@ -548,11 +526,6 @@ const handleRescheduleDateChange = async (e) => {
     return original > tomorrow ? original.toISOString().split("T")[0] : tomorrow.toISOString().split("T")[0];
   };
 
-  const handlePayNow = () => {
-    if (isSuspended) return; // Guard
-    navigate(`/payment/${selectedBooking.id}`);
-  };
-  
   if (loading) return <div className="app-loading">Loading...</div>;
 
   return (
@@ -561,43 +534,39 @@ const handleRescheduleDateChange = async (e) => {
       <div className="appointments-wrapper">
         <div className="appointments-container">
           <div className="app-header-row">
-             <div className="header-text">
-               <h1>My Appointments</h1>
-               <p>Manage your pet's grooming sessions</p>
-             </div>
-             <div className="header-actions">
-               <button className="calendar-view-btn" onClick={() => setShowCalendarModal(true)}>
-                  <FaCalendarAlt /> View Calendar
-               </button>
-               <button className="history-btn" onClick={() => navigate('/booking-history')}>
-                  View History
-               </button>
-             </div>
+            <div className="header-text">
+              <h1>My Appointments</h1>
+              <p>Manage your pet's grooming sessions</p>
+            </div>
+            <div className="header-actions">
+              <button className="calendar-view-btn" onClick={() => setShowCalendarModal(true)}>
+                <FaCalendarAlt /> View Calendar
+              </button>
+              <button className="history-btn" onClick={() => navigate('/booking-history')}>
+                View History
+              </button>
+            </div>
           </div>
+
+          {/* ✅ 3 tabs only: Awaiting Approval, Upcoming, To Rate */}
           <div className="status-icons-card">
             <div className="icons-row">
-              {['awaiting', 'payment', 'upcoming', 'rate'].map((tab) => (
+              {['awaiting', 'upcoming', 'rate'].map((tab) => (
                 <div key={tab} className={`icon-item ${activeTab === tab ? 'active' : ''}`} onClick={() => setActiveTab(tab)}>
                   <div className="icon-circle">
                     {tab === 'awaiting' && <FaClock />}
-                    {tab === 'payment' && <FaCreditCard />}
                     {tab === 'upcoming' && <FaCut />}
                     {tab === 'rate' && <FaStar />}
                     {counts[tab] > 0 && <span className="badge-count">{counts[tab]}</span>}
                   </div>
                   <span>
-                    {tab === 'awaiting' 
-                      ? 'Awaiting Approval' 
-                      : tab === 'payment' 
-                      ? 'For Payment' 
-                      : tab === 'rate' 
-                      ? 'To Rate' 
-                      : tab.charAt(0).toUpperCase() + tab.slice(1)}
+                    {tab === 'awaiting' ? 'Awaiting Approval' : tab === 'rate' ? 'To Rate' : 'Upcoming'}
                   </span>
                 </div>
               ))}
             </div>
           </div>
+
           <div className="app-list-section">
             <div className="bookings-grid">
               <div className="list-table-header">
@@ -618,9 +587,7 @@ const handleRescheduleDateChange = async (e) => {
                     <div className="col-date"><strong>{formatDateTime(booking.booking_date, booking.time_slot)}</strong></div>
                     <div className="col-pets">{booking.booking_pets?.length || 0} Pet/s</div>
                     <div className="col-service">{getServiceSummary(booking.booking_pets)}</div>
-                    <div className="col-price">
-                        {formatCurrency(booking.total_estimated_price)}
-                    </div>
+                    <div className="col-price">{formatCurrency(booking.total_estimated_price)}</div>
                     <div className="col-action"><button className="view-app-btn" onClick={() => handleOpenDetails(booking)}>View Details</button></div>
                   </div>
                 ))
@@ -635,78 +602,60 @@ const handleRescheduleDateChange = async (e) => {
       {selectedBooking && !showRescheduleModal && !showCancelModal && !showSuccessModal && !showFeedbackModal && !showCalendarModal && (
         <div className="modal-overlay" onClick={handleCloseAll}>
           <div className="modal-content large-modal" onClick={e => e.stopPropagation()}>
-             <div className="modal-header"><h3>Appointment Details</h3><button className="close-btn" onClick={handleCloseAll}><FaTimes/></button></div>
-             <div className="modal-body-scroll">
-                {/* ⭐ SUSPENSION WARNING BANNER */}
-                {isSuspended && (
-                  <div className="refund-warning-box" style={{ backgroundColor: '#fff1f2', border: '1px solid #fecdd3', padding: '15px', borderRadius: '12px', color: '#be123c', marginBottom: '20px', display: 'flex', gap: '10px', alignItems: 'center' }}>
-                    <FaBan size={20}/>
-                    <span><strong>Action Restricted:</strong> Your account is currently suspended until {suspensionDate.toLocaleDateString()}. You can view your details but cannot modify this appointment.</span>
+            <div className="modal-header">
+              <h3>Appointment Details</h3>
+              <button className="close-btn" onClick={handleCloseAll}><FaTimes/></button>
+            </div>
+            <div className="modal-body-scroll">
+              {isSuspended && (
+                <div className="refund-warning-box" style={{ backgroundColor: '#fff1f2', border: '1px solid #fecdd3', padding: '15px', borderRadius: '12px', color: '#be123c', marginBottom: '20px', display: 'flex', gap: '10px', alignItems: 'center' }}>
+                  <FaBan size={20}/>
+                  <span><strong>Action Restricted:</strong> Your account is currently suspended until {suspensionDate.toLocaleDateString()}. You can view your details but cannot modify this appointment.</span>
+                </div>
+              )}
+
+              <div className="info-grid">
+                <div className="info-item"><label><FaInfoCircle/> Provider</label><span>{selectedBooking.service_providers?.business_name}</span></div>
+                <div className="info-item"><label><FaClock/> Schedule</label><span>{formatDateTime(selectedBooking.booking_date, selectedBooking.time_slot)}</span></div>
+                <div className="info-item">
+                  <label><FaFileInvoiceDollar/> Total Paid</label>
+                  <span className="price-tag">{formatCurrency(selectedBooking.total_estimated_price)}</span>
+                  <span className="vat-note-small" style={{textAlign: 'left', marginTop: '0'}}>Full Payment (VAT Inclusive)</span>
+                </div>
+                <div className="info-item"><label>Status</label><span className="status-badge">{selectedBooking.status}</span></div>
+              </div>
+
+              <hr className="divider"/>
+              <h4>Pets & Grooming Details</h4>
+              <div className="pets-list">
+                {selectedBooking.booking_pets?.map((pet, idx) => (
+                  <div key={pet.id || idx} className="pet-full-card">
+                    <h5 className="pet-name-header">Pet {idx+1}: {pet.pet_name} ({pet.pet_type})</h5>
+                    <div className="pet-specs-grid">
+                      <div><span className="label">Breed</span> {pet.breed || 'N/A'}</div>
+                      <div><span className="label">Gender</span> {pet.gender || 'N/A'}</div>
+                      <div><span className="label">Weight</span> {pet.weight_kg} kg</div>
+                      <div><span className="label">Size</span> {pet.calculated_size || 'N/A'}</div>
+                      <div><span className="label">Behavior</span> {pet.behavior || 'N/A'}</div>
+                      <div><span className="label">Consent</span> {pet.emergency_consent ? 'Yes' : 'No'}</div>
+                    </div>
+                    <div className="pet-info-row-split">
+                      <div className="pet-specs-full"><span className="label">Grooming Specs:</span> {pet.grooming_specifications || 'None'}</div>
+                      <div className="pet-specs-full"><span className="label">Services:</span> {pet.booking_services?.map(s => s.service_name).join(', ')}</div>
+                    </div>
+                    <div className="pet-images-row">
+                      {pet.vaccine_card_url && <div className="image-wrapper clickable-img" onClick={() => setPreviewImage(pet.vaccine_card_url)}><p className="img-label">Vaccine Card <FaSearchPlus size={12} /></p><img src={pet.vaccine_card_url} className="proof-image"/></div>}
+                      {pet.illness_proof_url && <div className="image-wrapper clickable-img" onClick={() => setPreviewImage(pet.illness_proof_url)}><p className="img-label">Proof of Illness <FaSearchPlus size={12} /></p><img src={pet.illness_proof_url} className="proof-image"/></div>}
+                      {pet.ai_generated_url && <div className="image-wrapper clickable-img" onClick={() => setPreviewImage(pet.ai_generated_url)}><p className="img-label">AI Style Preview <FaSearchPlus size={12} /></p><img src={pet.ai_generated_url} className="proof-image"/></div>}
+                    </div>
                   </div>
-                )}
-
-                <div className="info-grid">
-                   <div className="info-item"><label><FaInfoCircle/> Provider</label><span>{selectedBooking.service_providers?.business_name}</span></div>
-                   <div className="info-item"><label><FaClock/> Schedule</label><span>{formatDateTime(selectedBooking.booking_date, selectedBooking.time_slot)}</span></div>
-                   <div className="info-item">
-                       <label><FaFileInvoiceDollar/> Total Amount</label>
-                       <span className="price-tag">{formatCurrency(selectedBooking.total_estimated_price)}</span>
-                       <span className="vat-note-small" style={{textAlign: 'left', marginTop: '0'}}>* VAT exclusive</span>
-                   </div>
-                   <div className="info-item">
-                        <label><FaCreditCard/> Downpayment</label>
-                        <span className="price-tag">{formatCurrency(selectedBooking.installation_payment)}</span>
-                        <span className="vat-note-small" style={{textAlign: 'left', marginTop: '0'}}>* VAT exclusive</span>
-                    </div>
-
-                    {(selectedBooking.status === 'paid' && activeTab === 'upcoming') && (
-                        <div className="info-item">
-                            <label>
-                                <FaFileInvoiceDollar/> Balance to Pay
-                            </label>
-                            <span className="price-tag">
-                                {formatCurrency(
-                                    (selectedBooking.total_estimated_price || 0) - (selectedBooking.installation_payment || 0)
-                                )}
-                            </span>
-                            <p style={{ fontSize: '0.7rem', color: '#64748b', margin: '2px 0 0 0' }}>
-                                Payable at the shop on {new Date(selectedBooking.booking_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                            </p>
-                        </div>
-                    )}
-                   <div className="info-item"><label>Status</label><span className="status-badge">{selectedBooking.status}</span></div>
-                </div>
-                <hr className="divider"/>
-                <h4>Pets & Grooming Details</h4>
-                <div className="pets-list">
-                  {selectedBooking.booking_pets?.map((pet, idx) => (
-                    <div key={pet.id || idx} className="pet-full-card">
-                       <h5 className="pet-name-header">Pet {idx+1}: {pet.pet_name} ({pet.pet_type})</h5>
-                       <div className="pet-specs-grid">
-                         <div><span className="label">Breed</span> {pet.breed || 'N/A'}</div>
-                         <div><span className="label">Gender</span> {pet.gender || 'N/A'}</div>
-                         <div><span className="label">Weight</span> {pet.weight_kg} kg</div>
-                         <div><span className="label">Size</span> {pet.calculated_size || 'N/A'}</div>
-                         <div><span className="label">Behavior</span> {pet.behavior || 'N/A'}</div>
-                         <div><span className="label">Consent</span> {pet.emergency_consent ? 'Yes' : 'No'}</div>
-                       </div>
-                       <div className="pet-info-row-split">
-                         <div className="pet-specs-full"><span className="label">Grooming Specs:</span> {pet.grooming_specifications || 'None'}</div>
-                         <div className="pet-specs-full"><span className="label">Services:</span> {pet.booking_services?.map(s => s.service_name).join(', ')}</div>
-                       </div>
-                       <div className="pet-images-row">
-                         {pet.vaccine_card_url && <div className="image-wrapper clickable-img" onClick={() => setPreviewImage(pet.vaccine_card_url)}><p className="img-label">Vaccine Card <FaSearchPlus size={12} /></p><img src={pet.vaccine_card_url} className="proof-image"/></div>}
-                         {pet.illness_proof_url && <div className="image-wrapper clickable-img" onClick={() => setPreviewImage(pet.illness_proof_url)}><p className="img-label">Proof of Illness <FaSearchPlus size={12} /></p><img src={pet.illness_proof_url} className="proof-image"/></div>}
-                         {pet.ai_generated_url && <div className="image-wrapper clickable-img" onClick={() => setPreviewImage(pet.ai_generated_url)}><p className="img-label">AI Style Preview <FaSearchPlus size={12} /></p><img src={pet.ai_generated_url} className="proof-image"/></div>}
-                       </div>
-                    </div>
-                  ))}
-                </div>
-             </div>
-             
-             {/* ⭐ MODAL FOOTER: BUTTONS ARE DISABLED IF SUSPENDED */}
-             <div className="modal-footer">
-              {selectedBooking.status === 'pending' && (
+                ))}
+              </div>
+            </div>
+            
+            <div className="modal-footer">
+              {/* ✅ Reschedule only available for 'for approval' bookings */}
+              {selectedBooking.status === 'for approval' && (
                 <button 
                   className="resched-btn" 
                   onClick={() => !isSuspended && setShowRescheduleModal(true)}
@@ -714,17 +663,6 @@ const handleRescheduleDateChange = async (e) => {
                   style={isSuspended ? { backgroundColor: '#cbd5e1', cursor: 'not-allowed', color: '#64748b' } : {}}
                 >
                   {isSuspended ? "Reschedule Locked" : "Reschedule"}
-                </button>
-              )}
-
-              {selectedBooking.status === 'approved' && (
-                <button 
-                  className="pay-btn" 
-                  onClick={handlePayNow}
-                  disabled={isSuspended}
-                  style={isSuspended ? { backgroundColor: '#cbd5e1', cursor: 'not-allowed', color: '#64748b' } : {}}
-                >
-                  {isSuspended ? "Payment Locked" : "Pay Now"}
                 </button>
               )}
 
@@ -754,7 +692,6 @@ const handleRescheduleDateChange = async (e) => {
         </div>
       )}
 
-      {/* Other modals (Reschedule, Cancel, Feedback, Success) remain unchanged visually but logic is guarded */}
       {showRescheduleModal && (
         <div className="modal-overlay">
           <div className="modal-content small-modal">
@@ -791,7 +728,6 @@ const handleRescheduleDateChange = async (e) => {
                   {availableSlots.map((slot, index) => {
                     const { remaining, isEnough } = getSlotDetails(slot);
                     const petCount = selectedBooking.booking_pets?.length || 1;
-                    
                     const isOriginalTime = 
                       reschedForm.date === selectedBooking.booking_date && 
                       convertTo24Hour(slot) === selectedBooking.time_slot.slice(0, 5); 
@@ -816,16 +752,22 @@ const handleRescheduleDateChange = async (e) => {
                 </select>
                 
                 {reschedForm.time && (
-                    <div className="slot-availability-text">
-                         Available slots for this time: <strong>{getSlotDetails(reschedForm.time).remaining}</strong>
-                    </div>
+                  <div className="slot-availability-text">
+                    Available slots for this time: <strong>{getSlotDetails(reschedForm.time).remaining}</strong>
+                  </div>
                 )}
 
-                {reschedForm.date && availableSlots.length === 0 && <div className="warning-text-simple" style={{ color: 'var(--brand-red)', fontSize: '0.85rem', marginTop: '5px' }}><FaExclamationTriangle /> Provider is closed on selected day.</div>}
+                {reschedForm.date && availableSlots.length === 0 && (
+                  <div className="warning-text-simple" style={{ color: 'var(--brand-red)', fontSize: '0.85rem', marginTop: '5px' }}>
+                    <FaExclamationTriangle /> Provider is closed on selected day.
+                  </div>
+                )}
               </div>
               <div className="modal-footer">
                 <button type="button" className="secondary-btn" onClick={() => setShowRescheduleModal(false)}>Back</button>
-                <button type="submit" className="confirm-btn-yes" disabled={actionLoading || !reschedForm.time || availableSlots.length === 0}>{actionLoading ? "Saving..." : "Confirm"}</button>
+                <button type="submit" className="confirm-btn-yes" disabled={actionLoading || !reschedForm.time || availableSlots.length === 0}>
+                  {actionLoading ? "Saving..." : "Confirm"}
+                </button>
               </div>
             </form>
           </div>
@@ -842,96 +784,79 @@ const handleRescheduleDateChange = async (e) => {
       )}
 
       {showFeedbackModal && (
-      <div className="modal-overlay">
-        <div className="modal-content small-modal">
-          <div className="modal-header">
-            <h3>Rate Experience</h3>
-            <button className="close-btn" onClick={handleCloseAll}><FaTimes/></button>
-          </div>
+        <div className="modal-overlay">
+          <div className="modal-content small-modal">
+            <div className="modal-header">
+              <h3>Rate Experience</h3>
+              <button className="close-btn" onClick={handleCloseAll}><FaTimes/></button>
+            </div>
+            <div className="modal-body">
+              <div className="rating-group">
+                <label style={{ color: 'var(--brand-blue)', fontWeight: '700' }}>
+                  Overall Experience <span className="req" style={{ color: 'var(--brand-red)' }}>*</span>
+                </label>
+                <div className="stars-container">
+                  {[1, 2, 3, 4, 5].map(star => (
+                    <FaStar 
+                      key={`overall-${star}`} 
+                      className={`star-icon ${feedbackForm.overallRating >= star ? 'filled' : ''}`} 
+                      onClick={() => setFeedbackForm({...feedbackForm, overallRating: star})} 
+                      style={{ cursor: 'pointer', fontSize: '2rem', color: feedbackForm.overallRating >= star ? 'var(--brand-yellow)' : '#e2e8f0', marginRight: '5px' }}
+                    />
+                  ))}
+                </div>
+              </div>
 
-          <div className="modal-body">
-            <div className="rating-group">
-              <label style={{ color: 'var(--brand-blue)', fontWeight: '700' }}>
-                Overall Experience <span className="req" style={{ color: 'var(--brand-red)' }}>*</span>
-              </label>
-              <div className="stars-container">
-                {[1, 2, 3, 4, 5].map(star => (
-                  <FaStar 
-                    key={`overall-${star}`} 
-                    className={`star-icon ${feedbackForm.overallRating >= star ? 'filled' : ''}`} 
-                    onClick={() => setFeedbackForm({...feedbackForm, overallRating: star})} 
-                    style={{ 
-                      cursor: 'pointer', 
-                      fontSize: '2rem', 
-                      color: feedbackForm.overallRating >= star ? 'var(--brand-yellow)' : '#e2e8f0',
-                      marginRight: '5px'
-                    }}
-                  />
-                ))}
+              <div className="rating-group" style={{ marginTop: '1.5rem' }}>
+                <label style={{ color: 'var(--brand-blue)', fontWeight: '700' }}>
+                  Staff Rating <span className="req" style={{ color: 'var(--brand-red)' }}>*</span>
+                </label>
+                <div className="stars-container">
+                  {[1, 2, 3, 4, 5].map(star => (
+                    <FaStar 
+                      key={`staff-${star}`} 
+                      className={`star-icon ${feedbackForm.staffRating >= star ? 'filled' : ''}`} 
+                      onClick={() => setFeedbackForm({...feedbackForm, staffRating: star})} 
+                      style={{ cursor: 'pointer', fontSize: '2rem', color: feedbackForm.staffRating >= star ? 'var(--brand-yellow)' : '#e2e8f0', marginRight: '5px' }}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              <div className="textarea-group" style={{ marginTop: '1.5rem' }}>
+                <label style={{ color: 'var(--brand-blue)', fontWeight: '700', display: 'block', marginBottom: '8px' }}>Comments</label>
+                <textarea 
+                  className="feedback-textarea" 
+                  placeholder="Tell us about your experience..." 
+                  value={feedbackForm.comment} 
+                  maxLength={500}
+                  onChange={(e) => setFeedbackForm({...feedbackForm, comment: e.target.value})} 
+                  style={{ width: '100%', padding: '12px', borderRadius: '10px', border: '1.5px solid var(--border-light)', minHeight: '100px', fontFamily: 'inherit' }}
+                />
+                <div style={{ textAlign: 'right', fontSize: '0.75rem', color: feedbackForm.comment.length >= 500 ? 'var(--brand-red)' : 'var(--text-muted)', marginTop: '5px', fontWeight: '600' }}>
+                  {feedbackForm.comment.length} / 500
+                </div>
               </div>
             </div>
 
-            <div className="rating-group" style={{ marginTop: '1.5rem' }}>
-              <label style={{ color: 'var(--brand-blue)', fontWeight: '700' }}>
-                Staff Rating <span className="req" style={{ color: 'var(--brand-red)' }}>*</span>
-              </label>
-              <div className="stars-container">
-                {[1, 2, 3, 4, 5].map(star => (
-                  <FaStar 
-                    key={`staff-${star}`} 
-                    className={`star-icon ${feedbackForm.staffRating >= star ? 'filled' : ''}`} 
-                    onClick={() => setFeedbackForm({...feedbackForm, staffRating: star})} 
-                    style={{ 
-                      cursor: 'pointer', 
-                      fontSize: '2rem', 
-                      color: feedbackForm.staffRating >= star ? 'var(--brand-yellow)' : '#e2e8f0',
-                      marginRight: '5px'
-                    }}
-                  />
-                ))}
-              </div>
+            <div className="modal-footer" style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '2rem' }}>
+              <button className="secondary-btn" onClick={handleCloseAll}>Cancel</button>
+              <button 
+                className="confirm-btn-yes" 
+                onClick={handleSubmitFeedback} 
+                disabled={actionLoading || feedbackForm.overallRating === 0 || feedbackForm.staffRating === 0}
+                style={{ 
+                  backgroundColor: (feedbackForm.overallRating === 0 || feedbackForm.staffRating === 0) ? '#cbd5e1' : 'var(--brand-blue)',
+                  color: 'white', padding: '10px 20px', borderRadius: '8px', border: 'none', fontWeight: '700',
+                  cursor: (feedbackForm.overallRating === 0 || feedbackForm.staffRating === 0) ? 'not-allowed' : 'pointer'
+                }}
+              >
+                {actionLoading ? "Submitting..." : "Submit Review"}
+              </button>
             </div>
-
-            <div className="textarea-group" style={{ marginTop: '1.5rem' }}>
-              <label style={{ color: 'var(--brand-blue)', fontWeight: '700', display: 'block', marginBottom: '8px' }}>
-                Comments
-              </label>
-              <textarea 
-                className="feedback-textarea" 
-                placeholder="Tell us about your experience..." 
-                value={feedbackForm.comment} 
-                maxLength={500}
-                onChange={(e) => setFeedbackForm({...feedbackForm, comment: e.target.value})} 
-                style={{ width: '100%', padding: '12px', borderRadius: '10px', border: '1.5px solid var(--border-light)', minHeight: '100px', fontFamily: 'inherit' }}
-              />
-              <div style={{ textAlign: 'right', fontSize: '0.75rem', color: feedbackForm.comment.length >= 500 ? 'var(--brand-red)' : 'var(--text-muted)', marginTop: '5px', fontWeight: '600' }}>
-                {feedbackForm.comment.length} / 500
-              </div>
-            </div>
-          </div>
-
-          <div className="modal-footer" style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '2rem' }}>
-            <button className="secondary-btn" onClick={handleCloseAll}>Cancel</button>
-            <button 
-              className="confirm-btn-yes" 
-              onClick={handleSubmitFeedback} 
-              disabled={actionLoading || feedbackForm.overallRating === 0 || feedbackForm.staffRating === 0}
-              style={{ 
-                backgroundColor: (feedbackForm.overallRating === 0 || feedbackForm.staffRating === 0) ? '#cbd5e1' : 'var(--brand-blue)',
-                color: 'white',
-                padding: '10px 20px',
-                borderRadius: '8px',
-                border: 'none',
-                fontWeight: '700',
-                cursor: (feedbackForm.overallRating === 0 || feedbackForm.staffRating === 0) ? 'not-allowed' : 'pointer'
-              }}
-            >
-              {actionLoading ? "Submitting..." : "Submit Review"}
-            </button>
           </div>
         </div>
-      </div>
-    )}
+      )}
 
       {showCancelModal && (
         <div className="modal-overlay">
@@ -945,36 +870,16 @@ const handleRescheduleDateChange = async (e) => {
               <p style={{ fontWeight: '600', marginBottom: '10px' }}>
                 Are you sure you want to cancel this appointment?
               </p>
-              
-              {selectedBooking?.status === 'paid' && (
-                <div className="refund-warning-box" style={{ 
-                  backgroundColor: '#fef2f2', 
-                  border: '1px solid #fecaca', 
-                  padding: '12px', 
-                  borderRadius: '8px',
-                  color: '#991b1b',
-                  fontSize: '0.85rem'
-                }}>
-                  <strong>Important:</strong> This booking is already <strong>PAID</strong>. 
-                  By cancelling, you acknowledge that the 30% downpayment is 
-                  <strong> non-refundable</strong>.
-                </div>
-              )}
+              {/* ✅ Updated warning: full payment refund policy since we charge full amount upfront */}
+              <div className="refund-warning-box" style={{ backgroundColor: '#fef2f2', border: '1px solid #fecaca', padding: '12px', borderRadius: '8px', color: '#991b1b', fontSize: '0.85rem' }}>
+                <strong>Important:</strong> You have already paid the <strong>full amount</strong> for this booking. If you cancel, a refund will be processed subject to the provider's refund policy.
+              </div>
             </div>
             <div className="modal-footer">
-              <button 
-                className="secondary-btn" 
-                onClick={() => setShowCancelModal(false)}
-                disabled={actionLoading}
-              >
+              <button className="secondary-btn" onClick={() => setShowCancelModal(false)} disabled={actionLoading}>
                 No, Keep Booking
               </button>
-              <button 
-                className="confirm-btn-no" 
-                onClick={confirmCancel} 
-                disabled={actionLoading}
-                style={{ backgroundColor: '#ef4444' }}
-              >
+              <button className="confirm-btn-no" onClick={confirmCancel} disabled={actionLoading} style={{ backgroundColor: '#ef4444' }}>
                 {actionLoading ? "Processing..." : "Yes, Cancel Appointment"}
               </button>
             </div>
@@ -983,46 +888,16 @@ const handleRescheduleDateChange = async (e) => {
       )}
 
       {showSuccessModal && (
-      <div className="modal-overlay">
-        <div 
-          className="modal-content small-modal" 
-          style={{
-            display: 'flex',          
-            flexDirection: 'column',    
-            alignItems: 'center',       
-            justifyContent: 'center',   
-            textAlign: 'center', 
-            padding: '3rem 2rem',       
-            borderRadius: '16px'
-          }}
-        >
-          <FaCheckCircle 
-            style={{
-              fontSize: '4.5rem', 
-              color: 'var(--brand-green)', 
-              marginBottom: '1.5rem',
-              display: 'block'          
-            }}
-          />
-          
-          <h3 style={{ color: 'var(--brand-blue)', fontWeight: '800', marginBottom: '0.5rem' }}>
-            {successTitle}
-          </h3>
-          
-          <p style={{ color: 'var(--text-muted)', marginBottom: '2rem' }}>
-            {successMessage}
-          </p>
-          
-          <button 
-            className="confirm-btn-yes" 
-            onClick={() => setShowSuccessModal(false)} 
-            style={{ width: '100%', maxWidth: '250px' }} 
-          >
-            OK
-          </button>
+        <div className="modal-overlay">
+          <div className="modal-content small-modal" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '3rem 2rem', borderRadius: '16px' }}>
+            <FaCheckCircle style={{ fontSize: '4.5rem', color: 'var(--brand-green)', marginBottom: '1.5rem', display: 'block' }} />
+            <h3 style={{ color: 'var(--brand-blue)', fontWeight: '800', marginBottom: '0.5rem' }}>{successTitle}</h3>
+            <p style={{ color: 'var(--text-muted)', marginBottom: '2rem' }}>{successMessage}</p>
+            <button className="confirm-btn-yes" onClick={() => setShowSuccessModal(false)} style={{ width: '100%', maxWidth: '250px' }}>OK</button>
+          </div>
         </div>
-      </div>
-    )}
+      )}
+
       <Footer />
     </div>
   );

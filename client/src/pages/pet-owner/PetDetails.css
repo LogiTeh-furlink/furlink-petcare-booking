@@ -896,3 +896,51 @@
     border-color: #0E2679;
     background-color: #fdfdfe;
 }
+/* Haircut Selection Grid */
+.haircut-selector-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 10px;
+    margin: 12px 0 20px 0;
+}
+
+.haircut-option {
+    background: #ffffff;
+    border: 2px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 12px 10px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #64748b;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    text-align: center;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+
+.haircut-option:hover {
+    border-color: #cbd5e1;
+    background-color: #f8fafc;
+    transform: translateY(-1px);
+}
+
+.haircut-option.active {
+    background-color: #0E2679;
+    border-color: #0E2679;
+    color: #ffffff;
+    box-shadow: 0 4px 12px rgba(14, 38, 121, 0.25);
+}
+
+/* Form Section Styling */
+.form-group.full-width .sub-label {
+    display: block;
+    margin-bottom: 8px;
+    color: #0E2679;
+    font-weight: 700;
+    font-size: 0.9rem;
+}
+
+/* Animation when clicking a style */
+.haircut-option:active {
+    transform: scale(0.96);
+}

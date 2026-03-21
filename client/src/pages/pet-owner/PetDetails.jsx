@@ -233,7 +233,8 @@ const PetDetails = () => {
     ai_confirmed: false,
     ai_reference_file: null,
     ai_reference_preview: null,
-    ai_generated_preview: null
+    ai_generated_preview: null,
+    selected_haircut: ""
   });
 
   // --- Fetch Initial Data (Services and Capacity) ---
@@ -356,118 +357,52 @@ const handleFinalSubmit = async () => {
   setLoading(true);
   try {
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error("User session not found.");
+    
+    // 1. Prepare Metadata Payload
+    const bookingPayload = {
+      user_id: user.id,
+      provider_id: initialProviderId,
+      booking_date: state?.bookingDate,
+      time_slot: state?.bookingTime,
+      total_estimated_price: calculateGrandTotal(),
+      status: 'for approval',
+      pets: petsData.map(p => ({
+        registered_pet_id: p.registered_pet_id,
+        pet_name: p.pet_name,
+        pet_type: p.pet_type,
+        breed: p.breed,
+        gender: p.gender,
+        weight_kg: parseFloat(p.weight_kg),
+        birth_date: p.birth_date,
+        calculated_size: p.calculated_size,
+        behavior: Array.isArray(p.behavior) ? p.behavior.join(', ') : p.behavior,
+        selected_haircut: p.selected_haircut || "Standard Grooming",
+        grooming_specifications: p.grooming_specifications,
+        emergency_consent: p.emergency_consent,
+        vaccine_url: p.vaccine_preview,
+        services: p.services 
+      }))
+    };
 
-    // 1. Create the main booking record
-    const { data: booking, error: bError } = await supabase
-      .from('bookings')
-      .insert([{
-        user_id: user.id,
-        provider_id: initialProviderId,
-        booking_date: state?.bookingDate,
-        time_slot: state?.bookingTime,
-        total_estimated_price: calculateGrandTotal(), 
-        status: 'pending'
-      }])
-      .select().single();
-
-    if (bError) throw bError;
-
-    // 2. Process each pet
-    for (const [i, pet] of petsData.entries()) {
-      const storagePath = `${user.id}/${booking.id}/pet_${i}`;
-      
-      // Inside handleFinalSubmit loop (around line 258):
-      const vUrl = pet.vaccine_file 
-        ? await uploadFile(pet.vaccine_file, storagePath) 
-        : pet.vaccine_preview; // If no new file, use the preview URL (autofilled string)
-
-      const iUrl = pet.illness_file 
-        ? await uploadFile(pet.illness_file, storagePath) 
-        : pet.illness_preview;
-
-      // --- AI PREVIEW PROCESSING (UPDATED) ---
-      let aiUrl = null;
-      if (pet.ai_confirmed && pet.ai_generated_preview) {
-        try {
-          // Check if it's a Base64 string (Hugging Face) or a direct URL (Pollinations)
-          if (pet.ai_generated_preview.startsWith('data:image')) {
-            // Convert Base64 to Blob
-            const base64Data = pet.ai_generated_preview.split(',')[1];
-            const byteCharacters = atob(base64Data);
-            const byteNumbers = new Array(byteCharacters.length);
-            for (let i = 0; i < byteCharacters.length; i++) {
-              byteNumbers[i] = byteCharacters.charCodeAt(i);
-            }
-            const byteArray = new Uint8Array(byteNumbers);
-            const blob = new Blob([byteArray], { type: 'image/jpeg' });
-            
-            const aiFile = new File([blob], "ai_haircut.jpg", { type: "image/jpeg" });
-            aiUrl = await uploadFile(aiFile, storagePath);
-          } else {
-            // It's already a URL (Pollinations fallback), save it directly
-            aiUrl = pet.ai_generated_preview;
-          }
-        } catch (aiErr) {
-          console.error("Failed to persist AI image:", aiErr);
-          // Fallback: save the string we have even if storage upload fails
-          aiUrl = pet.ai_generated_preview;
-        }
+    // 2. Call Edge Function 
+    // ⭐ FIX: We must send 'metadata' and 'totalAmount' keys
+    const { data, error } = await supabase.functions.invoke('create-paymongo-checkout', {
+      body: { 
+        metadata: bookingPayload, 
+        totalAmount: calculateGrandTotal() 
       }
+    });
 
-      // 3. Save Pet Info to booking_pets
-      const { data: petRecord, error: pError } = await supabase
-        .from('booking_pets')
-        .insert([{
-          booking_id: booking.id,
-          registered_pet_id: pet.registered_pet_id || null,
-          pet_name: pet.pet_name,
-          pet_type: pet.pet_type,
-          breed: pet.breed,
-          gender: pet.gender,
-          weight_kg: parseFloat(pet.weight_kg),
-          birth_date: pet.birth_date,
-          calculated_size: pet.calculated_size,
-          behavior: Array.isArray(pet.behavior) ? pet.behavior.join(', ') : pet.behavior,
-          vaccine_card_url: vUrl,
-          illness_proof_url: iUrl,
-          ai_generated_url: aiUrl, // Persisted URL
-          grooming_specifications: pet.grooming_specifications, 
-          emergency_consent: pet.emergency_consent
-        }])
-        .select().single();
-
-      if (pError) throw pError;
-
-      // 4. Save Each Selected Service
-      for (const srv of pet.services) {
-        if (srv.id) {
-          const { error: sError } = await supabase
-            .from('booking_services')
-            .insert([{
-              booking_pet_id: petRecord.id,
-              service_id: srv.id,
-              service_name: srv.service_name,
-              service_type: srv.service_type,
-              price: parseFloat(srv.price)
-            }]);
-          if (sError) throw sError;
-        }
-      }
-    }
-
-    // --- SUCCESS LOGIC ---
-    setShowSummaryModal(false);
-    setShowSuccessModal(true);
+    if (error) throw error;
+    if (data?.checkout_url) window.location.href = data.checkout_url;
 
   } catch (error) {
     console.error(error);
-    triggerError(error.message);
+    triggerError("Redirect failed: " + error.message);
   } finally {
     setLoading(false);
   }
 };
-
  const handleFinish = () => {
     navigate("/dashboard", { state: { success: true } });
  };
@@ -1056,6 +991,22 @@ const getServicePriceAndSize = (serviceId, petType, weight) => {
                             <div className="ai-section-divider">
                               <div className="specifications-container" style={{ marginTop: '20px' }}>
                                 <label className="sub-label">Grooming Specifications</label>
+                                  <div className="haircut-selector-grid">
+                                    {(pet.pet_type === "Cat" ? CAT_HAIRSTYLES : DOG_HAIRSTYLES).map(style => (
+                                      <button 
+                                        key={style}
+                                        type="button"
+                                        className={`haircut-option ${pet.selected_haircut === style ? 'active' : ''}`}
+                                        onClick={() => {
+                                          // ⭐ TOGGLE LOGIC: If same style is clicked, clear it. Otherwise, set it.
+                                          const newValue = pet.selected_haircut === style ? "" : style;
+                                          updatePetInfo(index, 'selected_haircut', newValue);
+                                        }}
+                                      >
+                                        {style}
+                                      </button>
+                                    ))}
+                                  </div>
                                 <textarea 
                                   className="spec-textarea" 
                                   maxLength={500} 
@@ -1149,157 +1100,116 @@ const getServicePriceAndSize = (serviceId, petType, weight) => {
         )}
 
         {showSummaryModal && (
-  <div className="summary-modal-overlay">
-    <div className="summary-modal-content detailed-summary">
-      <div className="modal-header">
-        <h2 style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <FileText size={24} /> Booking Confirmation
-        </h2>
-        <button className="close-modal" onClick={() => setShowSummaryModal(false)}><X size={24}/></button>
-      </div>
+        <div className="summary-modal-overlay">
+          <div className="summary-modal-content detailed-summary">
+            <div className="modal-header">
+              <h2 style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <FileText size={24} /> Booking Confirmation
+              </h2>
+              <button className="close-modal" onClick={() => setShowSummaryModal(false)}><X size={24}/></button>
+            </div>
 
-      <div className="modal-body" style={{ paddingTop: '10px' }}>
-        <div className="summary-scroll-area" style={{ maxHeight: '65vh', overflowY: 'auto', paddingRight: '10px' }}>
-          {petsData.map((p, i) => (
-            <div key={i} className="pet-summary-card" style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '20px', marginBottom: '20px', background: '#ffffff', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
-              
-              {/* Pet Header & Individual Price */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px', borderBottom: '1px solid #f1f5f9', paddingBottom: '10px' }}>
-                <h3 style={{ color: '#0E2679', margin: 0 }}>Pet #{i + 1}: {p.pet_name || "Unnamed"}</h3>
-                <div style={{ textAlign: 'right' }}>
-                  <span style={{ fontSize: '0.75rem', color: '#64748b', display: 'block' }}>Pet Total</span>
-                  <strong style={{ color: '#2563eb', fontSize: '1.1rem' }}>₱{parseFloat(p.total_price || 0).toFixed(2)}</strong>
-                </div>
-              </div>
-
-              {/* Physical Profile */}
-              <div className="pet-details-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px', fontSize: '0.85rem', marginBottom: '15px' }}>
-                <div><span style={{ color: '#64748b' }}>Type:</span> <strong>{p.pet_type}</strong></div>
-                <div><span style={{ color: '#64748b' }}>Breed:</span> <strong>{p.breed}</strong></div>
-                <div><span style={{ color: '#64748b' }}>Gender:</span> <strong>{p.gender}</strong></div>
-                <div><span style={{ color: '#64748b' }}>Birth Date:</span> <strong>{formatDOB(p.birth_date)}</strong></div>
-                <div><span style={{ color: '#64748b' }}>Weight:</span> <strong>{p.weight_kg} kg</strong></div>
-                <div><span style={{ color: '#64748b' }}>Size:</span> <strong>{p.calculated_size}</strong></div>
-              </div>
-
-              {/* Services Availed */}
-              <div style={{ marginBottom: '15px', padding: '10px', background: '#f8fafc', borderRadius: '8px' }}>
-                <label style={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#0E2679', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Availed Services:</label>
-                <div style={{ marginTop: '5px' }}>
-                  {p.services.map((srv, sIdx) => (
-                    <div key={sIdx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', padding: '2px 0' }}>
-                      <span>• {srv.service_name}</span>
-                      <span>₱{parseFloat(srv.price).toFixed(2)}</span>
+            <div className="modal-body" style={{ paddingTop: '10px' }}>
+              <div className="summary-scroll-area" style={{ maxHeight: '65vh', overflowY: 'auto', paddingRight: '10px' }}>
+                {petsData.map((p, i) => (
+                  <div key={i} className="pet-summary-card" style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '20px', marginBottom: '20px', background: '#ffffff', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
+                    
+                    {/* Pet Header & Individual Price */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px', borderBottom: '1px solid #f1f5f9', paddingBottom: '10px' }}>
+                      <h3 style={{ color: '#0E2679', margin: 0 }}>Pet #{i + 1}: {p.pet_name || "Unnamed"}</h3>
+                      <div style={{ textAlign: 'right' }}>
+                        <span style={{ fontSize: '0.75rem', color: '#64748b', display: 'block' }}>Pet Total</span>
+                        <strong style={{ color: '#2563eb', fontSize: '1.1rem' }}>₱{parseFloat(p.total_price || 0).toFixed(2)}</strong>
+                      </div>
                     </div>
-                  ))}
+
+                    {/* Physical Profile */}
+                    <div className="pet-details-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px', fontSize: '0.85rem', marginBottom: '15px' }}>
+                      <div><span style={{ color: '#64748b' }}>Type:</span> <strong>{p.pet_type}</strong></div>
+                      <div><span style={{ color: '#64748b' }}>Breed:</span> <strong>{p.breed}</strong></div>
+                      <div><span style={{ color: '#64748b' }}>Gender:</span> <strong>{p.gender}</strong></div>
+                      <div><span style={{ color: '#64748b' }}>Birth Date:</span> <strong>{formatDOB(p.birth_date)}</strong></div>
+                      <div><span style={{ color: '#64748b' }}>Weight:</span> <strong>{p.weight_kg} kg</strong></div>
+                      <div><span style={{ color: '#64748b' }}>Size:</span> <strong>{p.calculated_size}</strong></div>
+                    </div>
+
+                    {/* Services Availed */}
+                    <div style={{ marginBottom: '15px', padding: '10px', background: '#f8fafc', borderRadius: '8px' }}>
+                      <label style={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#0E2679', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Availed Services:</label>
+                      <div style={{ marginTop: '5px' }}>
+                        {p.services.map((srv, sIdx) => (
+                          <div key={sIdx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', padding: '2px 0' }}>
+                            <span>• {srv.service_name}</span>
+                            <span>₱{parseFloat(srv.price).toFixed(2)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Behaviors & Specifications */}
+                    <div style={{ fontSize: '0.85rem', marginBottom: '15px' }}>
+                      <div style={{ marginBottom: '8px' }}>
+                        <span style={{ color: '#64748b' }}>Behaviors:</span> {p.behavior?.length > 0 ? p.behavior.join(", ") : "None specified"}
+                      </div>
+                      <div style={{ marginBottom: '8px' }}>
+                        <span style={{ color: '#64748b' }}>Grooming Style:</span> {p.selected_haircut || "None specified"}
+                      </div>
+                      {p.grooming_specifications && (
+                        <div>
+                          <span style={{ color: '#64748b' }}>Grooming Specs:</span> 
+                          <p style={{ margin: '4px 0 0 0', fontStyle: 'italic', color: '#475569' }}>"{p.grooming_specifications}"</p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Records and AI (Three-column Image Grid) */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
+                      {p.vaccine_preview && (
+                        <div className="summary-media-item">
+                          <label style={{ fontSize: '0.65rem', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Vaccine</label>
+                          <img src={p.vaccine_preview} onClick={() => setSelectedImage(p.vaccine_preview)} style={{ width: '100%', height: '70px', objectFit: 'cover', borderRadius: '6px', border: '1px solid #e2e8f0' }} alt="vax" />
+                        </div>
+                      )}
+                      {p.illness_preview && (
+                        <div className="summary-media-item">
+                          <label style={{ fontSize: '0.65rem', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Medical</label>
+                          <img src={p.illness_preview} onClick={() => setSelectedImage(p.illness_preview)} style={{ width: '100%', height: '70px', objectFit: 'cover', borderRadius: '6px', border: '1px solid #e2e8f0' }} alt="ill" />
+                        </div>
+                      )}
+                      {p.ai_generated_preview && (
+                        <div className="summary-media-item">
+                          <label style={{ fontSize: '0.65rem', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>AI Style</label>
+                          <img src={p.ai_generated_preview} onClick={() => setSelectedImage(p.ai_generated_preview)} style={{ width: '100%', height: '70px', objectFit: 'cover', borderRadius: '6px', border: '1px solid #0E2679' }} alt="ai" />
+                        </div>
+                      )}
+                    </div>
+
+                    <div style={{ marginTop: '12px', fontSize: '0.75rem', color: p.emergency_consent ? '#059669' : '#dc2626', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                      {p.emergency_consent ? <ShieldCheck size={14} /> : <AlertCircle size={14} />}
+                      {p.emergency_consent ? "Emergency Transport Consent: GRANTED" : "Emergency Transport Consent: DECLINED"}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* UPDATED: TOGGLE-ABLE BREAKDOWN FOOTER */}
+              <div className="summary-footer-totals" style={{ borderTop: '2px solid #f1f5f9', paddingTop: '15px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#0E2679', fontSize: '1.3rem' }}>
+                  <strong>Total Payment Today:</strong>
+                  <strong>₱{calculateGrandTotal().toFixed(2)}</strong>
                 </div>
               </div>
-
-              {/* Behaviors & Specifications */}
-              <div style={{ fontSize: '0.85rem', marginBottom: '15px' }}>
-                <div style={{ marginBottom: '8px' }}>
-                  <span style={{ color: '#64748b' }}>Behaviors:</span> {p.behavior?.length > 0 ? p.behavior.join(", ") : "None specified"}
-                </div>
-                {p.grooming_specifications && (
-                  <div>
-                    <span style={{ color: '#64748b' }}>Grooming Specs:</span> 
-                    <p style={{ margin: '4px 0 0 0', fontStyle: 'italic', color: '#475569' }}>"{p.grooming_specifications}"</p>
-                  </div>
-                )}
-              </div>
-
-              {/* Records and AI (Three-column Image Grid) */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
-                {p.vaccine_preview && (
-                  <div className="summary-media-item">
-                    <label style={{ fontSize: '0.65rem', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Vaccine</label>
-                    <img src={p.vaccine_preview} onClick={() => setSelectedImage(p.vaccine_preview)} style={{ width: '100%', height: '70px', objectFit: 'cover', borderRadius: '6px', border: '1px solid #e2e8f0' }} alt="vax" />
-                  </div>
-                )}
-                {p.illness_preview && (
-                  <div className="summary-media-item">
-                    <label style={{ fontSize: '0.65rem', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Medical</label>
-                    <img src={p.illness_preview} onClick={() => setSelectedImage(p.illness_preview)} style={{ width: '100%', height: '70px', objectFit: 'cover', borderRadius: '6px', border: '1px solid #e2e8f0' }} alt="ill" />
-                  </div>
-                )}
-                {p.ai_generated_preview && (
-                  <div className="summary-media-item">
-                    <label style={{ fontSize: '0.65rem', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>AI Style</label>
-                    <img src={p.ai_generated_preview} onClick={() => setSelectedImage(p.ai_generated_preview)} style={{ width: '100%', height: '70px', objectFit: 'cover', borderRadius: '6px', border: '1px solid #0E2679' }} alt="ai" />
-                  </div>
-                )}
-              </div>
-
-              <div style={{ marginTop: '12px', fontSize: '0.75rem', color: p.emergency_consent ? '#059669' : '#dc2626', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                {p.emergency_consent ? <ShieldCheck size={14} /> : <AlertCircle size={14} />}
-                {p.emergency_consent ? "Emergency Transport Consent: GRANTED" : "Emergency Transport Consent: DECLINED"}
-              </div>
             </div>
-          ))}
-        </div>
 
-        {/* UPDATED: TOGGLE-ABLE BREAKDOWN FOOTER */}
-        <div className="summary-footer-totals" style={{ borderTop: '2px solid #f1f5f9', paddingTop: '15px', marginTop: '10px' }}>
-          
-          {/* Row 1: Total Service Amount (Inclusive) */}
-          <div className="summary-row final-total" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', fontSize: '1.2rem', color: '#0E2679' }}>
-            <strong>Total Service Amount (VAT Inclusive):</strong>
-            <strong>₱{calculateGrandTotal().toFixed(2)}</strong>
-          </div>
-
-          {/* TOGGLE BUTTON */}
-          <div style={{ textAlign: 'center', marginBottom: '10px' }}>
-             <button 
-                type="button" 
-                onClick={() => setShowBreakdown(!showBreakdown)}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: '#64748b',
-                  fontSize: '0.85rem',
-                  cursor: 'pointer',
-                  textDecoration: 'underline',
-                  fontWeight: '600'
-                }}
-             >
-                {showBreakdown ? "Hide payment breakdown ▴" : "See payment breakdown ▾"}
-             </button>
-          </div>
-
-          {/* HIDDEN VAT BREAKDOWN */}
-          {showBreakdown && (
-            <div className="breakdown-panel" style={{ background: '#f8fafc', padding: '10px', borderRadius: '8px', marginBottom: '10px' }}>
-               <div className="summary-row" style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem', color: '#64748b' }}>
-                 <span>Base Price:</span>
-                 <span>₱{calculateBasePrice().toFixed(2)}</span>
-               </div>
-               <div className="summary-row" style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem', color: '#64748b', marginTop: '4px' }}>
-                 <span>VAT (12%):</span>
-                 <span>₱{calculateVAT().toFixed(2)}</span>
-               </div>
+            <div className="modal-footer" style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
+              <button className="btn-cancel-modal" style={{ flex: 1 }} onClick={() => setShowSummaryModal(false)}>Back to Edit</button>
+              <button className="btn-confirm-booking" style={{ flex: 2, backgroundColor: '#0E2679', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold' }} onClick={handleFinalSubmit} disabled={loading}>
+                {loading ? "Processing Request..." : "Confirm Booking"}
+              </button>
             </div>
-          )}
-
-          <hr style={{ border: 'none', borderTop: '1px dashed #e2e8f0', margin: '8px 0' }} />
-
-          {/* Row 4: Down Payment */}
-          <div className="summary-row highlight-blue" style={{ display: 'flex', justifyContent: 'space-between', color: '#2563eb', fontWeight: 'bold', fontSize: '1.1rem', marginTop: '5px' }}>
-            <span>To be paid (30% Down Payment):</span>
-            <span>₱{calculateDownPayment().toFixed(2)}</span>
           </div>
-          
         </div>
-      </div>
-
-      <div className="modal-footer" style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
-        <button className="btn-cancel-modal" style={{ flex: 1 }} onClick={() => setShowSummaryModal(false)}>Back to Edit</button>
-        <button className="btn-confirm-booking" style={{ flex: 2, backgroundColor: '#0E2679', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold' }} onClick={handleFinalSubmit} disabled={loading}>
-          {loading ? "Processing Request..." : "Confirm Booking"}
-        </button>
-      </div>
-    </div>
-  </div>
-)}
+      )}
         
         {/* Success Modal (Matching Payment Page) */}
         {showSuccessModal && (
