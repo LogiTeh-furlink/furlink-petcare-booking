@@ -14,6 +14,7 @@ import { Bar, Doughnut } from 'react-chartjs-2';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import './AdminPOInsights.css';
+import { loadFilters, saveFilters } from '../../utils/adminInsightsFilterUtils';
 
 ChartJS.register(
   CategoryScale, LinearScale, BarElement,
@@ -60,12 +61,16 @@ export default function AdminPOInsights() {
   const navigate  = useNavigate();
   const reportRef = useRef(null);
 
-  // ---- state ----
-  const [activeFilter,      setActiveFilter]      = useState('monthly');
-  const [petTypeFilter,     setPetTypeFilter]     = useState('both');
-  const [customDateStart,   setCustomDateStart]   = useState('');
-  const [customDateEnd,     setCustomDateEnd]     = useState('');
-  const [selectedYear,      setSelectedYear]      = useState(new Date().getFullYear());
+  // ---- shared filter state (persisted via localStorage) ----
+  const _f = loadFilters();
+  const [activeFilter,      setActiveFilter]      = useState(_f.activeFilter);
+  const [petTypeFilter,     setPetTypeFilter]     = useState(_f.petTypeFilter);
+  const [customDateStart,   setCustomDateStart]   = useState(_f.customDateStart);
+  const [customDateEnd,     setCustomDateEnd]     = useState(_f.customDateEnd);
+  const [selectedYear,      setSelectedYear]      = useState(_f.selectedYear);
+  const [selectedCities,    setSelectedCities]    = useState(_f.selectedCities);
+
+  // ---- local state ----
   const [loading,           setLoading]           = useState(true);
   const [showReportModal,   setShowReportModal]   = useState(false);
   const [isGeneratingPDF,   setIsGeneratingPDF]   = useState(false);
@@ -73,7 +78,11 @@ export default function AdminPOInsights() {
   const [rawBookings,       setRawBookings]       = useState([]);
   const [rawUsers,          setRawUsers]          = useState([]);
   const [rawProviders,      setRawProviders]      = useState([]);
-  const [selectedCities,    setSelectedCities]    = useState([]);
+
+  // ---- persist filters to localStorage on every change ----
+  useEffect(() => {
+    saveFilters({ activeFilter, petTypeFilter, customDateStart, customDateEnd, selectedYear, selectedCities });
+  }, [activeFilter, petTypeFilter, customDateStart, customDateEnd, selectedYear, selectedCities]);
 
   // ============================================
   // DATA FETCHING

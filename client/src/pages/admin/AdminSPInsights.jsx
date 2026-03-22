@@ -13,6 +13,7 @@ import {
 import { Bar, Doughnut } from 'react-chartjs-2';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
+import { loadFilters, saveFilters } from '../../utils/adminInsightsFilterUtils';
 import './AdminSPInsights.css';
 
 ChartJS.register(
@@ -56,22 +57,30 @@ const normalizeCity = (raw) => {
 // COMPONENT
 // ============================================
 export default function AdminSPInsights() {
-  const navigate   = useNavigate();
-  const reportRef  = useRef(null);
+  const navigate  = useNavigate();
+  const reportRef = useRef(null);
 
-  // ---- state ----
-  const [activeFilter,     setActiveFilter]     = useState('monthly');
-  const [petTypeFilter,    setPetTypeFilter]    = useState('both');
-  const [customDateStart,  setCustomDateStart]  = useState('');
-  const [customDateEnd,    setCustomDateEnd]    = useState('');
-  const [selectedYear,     setSelectedYear]     = useState(new Date().getFullYear());
-  const [loading,          setLoading]          = useState(true);
-  const [showReportModal,  setShowReportModal]  = useState(false);
-  const [isGeneratingPDF,  setIsGeneratingPDF]  = useState(false);
-  const [platformCreatedAt,setPlatformCreatedAt]= useState(null);
-  const [rawBookings,      setRawBookings]      = useState([]);
-  const [rawProviders,     setRawProviders]     = useState([]);
-  const [selectedCities,   setSelectedCities]   = useState([]);
+  // ---- shared filter state (persisted via localStorage) ----
+  const _f = loadFilters();
+  const [activeFilter,      setActiveFilter]      = useState(_f.activeFilter);
+  const [petTypeFilter,     setPetTypeFilter]     = useState(_f.petTypeFilter);
+  const [customDateStart,   setCustomDateStart]   = useState(_f.customDateStart);
+  const [customDateEnd,     setCustomDateEnd]     = useState(_f.customDateEnd);
+  const [selectedYear,      setSelectedYear]      = useState(_f.selectedYear);
+  const [selectedCities,    setSelectedCities]    = useState(_f.selectedCities);
+
+  // ---- local state ----
+  const [loading,           setLoading]           = useState(true);
+  const [showReportModal,   setShowReportModal]   = useState(false);
+  const [isGeneratingPDF,   setIsGeneratingPDF]   = useState(false);
+  const [platformCreatedAt, setPlatformCreatedAt] = useState(null);
+  const [rawBookings,       setRawBookings]       = useState([]);
+  const [rawProviders,      setRawProviders]      = useState([]);
+
+  // ---- persist filters to localStorage on every change ----
+  useEffect(() => {
+    saveFilters({ activeFilter, petTypeFilter, customDateStart, customDateEnd, selectedYear, selectedCities });
+  }, [activeFilter, petTypeFilter, customDateStart, customDateEnd, selectedYear, selectedCities]);
 
   // ============================================
   // DATA FETCHING
@@ -116,7 +125,7 @@ export default function AdminSPInsights() {
         setRawBookings(bookings || []);
 
       } catch (err) {
-        console.error('Admin Insights Fetch Error:', err);
+        console.error('Admin SP Insights Fetch Error:', err);
       } finally {
         setLoading(false);
       }
@@ -134,6 +143,7 @@ export default function AdminSPInsights() {
     return [...new Set(cities)].sort((a, b) => a.localeCompare(b));
   }, [rawProviders]);
 
+  // Only seed cities if context has none yet (first load across both pages)
   useEffect(() => {
     if (availableCities.length > 0 && selectedCities.length === 0) {
       setSelectedCities([...availableCities]);
@@ -269,10 +279,10 @@ export default function AdminSPInsights() {
       if (b.status !== 'cancelled') return;
       cancelCount[b.provider_id] = (cancelCount[b.provider_id] || 0) + 1;
     });
-    const sortedCancel  = Object.entries(cancelCount).sort((a, b) => b[1] - a[1]).slice(0, 5);
-    const cancelLabels  = sortedCancel.map(([id]) => providerMap[id] || 'Unknown');
-    const cancelValues  = sortedCancel.map(([, cnt]) => cnt);
-    const totalCancels  = cancelValues.reduce((a, b) => a + b, 0);
+    const sortedCancel = Object.entries(cancelCount).sort((a, b) => b[1] - a[1]).slice(0, 5);
+    const cancelLabels = sortedCancel.map(([id]) => providerMap[id] || 'Unknown');
+    const cancelValues = sortedCancel.map(([, cnt]) => cnt);
+    const totalCancels = cancelValues.reduce((a, b) => a + b, 0);
 
     return {
       dayCount, peakDay, peakDayIdx,
@@ -603,7 +613,6 @@ export default function AdminSPInsights() {
           {/* ========== MAIN CONTENT ========== */}
           <main className="admin-insights-main-content">
 
-            {/* Header */}
             <div className="report-button-container">
               <div className="as-of-date">
                 As of {new Date().toLocaleDateString('en-US', {
