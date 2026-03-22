@@ -120,7 +120,7 @@ function App() {
             <Route path="/admin-dashboard" element={<AdminDashboard />} />
             <Route path="/admin/provider/:id" element={<AdminViewProvider />} /> 
             <Route path="/admin/user-bookings/:id" element={<AdminViewBooking />} /> 
-            <Route path="/admin/user-bookings/:id" element={<AdminSPInsights />} /> 
+            <Route path="/admin/service-provider-insights/:id" element={<AdminSPInsights />} /> 
 
           </Route> {/* End SuspensionGuard */}
         </Route> {/* End ProtectedRoute */}
