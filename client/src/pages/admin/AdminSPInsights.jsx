@@ -24,13 +24,15 @@ ChartJS.register(
 // ============================================
 // CONSTANTS
 // ============================================
-const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-const BLUE_SHADES  = ['#1e3a8a', '#2563eb', '#3b82f6', '#60a5fa', '#93c5fd'];
+const DAY_LABELS    = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const BLUE_SHADES   = ['#1e3a8a', '#2563eb', '#3b82f6', '#60a5fa', '#93c5fd'];
 const YELLOW_SHADES = ['#854d0e', '#ca8a04', '#d97706', '#facc15', '#fde047'];
-const RED_SHADES   = ['#7f1d1d', '#991b1b', '#dc2626', '#ef4444', '#f87171'];
+const RED_SHADES    = ['#7f1d1d', '#991b1b', '#dc2626', '#ef4444', '#f87171'];
 
 // ============================================
-// HELPERS
+// MODULE-LEVEL HELPERS
+// (defined here so they are available everywhere
+//  in the component without ordering issues)
 // ============================================
 const parseLocalDate = (dateStr) => {
   if (!dateStr) return null;
@@ -46,26 +48,36 @@ const endOfDayDate = (d) => {
 
 const isCompleted = (status) => ['for review', 'rated'].includes(status);
 
-export default function AdminSPInsights() {
-  const navigate = useNavigate();
-  const reportRef = useRef(null);
+// Takes the last comma-separated segment:
+// "Makati Avenue, Makati City" → "Makati City"
+// "Makati City"               → "Makati City"
+const normalizeCity = (raw) => {
+  if (!raw) return '';
+  const parts = raw.split(',');
+  return parts[parts.length - 1].trim();
+};
 
-  // ============================================
-  // STATE
-  // ============================================
-  const [activeTab, setActiveTab]         = useState('sp_insights');
-  const [activeFilter, setActiveFilter]   = useState('monthly');
-  const [petTypeFilter, setPetTypeFilter] = useState('both');
-  const [customDateStart, setCustomDateStart] = useState('');
-  const [customDateEnd, setCustomDateEnd]     = useState('');
-  const [selectedYear, setSelectedYear]   = useState(new Date().getFullYear());
-  const [loading, setLoading]             = useState(true);
-  const [showReportModal, setShowReportModal] = useState(false);
-  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
-  const [platformCreatedAt, setPlatformCreatedAt] = useState(null);
-  const [rawBookings, setRawBookings]     = useState([]);
-  const [rawProviders, setRawProviders]   = useState([]);
-  const [selectedCities, setSelectedCities] = useState([]); // empty = all cities
+// ============================================
+// COMPONENT
+// ============================================
+export default function AdminSPInsights() {
+  const navigate   = useNavigate();
+  const reportRef  = useRef(null);
+
+  // ---- state ----
+  const [activeTab,        setActiveTab]        = useState('sp_insights');
+  const [activeFilter,     setActiveFilter]     = useState('monthly');
+  const [petTypeFilter,    setPetTypeFilter]    = useState('both');
+  const [customDateStart,  setCustomDateStart]  = useState('');
+  const [customDateEnd,    setCustomDateEnd]    = useState('');
+  const [selectedYear,     setSelectedYear]     = useState(new Date().getFullYear());
+  const [loading,          setLoading]          = useState(true);
+  const [showReportModal,  setShowReportModal]  = useState(false);
+  const [isGeneratingPDF,  setIsGeneratingPDF]  = useState(false);
+  const [platformCreatedAt,setPlatformCreatedAt]= useState(null);
+  const [rawBookings,      setRawBookings]      = useState([]);
+  const [rawProviders,     setRawProviders]     = useState([]);
+  const [selectedCities,   setSelectedCities]   = useState([]);
 
   // ============================================
   // DATA FETCHING
@@ -77,14 +89,13 @@ export default function AdminSPInsights() {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return navigate('/login');
 
-        // Fetch ALL service providers (no status filter — bookings may belong to any)
+        // All service providers (no status filter)
         const { data: providers, error: pErr } = await supabase
           .from('service_providers')
           .select('id, business_name, created_at, city');
         if (pErr) throw pErr;
         setRawProviders(providers || []);
 
-        // Earliest provider date → used as min for custom date picker
         if (providers && providers.length > 0) {
           const earliest = providers.reduce((a, b) =>
             new Date(a.created_at) < new Date(b.created_at) ? a : b
@@ -92,7 +103,7 @@ export default function AdminSPInsights() {
           setPlatformCreatedAt(earliest.created_at.split('T')[0]);
         }
 
-        // Fetch ALL bookings with pet data
+        // All bookings with pet data
         const { data: bookings, error: bErr } = await supabase
           .from('bookings')
           .select(`
@@ -122,16 +133,48 @@ export default function AdminSPInsights() {
   }, [navigate]);
 
   // ============================================
+  // DERIVED CITY LIST
+  // Must be declared BEFORE analytics useMemo
+  // ============================================
+  const availableCities = useMemo(() => {
+    const cities = rawProviders
+      .map(p => normalizeCity(p.city))
+      .filter(Boolean);
+    return [...new Set(cities)].sort((a, b) => a.localeCompare(b));
+  }, [rawProviders]);
+
+  // Once cities load, initialise all as selected
+  useEffect(() => {
+    if (availableCities.length > 0 && selectedCities.length === 0) {
+      setSelectedCities([...availableCities]);
+    }
+  }, [availableCities]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const toggleCity = (city) => {
+    setSelectedCities(prev =>
+      prev.includes(city) ? prev.filter(c => c !== city) : [...prev, city]
+    );
+  };
+
+  const toggleAllCities = () => {
+    if (selectedCities.length === availableCities.length) {
+      setSelectedCities([]);          // clear all
+    } else {
+      setSelectedCities([...availableCities]); // select all
+    }
+  };
+
+  // ============================================
   // COMPUTED DATE RANGE
   // ============================================
   const getRange = useMemo(() => {
-    const today = new Date();
+    const today      = new Date();
     const endOfToday = endOfDayDate(today);
 
     if (activeFilter === 'custom' && customDateStart && customDateEnd) {
       return {
         start: parseLocalDate(customDateStart),
-        end: endOfDayDate(parseLocalDate(customDateEnd))
+        end:   endOfDayDate(parseLocalDate(customDateEnd))
       };
     }
     if (activeFilter === 'weekly') {
@@ -143,7 +186,7 @@ export default function AdminSPInsights() {
     if (activeFilter === 'monthly') {
       return {
         start: new Date(today.getFullYear(), today.getMonth(), 1),
-        end: endOfToday
+        end:   endOfToday
       };
     }
     if (activeFilter === 'yearly') {
@@ -155,7 +198,7 @@ export default function AdminSPInsights() {
       }
       return {
         start: new Date(selectedYear, 0, 1),
-        end: selectedYear === today.getFullYear()
+        end:   selectedYear === today.getFullYear()
           ? endOfToday
           : new Date(selectedYear, 11, 31, 23, 59, 59, 999)
       };
@@ -164,46 +207,46 @@ export default function AdminSPInsights() {
   }, [activeFilter, customDateStart, customDateEnd, selectedYear, platformCreatedAt]);
 
   // ============================================
-  // ANALYTICS CALCULATIONS
+  // ANALYTICS
+  // availableCities and normalizeCity are both
+  // available here (module-level or already declared above)
   // ============================================
   const analytics = useMemo(() => {
     const { start, end } = getRange;
 
-    // Build provider name + city lookup map
-    const providerMap  = {};
-    const providerCity = {};
+    // Provider name + normalised city lookup
+    const providerMap = {};
     rawProviders.forEach(p => {
-      providerMap[p.id]  = p.business_name || 'Unknown';
-      providerCity[p.id] = p.city || '';
+      providerMap[p.id] = p.business_name || 'Unknown';
     });
 
-    // If cities are selected, restrict to provider IDs in those cities
-    const cityFilteredProviderIds =
-      selectedCities.length > 0
-        ? new Set(
-            rawProviders
-              .filter(p => selectedCities.includes(p.city))
-              .map(p => p.id)
-          )
-        : null; // null = no restriction
+    // City restriction: only apply when NOT all cities are selected
+    const allSelected =
+      availableCities.length === 0 ||
+      availableCities.every(c => selectedCities.includes(c));
 
-    // Filter bookings by date range, optional pet type, optional city
-    const filteredBookings = rawBookings.filter(b => {
+    const cityFilteredIds = !allSelected
+      ? new Set(
+          rawProviders
+            .filter(p => selectedCities.includes(normalizeCity(p.city)))
+            .map(p => p.id)
+        )
+      : null; // null → no restriction
+
+    // Filter bookings by range + city + pet type
+    const filtered = rawBookings.filter(b => {
       const d = parseLocalDate(b.booking_date);
       if (!d || d < start || d > end) return false;
-      if (cityFilteredProviderIds && !cityFilteredProviderIds.has(b.provider_id)) return false;
+      if (cityFilteredIds && !cityFilteredIds.has(b.provider_id)) return false;
       if (petTypeFilter !== 'both' && b.booking_pets && b.booking_pets.length > 0) {
         return b.booking_pets.some(p => p.pet_type === petTypeFilter);
       }
       return true;
     });
 
-    // ---------------------------------------------------
-    // 1. MOST BOOKED DAY
-    //    Count completed bookings per weekday (Mon–Sun)
-    // ---------------------------------------------------
-    const dayCount = new Array(7).fill(0);
-    filteredBookings.forEach(b => {
+    // 1. Most Booked Day
+    const dayCount   = new Array(7).fill(0);
+    filtered.forEach(b => {
       if (!isCompleted(b.status)) return;
       const d = parseLocalDate(b.booking_date);
       if (d) dayCount[(d.getDay() + 6) % 7]++;
@@ -212,58 +255,42 @@ export default function AdminSPInsights() {
     const peakDayIdx = maxDay > 0 ? dayCount.indexOf(maxDay) : -1;
     const peakDay    = peakDayIdx >= 0 ? DAY_LABELS[peakDayIdx] : 'N/A';
 
-    // ---------------------------------------------------
-    // 2. MOST BOOKED SERVICE PROVIDER
-    //    Top 5 providers by completed booking count
-    // ---------------------------------------------------
-    const providerBookingCount = {};
-    filteredBookings.forEach(b => {
+    // 2. Most Booked Service Provider (top 5 by completed bookings)
+    const bookingCount = {};
+    filtered.forEach(b => {
       if (!isCompleted(b.status)) return;
-      providerBookingCount[b.provider_id] = (providerBookingCount[b.provider_id] || 0) + 1;
+      bookingCount[b.provider_id] = (bookingCount[b.provider_id] || 0) + 1;
     });
-    const sortedByBookings = Object.entries(providerBookingCount)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 5);
-    const topBookedLabels = sortedByBookings.map(([id]) => providerMap[id] || 'Unknown');
-    const topBookedValues = sortedByBookings.map(([, cnt]) => cnt);
+    const sortedBooked    = Object.entries(bookingCount).sort((a, b) => b[1] - a[1]).slice(0, 5);
+    const topBookedLabels = sortedBooked.map(([id]) => providerMap[id] || 'Unknown');
+    const topBookedValues = sortedBooked.map(([, cnt]) => cnt);
 
-    // ---------------------------------------------------
-    // 3. MOST REBOOKED SERVICE PROVIDER
-    //    Provider with most returning customers
-    //    (unique users who booked the same provider > once)
-    // ---------------------------------------------------
-    const providerUserMap = {};
-    filteredBookings.forEach(b => {
+    // 3. Most Rebooked (returning customers per provider)
+    const userPerProvider = {};
+    filtered.forEach(b => {
       if (!isCompleted(b.status)) return;
-      if (!providerUserMap[b.provider_id]) providerUserMap[b.provider_id] = {};
-      providerUserMap[b.provider_id][b.user_id] =
-        (providerUserMap[b.provider_id][b.user_id] || 0) + 1;
+      if (!userPerProvider[b.provider_id]) userPerProvider[b.provider_id] = {};
+      userPerProvider[b.provider_id][b.user_id] =
+        (userPerProvider[b.provider_id][b.user_id] || 0) + 1;
     });
     const rebookCount = {};
-    Object.entries(providerUserMap).forEach(([pid, users]) => {
+    Object.entries(userPerProvider).forEach(([pid, users]) => {
       const returners = Object.values(users).filter(cnt => cnt > 1).length;
       if (returners > 0) rebookCount[pid] = returners;
     });
-    const sortedByRebooks = Object.entries(rebookCount)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 5);
-    const topRebookLabels = sortedByRebooks.map(([id]) => providerMap[id] || 'Unknown');
-    const topRebookValues = sortedByRebooks.map(([, cnt]) => cnt);
+    const sortedRebook    = Object.entries(rebookCount).sort((a, b) => b[1] - a[1]).slice(0, 5);
+    const topRebookLabels = sortedRebook.map(([id]) => providerMap[id] || 'Unknown');
+    const topRebookValues = sortedRebook.map(([, cnt]) => cnt);
 
-    // ---------------------------------------------------
-    // 4. SERVICE PROVIDERS WITH MOST CANCELLATIONS
-    //    Top 5 by cancelled booking count
-    // ---------------------------------------------------
+    // 4. Most Cancellations (top 5)
     const cancelCount = {};
-    filteredBookings.forEach(b => {
+    filtered.forEach(b => {
       if (b.status !== 'cancelled') return;
       cancelCount[b.provider_id] = (cancelCount[b.provider_id] || 0) + 1;
     });
-    const sortedByCancels = Object.entries(cancelCount)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 5);
-    const cancelLabels  = sortedByCancels.map(([id]) => providerMap[id] || 'Unknown');
-    const cancelValues  = sortedByCancels.map(([, cnt]) => cnt);
+    const sortedCancel  = Object.entries(cancelCount).sort((a, b) => b[1] - a[1]).slice(0, 5);
+    const cancelLabels  = sortedCancel.map(([id]) => providerMap[id] || 'Unknown');
+    const cancelValues  = sortedCancel.map(([, cnt]) => cnt);
     const totalCancels  = cancelValues.reduce((a, b) => a + b, 0);
 
     return {
@@ -272,35 +299,14 @@ export default function AdminSPInsights() {
       topRebookLabels, topRebookValues,
       cancelLabels, cancelValues, totalCancels,
     };
-  }, [rawBookings, rawProviders, getRange, petTypeFilter, selectedCities]);
+  }, [rawBookings, rawProviders, getRange, petTypeFilter, selectedCities, availableCities]);
 
   // ============================================
-  // DERIVED CITY LIST (sorted, deduplicated)
-  // ============================================
-  const availableCities = useMemo(() => {
-    const cities = rawProviders
-      .map(p => p.city)
-      .filter(Boolean)
-      .map(c => c.trim());
-    return [...new Set(cities)].sort((a, b) => a.localeCompare(b));
-  }, [rawProviders]);
-
-  const toggleCity = (city) => {
-    setSelectedCities(prev =>
-      prev.includes(city) ? prev.filter(c => c !== city) : [...prev, city]
-    );
-  };
-
-  const toggleAllCities = () => {
-    setSelectedCities(prev => prev.length === availableCities.length ? [] : [...availableCities]);
-  };
-
-  // ============================================
-  // RANGE TEXT HELPERS
+  // RANGE TEXT
   // ============================================
   const buildRangeText = () => {
     const today = new Date();
-    const fmt = (d) => d.toLocaleDateString(undefined, { month: 'short', day: '2-digit', year: 'numeric' });
+    const fmt   = (d) => d.toLocaleDateString(undefined, { month: 'short', day: '2-digit', year: 'numeric' });
     if (activeFilter === 'custom' && customDateStart && customDateEnd) {
       return `${fmt(parseLocalDate(customDateStart))} - ${fmt(parseLocalDate(customDateEnd))}`;
     }
@@ -319,7 +325,8 @@ export default function AdminSPInsights() {
   };
 
   const buildReportTypeLabel = () => {
-    if (activeFilter === 'yearly') return selectedYear === null ? 'All Years Summary' : `${selectedYear} Yearly Summary`;
+    if (activeFilter === 'yearly')
+      return selectedYear === null ? 'All Years Summary' : `${selectedYear} Yearly Summary`;
     return `${activeFilter.charAt(0).toUpperCase() + activeFilter.slice(1)} Summary`;
   };
 
@@ -341,9 +348,9 @@ export default function AdminSPInsights() {
   };
 
   const mostBookedSPData = {
-    labels: analytics.topBookedLabels.length > 0 ? analytics.topBookedLabels : ['No data'],
+    labels: analytics.topBookedLabels.length ? analytics.topBookedLabels : ['No data'],
     datasets: [{
-      data: analytics.topBookedValues.length > 0 ? analytics.topBookedValues : [0],
+      data: analytics.topBookedValues.length ? analytics.topBookedValues : [0],
       backgroundColor: BLUE_SHADES.slice(0, Math.max(analytics.topBookedValues.length, 1)),
       borderRadius: 4,
       barThickness: 16,
@@ -351,9 +358,9 @@ export default function AdminSPInsights() {
   };
 
   const mostRebookedSPData = {
-    labels: analytics.topRebookLabels.length > 0 ? analytics.topRebookLabels : ['No data'],
+    labels: analytics.topRebookLabels.length ? analytics.topRebookLabels : ['No data'],
     datasets: [{
-      data: analytics.topRebookValues.length > 0 ? analytics.topRebookValues : [0],
+      data: analytics.topRebookValues.length ? analytics.topRebookValues : [0],
       backgroundColor: YELLOW_SHADES.slice(0, Math.max(analytics.topRebookValues.length, 1)),
       borderRadius: 4,
       barThickness: 16,
@@ -361,10 +368,10 @@ export default function AdminSPInsights() {
   };
 
   const cancellationData = {
-    labels: analytics.cancelLabels.length > 0 ? analytics.cancelLabels : ['No cancellations'],
+    labels: analytics.cancelLabels.length ? analytics.cancelLabels : ['No cancellations'],
     datasets: [{
-      data: analytics.cancelValues.length > 0 ? analytics.cancelValues : [1],
-      backgroundColor: analytics.cancelValues.length > 0
+      data: analytics.cancelValues.length ? analytics.cancelValues : [1],
+      backgroundColor: analytics.cancelValues.length
         ? RED_SHADES.slice(0, analytics.cancelValues.length)
         : ['#e2e8f0'],
       borderWidth: 0,
@@ -395,13 +402,12 @@ export default function AdminSPInsights() {
     }
   };
 
-  // Doughnut — legend hidden, tooltip only
   const doughnutOptions = {
     responsive: true,
     maintainAspectRatio: false,
     cutout: '65%',
     plugins: {
-      legend: { display: false },
+      legend:  { display: false },
       tooltip: { enabled: true }
     }
   };
@@ -417,7 +423,8 @@ export default function AdminSPInsights() {
 
       const clone = element.cloneNode(true);
       clone.style.cssText =
-        'position:absolute;left:-9999px;top:0;width:800px;overflow:visible;max-height:none;height:auto;padding:24px;background:#fff;';
+        'position:absolute;left:-9999px;top:0;width:800px;overflow:visible;' +
+        'max-height:none;height:auto;padding:24px;background:#fff;';
       document.body.appendChild(clone);
       await new Promise(r => setTimeout(r, 500));
 
@@ -427,8 +434,8 @@ export default function AdminSPInsights() {
       });
       document.body.removeChild(clone);
 
-      const pdf    = new jsPDF('p', 'mm', 'a4');
-      const margin = 10;
+      const pdf        = new jsPDF('p', 'mm', 'a4');
+      const margin     = 10;
       const imgWidth   = pdf.internal.pageSize.getWidth() - 2 * margin;
       const pageHeight = pdf.internal.pageSize.getHeight() - 2 * margin;
       const totalPages = Math.ceil((canvas.height * imgWidth / canvas.width) / pageHeight);
@@ -438,10 +445,12 @@ export default function AdminSPInsights() {
         const sourceY = page * (pageHeight * canvas.width / imgWidth);
         const sourceH = Math.min(pageHeight * canvas.width / imgWidth, canvas.height - sourceY);
         if (sourceH > 0) {
-          const pc = document.createElement('canvas');
-          pc.width = canvas.width; pc.height = sourceH;
+          const pc  = document.createElement('canvas');
+          pc.width  = canvas.width;
+          pc.height = sourceH;
           const ctx = pc.getContext('2d');
-          ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, pc.width, pc.height);
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, pc.width, pc.height);
           ctx.drawImage(canvas, 0, sourceY, canvas.width, sourceH, 0, 0, canvas.width, sourceH);
           pdf.addImage(
             pc.toDataURL('image/png', 1.0), 'PNG',
@@ -486,6 +495,7 @@ export default function AdminSPInsights() {
 
           {/* ========== SIDEBAR ========== */}
           <aside className="admin-insights-sidebar">
+
             <button
               className="back-to-dashboard-btn"
               onClick={() => navigate('/admin/dashboard')}
@@ -494,6 +504,7 @@ export default function AdminSPInsights() {
               <FaArrowLeft size={18} />
             </button>
 
+            {/* Tab switcher */}
             <div className="sidebar-tabs-group">
               <button
                 className={`sidebar-tab-btn ${activeTab === 'sp_insights' ? 'active' : ''}`}
@@ -585,21 +596,19 @@ export default function AdminSPInsights() {
               </select>
             </div>
 
-            {/* City Filter */}
+            {/* City Filter — only shown when cities exist */}
             {availableCities.length > 0 && (
               <div className="sidebar-section">
                 <h3>City</h3>
                 <button className="city-select-all" onClick={toggleAllCities}>
-                  {selectedCities.length === availableCities.length || selectedCities.length === 0
-                    ? 'Select All'
-                    : 'Clear All'}
+                  {selectedCities.length === availableCities.length ? 'Clear All' : 'Select All'}
                 </button>
                 <div className="city-filter-scroll">
                   {availableCities.map(city => (
                     <label key={city} className="city-option">
                       <input
                         type="checkbox"
-                        checked={selectedCities.length === 0 || selectedCities.includes(city)}
+                        checked={selectedCities.includes(city)}
                         onChange={() => toggleCity(city)}
                       />
                       <span className="city-option-label">{city}</span>
@@ -608,6 +617,7 @@ export default function AdminSPInsights() {
                 </div>
               </div>
             )}
+
           </aside>
 
           {/* ========== MAIN CONTENT ========== */}
@@ -626,11 +636,11 @@ export default function AdminSPInsights() {
               </button>
             </div>
 
-            {/* ===== SP INSIGHTS TAB ===== */}
+            {/* ===== SP INSIGHTS ===== */}
             {activeTab === 'sp_insights' ? (
               <div className="insights-charts-grid">
 
-                {/* CHART 1 — Most Booked Day (full width) */}
+                {/* CHART 1 — Most Booked Day */}
                 <div className="chart-box chart-full-width">
                   <div className="chart-header">
                     <h3 className="chart-title">Most Booked Day</h3>
@@ -649,7 +659,7 @@ export default function AdminSPInsights() {
                   </div>
                 </div>
 
-                {/* CHART 2 — Most Booked SP (half, horizontal) */}
+                {/* CHART 2 — Most Booked Providers */}
                 <div className="chart-box chart-half">
                   <div className="chart-header">
                     <h3 className="chart-title">Most Booked Providers</h3>
@@ -668,7 +678,7 @@ export default function AdminSPInsights() {
                   </div>
                 </div>
 
-                {/* CHART 3 — Most Rebooked SP (half, horizontal) */}
+                {/* CHART 3 — Most Rebooked Providers */}
                 <div className="chart-box chart-half">
                   <div className="chart-header">
                     <h3 className="chart-title">Most Rebooked Providers</h3>
@@ -687,7 +697,7 @@ export default function AdminSPInsights() {
                   </div>
                 </div>
 
-                {/* CHART 4 — Most Cancellations (full width, doughnut) */}
+                {/* CHART 4 — Most Cancellations */}
                 <div className="chart-box chart-full-width">
                   <div className="chart-header">
                     <h3 className="chart-title">Providers with Most Cancellations</h3>
@@ -701,7 +711,6 @@ export default function AdminSPInsights() {
                       {analytics.totalCancels} total platform-wide
                     </p>
                   )}
-                  {/* Doughnut + inline labels side by side */}
                   <div className="doughnut-row">
                     <div className="chart-container-doughnut">
                       {analytics.totalCancels === 0 && <NoDataOverlay label="cancellation" />}
@@ -775,7 +784,6 @@ export default function AdminSPInsights() {
 
             <div className="report-modal-body" ref={reportRef}>
 
-              {/* Meta */}
               <div className="report-info-section">
                 <div className="report-info-row">
                   <span className="report-label">Report Period:</span>
@@ -798,6 +806,14 @@ export default function AdminSPInsights() {
                   </span>
                 </div>
                 <div className="report-info-row">
+                  <span className="report-label">City Filter:</span>
+                  <span className="report-value">
+                    {selectedCities.length === availableCities.length || selectedCities.length === 0
+                      ? 'All Cities'
+                      : selectedCities.join(', ')}
+                  </span>
+                </div>
+                <div className="report-info-row">
                   <span className="report-label">Generated:</span>
                   <span className="report-value">
                     {new Date().toLocaleDateString('en-US', {
@@ -809,7 +825,6 @@ export default function AdminSPInsights() {
 
               {activeTab === 'sp_insights' ? (
                 <>
-                  {/* Peak Day */}
                   <div className="report-section">
                     <h3 className="report-section-title">Most Booked Day</h3>
                     <div className="report-insights">
@@ -823,16 +838,11 @@ export default function AdminSPInsights() {
                       </div>
                       <div className="insight-item">
                         <strong>Day Breakdown</strong>
-                        <p>
-                          {DAY_LABELS.map((day, i) =>
-                            `${day}: ${analytics.dayCount[i]}`
-                          ).join(' · ')}
-                        </p>
+                        <p>{DAY_LABELS.map((day, i) => `${day}: ${analytics.dayCount[i]}`).join(' · ')}</p>
                       </div>
                     </div>
                   </div>
 
-                  {/* Most Booked SP */}
                   <div className="report-section">
                     <h3 className="report-section-title">Most Booked Service Providers (Top 5)</h3>
                     {analytics.topBookedLabels.length > 0 ? (
@@ -854,7 +864,6 @@ export default function AdminSPInsights() {
                     )}
                   </div>
 
-                  {/* Most Rebooked SP */}
                   <div className="report-section">
                     <h3 className="report-section-title">Most Rebooked Service Providers (Top 5)</h3>
                     {analytics.topRebookLabels.length > 0 ? (
@@ -879,7 +888,6 @@ export default function AdminSPInsights() {
                     )}
                   </div>
 
-                  {/* Cancellations */}
                   <div className="report-section">
                     <h3 className="report-section-title">Cancellations by Provider (Top 5)</h3>
                     {analytics.cancelLabels.length > 0 ? (
@@ -913,10 +921,7 @@ export default function AdminSPInsights() {
                 <div className="report-section">
                   <h3 className="report-section-title">Pet Owner Summary</h3>
                   <div className="report-empty-notice">
-                    <p>
-                      Analytics data for <strong>{rangeText}</strong> will be displayed
-                      here once charts are integrated.
-                    </p>
+                    <p>Analytics data for <strong>{rangeText}</strong> will be displayed here once charts are integrated.</p>
                   </div>
                 </div>
               )}
