@@ -39,6 +39,37 @@
   font-weight: 700;
 }
 
+/* --- HEADER ACTION BUTTONS GROUP --- */
+.header-action-buttons {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Dashboard Button */
+.dashboard-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  background: white;
+  color: #1e3a8a;
+  border: 1.5px solid #1e3a8a;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 2px 4px rgba(30, 58, 138, 0.1);
+}
+
+.dashboard-btn:hover {
+  background: #eff6ff;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(30, 58, 138, 0.15);
+}
+
+/* Generate Report Button */
 .generate-report-btn {
   display: flex;
   align-items: center;
@@ -60,8 +91,6 @@
   transform: translateY(-1px);
   box-shadow: 0 4px 8px rgba(30, 58, 138, 0.3);
 }
-
-/* ... keep the rest of your CSS as is ... */
 
 /* --- STATS GRID --- */
 .stats-grid {
@@ -788,8 +817,22 @@
   }
 
   .report-button-container {
-    justify-content: center;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
     margin-bottom: 15px;
+  }
+
+  .header-action-buttons {
+    width: 100%;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .dashboard-btn,
+  .generate-report-btn {
+    flex: 1;
+    justify-content: center;
   }
 
   .report-modal-content {

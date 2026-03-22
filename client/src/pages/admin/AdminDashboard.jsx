@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { supabase } from "../../config/supabase";
 import LoggedInAdmin from "../../components/Header/LoggedInAdmin";
-import { FaStore, FaCheckCircle, FaTimesCircle, FaClock, FaUsers, FaArrowRight, FaFileAlt, FaTimes, FaDownload } from "react-icons/fa";
+import { FaStore, FaCheckCircle, FaTimesCircle, FaClock, FaUsers, FaArrowRight, FaFileAlt, FaTimes, FaDownload, FaTachometerAlt } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 import { loadAdminFilters, saveAdminFilters } from "../../utils/adminFilterUtils";
 import jsPDF from "jspdf";
@@ -394,10 +394,18 @@ return (
               year: 'numeric' 
             })}
           </div>
-          <button className="generate-report-btn" onClick={() => setShowReportModal(true)}>
-            <FaFileAlt size={16} />
-            <span>Generate Admin Report</span>
-          </button>
+
+          {/* --- ACTION BUTTONS GROUP --- */}
+          <div className="header-action-buttons">
+            <button className="dashboard-btn" onClick={() => navigate('/admin/dashboard')}>
+              <FaTachometerAlt size={16} />
+              <span>Dashboard</span>
+            </button>
+            <button className="generate-report-btn" onClick={() => setShowReportModal(true)}>
+              <FaFileAlt size={16} />
+              <span>Generate Admin Report</span>
+            </button>
+          </div>
         </div>
 
         <div className="stats-grid">
