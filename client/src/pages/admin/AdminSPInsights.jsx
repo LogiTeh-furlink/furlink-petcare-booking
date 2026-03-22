@@ -31,8 +31,6 @@ const RED_SHADES    = ['#7f1d1d', '#991b1b', '#dc2626', '#ef4444', '#f87171'];
 
 // ============================================
 // MODULE-LEVEL HELPERS
-// (defined here so they are available everywhere
-//  in the component without ordering issues)
 // ============================================
 const parseLocalDate = (dateStr) => {
   if (!dateStr) return null;
@@ -48,9 +46,6 @@ const endOfDayDate = (d) => {
 
 const isCompleted = (status) => ['for review', 'rated'].includes(status);
 
-// Takes the last comma-separated segment:
-// "Makati Avenue, Makati City" → "Makati City"
-// "Makati City"               → "Makati City"
 const normalizeCity = (raw) => {
   if (!raw) return '';
   const parts = raw.split(',');
@@ -65,7 +60,6 @@ export default function AdminSPInsights() {
   const reportRef  = useRef(null);
 
   // ---- state ----
-  const [activeTab,        setActiveTab]        = useState('sp_insights');
   const [activeFilter,     setActiveFilter]     = useState('monthly');
   const [petTypeFilter,    setPetTypeFilter]    = useState('both');
   const [customDateStart,  setCustomDateStart]  = useState('');
@@ -89,7 +83,6 @@ export default function AdminSPInsights() {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return navigate('/login');
 
-        // All service providers (no status filter)
         const { data: providers, error: pErr } = await supabase
           .from('service_providers')
           .select('id, business_name, created_at, city');
@@ -103,7 +96,6 @@ export default function AdminSPInsights() {
           setPlatformCreatedAt(earliest.created_at.split('T')[0]);
         }
 
-        // All bookings with pet data
         const { data: bookings, error: bErr } = await supabase
           .from('bookings')
           .select(`
@@ -134,7 +126,6 @@ export default function AdminSPInsights() {
 
   // ============================================
   // DERIVED CITY LIST
-  // Must be declared BEFORE analytics useMemo
   // ============================================
   const availableCities = useMemo(() => {
     const cities = rawProviders
@@ -143,7 +134,6 @@ export default function AdminSPInsights() {
     return [...new Set(cities)].sort((a, b) => a.localeCompare(b));
   }, [rawProviders]);
 
-  // Once cities load, initialise all as selected
   useEffect(() => {
     if (availableCities.length > 0 && selectedCities.length === 0) {
       setSelectedCities([...availableCities]);
@@ -158,9 +148,9 @@ export default function AdminSPInsights() {
 
   const toggleAllCities = () => {
     if (selectedCities.length === availableCities.length) {
-      setSelectedCities([]);          // clear all
+      setSelectedCities([]);
     } else {
-      setSelectedCities([...availableCities]); // select all
+      setSelectedCities([...availableCities]);
     }
   };
 
@@ -208,19 +198,15 @@ export default function AdminSPInsights() {
 
   // ============================================
   // ANALYTICS
-  // availableCities and normalizeCity are both
-  // available here (module-level or already declared above)
   // ============================================
   const analytics = useMemo(() => {
     const { start, end } = getRange;
 
-    // Provider name + normalised city lookup
     const providerMap = {};
     rawProviders.forEach(p => {
       providerMap[p.id] = p.business_name || 'Unknown';
     });
 
-    // City restriction: only apply when NOT all cities are selected
     const allSelected =
       availableCities.length === 0 ||
       availableCities.every(c => selectedCities.includes(c));
@@ -231,9 +217,8 @@ export default function AdminSPInsights() {
             .filter(p => selectedCities.includes(normalizeCity(p.city)))
             .map(p => p.id)
         )
-      : null; // null → no restriction
+      : null;
 
-    // Filter bookings by range + city + pet type
     const filtered = rawBookings.filter(b => {
       const d = parseLocalDate(b.booking_date);
       if (!d || d < start || d > end) return false;
@@ -244,7 +229,6 @@ export default function AdminSPInsights() {
       return true;
     });
 
-    // 1. Most Booked Day
     const dayCount   = new Array(7).fill(0);
     filtered.forEach(b => {
       if (!isCompleted(b.status)) return;
@@ -255,7 +239,6 @@ export default function AdminSPInsights() {
     const peakDayIdx = maxDay > 0 ? dayCount.indexOf(maxDay) : -1;
     const peakDay    = peakDayIdx >= 0 ? DAY_LABELS[peakDayIdx] : 'N/A';
 
-    // 2. Most Booked Service Provider (top 5 by completed bookings)
     const bookingCount = {};
     filtered.forEach(b => {
       if (!isCompleted(b.status)) return;
@@ -265,7 +248,6 @@ export default function AdminSPInsights() {
     const topBookedLabels = sortedBooked.map(([id]) => providerMap[id] || 'Unknown');
     const topBookedValues = sortedBooked.map(([, cnt]) => cnt);
 
-    // 3. Most Rebooked (returning customers per provider)
     const userPerProvider = {};
     filtered.forEach(b => {
       if (!isCompleted(b.status)) return;
@@ -282,7 +264,6 @@ export default function AdminSPInsights() {
     const topRebookLabels = sortedRebook.map(([id]) => providerMap[id] || 'Unknown');
     const topRebookValues = sortedRebook.map(([, cnt]) => cnt);
 
-    // 4. Most Cancellations (top 5)
     const cancelCount = {};
     filtered.forEach(b => {
       if (b.status !== 'cancelled') return;
@@ -459,8 +440,7 @@ export default function AdminSPInsights() {
         }
       }
 
-      const tabLabel = activeTab === 'sp_insights' ? 'SP_Insights' : 'PetOwner_Insights';
-      pdf.save(`Admin_${tabLabel}_Report_${new Date().toISOString().split('T')[0]}.pdf`);
+      pdf.save(`Admin_SP_Insights_Report_${new Date().toISOString().split('T')[0]}.pdf`);
     } catch (err) {
       console.error('PDF error:', err);
       alert('Failed to generate PDF. Please try again.');
@@ -507,14 +487,14 @@ export default function AdminSPInsights() {
             {/* Tab switcher */}
             <div className="sidebar-tabs-group">
               <button
-                className={`sidebar-tab-btn ${activeTab === 'sp_insights' ? 'active' : ''}`}
-                onClick={() => setActiveTab('sp_insights')}
+                className="sidebar-tab-btn active"
+                onClick={() => navigate('/admin/sp-insights')}
               >
                 Service Provider Insights
               </button>
               <button
-                className={`sidebar-tab-btn ${activeTab === 'petowner_insights' ? 'active' : ''}`}
-                onClick={() => setActiveTab('petowner_insights')}
+                className="sidebar-tab-btn"
+                onClick={() => navigate('/admin/pet-owner-insights')}
               >
                 Pet Owner Insights
               </button>
@@ -596,7 +576,7 @@ export default function AdminSPInsights() {
               </select>
             </div>
 
-            {/* City Filter — only shown when cities exist */}
+            {/* City Filter */}
             {availableCities.length > 0 && (
               <div className="sidebar-section">
                 <h3>City</h3>
@@ -636,129 +616,103 @@ export default function AdminSPInsights() {
               </button>
             </div>
 
-            {/* ===== SP INSIGHTS ===== */}
-            {activeTab === 'sp_insights' ? (
-              <div className="insights-charts-grid">
+            {/* ===== SP INSIGHTS CHARTS ===== */}
+            <div className="insights-charts-grid">
 
-                {/* CHART 1 — Most Booked Day */}
-                <div className="chart-box chart-full-width">
-                  <div className="chart-header">
-                    <h3 className="chart-title">Most Booked Day</h3>
-                    <span className="date-range">{rangeText}</span>
-                  </div>
-                  {analytics.peakDay !== 'N/A' && (
-                    <p className="chart-insight-text">
-                      📅 <strong>{analytics.peakDay}</strong> is the busiest day —{' '}
-                      {Math.max(...analytics.dayCount)} completed booking
-                      {Math.max(...analytics.dayCount) !== 1 ? 's' : ''}
-                    </p>
-                  )}
-                  <div className="chart-container-main">
-                    {Math.max(...analytics.dayCount) === 0 && <NoDataOverlay label="booking" />}
-                    <Bar data={mostBookedDayData} options={barOptions} />
-                  </div>
+              {/* CHART 1 — Most Booked Day */}
+              <div className="chart-box chart-full-width">
+                <div className="chart-header">
+                  <h3 className="chart-title">Most Booked Day</h3>
+                  <span className="date-range">{rangeText}</span>
                 </div>
-
-                {/* CHART 2 — Most Booked Providers */}
-                <div className="chart-box chart-half">
-                  <div className="chart-header">
-                    <h3 className="chart-title">Most Booked Providers</h3>
-                    <span className="date-range">{rangeText}</span>
-                  </div>
-                  {analytics.topBookedLabels.length > 0 && (
-                    <p className="chart-insight-text">
-                      🏆 <strong>{analytics.topBookedLabels[0]}</strong> —{' '}
-                      {analytics.topBookedValues[0]} booking
-                      {analytics.topBookedValues[0] !== 1 ? 's' : ''}
-                    </p>
-                  )}
-                  <div className="chart-container-medium">
-                    {analytics.topBookedLabels.length === 0 && <NoDataOverlay label="booking" />}
-                    <Bar data={mostBookedSPData} options={horizontalBarOptions} />
-                  </div>
-                </div>
-
-                {/* CHART 3 — Most Rebooked Providers */}
-                <div className="chart-box chart-half">
-                  <div className="chart-header">
-                    <h3 className="chart-title">Most Rebooked Providers</h3>
-                    <span className="date-range">{rangeText}</span>
-                  </div>
-                  {analytics.topRebookLabels.length > 0 && (
-                    <p className="chart-insight-text">
-                      🔁 <strong>{analytics.topRebookLabels[0]}</strong> —{' '}
-                      {analytics.topRebookValues[0]} returning customer
-                      {analytics.topRebookValues[0] !== 1 ? 's' : ''}
-                    </p>
-                  )}
-                  <div className="chart-container-medium">
-                    {analytics.topRebookLabels.length === 0 && <NoDataOverlay label="rebook" />}
-                    <Bar data={mostRebookedSPData} options={horizontalBarOptions} />
-                  </div>
-                </div>
-
-                {/* CHART 4 — Most Cancellations */}
-                <div className="chart-box chart-full-width">
-                  <div className="chart-header">
-                    <h3 className="chart-title">Providers with Most Cancellations</h3>
-                    <span className="date-range">{rangeText}</span>
-                  </div>
-                  {analytics.totalCancels > 0 && (
-                    <p className="chart-insight-text">
-                      ⚠️ <strong>{analytics.cancelLabels[0]}</strong> leads with{' '}
-                      {analytics.cancelValues[0]} cancellation
-                      {analytics.cancelValues[0] !== 1 ? 's' : ''} —{' '}
-                      {analytics.totalCancels} total platform-wide
-                    </p>
-                  )}
-                  <div className="doughnut-row">
-                    <div className="chart-container-doughnut">
-                      {analytics.totalCancels === 0 && <NoDataOverlay label="cancellation" />}
-                      <Doughnut data={cancellationData} options={doughnutOptions} />
-                    </div>
-                    {analytics.cancelLabels.length > 0 && (
-                      <ul className="doughnut-inline-legend">
-                        {analytics.cancelLabels.map((label, i) => (
-                          <li key={label + i}>
-                            <span
-                              className="doughnut-legend-dot"
-                              style={{ background: RED_SHADES[i] || '#f87171' }}
-                            />
-                            <span className="doughnut-legend-name">{label}</span>
-                            <span className="doughnut-legend-count">{analytics.cancelValues[i]}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                </div>
-
-              </div>
-            ) : (
-              /* ===== PET OWNER INSIGHTS — placeholder ===== */
-              <div className="insights-content-area">
-                <div className="insights-placeholder">
-                  <div className="placeholder-icon">🐾</div>
-                  <h3>Pet Owner Insights</h3>
-                  <p>
-                    Charts and analytics for pet owners will appear here.<br />
-                    Use the filters on the left to adjust the timeframe and pet type.
+                {analytics.peakDay !== 'N/A' && (
+                  <p className="chart-insight-text">
+                    📅 <strong>{analytics.peakDay}</strong> is the busiest day —{' '}
+                    {Math.max(...analytics.dayCount)} completed booking
+                    {Math.max(...analytics.dayCount) !== 1 ? 's' : ''}
                   </p>
-                  <div className="placeholder-filter-summary">
-                    <span className="filter-badge">
-                      {activeFilter === 'yearly' && selectedYear === null
-                        ? 'All Years'
-                        : activeFilter === 'yearly'
-                        ? `Year ${selectedYear}`
-                        : activeFilter.charAt(0).toUpperCase() + activeFilter.slice(1)}
-                    </span>
-                    <span className="filter-badge">
-                      {petTypeFilter === 'both' ? 'Dog & Cat' : petTypeFilter}
-                    </span>
-                  </div>
+                )}
+                <div className="chart-container-main">
+                  {Math.max(...analytics.dayCount) === 0 && <NoDataOverlay label="booking" />}
+                  <Bar data={mostBookedDayData} options={barOptions} />
                 </div>
               </div>
-            )}
+
+              {/* CHART 2 — Most Booked Providers */}
+              <div className="chart-box chart-half">
+                <div className="chart-header">
+                  <h3 className="chart-title">Most Booked Providers</h3>
+                  <span className="date-range">{rangeText}</span>
+                </div>
+                {analytics.topBookedLabels.length > 0 && (
+                  <p className="chart-insight-text">
+                    🏆 <strong>{analytics.topBookedLabels[0]}</strong> —{' '}
+                    {analytics.topBookedValues[0]} booking
+                    {analytics.topBookedValues[0] !== 1 ? 's' : ''}
+                  </p>
+                )}
+                <div className="chart-container-medium">
+                  {analytics.topBookedLabels.length === 0 && <NoDataOverlay label="booking" />}
+                  <Bar data={mostBookedSPData} options={horizontalBarOptions} />
+                </div>
+              </div>
+
+              {/* CHART 3 — Most Rebooked Providers */}
+              <div className="chart-box chart-half">
+                <div className="chart-header">
+                  <h3 className="chart-title">Most Rebooked Providers</h3>
+                  <span className="date-range">{rangeText}</span>
+                </div>
+                {analytics.topRebookLabels.length > 0 && (
+                  <p className="chart-insight-text">
+                    🔁 <strong>{analytics.topRebookLabels[0]}</strong> —{' '}
+                    {analytics.topRebookValues[0]} returning customer
+                    {analytics.topRebookValues[0] !== 1 ? 's' : ''}
+                  </p>
+                )}
+                <div className="chart-container-medium">
+                  {analytics.topRebookLabels.length === 0 && <NoDataOverlay label="rebook" />}
+                  <Bar data={mostRebookedSPData} options={horizontalBarOptions} />
+                </div>
+              </div>
+
+              {/* CHART 4 — Most Cancellations */}
+              <div className="chart-box chart-full-width">
+                <div className="chart-header">
+                  <h3 className="chart-title">Providers with Most Cancellations</h3>
+                  <span className="date-range">{rangeText}</span>
+                </div>
+                {analytics.totalCancels > 0 && (
+                  <p className="chart-insight-text">
+                    ⚠️ <strong>{analytics.cancelLabels[0]}</strong> leads with{' '}
+                    {analytics.cancelValues[0]} cancellation
+                    {analytics.cancelValues[0] !== 1 ? 's' : ''} —{' '}
+                    {analytics.totalCancels} total platform-wide
+                  </p>
+                )}
+                <div className="doughnut-row">
+                  <div className="chart-container-doughnut">
+                    {analytics.totalCancels === 0 && <NoDataOverlay label="cancellation" />}
+                    <Doughnut data={cancellationData} options={doughnutOptions} />
+                  </div>
+                  {analytics.cancelLabels.length > 0 && (
+                    <ul className="doughnut-inline-legend">
+                      {analytics.cancelLabels.map((label, i) => (
+                        <li key={label + i}>
+                          <span
+                            className="doughnut-legend-dot"
+                            style={{ background: RED_SHADES[i] || '#f87171' }}
+                          />
+                          <span className="doughnut-legend-name">{label}</span>
+                          <span className="doughnut-legend-count">{analytics.cancelValues[i]}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </div>
+
+            </div>
           </main>
         </div>
       </div>
@@ -771,11 +725,7 @@ export default function AdminSPInsights() {
             <div className="report-modal-header">
               <div className="report-header-title">
                 <FaFileAlt size={20} />
-                <h2>
-                  {activeTab === 'sp_insights'
-                    ? 'Service Provider Insights Report'
-                    : 'Pet Owner Insights Report'}
-                </h2>
+                <h2>Service Provider Insights Report</h2>
               </div>
               <button className="modal-close-btn" onClick={() => setShowReportModal(false)}>
                 <FaTimes />
@@ -795,9 +745,7 @@ export default function AdminSPInsights() {
                 </div>
                 <div className="report-info-row">
                   <span className="report-label">Insights Category:</span>
-                  <span className="report-value">
-                    {activeTab === 'sp_insights' ? 'Service Provider Insights' : 'Pet Owner Insights'}
-                  </span>
+                  <span className="report-value">Service Provider Insights</span>
                 </div>
                 <div className="report-info-row">
                   <span className="report-label">Pet Type Filter:</span>
@@ -823,108 +771,97 @@ export default function AdminSPInsights() {
                 </div>
               </div>
 
-              {activeTab === 'sp_insights' ? (
-                <>
-                  <div className="report-section">
-                    <h3 className="report-section-title">Most Booked Day</h3>
-                    <div className="report-insights">
-                      <div className="insight-item">
-                        <strong>Peak Day</strong>
-                        <p>
-                          {analytics.peakDay !== 'N/A'
-                            ? `${analytics.peakDay} recorded the highest number of completed bookings during this period with ${Math.max(...analytics.dayCount)} booking(s).`
-                            : 'No completed bookings were found for this period.'}
-                        </p>
-                      </div>
-                      <div className="insight-item">
-                        <strong>Day Breakdown</strong>
-                        <p>{DAY_LABELS.map((day, i) => `${day}: ${analytics.dayCount[i]}`).join(' · ')}</p>
-                      </div>
-                    </div>
+              <div className="report-section">
+                <h3 className="report-section-title">Most Booked Day</h3>
+                <div className="report-insights">
+                  <div className="insight-item">
+                    <strong>Peak Day</strong>
+                    <p>
+                      {analytics.peakDay !== 'N/A'
+                        ? `${analytics.peakDay} recorded the highest number of completed bookings during this period with ${Math.max(...analytics.dayCount)} booking(s).`
+                        : 'No completed bookings were found for this period.'}
+                    </p>
                   </div>
-
-                  <div className="report-section">
-                    <h3 className="report-section-title">Most Booked Service Providers (Top 5)</h3>
-                    {analytics.topBookedLabels.length > 0 ? (
-                      <div className="report-services-list">
-                        {analytics.topBookedLabels.map((name, i) => (
-                          <div key={`booked-${i}`} className="service-item">
-                            <div className="service-info">
-                              <span className="service-rank">#{i + 1}</span>
-                              <span className="service-name">{name}</span>
-                            </div>
-                            <div className="service-stats">
-                              <span className="service-count">{analytics.topBookedValues[i]} bookings</span>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="report-empty-notice"><p>No booking data for this period.</p></div>
-                    )}
-                  </div>
-
-                  <div className="report-section">
-                    <h3 className="report-section-title">Most Rebooked Service Providers (Top 5)</h3>
-                    {analytics.topRebookLabels.length > 0 ? (
-                      <div className="report-services-list">
-                        {analytics.topRebookLabels.map((name, i) => (
-                          <div key={`rebook-${i}`} className="service-item">
-                            <div className="service-info">
-                              <span className="service-rank" style={{ background: '#ca8a04' }}>#{i + 1}</span>
-                              <span className="service-name">{name}</span>
-                            </div>
-                            <div className="service-stats">
-                              <span className="service-count">
-                                {analytics.topRebookValues[i]} returning customer
-                                {analytics.topRebookValues[i] !== 1 ? 's' : ''}
-                              </span>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="report-empty-notice"><p>No rebooking data for this period.</p></div>
-                    )}
-                  </div>
-
-                  <div className="report-section">
-                    <h3 className="report-section-title">Cancellations by Provider (Top 5)</h3>
-                    {analytics.cancelLabels.length > 0 ? (
-                      <div className="report-services-list">
-                        {analytics.cancelLabels.map((name, i) => (
-                          <div key={`cancel-${i}`} className="service-item">
-                            <div className="service-info">
-                              <span className="service-rank" style={{ background: '#dc2626' }}>#{i + 1}</span>
-                              <span className="service-name">{name}</span>
-                            </div>
-                            <div className="service-stats">
-                              <span className="service-count">
-                                {analytics.cancelValues[i]} cancellation
-                                {analytics.cancelValues[i] !== 1 ? 's' : ''}
-                              </span>
-                              <span className="service-percentage" style={{ background: '#fee2e2', color: '#dc2626' }}>
-                                {analytics.totalCancels > 0
-                                  ? Math.round((analytics.cancelValues[i] / analytics.totalCancels) * 100)
-                                  : 0}%
-                              </span>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="report-empty-notice"><p>No cancellations recorded for this period.</p></div>
-                    )}
-                  </div>
-                </>
-              ) : (
-                <div className="report-section">
-                  <h3 className="report-section-title">Pet Owner Summary</h3>
-                  <div className="report-empty-notice">
-                    <p>Analytics data for <strong>{rangeText}</strong> will be displayed here once charts are integrated.</p>
+                  <div className="insight-item">
+                    <strong>Day Breakdown</strong>
+                    <p>{DAY_LABELS.map((day, i) => `${day}: ${analytics.dayCount[i]}`).join(' · ')}</p>
                   </div>
                 </div>
-              )}
+              </div>
+
+              <div className="report-section">
+                <h3 className="report-section-title">Most Booked Service Providers (Top 5)</h3>
+                {analytics.topBookedLabels.length > 0 ? (
+                  <div className="report-services-list">
+                    {analytics.topBookedLabels.map((name, i) => (
+                      <div key={`booked-${i}`} className="service-item">
+                        <div className="service-info">
+                          <span className="service-rank">#{i + 1}</span>
+                          <span className="service-name">{name}</span>
+                        </div>
+                        <div className="service-stats">
+                          <span className="service-count">{analytics.topBookedValues[i]} bookings</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="report-empty-notice"><p>No booking data for this period.</p></div>
+                )}
+              </div>
+
+              <div className="report-section">
+                <h3 className="report-section-title">Most Rebooked Service Providers (Top 5)</h3>
+                {analytics.topRebookLabels.length > 0 ? (
+                  <div className="report-services-list">
+                    {analytics.topRebookLabels.map((name, i) => (
+                      <div key={`rebook-${i}`} className="service-item">
+                        <div className="service-info">
+                          <span className="service-rank" style={{ background: '#ca8a04' }}>#{i + 1}</span>
+                          <span className="service-name">{name}</span>
+                        </div>
+                        <div className="service-stats">
+                          <span className="service-count">
+                            {analytics.topRebookValues[i]} returning customer
+                            {analytics.topRebookValues[i] !== 1 ? 's' : ''}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="report-empty-notice"><p>No rebooking data for this period.</p></div>
+                )}
+              </div>
+
+              <div className="report-section">
+                <h3 className="report-section-title">Cancellations by Provider (Top 5)</h3>
+                {analytics.cancelLabels.length > 0 ? (
+                  <div className="report-services-list">
+                    {analytics.cancelLabels.map((name, i) => (
+                      <div key={`cancel-${i}`} className="service-item">
+                        <div className="service-info">
+                          <span className="service-rank" style={{ background: '#dc2626' }}>#{i + 1}</span>
+                          <span className="service-name">{name}</span>
+                        </div>
+                        <div className="service-stats">
+                          <span className="service-count">
+                            {analytics.cancelValues[i]} cancellation
+                            {analytics.cancelValues[i] !== 1 ? 's' : ''}
+                          </span>
+                          <span className="service-percentage" style={{ background: '#fee2e2', color: '#dc2626' }}>
+                            {analytics.totalCancels > 0
+                              ? Math.round((analytics.cancelValues[i] / analytics.totalCancels) * 100)
+                              : 0}%
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="report-empty-notice"><p>No cancellations recorded for this period.</p></div>
+                )}
+              </div>
             </div>
 
             <div className="report-modal-footer">
