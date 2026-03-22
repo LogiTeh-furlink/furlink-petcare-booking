@@ -397,7 +397,9 @@ return (
 
           {/* --- ACTION BUTTONS GROUP --- */}
           <div className="header-action-buttons">
-            <button className="dashboard-btn" onClick={() => navigate('/admin/AdminSPInsights')}>
+            <button 
+              className="dashboard-btn" 
+              onClick={() => navigate('/admin/service-provider-insights')}>
               <FaTachometerAlt size={16} />
               <span>Dashboard</span>
             </button>
