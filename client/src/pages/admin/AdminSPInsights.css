@@ -7,7 +7,7 @@
 }
 
 /* ============================================ */
-/* PAGE WRAPPER */
+/* PAGE WRAPPER                                 */
 /* ============================================ */
 .admin-insights-page-wrapper {
   background-color: var(--bg-gray);
@@ -36,7 +36,7 @@
 }
 
 /* ============================================ */
-/* SIDEBAR */
+/* SIDEBAR                                      */
 /* ============================================ */
 .admin-insights-sidebar {
   width: 190px;
@@ -63,6 +63,7 @@
   cursor: pointer;
   margin-bottom: 0.5rem;
   margin-top: 0.5rem;
+  flex-shrink: 0;
 }
 
 .back-to-dashboard-btn:hover {
@@ -70,7 +71,7 @@
   border-color: #0E2679;
 }
 
-/* Sidebar Tab Buttons */
+/* Tab Buttons */
 .sidebar-tabs-group {
   display: flex;
   flex-direction: column;
@@ -89,6 +90,7 @@
   font-size: 0.72rem;
   text-align: left;
   transition: background 0.15s, border-color 0.15s;
+  line-height: 1.3;
 }
 
 .sidebar-tab-btn:hover {
@@ -106,6 +108,7 @@
   padding: 6px;
   border-radius: 8px;
   border: 1px solid var(--border);
+  flex-shrink: 0;
 }
 
 .sidebar-section h3 {
@@ -123,6 +126,7 @@
   border-radius: 4px;
   border: 1px solid #cbd5e1;
   font-size: 0.75rem;
+  box-sizing: border-box;
 }
 
 .custom-date-range {
@@ -155,8 +159,34 @@
   border-color: var(--primary-blue);
 }
 
+/* Legend */
+.sidebar-legend {
+  flex-shrink: 0;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.68rem;
+  color: #475569;
+  margin-bottom: 4px;
+}
+
+.legend-item:last-child {
+  margin-bottom: 0;
+}
+
+.legend-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
 /* ============================================ */
-/* MAIN CONTENT */
+/* MAIN CONTENT                                 */
 /* ============================================ */
 .admin-insights-main-content {
   flex: 1;
@@ -165,21 +195,21 @@
   gap: 0.3rem;
   height: 100%;
   overflow: hidden;
+  min-width: 0;
 }
 
-/* Header Row: As of date + Generate Report button */
+/* Header row */
 .report-button-container {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 0;
+  flex-shrink: 0;
 }
 
 .as-of-date {
   font-size: 0.85rem;
   color: var(--primary-blue);
   font-weight: 700;
-  text-align: left;
 }
 
 .generate-report-btn {
@@ -195,6 +225,7 @@
   font-size: 0.75rem;
   cursor: pointer;
   transition: background 0.2s;
+  white-space: nowrap;
 }
 
 .generate-report-btn:hover {
@@ -202,7 +233,116 @@
 }
 
 /* ============================================ */
-/* INSIGHTS CONTENT AREA (Chart placeholder) */
+/* CHARTS GRID                                  */
+/* ============================================ */
+.insights-charts-grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: auto auto;
+  gap: 0.3rem;
+  overflow-y: auto;
+  min-height: 0;
+  padding-bottom: 2px;
+}
+
+/* Full-width card spans both columns */
+.chart-full-width {
+  grid-column: 1 / -1;
+}
+
+/* Half-width card occupies one column */
+.chart-half {
+  grid-column: span 1;
+}
+
+/* Chart box */
+.chart-box {
+  background: white;
+  padding: 6px 8px 4px 8px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2px;
+  flex-shrink: 0;
+}
+
+.chart-title {
+  color: var(--primary-blue);
+  font-size: 0.78rem;
+  font-weight: 700;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.date-range {
+  font-size: 0.58rem;
+  background: #f1f5f9;
+  padding: 2px 5px;
+  border-radius: 4px;
+  color: #64748b;
+  flex-shrink: 0;
+  white-space: nowrap;
+  margin-left: 6px;
+}
+
+.chart-insight-text {
+  font-size: 0.62rem;
+  color: #475569;
+  font-style: italic;
+  margin: 0 0 3px 0;
+  flex-shrink: 0;
+}
+
+/* Chart container sizes */
+.chart-container-main {
+  height: 130px;
+  flex-shrink: 0;
+}
+
+.chart-container-medium {
+  height: 120px;
+  flex-shrink: 0;
+}
+
+.chart-container-doughnut {
+  height: 130px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* No-data overlay */
+.no-data-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.85);
+  z-index: 10;
+  border-radius: 6px;
+}
+
+.no-data-overlay span {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  font-style: italic;
+}
+
+/* ============================================ */
+/* PET OWNER TAB — PLACEHOLDER                  */
 /* ============================================ */
 .insights-content-area {
   flex: 1;
@@ -213,6 +353,7 @@
   align-items: center;
   justify-content: center;
   overflow: hidden;
+  min-height: 0;
 }
 
 .insights-placeholder {
@@ -259,7 +400,7 @@
 }
 
 /* ============================================ */
-/* LOADING STATE */
+/* LOADING                                      */
 /* ============================================ */
 .admin-insights-loading {
   height: 100vh;
@@ -272,14 +413,11 @@
 }
 
 /* ============================================ */
-/* REPORT MODAL */
+/* REPORT MODAL                                 */
 /* ============================================ */
 .report-modal-overlay {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  inset: 0;
   background: rgba(0, 0, 0, 0.6);
   display: flex;
   justify-content: center;
@@ -305,6 +443,7 @@
   align-items: center;
   padding: 20px 24px;
   border-bottom: 2px solid var(--border);
+  flex-shrink: 0;
 }
 
 .report-header-title {
@@ -343,7 +482,7 @@
   flex: 1;
 }
 
-/* Report Info Section */
+/* Report Info */
 .report-info-section {
   background: #f8fafc;
   padding: 16px;
@@ -389,11 +528,103 @@
   border-bottom: 2px solid var(--accent-yellow);
 }
 
+/* Insights */
+.report-insights {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.insight-item {
+  background: #f8fafc;
+  padding: 14px;
+  border-radius: 8px;
+  border-left: 4px solid var(--accent-yellow);
+}
+
+.insight-item strong {
+  color: var(--primary-blue);
+  font-size: 0.95rem;
+  display: block;
+  margin-bottom: 6px;
+}
+
+.insight-item p {
+  margin: 0;
+  color: #475569;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+/* Services / Provider list */
+.report-services-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.service-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 14px;
+  background: #f8fafc;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+
+.service-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.service-rank {
+  background: var(--primary-blue);
+  color: white;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.85rem;
+  flex-shrink: 0;
+}
+
+.service-name {
+  font-weight: 600;
+  color: #334155;
+  font-size: 0.95rem;
+}
+
+.service-stats {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.service-count {
+  color: #64748b;
+  font-size: 0.85rem;
+}
+
+.service-percentage {
+  background: var(--accent-yellow);
+  color: var(--primary-blue);
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 0.85rem;
+}
+
+/* Empty notice */
 .report-empty-notice {
   background: #f8fafc;
   border: 1px dashed #cbd5e1;
   border-radius: 8px;
-  padding: 24px;
+  padding: 20px;
   text-align: center;
   color: #94a3b8;
   font-size: 0.9rem;
@@ -410,7 +641,7 @@
   border-top: 2px solid var(--border);
   display: flex;
   justify-content: flex-end;
-  gap: 12px;
+  flex-shrink: 0;
 }
 
 .btn-download-report {
@@ -439,13 +670,21 @@
 }
 
 /* ============================================ */
-/* RESPONSIVE */
+/* RESPONSIVE                                   */
 /* ============================================ */
+@media (max-width: 900px) {
+  .insights-charts-grid {
+    grid-template-columns: 1fr;
+  }
+  .chart-half {
+    grid-column: 1 / -1;
+  }
+}
+
 @media (max-width: 768px) {
   .admin-insights-container {
     flex-direction: column;
   }
-
   .admin-insights-sidebar {
     width: 100%;
     flex-direction: row;
@@ -453,21 +692,23 @@
     overflow-x: auto;
     max-height: none;
   }
-
   .sidebar-tabs-group {
     flex-direction: row;
   }
-
   .sidebar-tab-btn {
     white-space: nowrap;
   }
 }
 
 /* ============================================ */
-/* PRINT */
+/* PRINT                                        */
 /* ============================================ */
 @media print {
   .report-modal-content {
     box-shadow: none;
+  }
+  .chart-box {
+    break-inside: avoid;
+    page-break-inside: avoid;
   }
 }
