@@ -41,7 +41,8 @@ import AdminChangePassword from "./pages/admin/AdminChangePassword";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminViewProvider from "./pages/admin/AdminViewProvider";
 import AdminViewBooking from "./pages/admin/AdminViewBooking"; 
-import AdminSPInsights from "./pages/admin/AdminSPInsights"; 
+import AdminSPInsights from "./pages/admin/AdminSPInsights";
+import AdminPOInsights from "./pages/admin/AdminPOInsights";
 
 // Route Guards
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -121,6 +122,7 @@ function App() {
             <Route path="/admin/provider/:id" element={<AdminViewProvider />} /> 
             <Route path="/admin/user-bookings/:id" element={<AdminViewBooking />} /> 
             <Route path="/admin/service-provider-insights" element={<AdminSPInsights />} />
+            <Route path="/admin/pet-owner-insights" element={<AdminPOInsights />} />
 
           </Route> {/* End SuspensionGuard */}
         </Route> {/* End ProtectedRoute */}
