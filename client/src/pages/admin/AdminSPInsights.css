@@ -11,19 +11,16 @@
 /* ============================================ */
 .admin-insights-page-wrapper {
   background-color: var(--bg-gray);
-  height: 100vh;
+  min-height: 100vh;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
   font-family: 'Segoe UI', sans-serif;
 }
 
 .admin-insights-main-layout {
   flex: 1;
   display: flex;
-  padding: 2px 0 1px 0;
-  overflow: hidden;
-  max-height: calc(100vh - 130px);
+  padding: 8px 0 12px 0;
 }
 
 .admin-insights-container {
@@ -31,8 +28,8 @@
   width: 98%;
   margin: 0 auto;
   display: flex;
-  gap: 0.3rem;
-  height: 100%;
+  gap: 0.5rem;
+  align-items: flex-start;
 }
 
 /* ============================================ */
@@ -44,8 +41,8 @@
   display: flex;
   flex-direction: column;
   gap: 0.3rem;
-  overflow-y: auto;
-  max-height: 100%;
+  position: sticky;
+  top: 8px;
 }
 
 /* Back Button */
@@ -61,8 +58,8 @@
   color: #0E2679;
   transition: all 0.2s;
   cursor: pointer;
-  margin-bottom: 0.5rem;
-  margin-top: 0.5rem;
+  margin-bottom: 0.3rem;
+  margin-top: 0.3rem;
   flex-shrink: 0;
 }
 
@@ -80,7 +77,7 @@
 
 .sidebar-tab-btn {
   width: 100%;
-  padding: 5px;
+  padding: 6px;
   border: 1px solid var(--border);
   background: white;
   border-radius: 6px;
@@ -108,7 +105,6 @@
   padding: 6px;
   border-radius: 8px;
   border: 1px solid var(--border);
-  flex-shrink: 0;
 }
 
 .sidebar-section h3 {
@@ -159,32 +155,6 @@
   border-color: var(--primary-blue);
 }
 
-/* Legend */
-.sidebar-legend {
-  flex-shrink: 0;
-}
-
-.legend-item {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 0.68rem;
-  color: #475569;
-  margin-bottom: 4px;
-}
-
-.legend-item:last-child {
-  margin-bottom: 0;
-}
-
-.legend-dot {
-  display: inline-block;
-  width: 10px;
-  height: 10px;
-  border-radius: 3px;
-  flex-shrink: 0;
-}
-
 /* ============================================ */
 /* MAIN CONTENT                                 */
 /* ============================================ */
@@ -192,9 +162,7 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 0.3rem;
-  height: 100%;
-  overflow: hidden;
+  gap: 0.4rem;
   min-width: 0;
 }
 
@@ -203,7 +171,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  flex-shrink: 0;
+  margin-bottom: 4px;
 }
 
 .as-of-date {
@@ -233,17 +201,13 @@
 }
 
 /* ============================================ */
-/* CHARTS GRID                                  */
+/* CHARTS GRID — no overflow hidden, rows auto  */
 /* ============================================ */
 .insights-charts-grid {
-  flex: 1;
   display: grid;
   grid-template-columns: 1fr 1fr;
-  grid-template-rows: auto auto;
-  gap: 0.3rem;
-  overflow-y: auto;
-  min-height: 0;
-  padding-bottom: 2px;
+  gap: 0.4rem;
+  width: 100%;
 }
 
 /* Full-width card spans both columns */
@@ -256,23 +220,21 @@
   grid-column: span 1;
 }
 
-/* Chart box */
+/* Chart box — height driven by content, never clipped */
 .chart-box {
   background: white;
-  padding: 6px 8px 4px 8px;
+  padding: 10px 12px 12px 12px;
   border-radius: 10px;
   border: 1px solid var(--border);
   display: flex;
   flex-direction: column;
-  min-height: 0;
+  gap: 4px;
 }
 
 .chart-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 2px;
-  flex-shrink: 0;
 }
 
 .chart-title {
@@ -280,9 +242,6 @@
   font-size: 0.78rem;
   font-weight: 700;
   margin: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .date-range {
@@ -300,27 +259,29 @@
   font-size: 0.62rem;
   color: #475569;
   font-style: italic;
-  margin: 0 0 3px 0;
-  flex-shrink: 0;
+  margin: 0;
 }
 
-/* Chart container sizes */
+/* ============================================ */
+/* CHART CANVAS WRAPPERS — explicit heights     */
+/* so Chart.js can size itself correctly        */
+/* ============================================ */
 .chart-container-main {
-  height: 130px;
-  flex-shrink: 0;
+  position: relative;
+  width: 100%;
+  height: 180px;
 }
 
 .chart-container-medium {
-  height: 120px;
-  flex-shrink: 0;
+  position: relative;
+  width: 100%;
+  height: 160px;
 }
 
 .chart-container-doughnut {
-  height: 130px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
+  position: relative;
+  width: 100%;
+  height: 180px;
 }
 
 /* No-data overlay */
@@ -345,15 +306,13 @@
 /* PET OWNER TAB — PLACEHOLDER                  */
 /* ============================================ */
 .insights-content-area {
-  flex: 1;
   background: white;
   border-radius: 10px;
   border: 1px solid var(--border);
   display: flex;
   align-items: center;
   justify-content: center;
-  overflow: hidden;
-  min-height: 0;
+  min-height: 400px;
 }
 
 .insights-placeholder {
@@ -556,7 +515,7 @@
   line-height: 1.5;
 }
 
-/* Services / Provider list */
+/* Provider list */
 .report-services-list {
   display: flex;
   flex-direction: column;
@@ -670,6 +629,62 @@
 }
 
 /* ============================================ */
+/* DOUGHNUT ROW — chart + inline labels         */
+/* ============================================ */
+.doughnut-row {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.doughnut-row .chart-container-doughnut {
+  flex-shrink: 0;
+  width: 180px;
+  height: 180px;
+}
+
+.doughnut-inline-legend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+}
+
+.doughnut-inline-legend li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.doughnut-legend-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.doughnut-legend-name {
+  flex: 1;
+  font-size: 0.78rem;
+  color: #334155;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.doughnut-legend-count {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #dc2626;
+  flex-shrink: 0;
+}
+
+/* ============================================ */
 /* RESPONSIVE                                   */
 /* ============================================ */
 @media (max-width: 900px) {
@@ -687,16 +702,7 @@
   }
   .admin-insights-sidebar {
     width: 100%;
-    flex-direction: row;
-    flex-wrap: wrap;
-    overflow-x: auto;
-    max-height: none;
-  }
-  .sidebar-tabs-group {
-    flex-direction: row;
-  }
-  .sidebar-tab-btn {
-    white-space: nowrap;
+    position: static;
   }
 }
 
