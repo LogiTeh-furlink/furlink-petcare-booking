@@ -24,10 +24,11 @@ ChartJS.register(
 // ============================================
 // CONSTANTS
 // ============================================
-const DAY_LABELS     = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-const GREEN_SHADES   = ['#14532d', '#15803d', '#16a34a', '#22c55e', '#4ade80'];
-const PURPLE_SHADES  = ['#3b0764', '#6d28d9', '#7c3aed', '#a78bfa', '#c4b5fd'];
-const ORANGE_SHADES  = ['#7c2d12', '#c2410c', '#ea580c', '#fb923c', '#fdba74'];
+const DAY_LABELS    = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const GREEN_SHADES  = ['#14532d', '#15803d', '#16a34a', '#22c55e', '#4ade80'];
+const PURPLE_SHADES = ['#3b0764', '#6d28d9', '#7c3aed', '#a78bfa', '#c4b5fd'];
+const ORANGE_SHADES = ['#7c2d12', '#c2410c', '#ea580c', '#fb923c', '#fdba74'];
+const TEAL_SHADES   = ['#134e4a', '#0f766e', '#0d9488', '#2dd4bf', '#99f6e4'];
 
 // ============================================
 // MODULE-LEVEL HELPERS
@@ -98,14 +99,15 @@ export default function AdminPOInsights() {
           setPlatformCreatedAt(earliest.created_at.split('T')[0]);
         }
 
-        // Fetch users (pet owners)
+        // Fetch users (pet owners) — public.profiles, role = pet_owner
         const { data: users, error: uErr } = await supabase
-          .from('users')
-          .select('id, first_name, last_name, city, created_at');
+          .from('profiles')
+          .select('id, first_name, last_name, created_at')
+          .eq('role', 'pet_owner');
         if (uErr) throw uErr;
         setRawUsers(users || []);
 
-        // Fetch all bookings with pet data
+        // Fetch all bookings with pet data — include breed field
         const { data: bookings, error: bErr } = await supabase
           .from('bookings')
           .select(`
@@ -118,7 +120,8 @@ export default function AdminPOInsights() {
             created_at,
             booking_pets (
               id,
-              pet_type
+              pet_type,
+              breed
             )
           `)
           .order('created_at', { ascending: false });
@@ -135,7 +138,7 @@ export default function AdminPOInsights() {
   }, [navigate]);
 
   // ============================================
-  // DERIVED CITY LIST (from providers for consistency)
+  // DERIVED CITY LIST
   // ============================================
   const availableCities = useMemo(() => {
     const cities = rawProviders
@@ -236,8 +239,19 @@ export default function AdminPOInsights() {
         )
       : null;
 
-    // Filter bookings by range + city + pet type
-    const filtered = rawBookings.filter(b => {
+    // Filter bookings by date range + city
+    // For submission-day chart we filter by created_at; for others by booking_date
+    const filterByCreatedAt = (b) => {
+      const d = b.created_at ? new Date(b.created_at) : null;
+      if (!d || d < start || d > end) return false;
+      if (cityFilteredProviderIds && !cityFilteredProviderIds.has(b.provider_id)) return false;
+      if (petTypeFilter !== 'both' && b.booking_pets && b.booking_pets.length > 0) {
+        return b.booking_pets.some(p => p.pet_type === petTypeFilter);
+      }
+      return true;
+    };
+
+    const filterByBookingDate = (b) => {
       const d = parseLocalDate(b.booking_date);
       if (!d || d < start || d > end) return false;
       if (cityFilteredProviderIds && !cityFilteredProviderIds.has(b.provider_id)) return false;
@@ -245,43 +259,56 @@ export default function AdminPOInsights() {
         return b.booking_pets.some(p => p.pet_type === petTypeFilter);
       }
       return true;
-    });
+    };
 
-    // 1. Most Active Pet Owners (top 5 by completed bookings)
+    const filteredByDate     = rawBookings.filter(filterByBookingDate);
+    const filteredByCreated  = rawBookings.filter(filterByCreatedAt);
+
+    // --------------------------------------------------
+    // 1. CUSTOMERS WITH MOST BOOKINGS (top 5, completed)
+    // --------------------------------------------------
     const ownerBookingCount = {};
-    filtered.forEach(b => {
+    filteredByDate.forEach(b => {
       if (!isCompleted(b.status)) return;
       ownerBookingCount[b.user_id] = (ownerBookingCount[b.user_id] || 0) + 1;
     });
-    const sortedOwners     = Object.entries(ownerBookingCount).sort((a, b) => b[1] - a[1]).slice(0, 5);
-    const topOwnerLabels   = sortedOwners.map(([id]) => userMap[id] || 'Unknown');
-    const topOwnerValues   = sortedOwners.map(([, cnt]) => cnt);
+    const sortedOwners    = Object.entries(ownerBookingCount).sort((a, b) => b[1] - a[1]).slice(0, 5);
+    const topOwnerLabels  = sortedOwners.map(([id]) => userMap[id] || 'Unknown');
+    const topOwnerValues  = sortedOwners.map(([, cnt]) => cnt);
 
-    // 2. Pet Type Distribution (dog vs cat)
-    let dogCount = 0;
-    let catCount = 0;
-    filtered.forEach(b => {
+    // --------------------------------------------------
+    // 2. MOST BOOKED PET BREED (top 7, completed bookings)
+    // --------------------------------------------------
+    const breedCount = {};
+    filteredByDate.forEach(b => {
       if (!isCompleted(b.status)) return;
       (b.booking_pets || []).forEach(p => {
-        if (p.pet_type === 'Dog') dogCount++;
-        else if (p.pet_type === 'Cat') catCount++;
+        const breedKey = (p.breed || '').trim();
+        if (!breedKey) return;
+        breedCount[breedKey] = (breedCount[breedKey] || 0) + 1;
       });
     });
+    const sortedBreeds  = Object.entries(breedCount).sort((a, b) => b[1] - a[1]).slice(0, 7);
+    const breedLabels   = sortedBreeds.map(([breed]) => breed);
+    const breedValues   = sortedBreeds.map(([, cnt]) => cnt);
 
-    // 3. Most Booked Day by Pet Owners
-    const dayCount   = new Array(7).fill(0);
-    filtered.forEach(b => {
-      if (!isCompleted(b.status)) return;
-      const d = parseLocalDate(b.booking_date);
-      if (d) dayCount[(d.getDay() + 6) % 7]++;
+    // --------------------------------------------------
+    // 3. DAY PET OWNERS SUBMIT BOOKINGS (by created_at)
+    // --------------------------------------------------
+    const submissionDayCount = new Array(7).fill(0);
+    filteredByCreated.forEach(b => {
+      const d = b.created_at ? new Date(b.created_at) : null;
+      if (d) submissionDayCount[(d.getDay() + 6) % 7]++;
     });
-    const maxDay     = Math.max(...dayCount);
-    const peakDayIdx = maxDay > 0 ? dayCount.indexOf(maxDay) : -1;
-    const peakDay    = peakDayIdx >= 0 ? DAY_LABELS[peakDayIdx] : 'N/A';
+    const maxSubmit        = Math.max(...submissionDayCount);
+    const peakSubmitIdx    = maxSubmit > 0 ? submissionDayCount.indexOf(maxSubmit) : -1;
+    const peakSubmitDay    = peakSubmitIdx >= 0 ? DAY_LABELS[peakSubmitIdx] : 'N/A';
 
-    // 4. Repeat Bookers (pet owners who booked more than once)
+    // --------------------------------------------------
+    // 4. REPEAT BOOKERS (completed, booked > 1 time)
+    // --------------------------------------------------
     const ownerTotalBookings = {};
-    filtered.forEach(b => {
+    filteredByDate.forEach(b => {
       if (!isCompleted(b.status)) return;
       ownerTotalBookings[b.user_id] = (ownerTotalBookings[b.user_id] || 0) + 1;
     });
@@ -292,22 +319,29 @@ export default function AdminPOInsights() {
     const repeatOwnerLabels = repeatOwners.map(([id]) => userMap[id] || 'Unknown');
     const repeatOwnerValues = repeatOwners.map(([, cnt]) => cnt);
 
-    // 5. Cancellation Rate by Pet Owners (top 5)
+    // --------------------------------------------------
+    // 5. PET OWNERS WITH MOST CANCELLATIONS (top 5)
+    // --------------------------------------------------
     const ownerCancelCount = {};
-    filtered.forEach(b => {
+    filteredByDate.forEach(b => {
       if (b.status !== 'cancelled') return;
       ownerCancelCount[b.user_id] = (ownerCancelCount[b.user_id] || 0) + 1;
     });
-    const sortedCancels    = Object.entries(ownerCancelCount).sort((a, b) => b[1] - a[1]).slice(0, 5);
+    const sortedCancels     = Object.entries(ownerCancelCount).sort((a, b) => b[1] - a[1]).slice(0, 5);
     const cancelOwnerLabels = sortedCancels.map(([id]) => userMap[id] || 'Unknown');
     const cancelOwnerValues = sortedCancels.map(([, cnt]) => cnt);
     const totalCancels      = cancelOwnerValues.reduce((a, b) => a + b, 0);
 
     return {
+      // Chart 1
       topOwnerLabels, topOwnerValues,
-      dogCount, catCount,
-      dayCount, peakDay, peakDayIdx,
+      // Chart 2
+      breedLabels, breedValues,
+      // Chart 3
+      submissionDayCount, peakSubmitDay, peakSubmitIdx,
+      // Chart 4
       repeatOwnerLabels, repeatOwnerValues,
+      // Chart 5
       cancelOwnerLabels, cancelOwnerValues, totalCancels,
     };
   }, [rawBookings, rawUsers, rawProviders, getRange, petTypeFilter, selectedCities, availableCities]);
@@ -346,49 +380,58 @@ export default function AdminPOInsights() {
   // ============================================
   // CHART DATA
   // ============================================
-  const mostActiveDayData = {
-    labels: DAY_LABELS,
+
+  // Chart 1 — Customers with Most Bookings (horizontal bar)
+  const topOwnersData = {
+    labels: analytics.topOwnerLabels.length ? analytics.topOwnerLabels : ['No data'],
     datasets: [{
-      data: analytics.dayCount,
-      backgroundColor: DAY_LABELS.map((_, i) =>
-        i === analytics.peakDayIdx ? '#22c55e' : '#14532d'
-      ),
-      borderRadius: 4,
+      label: 'Completed Bookings',
+      data: analytics.topOwnerValues.length ? analytics.topOwnerValues : [0],
+      backgroundColor: GREEN_SHADES.slice(0, Math.max(analytics.topOwnerValues.length, 1)),
+      borderRadius: 5,
+      barThickness: 18,
+    }]
+  };
+
+  // Chart 2 — Most Booked Pet Breed (vertical bar)
+  const breedPalette = ['#1e3a8a','#2563eb','#3b82f6','#60a5fa','#93c5fd','#bfdbfe','#dbeafe'];
+  const breedData = {
+    labels: analytics.breedLabels.length ? analytics.breedLabels : ['No data'],
+    datasets: [{
+      label: 'Bookings',
+      data: analytics.breedValues.length ? analytics.breedValues : [0],
+      backgroundColor: breedPalette.slice(0, Math.max(analytics.breedValues.length, 1)),
+      borderRadius: 5,
       barThickness: 28,
     }]
   };
 
-  const topOwnersData = {
-    labels: analytics.topOwnerLabels.length ? analytics.topOwnerLabels : ['No data'],
+  // Chart 3 — Submission Day (vertical bar)
+  const submissionDayData = {
+    labels: DAY_LABELS,
     datasets: [{
-      data: analytics.topOwnerValues.length ? analytics.topOwnerValues : [0],
-      backgroundColor: GREEN_SHADES.slice(0, Math.max(analytics.topOwnerValues.length, 1)),
-      borderRadius: 4,
-      barThickness: 16,
+      data: analytics.submissionDayCount,
+      backgroundColor: DAY_LABELS.map((_, i) =>
+        i === analytics.peakSubmitIdx ? '#0d9488' : '#134e4a'
+      ),
+      borderRadius: 5,
+      barThickness: 28,
     }]
   };
 
+  // Chart 4 — Repeat Bookers (horizontal bar)
   const repeatOwnersData = {
     labels: analytics.repeatOwnerLabels.length ? analytics.repeatOwnerLabels : ['No data'],
     datasets: [{
+      label: 'Completed Bookings',
       data: analytics.repeatOwnerValues.length ? analytics.repeatOwnerValues : [0],
       backgroundColor: PURPLE_SHADES.slice(0, Math.max(analytics.repeatOwnerValues.length, 1)),
-      borderRadius: 4,
-      barThickness: 16,
+      borderRadius: 5,
+      barThickness: 18,
     }]
   };
 
-  const petTypeDistData = {
-    labels: ['Dog', 'Cat'],
-    datasets: [{
-      data: [analytics.dogCount || 0, analytics.catCount || 0].map(v => v === 0 ? 0 : v),
-      backgroundColor: analytics.dogCount === 0 && analytics.catCount === 0
-        ? ['#e2e8f0', '#e2e8f0']
-        : ['#15803d', '#7c3aed'],
-      borderWidth: 0,
-    }]
-  };
-
+  // Chart 5 — Pet Owners with Most Cancellations (doughnut)
   const cancellationData = {
     labels: analytics.cancelOwnerLabels.length ? analytics.cancelOwnerLabels : ['No cancellations'],
     datasets: [{
@@ -660,36 +703,16 @@ export default function AdminPOInsights() {
             {/* ===== PET OWNER INSIGHTS CHARTS ===== */}
             <div className="insights-charts-grid">
 
-              {/* CHART 1 — Most Active Booking Day */}
-              <div className="chart-box chart-full-width">
-                <div className="chart-header">
-                  <h3 className="chart-title">Most Active Booking Day</h3>
-                  <span className="date-range">{rangeText}</span>
-                </div>
-                {analytics.peakDay !== 'N/A' && (
-                  <p className="chart-insight-text">
-                    📅 <strong>{analytics.peakDay}</strong> is the busiest day —{' '}
-                    {Math.max(...analytics.dayCount)} completed booking
-                    {Math.max(...analytics.dayCount) !== 1 ? 's' : ''}
-                  </p>
-                )}
-                <div className="chart-container-main">
-                  {Math.max(...analytics.dayCount) === 0 && <NoDataOverlay label="booking" />}
-                  <Bar data={mostActiveDayData} options={barOptions} />
-                </div>
-              </div>
-
-              {/* CHART 2 — Most Active Pet Owners */}
+              {/* CHART 1 — Customers with Most Bookings */}
               <div className="chart-box chart-half">
                 <div className="chart-header">
-                  <h3 className="chart-title">Most Active Pet Owners</h3>
+                  <h3 className="chart-title">Customers with Most Bookings</h3>
                   <span className="date-range">{rangeText}</span>
                 </div>
                 {analytics.topOwnerLabels.length > 0 && (
                   <p className="chart-insight-text">
-                    🏆 <strong>{analytics.topOwnerLabels[0]}</strong> —{' '}
-                    {analytics.topOwnerValues[0]} booking
-                    {analytics.topOwnerValues[0] !== 1 ? 's' : ''}
+                    🏆 <strong>{analytics.topOwnerLabels[0]}</strong> leads with{' '}
+                    {analytics.topOwnerValues[0]} completed booking{analytics.topOwnerValues[0] !== 1 ? 's' : ''}
                   </p>
                 )}
                 <div className="chart-container-medium">
@@ -698,45 +721,40 @@ export default function AdminPOInsights() {
                 </div>
               </div>
 
-              {/* CHART 3 — Pet Type Distribution */}
+              {/* CHART 2 — Most Booked Pet Breed */}
               <div className="chart-box chart-half">
                 <div className="chart-header">
-                  <h3 className="chart-title">Pet Type Distribution</h3>
+                  <h3 className="chart-title">Most Booked Pet Breed</h3>
                   <span className="date-range">{rangeText}</span>
                 </div>
-                {(analytics.dogCount > 0 || analytics.catCount > 0) && (
+                {analytics.breedLabels.length > 0 && (
                   <p className="chart-insight-text">
-                    🐾 <strong>{analytics.dogCount}</strong> dog booking
-                    {analytics.dogCount !== 1 ? 's' : ''} &nbsp;·&nbsp;{' '}
-                    <strong>{analytics.catCount}</strong> cat booking
-                    {analytics.catCount !== 1 ? 's' : ''}
+                    🐾 <strong>{analytics.breedLabels[0]}</strong> is the most booked breed with{' '}
+                    {analytics.breedValues[0]} booking{analytics.breedValues[0] !== 1 ? 's' : ''}
                   </p>
                 )}
-                <div className="doughnut-row">
-                  <div className="chart-container-doughnut" style={{ width: 140, height: 140 }}>
-                    {analytics.dogCount === 0 && analytics.catCount === 0 && (
-                      <NoDataOverlay label="pet type" />
-                    )}
-                    <Doughnut data={petTypeDistData} options={doughnutOptions} />
-                  </div>
-                  {(analytics.dogCount > 0 || analytics.catCount > 0) && (
-                    <ul className="doughnut-inline-legend">
-                      <li>
-                        <span className="doughnut-legend-dot" style={{ background: '#15803d' }} />
-                        <span className="doughnut-legend-name">Dog</span>
-                        <span className="doughnut-legend-count" style={{ color: '#15803d' }}>
-                          {analytics.dogCount}
-                        </span>
-                      </li>
-                      <li>
-                        <span className="doughnut-legend-dot" style={{ background: '#7c3aed' }} />
-                        <span className="doughnut-legend-name">Cat</span>
-                        <span className="doughnut-legend-count" style={{ color: '#7c3aed' }}>
-                          {analytics.catCount}
-                        </span>
-                      </li>
-                    </ul>
-                  )}
+                <div className="chart-container-medium">
+                  {analytics.breedLabels.length === 0 && <NoDataOverlay label="breed" />}
+                  <Bar data={breedData} options={barOptions} />
+                </div>
+              </div>
+
+              {/* CHART 3 — Day Pet Owners Submit Bookings (full width) */}
+              <div className="chart-box chart-full-width">
+                <div className="chart-header">
+                  <h3 className="chart-title">Day Pet Owners Submit Bookings</h3>
+                  <span className="date-range">{rangeText}</span>
+                </div>
+                {analytics.peakSubmitDay !== 'N/A' && (
+                  <p className="chart-insight-text">
+                    📅 Most bookings are submitted on{' '}
+                    <strong>{analytics.peakSubmitDay}</strong> —{' '}
+                    {Math.max(...analytics.submissionDayCount)} submission{Math.max(...analytics.submissionDayCount) !== 1 ? 's' : ''}
+                  </p>
+                )}
+                <div className="chart-container-main">
+                  {Math.max(...analytics.submissionDayCount) === 0 && <NoDataOverlay label="submission" />}
+                  <Bar data={submissionDayData} options={barOptions} />
                 </div>
               </div>
 
@@ -749,8 +767,7 @@ export default function AdminPOInsights() {
                 {analytics.repeatOwnerLabels.length > 0 && (
                   <p className="chart-insight-text">
                     🔁 <strong>{analytics.repeatOwnerLabels[0]}</strong> —{' '}
-                    {analytics.repeatOwnerValues[0]} booking
-                    {analytics.repeatOwnerValues[0] !== 1 ? 's' : ''}
+                    {analytics.repeatOwnerValues[0]} booking{analytics.repeatOwnerValues[0] !== 1 ? 's' : ''}
                   </p>
                 )}
                 <div className="chart-container-medium">
@@ -768,9 +785,8 @@ export default function AdminPOInsights() {
                 {analytics.totalCancels > 0 && (
                   <p className="chart-insight-text">
                     ⚠️ <strong>{analytics.cancelOwnerLabels[0]}</strong> leads with{' '}
-                    {analytics.cancelOwnerValues[0]} cancellation
-                    {analytics.cancelOwnerValues[0] !== 1 ? 's' : ''} —{' '}
-                    {analytics.totalCancels} total platform-wide
+                    {analytics.cancelOwnerValues[0]} cancellation{analytics.cancelOwnerValues[0] !== 1 ? 's' : ''} —{' '}
+                    {analytics.totalCancels} total
                   </p>
                 )}
                 <div className="doughnut-row">
@@ -856,28 +872,9 @@ export default function AdminPOInsights() {
                 </div>
               </div>
 
-              {/* Most Active Booking Day */}
+              {/* 1. Customers with Most Bookings */}
               <div className="report-section">
-                <h3 className="report-section-title">Most Active Booking Day</h3>
-                <div className="report-insights">
-                  <div className="insight-item">
-                    <strong>Peak Day</strong>
-                    <p>
-                      {analytics.peakDay !== 'N/A'
-                        ? `${analytics.peakDay} recorded the highest pet owner activity with ${Math.max(...analytics.dayCount)} completed booking(s).`
-                        : 'No completed bookings were found for this period.'}
-                    </p>
-                  </div>
-                  <div className="insight-item">
-                    <strong>Day Breakdown</strong>
-                    <p>{DAY_LABELS.map((day, i) => `${day}: ${analytics.dayCount[i]}`).join(' · ')}</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Most Active Pet Owners */}
-              <div className="report-section">
-                <h3 className="report-section-title">Most Active Pet Owners (Top 5)</h3>
+                <h3 className="report-section-title">Customers with Most Bookings (Top 5)</h3>
                 {analytics.topOwnerLabels.length > 0 ? (
                   <div className="report-services-list">
                     {analytics.topOwnerLabels.map((name, i) => (
@@ -897,22 +894,53 @@ export default function AdminPOInsights() {
                 )}
               </div>
 
-              {/* Pet Type Distribution */}
+              {/* 2. Most Booked Pet Breed */}
               <div className="report-section">
-                <h3 className="report-section-title">Pet Type Distribution</h3>
-                <div className="report-insights">
-                  <div className="insight-item">
-                    <strong>Dog Bookings</strong>
-                    <p>{analytics.dogCount} completed dog booking{analytics.dogCount !== 1 ? 's' : ''} during this period.</p>
+                <h3 className="report-section-title">Most Booked Pet Breed (Top 7)</h3>
+                {analytics.breedLabels.length > 0 ? (
+                  <div className="report-services-list">
+                    {analytics.breedLabels.map((breed, i) => (
+                      <div key={`breed-${i}`} className="service-item">
+                        <div className="service-info">
+                          <span className="service-rank" style={{ background: '#1e3a8a' }}>#{i + 1}</span>
+                          <span className="service-name">{breed}</span>
+                        </div>
+                        <div className="service-stats">
+                          <span className="service-count">{analytics.breedValues[i]} booking{analytics.breedValues[i] !== 1 ? 's' : ''}</span>
+                          <span className="service-percentage" style={{ background: '#eff6ff', color: '#1e3a8a' }}>
+                            {analytics.breedValues.reduce((a, b) => a + b, 0) > 0
+                              ? Math.round((analytics.breedValues[i] / analytics.breedValues.reduce((a, b) => a + b, 0)) * 100)
+                              : 0}%
+                          </span>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                  <div className="insight-item">
-                    <strong>Cat Bookings</strong>
-                    <p>{analytics.catCount} completed cat booking{analytics.catCount !== 1 ? 's' : ''} during this period.</p>
+                ) : (
+                  <div className="report-empty-notice"><p>No breed data for this period.</p></div>
+                )}
+              </div>
+
+              {/* 3. Submission Day Breakdown */}
+              <div className="report-section">
+                <h3 className="report-section-title">Booking Submission Day Breakdown</h3>
+                <div className="report-insights">
+                  <div className="insight-item" style={{ borderLeftColor: '#0d9488' }}>
+                    <strong>Peak Submission Day</strong>
+                    <p>
+                      {analytics.peakSubmitDay !== 'N/A'
+                        ? `${analytics.peakSubmitDay} had the most booking submissions with ${Math.max(...analytics.submissionDayCount)} submission(s).`
+                        : 'No bookings were submitted during this period.'}
+                    </p>
+                  </div>
+                  <div className="insight-item" style={{ borderLeftColor: '#0d9488' }}>
+                    <strong>Day-by-Day Breakdown</strong>
+                    <p>{DAY_LABELS.map((day, i) => `${day}: ${analytics.submissionDayCount[i]}`).join(' · ')}</p>
                   </div>
                 </div>
               </div>
 
-              {/* Repeat Bookers */}
+              {/* 4. Repeat Bookers */}
               <div className="report-section">
                 <h3 className="report-section-title">Repeat Bookers (Top 5)</h3>
                 {analytics.repeatOwnerLabels.length > 0 ? (
@@ -925,8 +953,7 @@ export default function AdminPOInsights() {
                         </div>
                         <div className="service-stats">
                           <span className="service-count">
-                            {analytics.repeatOwnerValues[i]} booking
-                            {analytics.repeatOwnerValues[i] !== 1 ? 's' : ''}
+                            {analytics.repeatOwnerValues[i]} booking{analytics.repeatOwnerValues[i] !== 1 ? 's' : ''}
                           </span>
                         </div>
                       </div>
@@ -937,7 +964,7 @@ export default function AdminPOInsights() {
                 )}
               </div>
 
-              {/* Cancellations */}
+              {/* 5. Cancellations */}
               <div className="report-section">
                 <h3 className="report-section-title">Cancellations by Pet Owner (Top 5)</h3>
                 {analytics.cancelOwnerLabels.length > 0 ? (
@@ -950,8 +977,7 @@ export default function AdminPOInsights() {
                         </div>
                         <div className="service-stats">
                           <span className="service-count">
-                            {analytics.cancelOwnerValues[i]} cancellation
-                            {analytics.cancelOwnerValues[i] !== 1 ? 's' : ''}
+                            {analytics.cancelOwnerValues[i]} cancellation{analytics.cancelOwnerValues[i] !== 1 ? 's' : ''}
                           </span>
                           <span className="service-percentage" style={{ background: '#fff7ed', color: '#ea580c' }}>
                             {analytics.totalCancels > 0
