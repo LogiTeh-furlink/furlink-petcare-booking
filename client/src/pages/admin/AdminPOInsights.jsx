@@ -88,7 +88,7 @@ export default function AdminPOInsights() {
         // Fetch service providers (for city filter + earliest date)
         const { data: providers, error: pErr } = await supabase
           .from('service_providers')
-          .select('id, business_name, created_at, city');
+          .select('id, user_id, business_name, business_email, created_at, city');
         if (pErr) throw pErr;
         setRawProviders(providers || []);
 
@@ -102,8 +102,7 @@ export default function AdminPOInsights() {
         // Fetch users (pet owners) — public.profiles, role = pet_owner
         const { data: users, error: uErr } = await supabase
           .from('profiles')
-          .select('id, first_name, last_name, created_at')
-          .eq('role', 'pet_owner');
+          .select('id, email, created_at')
         if (uErr) throw uErr;
         setRawUsers(users || []);
 
@@ -215,10 +214,22 @@ export default function AdminPOInsights() {
   const analytics = useMemo(() => {
     const { start, end } = getRange;
 
-    // User name lookup
+    // Build SP user_id → business_email map for fallback
+    const spEmailMap = {};
+    rawProviders.forEach(p => {
+      if (p.user_id) spEmailMap[p.user_id] = p.business_email || null;
+    });
+
+    // User email lookup: profiles.email → SP business_email → 'Unknown'
     const userMap = {};
     rawUsers.forEach(u => {
-      userMap[u.id] = `${u.first_name || ''} ${u.last_name || ''}`.trim() || 'Unknown';
+      userMap[u.id] = u.email || spEmailMap[u.id] || null;
+    });
+    // Also ensure SP users who may not have a profiles row are covered
+    rawProviders.forEach(p => {
+      if (p.user_id && !userMap[p.user_id]) {
+        userMap[p.user_id] = p.business_email || null;
+      }
     });
 
     // Provider city lookup
