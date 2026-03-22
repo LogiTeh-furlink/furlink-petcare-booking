@@ -158,7 +158,7 @@ const saveStatus = async () => {
     <>
       <LoggedInAdmin />
       <div className="admin-view-provider-container">
-        <button className="btn-back-nav" onClick={() => navigate(-1)}><FaArrowLeft /> Dashboard</button>
+        <button className="btn-back-nav" onClick={() => navigate(-1)}><FaArrowLeft /> Back to Main Dashboard</button>
 
         <div className="provider-header-main">
             <h1>{provider?.business_name}</h1>

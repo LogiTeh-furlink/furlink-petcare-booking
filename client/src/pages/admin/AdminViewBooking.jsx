@@ -271,7 +271,7 @@ export default function AdminViewBooking() {
       <LoggedInAdmin />
       <div className="admin-view-booking-container">
         <button className="btn-back-nav" onClick={() => navigate(-1)}>
-          <FaArrowLeft /> Back to Dashboard
+          <FaArrowLeft /> Back to Main Dashboard
         </button>
 
         {/* --- HEADER --- */}
