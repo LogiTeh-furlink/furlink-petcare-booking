@@ -63,8 +63,9 @@ export default function AdminSPInsights() {
   const [showReportModal, setShowReportModal] = useState(false);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [platformCreatedAt, setPlatformCreatedAt] = useState(null);
-  const [rawBookings, setRawBookings]   = useState([]);
-  const [rawProviders, setRawProviders] = useState([]);
+  const [rawBookings, setRawBookings]     = useState([]);
+  const [rawProviders, setRawProviders]   = useState([]);
+  const [selectedCities, setSelectedCities] = useState([]); // empty = all cities
 
   // ============================================
   // DATA FETCHING
@@ -79,7 +80,7 @@ export default function AdminSPInsights() {
         // Fetch ALL service providers (no status filter — bookings may belong to any)
         const { data: providers, error: pErr } = await supabase
           .from('service_providers')
-          .select('id, business_name, created_at');
+          .select('id, business_name, created_at, city');
         if (pErr) throw pErr;
         setRawProviders(providers || []);
 
@@ -168,20 +169,34 @@ export default function AdminSPInsights() {
   const analytics = useMemo(() => {
     const { start, end } = getRange;
 
-    // Filter bookings by date range and optional pet type
+    // Build provider name + city lookup map
+    const providerMap  = {};
+    const providerCity = {};
+    rawProviders.forEach(p => {
+      providerMap[p.id]  = p.business_name || 'Unknown';
+      providerCity[p.id] = p.city || '';
+    });
+
+    // If cities are selected, restrict to provider IDs in those cities
+    const cityFilteredProviderIds =
+      selectedCities.length > 0
+        ? new Set(
+            rawProviders
+              .filter(p => selectedCities.includes(p.city))
+              .map(p => p.id)
+          )
+        : null; // null = no restriction
+
+    // Filter bookings by date range, optional pet type, optional city
     const filteredBookings = rawBookings.filter(b => {
       const d = parseLocalDate(b.booking_date);
       if (!d || d < start || d > end) return false;
-      // Pet type filter: only apply when booking_pets data exists
+      if (cityFilteredProviderIds && !cityFilteredProviderIds.has(b.provider_id)) return false;
       if (petTypeFilter !== 'both' && b.booking_pets && b.booking_pets.length > 0) {
         return b.booking_pets.some(p => p.pet_type === petTypeFilter);
       }
       return true;
     });
-
-    // Provider name lookup map
-    const providerMap = {};
-    rawProviders.forEach(p => { providerMap[p.id] = p.business_name || 'Unknown'; });
 
     // ---------------------------------------------------
     // 1. MOST BOOKED DAY
@@ -257,7 +272,28 @@ export default function AdminSPInsights() {
       topRebookLabels, topRebookValues,
       cancelLabels, cancelValues, totalCancels,
     };
-  }, [rawBookings, rawProviders, getRange, petTypeFilter]);
+  }, [rawBookings, rawProviders, getRange, petTypeFilter, selectedCities]);
+
+  // ============================================
+  // DERIVED CITY LIST (sorted, deduplicated)
+  // ============================================
+  const availableCities = useMemo(() => {
+    const cities = rawProviders
+      .map(p => p.city)
+      .filter(Boolean)
+      .map(c => c.trim());
+    return [...new Set(cities)].sort((a, b) => a.localeCompare(b));
+  }, [rawProviders]);
+
+  const toggleCity = (city) => {
+    setSelectedCities(prev =>
+      prev.includes(city) ? prev.filter(c => c !== city) : [...prev, city]
+    );
+  };
+
+  const toggleAllCities = () => {
+    setSelectedCities(prev => prev.length === availableCities.length ? [] : [...availableCities]);
+  };
 
   // ============================================
   // RANGE TEXT HELPERS
@@ -548,6 +584,30 @@ export default function AdminSPInsights() {
                 <option value="Cat">Cat</option>
               </select>
             </div>
+
+            {/* City Filter */}
+            {availableCities.length > 0 && (
+              <div className="sidebar-section">
+                <h3>City</h3>
+                <button className="city-select-all" onClick={toggleAllCities}>
+                  {selectedCities.length === availableCities.length || selectedCities.length === 0
+                    ? 'Select All'
+                    : 'Clear All'}
+                </button>
+                <div className="city-filter-scroll">
+                  {availableCities.map(city => (
+                    <label key={city} className="city-option">
+                      <input
+                        type="checkbox"
+                        checked={selectedCities.length === 0 || selectedCities.includes(city)}
+                        onChange={() => toggleCity(city)}
+                      />
+                      <span className="city-option-label">{city}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
           </aside>
 
           {/* ========== MAIN CONTENT ========== */}
