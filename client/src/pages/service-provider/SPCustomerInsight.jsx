@@ -34,6 +34,7 @@ export default function SPCustomerInsight() {
   const [loading, setLoading] = useState(true);
   const [rawBookings, setRawBookings] = useState([]);
   const [rawReviews, setRawReviews] = useState([]); 
+  const [ratingSummary, setRatingSummary] = useState(null); // Added state for Supabase View
   const [listingVisitors, setListingVisitors] = useState(0);
   const [providerServiceSizes, setProviderServiceSizes] = useState([]); 
   const [profilesMap, setProfilesMap] = useState({});
@@ -88,6 +89,17 @@ export default function SPCustomerInsight() {
 
         if (rError) throw rError;
         setRawReviews(reviews || []);
+
+        // Fetching the pre-calculated view directly from Supabase
+        const { data: summaryData, error: summaryError } = await supabase
+          .from('provider_rating_summary')
+          .select('*')
+          .eq('provider_id', provider.id)
+          .single();
+
+        if (!summaryError && summaryData) {
+          setRatingSummary(summaryData);
+        }
 
         if (bookings && bookings.length > 0) {
           const allUserIds = [...new Set([...bookings.map(b => b.user_id), ...(reviews || []).map(r => r.user_id)])];
@@ -188,7 +200,6 @@ export default function SPCustomerInsight() {
       return new Date(year, month - 1, day);
     };
 
-    // FIX: PHT-safe end/start of day helpers using local time (browser = PHT for PH users)
     const endOfDay = (dateStr) => {
       const d = parseLocalDate(dateStr);
       d.setHours(23, 59, 59, 999);
@@ -202,7 +213,6 @@ export default function SPCustomerInsight() {
     const getRange = (filter, isPrevious = false) => {
       const today = new Date();
 
-      // Custom filter — uses local midnight boundaries (PHT-safe)
       if (filter === 'custom' && customDateStart && customDateEnd) {
         const start = startOfDay(customDateStart);
         const end = endOfDay(customDateEnd);
@@ -373,18 +383,18 @@ export default function SPCustomerInsight() {
     const sortedBreeds = Object.entries(breedCounts).sort(([, a], [, b]) => b - a).slice(0, 6);
     const dogBreedsData = { labels: sortedBreeds.map(([breed]) => breed), values: sortedBreeds.map(([, count]) => count) };
 
-    // Chart 6: Reviews
+    // Chart 6: Reviews (Now referencing the Supabase View)
     const validBookingIdsForReviews = new Set();
     currentBookings.forEach(b => {
       const matchesPetFilter = petTypeFilter === 'both' ? true : b.booking_pets?.some(p => p.pet_type === petTypeFilter);
       if (matchesPetFilter) validBookingIdsForReviews.add(b.id);
     });
     const validReviews = rawReviews.filter(r => validBookingIdsForReviews.has(r.booking_id));
-    let totalOverall = 0, totalStaff = 0;
-    validReviews.forEach(r => { totalOverall += r.rating_overall; totalStaff += r.rating_staff; });
-    const reviewCount = validReviews.length;
-    const avgOverall = reviewCount > 0 ? totalOverall / reviewCount : 0;
-    const avgStaff = reviewCount > 0 ? totalStaff / reviewCount : 0;
+    
+    const avgOverall = ratingSummary ? Number(ratingSummary.avg_overall) : 0;
+    const avgStaff = ratingSummary ? Number(ratingSummary.avg_staff) : 0;
+    const shopTotalAvg = ratingSummary ? Number(ratingSummary.shop_total_avg) : 0;
+    const totalReviewsCount = ratingSummary ? Number(ratingSummary.review_count) : 0;
 
     const recentReviews = validReviews
       .filter(r => r.comment && r.comment.trim() !== '')
@@ -397,7 +407,12 @@ export default function SPCustomerInsight() {
         return { id: r.id, name, rating: r.rating_overall, comment: r.comment, date: new Date(r.created_at).toLocaleDateString() };
       });
 
-    const customerReviewData = { averageRating: avgOverall, totalReviews: reviewCount, ratings: { overall: avgOverall, staff: avgStaff }, recentReviews };
+    const customerReviewData = { 
+      averageRating: shopTotalAvg, 
+      totalReviews: totalReviewsCount, 
+      ratings: { overall: avgOverall, staff: avgStaff }, 
+      recentReviews 
+    };
 
     const calculatePetTypeBreakdown = () => {
       const breakdown = { Dog: { revenue: 0, bookings: 0, customers: new Set() }, Cat: { revenue: 0, bookings: 0, customers: new Set() } };
@@ -409,8 +424,7 @@ export default function SPCustomerInsight() {
         if (petTypes.has('Dog') && petTypes.has('Cat')) {
           const splitRevenue = bookingRevenue / 2;
           breakdown.Dog.revenue += splitRevenue; breakdown.Cat.revenue += splitRevenue;
-          breakdown.Dog.bookings += 1; breakdown.Cat.bookings += 1;
-          breakdown.Dog.customers.add(booking.user_id); breakdown.Cat.customers.add(booking.user_id);
+          breakdown.Dog.bookings += 1; breakdown.Dog.customers.add(booking.user_id); breakdown.Cat.customers.add(booking.user_id);
         } else if (petTypes.has('Dog')) {
           breakdown.Dog.revenue += bookingRevenue; breakdown.Dog.bookings += 1; breakdown.Dog.customers.add(booking.user_id);
         } else if (petTypes.has('Cat')) {
@@ -430,7 +444,7 @@ export default function SPCustomerInsight() {
       customerReviewData, petSizeData, petTypeData, customerTypeData, topRebookedCustomers, dogBreedsData,
       petTypeBreakdown: calculatePetTypeBreakdown()
     };
-  }, [rawBookings, rawReviews, providerServiceSizes, profilesMap, activeFilter, petTypeFilter, customDateStart, customDateEnd, selectedYear, listingApprovedDate]);
+  }, [rawBookings, rawReviews, providerServiceSizes, profilesMap, activeFilter, petTypeFilter, customDateStart, customDateEnd, selectedYear, listingApprovedDate, ratingSummary]);
 
   const TrendIndicator = ({ trend }) => (
     <div className={`kpi-trend ${trend.dir === 'up' ? 'positive' : trend.dir === 'down' ? 'negative' : 'neutral'}`}>
@@ -541,7 +555,6 @@ export default function SPCustomerInsight() {
               <div className="kpi-card">
                 <span className="kpi-label">Gross Revenue</span>
                 <div className="kpi-row">
-                  {/* FIX: Show full decimal revenue instead of rounded/abbreviated */}
                   <span className="kpi-value">{`₱${analytics.revenue.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}</span>
                   <TrendIndicator trend={analytics.revTrend} />
                 </div>
@@ -622,7 +635,6 @@ export default function SPCustomerInsight() {
                 <div className="report-kpi-grid">
                   <div className="report-kpi-item">
                     <span className="report-kpi-label">Gross Revenue</span>
-                    {/* FIX: Full decimal display in report modal */}
                     <span className="report-kpi-value">{`₱${analytics.revenue.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}</span>
                     <div className="report-trend">
                       {analytics.revTrend.dir === 'up' ? <FaCaretUp /> : analytics.revTrend.dir === 'down' ? <FaCaretDown /> : <FaMinus />}

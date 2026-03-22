@@ -284,18 +284,30 @@ const ListingInfo = () => {
       setHours(hoursData || []);
       const { data: imagesData } = await supabase.from("service_provider_images").select("*").eq("provider_id", id);
       setImages(imagesData || []);
-      const { data: reviewsData } = await supabase
-        .from("reviews").select("*").eq("provider_id", id).order("created_at", { ascending: false });
-      if (reviewsData && reviewsData.length > 0) {
-        setReviews(reviewsData);
-        const total = reviewsData.length;
-        const avgService = reviewsData.reduce((acc, r) => acc + r.rating_overall, 0) / total;
-        const avgStaff = reviewsData.reduce((acc, r) => acc + r.rating_staff, 0) / total;
-        setReviewStats({ count: total, overall: (avgService + avgStaff) / 2, service: avgService, staff: avgStaff });
+
+      // --- NEW: Fetch pre-calculated stats directly from the View ---
+      const { data: summaryData } = await supabase
+        .from("provider_rating_summary")
+        .select("*")
+        .eq("provider_id", id)
+        .single();
+
+      if (summaryData) {
+        setReviewStats({ 
+          count: Number(summaryData.review_count) || 0, 
+          overall: Number(summaryData.shop_total_avg) || 0, 
+          service: Number(summaryData.avg_overall) || 0, 
+          staff: Number(summaryData.avg_staff) || 0 
+        });
       } else {
-        setReviews([]);
         setReviewStats({ count: 0, overall: 0, service: 0, staff: 0 });
       }
+
+      // Fetch actual reviews just for the list rendering below
+      const { data: reviewsData } = await supabase
+        .from("reviews").select("*").eq("provider_id", id).order("created_at", { ascending: false });
+      setReviews(reviewsData || []);
+
     } catch (error) { console.error("Error fetching data:", error); } finally { setLoading(false); }
   };
 
