@@ -41,6 +41,7 @@ import AdminChangePassword from "./pages/admin/AdminChangePassword";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminViewProvider from "./pages/admin/AdminViewProvider";
 import AdminViewBooking from "./pages/admin/AdminViewBooking"; 
+import AdminSPInsights from "./pages/admin/AdminSPInsights"; 
 
 // Route Guards
 import ProtectedRoute from "./components/ProtectedRoute";
