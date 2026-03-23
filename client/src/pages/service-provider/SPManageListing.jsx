@@ -237,58 +237,75 @@ export default function SPManageListing() {
         </section>
 
         <section className="manage-card service-list-section">
-          <div className="card-header">
-            <h2>Service Listings</h2>
-            <button className="btn-edit-header" onClick={() => navigate("/service/edit-listing")}>
-                <Edit3 size={18} /> Edit Listings
-            </button>
-          </div>
-          <div className="services-list-view">
-            {services.map(service => (
-                <div key={service.id} className="service-view-item">
-                    <div className="service-view-header">
-                      <h3>{service.name}</h3>
-                      <span className={`service-type-tag ${service.type}`}>
-                        {service.type === 'package' ? 'Package' : 'Individual'}
-                      </span>
-                    </div>
-                    <p className="service-desc">{service.description}</p>
-                    {service.notes && (
-                        <p className="service-note"><strong>Notes:</strong> {service.notes}</p>
+        <div className="card-header">
+          <h2>Service Listings</h2>
+          <button className="btn-edit-header" onClick={() => navigate("/service/edit-listing")}>
+              <Edit3 size={18} /> Edit Listings
+          </button>
+        </div>
+        <div className="services-list-view">
+          {services.map(service => (
+              <div key={service.id} className="service-view-item">
+                  <div className="service-view-header">
+                    <h3>{service.name}</h3>
+                    <span className={`service-type-tag ${service.type}`}>
+                      {service.type === 'package' ? 'Package' : 'Individual'}
+                    </span>
+                  </div>
+
+                  {/* ⭐ Haircut Requirement Indicator */}
+                  <div className="haircut-status-indicator">
+                    {service.has_haircut ? (
+                      <p className="status-yes">
+                        <CheckCircle size={14} style={{ marginRight: '6px' }} /> 
+                        Requires haircut selection
+                      </p>
+                    ) : (
+                      <p className="status-no">
+                        No haircut selection required
+                      </p>
                     )}
-                    
-                    <div className="pricing-wrapper full-width">
-                        <table className="mini-pricing-table full-space">
-                            <thead>
-                              <tr>
-                                <th>Pet Type</th>
-                                <th>Size</th>
-                                <th>Weight Range</th>
-                                <th>Price</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                                {service.service_options?.map(opt => (
-                                    <tr key={opt.id}>
-                                        <td className="pet-type-col">
-                                          {opt.pet_type === 'dog-cat' ? 'Dog and Cat' : 
-                                           opt.pet_type === 'dog' ? 'Dog' : 
-                                           opt.pet_type === 'cat' ? 'Cat' : opt.pet_type}
-                                        </td>
-                                        <td className="size-col">
-                                          {opt.size.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
-                                        </td>
-                                        <td>{opt.weight_range || 'N/A'} kg</td>
-                                        <td className="price-col">₱{parseFloat(opt.price).toFixed(2)}</td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            ))}
-          </div>
-        </section>
+                  </div>
+
+                  <p className="service-desc">{service.description}</p>
+                  
+                  {service.notes && (
+                      <p className="service-note"><strong>Notes:</strong> {service.notes}</p>
+                  )}
+                  
+                  <div className="pricing-wrapper full-width">
+                      {/* ... existing pricing table code ... */}
+                      <table className="mini-pricing-table full-space">
+                          <thead>
+                            <tr>
+                              <th>Pet Type</th>
+                              <th>Size</th>
+                              <th>Weight Range</th>
+                              <th>Price</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                              {service.service_options?.map(opt => (
+                                  <tr key={opt.id}>
+                                      <td className="pet-type-col">
+                                        {opt.pet_type === 'dog-cat' ? 'Dog and Cat' : 
+                                        opt.pet_type === 'dog' ? 'Dog' : 
+                                        opt.pet_type === 'cat' ? 'Cat' : opt.pet_type}
+                                      </td>
+                                      <td className="size-col">
+                                        {opt.size.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
+                                      </td>
+                                      <td>{opt.weight_range || 'N/A'} kg</td>
+                                      <td className="price-col">₱{parseFloat(opt.price).toFixed(2)}</td>
+                                  </tr>
+                              ))}
+                          </tbody>
+                      </table>
+                  </div>
+              </div>
+          ))}
+        </div>
+      </section>
       </div>
       
       <FilePreviewModal isOpen={!!previewFile} onClose={() => setPreviewFile(null)} fileUrl={previewFile?.url} />

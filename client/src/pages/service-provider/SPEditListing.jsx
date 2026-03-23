@@ -176,7 +176,7 @@ export default function SPEditListing() {
                 name: s.name,
                 description: s.description || "",
                 notes: s.notes || "",
-                // Map options to 'pricing'
+                has_haircut: s.has_haircut || false,
                 pricing: s.service_options.map(opt => ({
                     id: opt.id, // Real UUID
                     petType: opt.pet_type,
@@ -206,6 +206,7 @@ export default function SPEditListing() {
     name: "",
     description: "",
     notes: "",
+    has_haircut: false,
     pricing: [{
       id: `temp_${Date.now()}_opt`,
       petType: "dog",
@@ -456,7 +457,8 @@ export default function SPEditListing() {
                 type: service.type,
                 name: service.name,
                 description: service.description,
-                notes: service.notes || null
+                notes: service.notes || null,
+                has_haircut: service.has_haircut
             };
 
             // A. Service Handling
@@ -552,6 +554,22 @@ export default function SPEditListing() {
                             <div className="form-group">
                                 <label>Service Name</label>
                                 <input type="text" value={service.name} onChange={(e) => updateService(si, 'name', e.target.value)} className={validationErrors[`service_${si}_name`] ? "error-input" : ""} />
+                            </div>
+                            {/* ⭐ THE TIGHT CHECKBOX */}
+                            <div className="haircut-toggle-mini">
+                                <label>
+                                    <input 
+                                        type="checkbox" 
+                                        checked={service.has_haircut} 
+                                        onChange={(e) => updateService(si, 'has_haircut', e.target.checked)} 
+                                    />
+                                    <span>Includes a haircut?</span>
+                                </label>
+                            </div>
+
+                            <div className="form-group">
+                                <label>Notes</label>
+                                <textarea value={service.notes} onChange={(e) => updateService(si, 'notes', e.target.value)} />
                             </div>
                             <div className="form-group">
                                 <label>Description</label>
@@ -656,6 +674,9 @@ export default function SPEditListing() {
                         <h3>{service.name}</h3>
                         <span className="type-tag">{service.type}</span>
                     </div>
+                    <p className="summary-desc">
+                        <strong>Haircut Required:</strong> {service.has_haircut ? "Yes" : "No"}
+                    </p>
                     <p className="summary-desc"><strong>Description:</strong> {service.description || "No description provided."}</p>
                     <p className="summary-desc"><strong>Notes:</strong> {service.notes || "No notes provided."}</p>
                     <table className="summary-table">

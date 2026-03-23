@@ -253,3 +253,32 @@
 
 .file-viewer-body { flex: 1; display: flex; align-items: center; justify-content: center; background: #f8fafc; }
 .modal-img-preview { max-width: 90%; max-height: 90%; object-fit: contain; border-radius: 8px; }
+
+.haircut-status-indicator {
+    margin-bottom: 8px;
+}
+
+.haircut-status-indicator p {
+    display: inline-flex;
+    align-items: center;
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 4px;
+}
+
+.haircut-status-indicator .status-yes {
+    color: #0E2679; /* Brand blue */
+    background-color: #e0e7ff; /* Light indigo */
+}
+
+.haircut-status-indicator .status-no {
+    color: #64748b; /* Slate gray */
+    background-color: #f1f5f9; /* Soft gray */
+}
+
+.service-desc {
+    margin-top: 4px;
+    color: #1e293b;
+    font-size: 0.95rem;
+}
