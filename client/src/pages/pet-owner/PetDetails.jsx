@@ -509,7 +509,6 @@ const updatePetInfo = (index, field, value) => {
         const targetPet = { ...newPetsData[petIndex] };
         const updatedServices = [...targetPet.services];
 
-        // Get price based on current weight/type
         const { price, matched } = getServicePriceAndSize(selectedId, targetPet.pet_type, targetPet.weight_kg);
 
         updatedServices[serviceIndex] = {
@@ -517,12 +516,16 @@ const updatePetInfo = (index, field, value) => {
             service_name: sObj?.name || "",
             service_type: sObj?.type?.toLowerCase().includes('package') ? 'Packaged Service' : 'Individual Service',
             price: price,
-            matched: matched // <--- Captures the matched status immediately
+            matched: matched,
+            has_haircut: sObj?.has_haircut || false // ⭐ Store the haircut requirement here
         };
 
         targetPet.services = updatedServices;
-        targetPet.total_price = targetPet.services.reduce((sum, s) => sum + parseFloat(s.price || 0), 0);
         
+        // ⭐ Check if ANY selected service for this pet needs a haircut
+        targetPet.needs_haircut = updatedServices.some(s => s.has_haircut === true);
+
+        targetPet.total_price = targetPet.services.reduce((sum, s) => sum + parseFloat(s.price || 0), 0);
         newPetsData[petIndex] = targetPet;
         return newPetsData;
     });
@@ -590,14 +593,27 @@ const getServicePriceAndSize = (serviceId, petType, weight) => {
   };
 
   const handleRemoveServiceRow = (petIndex, serviceIndex) => {
-    setPetsData(prev => {
-      const newPets = [...prev];
-      const updatedPet = { ...newPets[petIndex] }; // Fix: Prevent state mutation in React Strict Mode
-      updatedPet.services = updatedPet.services.filter((_, idx) => idx !== serviceIndex);
-      updatedPet.total_price = updatedPet.services.reduce((sum, s) => sum + parseFloat(s.price || 0), 0);
-      newPets[petIndex] = updatedPet;
-      return newPets;
-    });
+      setPetsData(prev => {
+          const newPets = [...prev];
+          const updatedPet = { ...newPets[petIndex] };
+          
+          const filteredServices = updatedPet.services.filter((_, idx) => idx !== serviceIndex);
+          updatedPet.services = filteredServices;
+          
+          // ⭐ Re-evaluate if a haircut is still needed
+          updatedPet.needs_haircut = filteredServices.some(s => s.has_haircut === true);
+          
+          // If no longer needed, clear out haircut-related data
+          if (!updatedPet.needs_haircut) {
+              updatedPet.selected_haircut = "";
+              updatedPet.ai_generated_preview = null;
+              updatedPet.ai_confirmed = false;
+          }
+
+          updatedPet.total_price = updatedPet.services.reduce((sum, s) => sum + parseFloat(s.price || 0), 0);
+          newPets[petIndex] = updatedPet;
+          return newPets;
+      });
   };
 
   // Remove File Handler
@@ -988,94 +1004,95 @@ const getServicePriceAndSize = (serviceId, petType, weight) => {
                             </div>
 
                             {/* --- AI HAIRCUT GENERATOR SECTION --- */}
-                            <div className="ai-section-divider">
-                              <div className="specifications-container" style={{ marginTop: '20px' }}>
-                                <label className="sub-label">Grooming Specifications</label>
-                                  <div className="haircut-selector-grid">
-                                    {(pet.pet_type === "Cat" ? CAT_HAIRSTYLES : DOG_HAIRSTYLES).map(style => (
-                                      <button 
-                                        key={style}
-                                        type="button"
-                                        className={`haircut-option ${pet.selected_haircut === style ? 'active' : ''}`}
-                                        onClick={() => {
-                                          // ⭐ TOGGLE LOGIC: If same style is clicked, clear it. Otherwise, set it.
-                                          const newValue = pet.selected_haircut === style ? "" : style;
-                                          updatePetInfo(index, 'selected_haircut', newValue);
-                                        }}
-                                      >
-                                        {style}
-                                      </button>
-                                    ))}
-                                  </div>
-                                <textarea 
-                                  className="spec-textarea" 
-                                  maxLength={500} 
-                                  placeholder="e.g., leave the tail fluffy, trim short around eyes..."
-                                  value={pet.grooming_specifications || ""} 
-                                  onChange={(e) => updatePetInfo(index, 'grooming_specifications', e.target.value)} 
-                                  style={{ width: '100%', minHeight: '100px', padding: '12px', borderRadius: '8px', border: '1px solid #ddd' }} 
-                                />
-                              </div>
-
-                              <label className="sub-label" style={{ color: '#0E2679', fontWeight: '700', marginTop: '15px', display: 'block' }}>
-                                AI Pet Haircut Generator
-                              </label>
-                              
-                              <div className="ai-warning-box" style={{ backgroundColor: '#fdf2f2', border: '1px solid #fecaca', padding: '12px', borderRadius: '8px', marginBottom: '15px' }}>
-                                <p style={{ fontSize: '0.85rem', color: '#991b1b', margin: 0, display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
-                                  <AlertCircle size={20} /> 
-                                  <span>
-                                    <strong>Style Preview Info:</strong> The AI generates a preview based <strong>strictly</strong> on your pet's <strong>Type, Breed, Weight</strong>, and <strong>Hairstyle</strong> choice!
-                                  </span>
-                                </p>
-                              </div>
-
-                              <div className="ai-card-box">
-                                {!pet.ai_generated_preview ? (
-                                  <div className="ai-setup-simple" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                    <div className="style-select-group">
-                                      <label className="form-label" style={{fontSize: '0.8rem', fontWeight: '600'}}>Desired Style:</label>
-                                      <select 
-                                        className="form-input" 
-                                        value={pet.ai_selected_style} 
-                                        onChange={(e) => updatePetInfo(index, 'ai_selected_style', e.target.value)}
-                                      >
-                                        {(pet.pet_type === "Cat" ? CAT_HAIRSTYLES : DOG_HAIRSTYLES).map(s => (
-                                          <option key={s} value={s}>{s}</option>
-                                        ))}
-                                      </select>
+                            {pet.needs_haircut && (
+                                <div className="ai-section-divider">
+                                    <div className="specifications-container" style={{ marginTop: '20px' }}>
+                                        <label className="sub-label">Grooming Specifications</label>
+                                        <div className="haircut-selector-grid">
+                                            {(pet.pet_type === "Cat" ? CAT_HAIRSTYLES : DOG_HAIRSTYLES).map(style => (
+                                                <button 
+                                                    key={style}
+                                                    type="button"
+                                                    className={`haircut-option ${pet.selected_haircut === style ? 'active' : ''}`}
+                                                    onClick={() => {
+                                                        const newValue = pet.selected_haircut === style ? "" : style;
+                                                        updatePetInfo(index, 'selected_haircut', newValue);
+                                                    }}
+                                                >
+                                                    {style}
+                                                </button>
+                                            ))}
+                                        </div>
+                                        <textarea 
+                                            className="spec-textarea" 
+                                            maxLength={500} 
+                                            placeholder="e.g., leave the tail fluffy..."
+                                            value={pet.grooming_specifications || ""} 
+                                            onChange={(e) => updatePetInfo(index, 'grooming_specifications', e.target.value)} 
+                                            style={{ width: '100%', minHeight: '100px', padding: '12px', borderRadius: '8px', border: '1px solid #ddd' }} 
+                                        />
                                     </div>
 
-                                    {pet.ai_error && (
-                                      <div style={{ color: '#dc2626', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: '#fef2f2', padding: '8px', borderRadius: '6px' }}>
-                                        <AlertCircle size={14} /> <span>{pet.ai_error}</span>
-                                      </div>
-                                    )}
+                                    <label className="sub-label" style={{ color: '#0E2679', fontWeight: '700', marginTop: '15px', display: 'block' }}>
+                                        AI Pet Haircut Generator
+                                    </label>
+                                    
+                                    <div className="ai-warning-box" style={{ backgroundColor: '#fdf2f2', border: '1px solid #fecaca', padding: '12px', borderRadius: '8px', marginBottom: '15px' }}>
+                                        <p style={{ fontSize: '0.85rem', color: '#991b1b', margin: 0, display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                                            <AlertCircle size={20} /> 
+                                            <span>
+                                                <strong>Style Preview Info:</strong> The AI generates a preview based <strong>strictly</strong> on your pet's <strong>Type, Breed, Weight</strong>, and <strong>Hairstyle</strong> choice!
+                                            </span>
+                                        </p>
+                                    </div>
 
-                                    <button 
-                                      type="button" 
-                                      className="btn-ai-gen" 
-                                      onClick={() => handleGenerateAIHaircut(index)}
-                                      disabled={pet.ai_loading}
-                                      style={{ backgroundColor: '#0E2679', color: 'white', border: 'none', padding: '12px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}
-                                    >
-                                      {pet.ai_loading ? "AI is Designing..." : "Generate AI Style Preview"}
-                                    </button>
-                                  </div>
-                                ) : (
-                                  <div className="ai-preview-container" style={{ textAlign: 'center' }}>
-                                    <div className="ai-img-frame" style={{ position: 'relative', marginBottom: '10px' }}>
-                                        <img src={pet.ai_generated_preview} alt="AI Preview" className="ai-result-img" style={{ width: '100%', borderRadius: '12px', border: '3px solid #0E2679' }} />
-                                        {pet.ai_confirmed && <div className="confirmed-overlay" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(14, 38, 121, 0.7)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '12px', fontWeight: 'bold' }}>✓ Style Confirmed</div>}
-                                      </div>
-                                      <div className="ai-button-group" style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
-                                          <button type="button" className="ai-btn retry" onClick={() => updatePetInfo(index, 'ai_generated_preview', null)}>Reset</button>
-                                          {!pet.ai_confirmed && <button type="button" className="ai-btn confirm" onClick={() => updatePetInfo(index, 'ai_confirmed', true)} style={{backgroundColor: '#28a745', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '6px'}}>Confirm</button>}
-                                      </div>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
+                                    <div className="ai-card-box">
+                                        {!pet.ai_generated_preview ? (
+                                            <div className="ai-setup-simple" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                                <div className="style-select-group">
+                                                    <label className="form-label" style={{fontSize: '0.8rem', fontWeight: '600'}}>Desired Style:</label>
+                                                    <select 
+                                                        className="form-input" 
+                                                        value={pet.ai_selected_style} 
+                                                        onChange={(e) => updatePetInfo(index, 'ai_selected_style', e.target.value)}
+                                                    >
+                                                        {(pet.pet_type === "Cat" ? CAT_HAIRSTYLES : DOG_HAIRSTYLES).map(s => (
+                                                            <option key={s} value={s}>{s}</option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+
+                                                {pet.ai_error && (
+                                                    <div style={{ color: '#dc2626', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: '#fef2f2', padding: '8px', borderRadius: '6px' }}>
+                                                        <AlertCircle size={14} /> <span>{pet.ai_error}</span>
+                                                    </div>
+                                                )}
+
+                                                <button 
+                                                    type="button" 
+                                                    className="btn-ai-gen" 
+                                                    onClick={() => handleGenerateAIHaircut(index)}
+                                                    disabled={pet.ai_loading}
+                                                    style={{ backgroundColor: '#0E2679', color: 'white', border: 'none', padding: '12px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}
+                                                >
+                                                    {pet.ai_loading ? "AI is Designing..." : "Generate AI Style Preview"}
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <div className="ai-preview-container" style={{ textAlign: 'center' }}>
+                                                <div className="ai-img-frame" style={{ position: 'relative', marginBottom: '10px' }}>
+                                                    <img src={pet.ai_generated_preview} alt="AI Preview" className="ai-result-img" style={{ width: '100%', borderRadius: '12px', border: '3px solid #0E2679' }} />
+                                                    {pet.ai_confirmed && <div className="confirmed-overlay" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(14, 38, 121, 0.7)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '12px', fontWeight: 'bold' }}>✓ Style Confirmed</div>}
+                                                </div>
+                                                <div className="ai-button-group" style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+                                                    <button type="button" className="ai-btn retry" onClick={() => updatePetInfo(index, 'ai_generated_preview', null)}>Reset</button>
+                                                    {!pet.ai_confirmed && <button type="button" className="ai-btn confirm" onClick={() => updatePetInfo(index, 'ai_confirmed', true)} style={{backgroundColor: '#28a745', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '6px'}}>Confirm</button>}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
 
                             <div className="emergency-consent-container" style={{ marginTop: '15px' }}>
                                 <label style={{ display: 'flex', gap: '10px', fontSize: '13px' }}>
