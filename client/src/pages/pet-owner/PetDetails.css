@@ -944,3 +944,231 @@
 .haircut-option:active {
     transform: scale(0.96);
 }
+
+/* Responsive Header Logic */
+.booking-header-responsive {
+    background: #ffffff;
+    border-radius: 16px;
+    padding: 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+    border: 1px solid #e2e8f0;
+    margin-bottom: 25px;
+    gap: 20px;
+}
+
+.schedule-unified-box {
+    display: flex;
+    background: #f8fafc;
+    padding: 12px 20px;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+    gap: 24px; /* Space between items in one line */
+}
+
+/* On Mobile: Switch to 3 lines */
+@media (max-width: 768px) {
+    .booking-header-responsive {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .schedule-unified-box {
+        flex-direction: column;
+        gap: 8px;
+    }
+    .header-right-action {
+        align-items: center !important;
+    }
+}
+
+.schedule-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.9rem;
+}
+
+.schedule-item .label { color: #64748b; font-weight: 500; }
+.schedule-item strong { color: #1e293b; }
+
+/* Payment Stack (Above Button) */
+.action-stack {
+    text-align: right;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.price-box-mini {
+    display: flex;
+    flex-direction: column;
+    line-height: 1;
+}
+
+.total-label { font-size: 0.65rem; font-weight: 900; color: #94a3b8; }
+.total-value { font-size: 2.2rem; font-weight: 900; color: #0E2679; margin: 2px 0; }
+.vat-notice-tag { font-size: 0.7rem; color: #10b981; font-weight: 800; }
+
+.btn-review-main {
+    background: #0E2679;
+    color: white;
+    border: none;
+    padding: 14px 28px;
+    border-radius: 10px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+/* Targeted Grooming Highlight */
+.grooming-highlight-box {
+    background: #fff5f5; /* Light Red Alert Background */
+    border: 2px solid #feb2b2;
+    padding: 20px;
+    border-radius: 12px;
+    margin-top: 30px;
+    margin-bottom: 35px;
+    position: relative;
+}
+
+.req-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: #c53030;
+    font-weight: 800;
+    font-size: 0.75rem;
+    margin-bottom: 12px;
+    text-transform: uppercase;
+}
+
+.error-hint-text {
+    color: #c53030;
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin-top: 4px;
+    display: block;
+}
+
+.ai-generator-standalone {
+    padding: 10px 20px;
+    background: #f8fafc;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+}
+
+/* Container to ensure no side-margins interfere */
+.full-width-spec-area {
+    width: 100%;
+    margin-top: 20px;
+    display: flex;
+    flex-direction: column;
+}
+
+.sub-label-bold {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #1e293b;
+    margin-bottom: 8px;
+}
+
+/* ⭐ The Actual Full-Size Textarea */
+.spec-textarea-large {
+    width: 100%; /* Spans the full width of the pet card */
+    min-height: 150px; /* Increased height for better readability */
+    padding: 16px;
+    border-radius: 10px;
+    border: 1px solid #cbd5e1;
+    background-color: #ffffff;
+    font-family: inherit;
+    font-size: 0.95rem;
+    line-height: 1.5;
+    resize: vertical; /* Allows user to grow it even more, but not shrink width */
+    box-sizing: border-box; /* Crucial for width: 100% to include padding */
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.spec-textarea-large:focus {
+    outline: none;
+    border-color: #0E2679;
+    box-shadow: 0 0 0 3px rgba(14, 38, 121, 0.1);
+}
+
+/* Error state for the large field */
+.spec-textarea-large.error-border {
+    border: 2px solid #ef4444 !important;
+    background-color: #fff1f1;
+}
+
+/* Redefine the highlight box to be more spacious */
+.grooming-highlight-box {
+    background: #fff5f5;
+    border: 2px solid #feb2b2;
+    padding: 24px; /* More internal breathing room */
+    border-radius: 12px;
+    margin-bottom: 20px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.summary-item {
+    display: flex;
+    flex-direction: column;
+}
+
+.summary-item label {
+    font-size: 0.65rem;
+    color: #94a3b8;
+    text-transform: uppercase;
+    font-weight: 800;
+    margin-bottom: 2px;
+}
+
+.summary-item strong {
+    font-size: 0.85rem;
+    color: #1e293b;
+}
+
+.summary-media-box {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    background: #f8fafc;
+    padding: 8px;
+    border-radius: 8px;
+}
+
+.summary-media-box label {
+    font-size: 0.6rem;
+    font-weight: 800;
+    text-align: center;
+    text-transform: uppercase;
+    color: #64748b;
+}
+
+.summary-media-box img {
+    width: 100%;
+    height: 80px;
+    object-fit: cover;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: transform 0.2s;
+}
+
+.summary-media-box img:hover {
+    transform: scale(1.05);
+}
+
+.vat-inclusive-badge {
+    animation: fadeIn 0.5s ease-in-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
