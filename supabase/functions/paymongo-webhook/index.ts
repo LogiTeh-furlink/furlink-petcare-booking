@@ -6,76 +6,53 @@ serve(async (req) => {
   try {
     const body = await req.json()
 
-    // Only process successful payment events
+    // 1. Get the Event Type and the Unique Checkout Session ID
     const eventType = body.data?.attributes?.type
-    console.log("Event type:", eventType)
+    // PayMongo Session ID is located at body.data.attributes.data.id
+    const checkoutSessionId = body.data?.attributes?.data?.id 
+
+    console.log("Event type:", eventType, "Session ID:", checkoutSessionId)
 
     if (eventType !== "checkout_session.payment.paid") {
-      console.log("Ignoring non-payment event:", eventType)
       return new Response(JSON.stringify({ ok: true, skipped: true }), { status: 200 })
     }
 
-    // ✅ Based on your real PayMongo webhook payload, the metadata lives here:
-    // body.data.attributes.data.attributes.payments[0].attributes.metadata
-    //
-    // We try multiple paths as fallbacks just in case PayMongo changes structure:
+    // 2. Extract Metadata (metadata lives in payments array for webhooks)
     const checkoutAttributes = body.data?.attributes?.data?.attributes
     const payments = checkoutAttributes?.payments
 
     let metadata =
-      payments?.[0]?.attributes?.metadata ||          // ← real location from your logs
+      payments?.[0]?.attributes?.metadata ||
       checkoutAttributes?.payment_intent?.attributes?.metadata ||
-      checkoutAttributes?.metadata ||
-      body.data?.attributes?.metadata
-
-    console.log("Extracted metadata:", JSON.stringify(metadata))
+      checkoutAttributes?.metadata
 
     if (!metadata?.booking_payload) {
-      // Log the full structure so we can debug future changes
-      console.error("❌ Missing booking_payload. Tried paths on checkoutAttributes:", JSON.stringify(Object.keys(checkoutAttributes || {})))
-      console.error("Payments array:", JSON.stringify(payments?.map((p: any) => Object.keys(p?.attributes || {}))))
       throw new Error("Missing booking_payload in webhook metadata")
     }
 
-    let bookingData
-    try {
-      bookingData = JSON.parse(metadata.booking_payload)
-    } catch (parseErr) {
-      throw new Error(`Failed to parse booking_payload: ${parseErr.message}`)
-    }
-
+    const bookingData = JSON.parse(metadata.booking_payload)
     const { user_id, provider_id, booking_date, time_slot, total_estimated_price, pets } = bookingData
-
-    if (!user_id || !provider_id || !booking_date || !time_slot || !pets?.length) {
-      throw new Error(`Missing required booking fields: user_id=${user_id}, provider_id=${provider_id}`)
-    }
-
-    console.log(`✅ Processing booking: user=${user_id}, provider=${provider_id}, date=${booking_date}`)
 
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    // Idempotency check — prevent duplicate bookings if webhook fires twice
+    // 3. ⭐ FIXED IDEMPOTENCY CHECK
+    // Check by checkoutSessionId instead of user/date/time.
+    // This allows the same user to book the same slot again in a NEW payment session.
     const { data: existingBooking } = await supabaseAdmin
       .from('bookings')
       .select('id')
-      .eq('user_id', user_id)
-      .eq('provider_id', provider_id)
-      .eq('booking_date', booking_date)
-      .eq('time_slot', time_slot)
-      .eq('status', 'for approval')
-      .order('created_at', { ascending: false })
-      .limit(1)
+      .eq('paymongo_session_id', checkoutSessionId)
       .maybeSingle()
 
     if (existingBooking) {
-      console.log("⚠️ Duplicate webhook — booking already exists:", existingBooking.id)
+      console.log("⚠️ Duplicate webhook — transaction already processed:", checkoutSessionId)
       return new Response(JSON.stringify({ ok: true, duplicate: true }), { status: 200 })
     }
 
-    // 1. Insert main booking
+    // 4. Insert main booking (Including the Session ID)
     const { data: booking, error: bErr } = await supabaseAdmin
       .from('bookings')
       .insert([{
@@ -84,18 +61,16 @@ serve(async (req) => {
         booking_date,
         time_slot,
         total_estimated_price: parseFloat(total_estimated_price),
-        status: 'for approval'
+        status: 'for approval',
+        paymongo_session_id: checkoutSessionId // ⭐ Save this to block future duplicates of THIS payment
       }])
       .select()
       .single()
 
     if (bErr) throw new Error(`Booking insert failed: ${bErr.message}`)
-    console.log("✅ Booking created:", booking.id)
 
-    // 2. Insert each pet and its services
+    // 5. Insert each pet and its services
     for (const pet of pets) {
-      console.log(`Inserting pet: ${pet.pet_name}`)
-
       const { data: petRecord, error: pErr } = await supabaseAdmin
         .from('booking_pets')
         .insert([{
@@ -117,12 +92,7 @@ serve(async (req) => {
         .select()
         .single()
 
-      if (pErr) {
-        console.error(`❌ Pet insert error for ${pet.pet_name}:`, pErr.message)
-        continue
-      }
-
-      console.log("✅ Pet created:", petRecord.id)
+      if (pErr) continue
 
       if (pet.services?.length && petRecord) {
         const serviceInserts = pet.services
@@ -136,28 +106,15 @@ serve(async (req) => {
           }))
 
         if (serviceInserts.length > 0) {
-          const { error: sErr } = await supabaseAdmin
-            .from('booking_services')
-            .insert(serviceInserts)
-
-          if (sErr) {
-            console.error(`❌ Services insert error:`, sErr.message)
-          } else {
-            console.log(`✅ Inserted ${serviceInserts.length} service(s) for pet ${petRecord.id}`)
-          }
+          await supabaseAdmin.from('booking_services').insert(serviceInserts)
         }
       }
     }
 
-    console.log("=== WEBHOOK PROCESSED SUCCESSFULLY ===")
     return new Response(JSON.stringify({ ok: true, booking_id: booking.id }), { status: 200 })
 
   } catch (err) {
     console.error("❌ Webhook processing error:", err.message)
-    // Return 200 to stop PayMongo from retrying on logic errors
-    return new Response(
-      JSON.stringify({ ok: false, error: err.message }),
-      { status: 200 }
-    )
+    return new Response(JSON.stringify({ ok: false, error: err.message }), { status: 200 })
   }
 })

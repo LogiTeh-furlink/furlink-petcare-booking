@@ -6,7 +6,8 @@ import {
   ChevronLeft, ChevronRight, Clock, 
   Facebook, Instagram, Globe, ExternalLink,
   Calendar as CalendarIcon, Users, User,
-  AlertCircle
+  AlertCircle,
+  CheckCircle 
 } from "lucide-react";
 import LocationPicker from "../../components/Map/LocationPicker";
 import { FaStar, FaStarHalfAlt, FaRegStar } from "react-icons/fa";
@@ -658,7 +659,7 @@ const ListingInfo = () => {
     );
   };
 
-  const ServicesList = () => (
+const ServicesList = () => (
     <>
       {services.length > 0 ? services.map(service => (
         <div key={service.id} className="service-section">
@@ -666,7 +667,23 @@ const ListingInfo = () => {
             <h3 className="service-name">{service.name}</h3>
             <span className={`service-type-badge ${service.type}`}>{service.type}</span>
           </div>
+
+          {/* ⭐ Haircut Requirement Display */}
+          <div className="haircut-info-display">
+            {service.has_haircut ? (
+              <span className="haircut-tag yes">
+                <CheckCircle size={14} className="icon-margin" /> 
+                Includes / Requires Haircut Selection
+              </span>
+            ) : (
+              <span className="haircut-tag no">
+                No haircut selection required
+              </span>
+            )}
+          </div>
+
           {service.description && <p className="service-description">{service.description}</p>}
+          
           {service.service_options && (
             <div className="pricing-wrapper">
               <table className="pricing-table">
