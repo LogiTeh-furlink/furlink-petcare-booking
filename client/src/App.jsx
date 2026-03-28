@@ -20,6 +20,7 @@ import ServiceListing from "./pages/pet-owner/ServiceListing";
 import ListingInfo from "./pages/pet-owner/ListingInfo";
 import PetDetails from "./pages/pet-owner/PetDetails"; 
 import BookingSuccess from "./pages/pet-owner/BookingSuccess";
+import BookingFailed from "./pages/pet-owner/BookingFailed";
 import Appointments from "./pages/pet-owner/Appointments"; 
 import BookingHistory from "./pages/pet-owner/BookingHistory";
 import MyPets from "./pages/pet-owner/MyPets";
@@ -93,6 +94,7 @@ function App() {
             <Route path="/profile" element={<UserProfile />} />
             <Route path="/payment/:id" element={<Payment />} />
             <Route path="/booking-success" element={<BookingSuccess />} />
+            <Route path="/booking-failed" element={<BookingFailed />} />
 
             {/* --- 2. SERVICE PROVIDER SIDE --- */}
 

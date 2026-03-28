@@ -1,4 +1,3 @@
-// supabase/functions/create-paymongo-checkout/index.ts
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 
 const corsHeaders = {
@@ -7,9 +6,19 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
   try {
+    // 1. DYNAMIC URL DETECTION (Option 2)
+    // We grab the 'origin' from the request headers (e.g., https://your-codespace-5173.app.github.dev)
+    const origin = req.headers.get("origin");
+    
+    // Fallback order: 1. Header Origin, 2. Supabase Secret, 3. Localhost
+    const clientBaseUrl = origin || Deno.env.get("CLIENT_URL") || "http://localhost:5173";
+
+    console.log(`Checkout request received from origin: ${clientBaseUrl}`);
+
     // PetDetails.jsx sends { metadata, totalAmount }
     const { metadata, totalAmount } = await req.json()
 
@@ -17,9 +26,10 @@ serve(async (req) => {
       throw new Error("Missing required fields: metadata or totalAmount")
     }
 
-    // Charge the FULL total amount (not 30% down payment)
+    // PayMongo requires amount in CENTS (₱1.00 = 100)
     const amountInCents = Math.round(parseFloat(totalAmount) * 100)
 
+    // 2. Create PayMongo Checkout Session
     const res = await fetch("https://api.paymongo.com/v1/checkout_sessions", {
       method: "POST",
       headers: {
@@ -37,8 +47,11 @@ serve(async (req) => {
               quantity: 1
             }],
             payment_method_types: ["gcash", "card", "paymaya"],
-            success_url: "https://fuzzy-space-rotary-phone-r4r9vj9p9vp62xrgw-5173.app.github.dev/booking-success?status=paid",
-            cancel_url: "https://fuzzy-space-rotary-phone-r4r9vj9p9vp62xrgw-5173.app.github.dev/booking-history?status=cancelled",
+            
+            // ⭐ DYNAMIC REDIRECTS: These now point back to whoever is currently booking
+            success_url: `${clientBaseUrl}/booking-success?status=paid`,
+            cancel_url: `${clientBaseUrl}/booking-failed?status=cancelled`,
+            
             metadata: {
               // Stringify the entire booking payload so the webhook can reconstruct it
               booking_payload: JSON.stringify(metadata)
@@ -55,6 +68,7 @@ serve(async (req) => {
       throw new Error(data.errors[0].detail)
     }
 
+    // 3. Return the checkout URL to the frontend
     return new Response(
       JSON.stringify({ checkout_url: data.data.attributes.checkout_url }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
